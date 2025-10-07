@@ -7,24 +7,26 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-.DS_Store
+# Build output
 dist
 dist-ssr
-coverage
-*.local
 
-/cypress/videos/
-/cypress/screenshots/
+# Dependency directories
+node_modules/
+
+# Environment variables
+.env.local
+.env.*.local
+
+# SQLite Databases
+*.sqlite
+*.sqlite3
 
 # Editor directories and files
-.vscode/*
-!.vscode/extensions.json
 .idea
+.vscode
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
-
-*.tsbuildinfo
