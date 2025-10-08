@@ -88,11 +88,20 @@ npm install
 # Avvio sviluppo
 npm run dev
 
+# Esecuzione test
+npm run test
+
+# Linting e fix automatico
+npm run lint
+
+# Formattazione codice
+npm run format
+
 # Build produzione
 npm run build
 
-# Linting
-npm run lint
+# Avvio server produzione locale (Windows)
+start-server.bat
 ```
 
 ## Configurazione IDE Consigliata
