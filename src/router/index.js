@@ -1,8 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
-import ImportView from '../views/ImportView.vue' // Import the new view
-import SocioDetail from '../views/SocioDetail.vue' // Import SocioDetail component
-import { isDatabaseEmpty } from '@/services/db' // Import our utility function
+import ImportView from '../views/ImportView.vue'
+import SocioDetailView from '../views/SocioDetailView.vue'
+import { isDatabaseEmpty } from '@/services/db'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -11,38 +11,63 @@ const router = createRouter({
       path: '/',
       name: 'home',
       component: HomeView,
+      meta: {
+        title: 'Cerca Socio - Ceraiolo Digitale',
+      },
     },
     {
-      path: '/import', // Define the route for the import page
+      path: '/import',
       name: 'import',
       component: ImportView,
+      meta: {
+        title: 'Importa Database - Ceraiolo Digitale',
+      },
     },
     {
-      path: '/socio/:id', // Add new route for socio detail
+      path: '/socio/:id',
       name: 'socio-detail',
-      component: SocioDetail,
+      component: SocioDetailView,
+      meta: {
+        title: 'Dettaglio Socio - Ceraiolo Digitale',
+      },
+      props: true,
     },
-    // ... other routes like AboutView can be removed for now
+    {
+      path: '/:pathMatch(.*)*',
+      name: 'not-found',
+      redirect: '/',
+    },
   ],
 })
 
-// Navigation Guard: This is the magic part.
-// Before every navigation, we check if the database is empty.
 router.beforeEach(async (to, from, next) => {
-  const dbEmpty = await isDatabaseEmpty()
+  document.title = to.meta.title || 'Ceraiolo Digitale'
 
-  if (dbEmpty && to.name !== 'import') {
-    // If DB is empty and user is not going to the import page,
-    // redirect them to the import page.
-    next({ name: 'import' })
-  } else if (!dbEmpty && to.name === 'import') {
-    // If DB is NOT empty and user tries to go to import page,
-    // redirect them to the home page.
-    next({ name: 'home' })
-  } else {
-    // Otherwise, allow navigation.
+  try {
+    const dbEmpty = await isDatabaseEmpty()
+
+    if (dbEmpty && to.name !== 'import') {
+      console.log('Database vuoto, reindirizzo a /import')
+      next({ name: 'import' })
+      return
+    }
+
+    if (!dbEmpty && to.name === 'import') {
+      console.log('Database già popolato, reindirizzo alla home')
+      next({ name: 'home' })
+      return
+    }
+
+    next()
+  } catch (error) {
+    console.error('Errore nel navigation guard:', error)
     next()
   }
+})
+
+router.afterEach((to, from) => {
+  window.scrollTo(0, 0)
+  console.log(`Navigazione: ${from.name} → ${to.name}`)
 })
 
 export default router
