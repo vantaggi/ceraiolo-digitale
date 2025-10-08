@@ -1,12 +1,11 @@
 <template>
   <div class="home">
-    <h1>Home Page</h1>
-    <p>Welcome to the Ceraiolo Digitale App!</p>
-    <button @click="clearDatabase">Clear Database</button>
-
     <main class="dashboard">
       <h1>Cerca Socio</h1>
-      <FilterPanel @filters-changed="onFiltersChanged" />
+
+      <!-- Passa i filtri come props E ascolta le modifiche -->
+      <FilterPanel :initial-filters="filters" @filters-changed="onFiltersChanged" />
+
       <div class="search-bar">
         <input
           v-model="searchTerm"
@@ -18,88 +17,234 @@
 
       <div class="results-container">
         <p v-if="isSearching">Ricerca in corso...</p>
-        <div v-else-if="searchResults.length > 0">
+        <div v-else-if="searchResults.length > 0" class="results-list">
           <SocioCard v-for="socio in searchResults" :key="socio.id" :socio="socio" />
         </div>
-        <p v-else-if="searchTerm && !isSearching">Nessun risultato trovato.</p>
-        <p v-else>Inizia a scrivere per cercare un socio.</p>
+        <p v-else-if="hasSearchCriteria && !isSearching">Nessun risultato trovato.</p>
+        <p v-else class="help-text">Usa i filtri o la barra di ricerca per trovare i soci.</p>
       </div>
+
+      <!-- DEBUG: Rimuovi in produzione -->
+      <div class="debug-panel" v-if="showDebug">
+        <h3>Debug Filtri</h3>
+        <pre>{{ JSON.stringify(filters, null, 2) }}</pre>
+        <p>Risultati trovati: {{ searchResults.length }}</p>
+      </div>
+
+      <!-- Pulsante utility per sviluppo -->
+      <button @click="clearDatabase" class="dev-button">🗑️ Clear Database (DEV)</button>
     </main>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, watch } from 'vue'
+import { ref, reactive, computed, watch } from 'vue'
 import { db } from '@/services/db'
 import { applyFiltersAndSearch } from '@/services/db'
 import SocioCard from '@/components/SocioCard.vue'
 import FilterPanel from '@/components/FilterPanel.vue'
 
-const clearDatabase = async () => {
-  await db.delete()
-  await db.open()
-  console.log('Database cleared!')
-  window.location.reload()
-}
-
+// Stato dell'applicazione
 const searchTerm = ref('')
 const searchResults = ref([])
 const isSearching = ref(false)
+const showDebug = ref(false) // Cambia a true per vedere i dettagli
 
-// Reactive object to hold the filter values
+// Filtri reattivi centralizzati
 const filters = reactive({
   ageCategory: 'tutti',
   group: 'Tutti',
-  searchTerm: '', // Initialize with an empty search term
+  searchTerm: '',
 })
 
+// Timer per il debounce della ricerca
 let searchTimeout = null
 
-const onSearch = () => {
-  filters.searchTerm = searchTerm.value // Update the searchTerm in filters
-  performSearch()
-}
+// Computed per verificare se ci sono criteri di ricerca attivi
+const hasSearchCriteria = computed(() => {
+  return (
+    filters.searchTerm.trim() !== '' || filters.ageCategory !== 'tutti' || filters.group !== 'Tutti'
+  )
+})
 
+/**
+ * Handler per il cambio dei filtri dal pannello
+ * Riceve i nuovi valori e aggiorna l'oggetto reattivo
+ */
 const onFiltersChanged = (newFilters) => {
-  // Update all filter values at once
-  Object.assign(filters, newFilters)
+  console.log('Filtri ricevuti da FilterPanel:', newFilters)
+
+  // Aggiorna tutti i filtri mantenendo la reattività
+  filters.ageCategory = newFilters.ageCategory
+  filters.group = newFilters.group
+
+  // NON aggiorniamo searchTerm qui, viene gestito separatamente
 }
 
+/**
+ * Handler per la barra di ricerca
+ * Aggiorna il filtro searchTerm che triggera il watch
+ */
+const onSearch = () => {
+  filters.searchTerm = searchTerm.value
+}
+
+/**
+ * Esegue la ricerca applicando tutti i filtri attivi
+ * Usa debouncing per evitare troppe query durante la digitazione
+ */
 const performSearch = async () => {
+  // Non cercare se non ci sono criteri
+  if (!hasSearchCriteria.value) {
+    searchResults.value = []
+    return
+  }
+
   isSearching.value = true
   clearTimeout(searchTimeout)
 
-  // Debounce: wait 300ms after user stops typing before searching
+  // Debounce: attendi 300ms dall'ultimo input
   searchTimeout = setTimeout(async () => {
-    searchResults.value = await applyFiltersAndSearch(filters)
-    isSearching.value = false
+    try {
+      console.log('Esecuzione ricerca con filtri:', filters)
+      searchResults.value = await applyFiltersAndSearch(filters)
+      console.log(`Trovati ${searchResults.value.length} risultati`)
+    } catch (error) {
+      console.error('Errore durante la ricerca:', error)
+      searchResults.value = []
+    } finally {
+      isSearching.value = false
+    }
   }, 300)
 }
 
-// Watch for changes in the filters object and trigger the search
+/**
+ * Watch sui filtri per triggerare automaticamente la ricerca
+ * Deep: true monitora anche le proprietà interne dell'oggetto
+ */
 watch(
   filters,
   () => {
+    console.log('Filtri modificati, eseguo ricerca')
     performSearch()
   },
   { deep: true },
 )
+
+/**
+ * Utility per sviluppo: cancella il database e ricarica
+ */
+const clearDatabase = async () => {
+  if (!confirm('Sei sicuro di voler cancellare tutto il database?')) {
+    return
+  }
+
+  try {
+    await db.delete()
+    await db.open()
+    console.log('Database cancellato con successo')
+    window.location.reload()
+  } catch (error) {
+    console.error('Errore durante la cancellazione:', error)
+  }
+}
 </script>
 
 <style scoped>
 .dashboard {
+  max-width: 1200px;
+  margin: 0 auto;
   padding: 2rem;
 }
+
+.search-bar {
+  margin-bottom: 2rem;
+}
+
 .search-bar input {
   width: 100%;
-  padding: 0.8rem;
+  padding: 1rem;
   font-size: 1.2rem;
   border-radius: 8px;
-  border: 1px solid #444;
-  background-color: #1e1e1e;
-  color: #e0e0e0;
+  border: 1px solid var(--color-border);
+  background-color: var(--color-surface);
+  transition: all 0.3s ease;
 }
+
+.search-bar input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(183, 28, 28, 0.1);
+}
+
 .results-container {
   margin-top: 2rem;
+  min-height: 200px;
+}
+
+.results-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.help-text {
+  text-align: center;
+  color: var(--color-text-secondary);
+  padding: 3rem;
+  font-size: 1.1rem;
+}
+
+/* Debug Panel - Solo per sviluppo */
+.debug-panel {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: rgba(0, 0, 0, 0.9);
+  color: lime;
+  padding: 1rem;
+  border-radius: 8px;
+  max-width: 400px;
+  font-family: monospace;
+  font-size: 0.85rem;
+  z-index: 9999;
+}
+
+.debug-panel h3 {
+  color: yellow;
+  margin-bottom: 0.5rem;
+}
+
+.debug-panel pre {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.5rem;
+  border-radius: 4px;
+  overflow-x: auto;
+  max-height: 300px;
+}
+
+.dev-button {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  background-color: #ff4444;
+  opacity: 0.7;
+  font-size: 0.9rem;
+  z-index: 1000;
+}
+
+.dev-button:hover {
+  opacity: 1;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .dashboard {
+    padding: 1rem;
+  }
+
+  .debug-panel {
+    font-size: 0.7rem;
+    max-width: 250px;
+  }
 }
 </style>
