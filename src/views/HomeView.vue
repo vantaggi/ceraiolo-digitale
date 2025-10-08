@@ -6,6 +6,7 @@
 
     <main class="dashboard">
       <h1>Cerca Socio</h1>
+      <FilterPanel @filters-changed="onFiltersChanged" />
       <div class="search-bar">
         <input
           v-model="searchTerm"
@@ -28,10 +29,11 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, reactive, watch } from 'vue'
 import { db } from '@/services/db'
-import { searchSoci } from '@/services/db'
+import { applyFiltersAndSearch } from '@/services/db'
 import SocioCard from '@/components/SocioCard.vue'
+import FilterPanel from '@/components/FilterPanel.vue'
 
 const clearDatabase = async () => {
   await db.delete()
@@ -44,18 +46,44 @@ const searchTerm = ref('')
 const searchResults = ref([])
 const isSearching = ref(false)
 
+// Reactive object to hold the filter values
+const filters = reactive({
+  ageCategory: 'tutti',
+  group: 'Tutti',
+  searchTerm: '', // Initialize with an empty search term
+})
+
 let searchTimeout = null
 
 const onSearch = () => {
+  filters.searchTerm = searchTerm.value // Update the searchTerm in filters
+  performSearch()
+}
+
+const onFiltersChanged = (newFilters) => {
+  // Update all filter values at once
+  Object.assign(filters, newFilters)
+}
+
+const performSearch = async () => {
   isSearching.value = true
   clearTimeout(searchTimeout)
 
   // Debounce: wait 300ms after user stops typing before searching
   searchTimeout = setTimeout(async () => {
-    searchResults.value = await searchSoci(searchTerm.value)
+    searchResults.value = await applyFiltersAndSearch(filters)
     isSearching.value = false
   }, 300)
 }
+
+// Watch for changes in the filters object and trigger the search
+watch(
+  filters,
+  () => {
+    performSearch()
+  },
+  { deep: true },
+)
 </script>
 
 <style scoped>

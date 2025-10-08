@@ -22,7 +22,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import initSqlJs from 'sql.js'
-import { db } from '@/services/db'
+import { db, isDatabaseEmpty } from '@/services/db'
 
 const selectedFile = ref(null)
 const isLoading = ref(false)
@@ -39,6 +39,27 @@ const handleFileSelect = (event) => {
 const importDatabase = async () => {
   if (!selectedFile.value) {
     importStatus.value = 'Per favore, seleziona un file.'
+    return
+  }
+
+  // Validate file type
+  const name = selectedFile.value.name.toLowerCase()
+  if (!name.endsWith('.sqlite') && !name.endsWith('.sqlite3')) {
+    importStatus.value = 'Il file deve essere un database SQLite (.sqlite o .sqlite3).'
+    return
+  }
+
+  // Optional size limit (e.g., 50 MB)
+  const maxSize = 50 * 1024 * 1024
+  if (selectedFile.value.size > maxSize) {
+    importStatus.value = 'Il file è troppo grande (max 50 MB).'
+    return
+  }
+
+  // Check if DB is already populated
+  const empty = await isDatabaseEmpty()
+  if (!empty) {
+    importStatus.value = 'Il database locale è già popolato. Non è possibile importare nuovamente.'
     return
   }
 
@@ -63,25 +84,27 @@ const importDatabase = async () => {
       soci.push(sociStmt.getAsObject())
     }
     sociStmt.free()
-    await db.soci.bulkPut(soci)
-    console.log(`Imported ${soci.length} records into 'soci' table.`)
 
     // --- Import Tesseramenti Table ---
     importStatus.value = 'Importazione tesseramenti...'
-    const tesseramentiStmt = dbFile.prepare('SELECT * FROM Tesseramenti')
+    const tStmt = dbFile.prepare('SELECT * FROM Tesseramenti')
     const tesseramenti = []
-    while (tesseramentiStmt.step()) {
-      tesseramenti.push(tesseramentiStmt.getAsObject())
+    while (tStmt.step()) {
+      tesseramenti.push(tStmt.getAsObject())
     }
-    tesseramentiStmt.free()
-    await db.tesseramenti.bulkPut(tesseramenti)
-    console.log(`Imported ${tesseramenti.length} records into 'tesseramenti' table.`)
+    tStmt.free()
+
+    // Use a transaction for atomicity
+    await db.transaction('rw', db.soci, db.tesseramenti, async () => {
+      await db.soci.bulkPut(soci)
+      await db.tesseramenti.bulkPut(tesseramenti)
+    })
 
     importStatus.value = `Importazione completata con successo! ${soci.length} soci e ${tesseramenti.length} tesseramenti caricati.`
 
-    // Redirect to the main dashboard after successful import
+    // Redirect to the main dashboard after a short delay
     setTimeout(() => {
-      router.push('/') // Or '/dashboard'
+      router.replace('/')
     }, 2000)
   } catch (error) {
     console.error('Database import failed:', error)
