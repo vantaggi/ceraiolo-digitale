@@ -97,94 +97,70 @@
         </div>
       </section>
 
-      <!-- Sezione Storico Pagamenti -->
+      <!-- Sezione Cronologia Pagamenti -->
       <section class="payments-section">
         <div class="section-header">
-          <h2>💰 Storico Pagamenti</h2>
-          <button @click="showAddPayment = true" class="accent">+ Aggiungi Pagamento</button>
+          <h2>💰 Cronologia Pagamenti</h2>
         </div>
 
-        <!-- Tabella Pagamenti -->
-        <div v-if="tesseramenti.length > 0" class="payments-table">
-          <div class="table-header">
-            <span>Anno</span>
-            <span>Data Pagamento</span>
-            <span>Quota</span>
-            <span>Ricevuta</span>
-            <span>Azioni</span>
-          </div>
+        <div class="chronology-container">
+          <div v-for="item in paymentChronology" :key="item.anno" class="year-item" :class="item.stato">
+            <div class="year-header">
+              <div class="year-info">
+                <span class="year-number">{{ item.anno }}</span>
+                <span class="year-status" :class="item.stato">
+                  {{ item.isPagato ? '✓ Pagato' : '✗ Non Pagato' }}
+                </span>
+              </div>
+              <div class="year-actions">
+                <button
+                  v-if="!item.isPagato"
+                  @click="payYear(item.anno)"
+                  class="pay-button accent"
+                >
+                  💳 Paga Ora
+                </button>
+                <button
+                  v-if="item.isPagato"
+                  @click="deleteTesseramento(item.tesseramento.id_tesseramento)"
+                  class="delete-btn"
+                  title="Elimina pagamento"
+                >
+                  🗑️
+                </button>
+              </div>
+            </div>
 
-          <div v-for="tess in tesseramenti" :key="tess.id_tesseramento" class="table-row">
-            <span class="year">{{ tess.anno }}</span>
-            <span>{{ formatDate(tess.data_pagamento) }}</span>
-            <span class="amount">€ {{ tess.quota_pagata.toFixed(2) }}</span>
-            <span class="receipt"> {{ tess.numero_ricevuta }} / {{ tess.numero_blocchetto }} </span>
-            <span>
-              <button @click="deleteTesseramento(tess.id_tesseramento)" class="delete-btn">
-                🗑️
-              </button>
-            </span>
-          </div>
-        </div>
-
-        <p v-else class="no-payments">Nessun pagamento registrato per questo socio.</p>
-
-        <!-- Calcolo Arretrati -->
-        <div v-if="arretrati.length > 0" class="arretrati-section">
-          <h3>⚠️ Anni Non Pagati</h3>
-          <div class="arretrati-list">
-            <div v-for="anno in arretrati" :key="anno" class="arretrato-item">
-              <span class="arretrato-year">Anno {{ anno }}</span>
-              <button @click="payYear(anno)" class="pay-button accent">💳 Paga Ora</button>
+            <div v-if="item.isPagato" class="payment-details">
+              <div class="detail-row">
+                <span class="detail-label">📅 Data Pagamento:</span>
+                <span class="detail-value">{{ formatDate(item.tesseramento.data_pagamento) }}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">💰 Quota:</span>
+                <span class="detail-value">€ {{ item.tesseramento.quota_pagata.toFixed(2) }}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">📄 Ricevuta:</span>
+                <span class="detail-value">{{ item.tesseramento.numero_ricevuta }} / {{ item.tesseramento.numero_blocchetto }}</span>
+              </div>
             </div>
           </div>
+        </div>
+
+        <div v-if="paymentChronology.length === 0" class="no-chronology">
+          <p>Nessuna cronologia disponibile per questo socio.</p>
         </div>
       </section>
 
       <!-- Modal Aggiungi Pagamento -->
-      <div v-if="showAddPayment" class="modal-overlay" @click="closeModal">
-        <div class="modal-content" @click.stop>
-          <h2>Aggiungi Nuovo Pagamento</h2>
-
-          <form @submit.prevent="addPayment">
-            <div class="form-group">
-              <label>Anno</label>
-              <input
-                v-model.number="newPayment.anno"
-                type="number"
-                required
-                min="2000"
-                :max="currentYear"
-              />
-            </div>
-
-            <div class="form-group">
-              <label>Data Pagamento</label>
-              <input v-model="newPayment.data_pagamento" type="date" required />
-            </div>
-
-            <div class="form-group">
-              <label>Quota Pagata (€)</label>
-              <input v-model.number="newPayment.quota_pagata" type="number" step="0.01" required />
-            </div>
-
-            <div class="form-group">
-              <label>Numero Ricevuta</label>
-              <input v-model.number="newPayment.numero_ricevuta" type="number" required />
-            </div>
-
-            <div class="form-group">
-              <label>Numero Blocchetto</label>
-              <input v-model.number="newPayment.numero_blocchetto" type="number" required />
-            </div>
-
-            <div class="modal-actions">
-              <button type="button" @click="closeModal">Annulla</button>
-              <button type="submit" class="accent">Salva Pagamento</button>
-            </div>
-          </form>
-        </div>
-      </div>
+      <AddPaymentModal
+        :show="showAddPaymentModal"
+        :socio-id="socio?.id"
+        :year="paymentYearToAdd"
+        @payment-saved="handlePaymentSaved"
+        @close="closeAddPaymentModal"
+      />
     </div>
   </div>
 </template>
@@ -192,7 +168,8 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { db, getSocioById, getTesseramentiBySocioId, downloadSocioExport, logLocalChange } from '@/services/db'
+import { db, getSocioById, getTesseramentiBySocioId, downloadSocioExport, addTesseramento } from '@/services/db'
+import AddPaymentModal from '@/components/AddPaymentModal.vue'
 
 const route = useRoute()
 
@@ -203,16 +180,8 @@ const loading = ref(true)
 const error = ref(null)
 const editMode = ref(false)
 const isSaving = ref(false)
-const showAddPayment = ref(false)
-
-// Nuovo pagamento
-const newPayment = ref({
-  anno: new Date().getFullYear(),
-  data_pagamento: new Date().toISOString().split('T')[0],
-  quota_pagata: 10.0,
-  numero_ricevuta: '',
-  numero_blocchetto: '',
-})
+const showAddPaymentModal = ref(false)
+const paymentYearToAdd = ref(null)
 
 const currentYear = new Date().getFullYear()
 
@@ -240,9 +209,9 @@ const calculateAge = computed(() => {
 const isMinor = computed(() => calculateAge.value < 18)
 
 /**
- * Calcola gli anni non pagati (arretrati)
+ * Calcola la cronologia completa dei pagamenti
  */
-const arretrati = computed(() => {
+const paymentChronology = computed(() => {
   if (!socio.value) return []
 
   const anniPagati = tesseramenti.value.map((t) => t.anno).sort((a, b) => a - b)
@@ -264,21 +233,26 @@ const arretrati = computed(() => {
   else if (anniPagati.length > 0) {
     annoPrimaIscrizione = anniPagati[0]
   }
-  // Se non abbiamo nessuna informazione valida, non mostrare arretrati
+  // Se non abbiamo nessuna informazione valida, partiamo dall'anno corrente
   else {
-    return []
+    annoPrimaIscrizione = annoCorrente
   }
 
-  const anniMancanti = []
-  // Gli arretrati partono dall'anno di prima iscrizione fino all'anno precedente
-  // (l'anno corrente potrebbe ancora essere pagato)
-  for (let anno = annoPrimaIscrizione; anno < annoCorrente; anno++) {
-    if (!anniPagati.includes(anno)) {
-      anniMancanti.push(anno)
-    }
+  const chronology = []
+  // Genera la cronologia completa dall'anno di prima iscrizione all'anno corrente
+  for (let anno = annoPrimaIscrizione; anno <= annoCorrente; anno++) {
+    const isPagato = anniPagati.includes(anno)
+    const tesseramento = tesseramenti.value.find(t => t.anno === anno)
+
+    chronology.push({
+      anno,
+      isPagato,
+      tesseramento,
+      stato: isPagato ? 'pagato' : 'non-pagato'
+    })
   }
 
-  return anniMancanti
+  return chronology.reverse() // Mostra gli anni più recenti prima
 })
 
 /**
@@ -389,11 +363,10 @@ const exportSocio = async () => {
       export_timestamp: new Date().toISOString(),
       socio: socio.value,
       tesseramenti: tesseramenti.value,
-      arretrati: arretrati.value,
       metadata: {
         totale_tesseramenti: tesseramenti.value.length,
         anni_considerati: socio.value.data_prima_iscrizione,
-        anni_mancanti: arretrati.value.length
+        anni_totali_cronologia: paymentChronology.value.length
       }
     }
 
@@ -416,30 +389,15 @@ const exportSocio = async () => {
 
 
 /**
- * Aggiunge un nuovo pagamento
+ * Gestisce il salvataggio di un nuovo pagamento dal modal
  */
-const addPayment = async () => {
+const handlePaymentSaved = async (paymentData) => {
   try {
-    // Genera un ID unico (in futuro sarà UUID)
-    const newId = Date.now().toString()
+    await addTesseramento(paymentData)
+    await loadSocioData() // Ricarica i dati del socio
 
-    const tesseramento = {
-      id_tesseramento: newId,
-      id_socio: socio.value.id,
-      ...newPayment.value,
-    }
-
-    await db.tesseramenti.add(tesseramento)
-
-    // Logga la modifica
-    await logLocalChange('tesseramenti', tesseramento.id_tesseramento, 'create', null, tesseramento)
-
-    // Ricarica i tesseramenti
-    await loadSocioData()
-
-    // Reset form e chiudi modal
-    showAddPayment.value = false
-    resetPaymentForm()
+    // Chiudi il modal
+    closeAddPaymentModal()
 
     alert('Pagamento registrato con successo!')
   } catch (err) {
@@ -449,11 +407,19 @@ const addPayment = async () => {
 }
 
 /**
- * Scorciatoia per pagare un anno specifico
+ * Apre il modal per pagare un anno specifico
  */
 const payYear = (anno) => {
-  newPayment.value.anno = anno
-  showAddPayment.value = true
+  paymentYearToAdd.value = anno
+  showAddPaymentModal.value = true
+}
+
+/**
+ * Chiude il modal di aggiunta pagamento
+ */
+const closeAddPaymentModal = () => {
+  showAddPaymentModal.value = false
+  paymentYearToAdd.value = null
 }
 
 /**
@@ -465,41 +431,11 @@ const deleteTesseramento = async (id) => {
   }
 
   try {
-    // Recupera i dati prima della cancellazione per il log
-    const tesseramentoToDelete = await db.tesseramenti.where('id_tesseramento').equals(id).first()
-
     await db.tesseramenti.delete(id)
-
-    // Logga la cancellazione
-    if (tesseramentoToDelete) {
-      await logLocalChange('tesseramenti', id, 'delete', tesseramentoToDelete, null)
-    }
-
     await loadSocioData()
     alert('Pagamento eliminato')
   } catch (err) {
     alert('Errore: ' + err.message)
-  }
-}
-
-/**
- * Chiude il modal
- */
-const closeModal = () => {
-  showAddPayment.value = false
-  resetPaymentForm()
-}
-
-/**
- * Reset del form pagamento
- */
-const resetPaymentForm = () => {
-  newPayment.value = {
-    anno: currentYear,
-    data_pagamento: new Date().toISOString().split('T')[0],
-    quota_pagata: 10.0,
-    numero_ricevuta: '',
-    numero_blocchetto: '',
   }
 }
 
@@ -702,166 +638,170 @@ onMounted(() => {
   margin: 0;
 }
 
-.payments-table {
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  overflow: hidden;
+.chronology-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-height: 600px;
+  overflow-y: auto;
+  padding-right: 0.5rem;
 }
 
-.table-header,
-.table-row {
-  display: grid;
-  grid-template-columns: 1fr 1.5fr 1fr 1.5fr 0.8fr;
-  gap: 1rem;
-  padding: 1rem;
+.chronology-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.chronology-container::-webkit-scrollbar-track {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+
+.chronology-container::-webkit-scrollbar-thumb {
+  background: var(--color-primary);
+  border-radius: 4px;
+}
+
+.chronology-container::-webkit-scrollbar-thumb:hover {
+  background: var(--color-accent);
+}
+
+.year-item {
+  border: 2px solid transparent;
+  border-radius: 8px;
+  padding: 1.5rem;
+  background-color: var(--color-background);
+  transition: all 0.3s ease;
+  box-shadow: var(--shadow-sm);
+}
+
+.year-item.pagato {
+  border-color: #4caf50;
+  background-color: rgba(76, 175, 80, 0.05);
+}
+
+.year-item.non-pagato {
+  border-color: #f44336;
+  background-color: rgba(244, 67, 54, 0.05);
+}
+
+.year-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.year-header {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
 }
 
-.table-header {
-  background-color: var(--color-primary);
-  color: white;
-  font-weight: 600;
+.year-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 }
 
-.table-row {
-  border-top: 1px solid var(--color-border);
-  transition: background-color 0.2s;
-}
-
-.table-row:hover {
-  background-color: var(--color-background);
-}
-
-.year {
+.year-number {
+  font-size: 1.5rem;
   font-weight: 700;
-  color: var(--color-accent);
+  color: var(--color-primary);
 }
 
-.amount {
+.year-status {
+  padding: 0.4rem 0.8rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
   font-weight: 600;
-  color: #4caf50;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
-.receipt {
-  font-family: monospace;
-  color: var(--color-text-secondary);
+.year-status.pagato {
+  background-color: #4caf50;
+  color: white;
+}
+
+.year-status.non-pagato {
+  background-color: #f44336;
+  color: white;
+}
+
+.year-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.pay-button {
+  padding: 0.6rem 1.2rem;
+  background-color: var(--color-accent);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.9rem;
+}
+
+.pay-button:hover {
+  background-color: #a22a2a;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(183, 28, 28, 0.3);
 }
 
 .delete-btn {
-  padding: 0.5rem;
+  padding: 0.5rem 0.75rem;
   background: none;
-  border: none;
+  border: 2px solid #f44336;
+  border-radius: 6px;
+  color: #f44336;
   cursor: pointer;
-  font-size: 1.2rem;
-  transition: transform 0.2s;
+  font-size: 1rem;
+  transition: all 0.2s;
 }
 
 .delete-btn:hover {
-  transform: scale(1.2);
+  background-color: #f44336;
+  color: white;
+  transform: scale(1.1);
 }
 
-.no-payments {
+.payment-details {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem;
+}
+
+.detail-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.detail-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.detail-value {
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.no-chronology {
   text-align: center;
   padding: 3rem;
   color: var(--color-text-secondary);
   font-style: italic;
-}
-
-/* Arretrati */
-.arretrati-section {
-  margin-top: 2rem;
-  padding: 1.5rem;
-  background-color: #fff3e0;
-  border-radius: 8px;
-  border-left: 4px solid #ffa726;
-}
-
-.arretrati-section h3 {
-  margin-top: 0;
-  color: #e65100;
-}
-
-.arretrati-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-}
-
-.arretrato-item {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 0.75rem 1rem;
-  background-color: white;
-  border-radius: 8px;
-  box-shadow: var(--shadow-sm);
-}
-
-.arretrato-year {
-  font-weight: 600;
-  color: var(--color-primary);
-}
-
-.pay-button {
-  padding: 0.5rem 1rem;
-  font-size: 0.9rem;
-}
-
-/* Modal */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal-content {
-  background-color: var(--color-surface);
-  padding: 2rem;
-  border-radius: 12px;
-  max-width: 500px;
-  width: 90%;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-}
-
-.modal-content h2 {
-  margin-top: 0;
-}
-
-.form-group {
-  margin-bottom: 1.5rem;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.form-group input {
-  width: 100%;
-  padding: 0.75rem;
-  border: 2px solid var(--color-border);
-  border-radius: 8px;
-  font-size: 1rem;
-}
-
-.modal-actions {
-  display: flex;
-  gap: 1rem;
-  justify-content: flex-end;
-  margin-top: 2rem;
-}
-
-.modal-actions button {
-  padding: 0.75rem 1.5rem;
 }
 
 /* Responsive */

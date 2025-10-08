@@ -1,7 +1,12 @@
 <template>
   <div class="home">
     <main class="dashboard">
-      <h1>Cerca Socio</h1>
+      <div class="header-section">
+        <h1>Cerca Socio</h1>
+        <router-link to="/socio/nuovo" class="add-socio-button accent">
+          + Aggiungi Nuovo Socio
+        </router-link>
+      </div>
 
       <!-- Passa i filtri come props E ascolta le modifiche -->
       <FilterPanel :initial-filters="filters" @filters-changed="onFiltersChanged" />
@@ -16,6 +21,14 @@
       </div>
 
       <div class="results-container">
+        <!-- PDF Export Button -->
+        <div v-if="searchResults.length > 0" class="results-header">
+          <span class="results-count">{{ searchResults.length }} soci trovati</span>
+          <button @click="exportSociToPdf" class="pdf-export-button">
+            📄 Esporta in PDF
+          </button>
+        </div>
+
         <p v-if="isSearching">Ricerca in corso...</p>
         <div v-else-if="searchResults.length > 0" class="results-list">
           <SocioCard v-for="socio in searchResults" :key="socio.id" :socio="socio" />
@@ -45,6 +58,7 @@
 import { ref, reactive, computed, watch } from 'vue'
 import { db, downloadDatabaseExport, exportChangeLog } from '@/services/db'
 import { applyFiltersAndSearch } from '@/services/db'
+import { generateAndDownloadSociPDF } from '@/services/export'
 import SocioCard from '@/components/SocioCard.vue'
 import FilterPanel from '@/components/FilterPanel.vue'
 
@@ -192,6 +206,24 @@ const exportChangeLogData = async () => {
     alert('Errore durante l\'esportazione del changelog: ' + error.message)
   }
 }
+
+/**
+ * Export search results to PDF
+ */
+const exportSociToPdf = async () => {
+  if (searchResults.value.length === 0) {
+    alert('Nessun socio da esportare')
+    return
+  }
+
+  try {
+    await generateAndDownloadSociPDF(searchResults.value)
+    alert('PDF esportato con successo! Controlla i download del browser.')
+  } catch (error) {
+    console.error('PDF export failed:', error)
+    alert('Errore durante l\'esportazione PDF: ' + error.message)
+  }
+}
 </script>
 
 <style scoped>
@@ -199,6 +231,35 @@ const exportChangeLogData = async () => {
   max-width: 1200px;
   margin: 0 auto;
   padding: 2rem;
+}
+
+.header-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 3px solid var(--color-accent);
+}
+
+.add-socio-button {
+  padding: 0.75rem 1.5rem;
+  background-color: var(--color-accent);
+  color: white;
+  text-decoration: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.add-socio-button:hover {
+  background-color: #a22a2a;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(183, 28, 28, 0.3);
 }
 
 .search-bar {
@@ -223,6 +284,41 @@ const exportChangeLogData = async () => {
 .results-container {
   margin-top: 2rem;
   min-height: 200px;
+}
+
+.results-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background-color: var(--color-surface);
+  border-radius: 8px;
+  border: 2px solid var(--color-border);
+}
+
+.results-count {
+  font-weight: 600;
+  color: var(--color-primary);
+  font-size: 1.1rem;
+}
+
+.pdf-export-button {
+  padding: 0.6rem 1.2rem;
+  background-color: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.9rem;
+}
+
+.pdf-export-button:hover {
+  background-color: #333;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .results-list {
@@ -298,6 +394,28 @@ const exportChangeLogData = async () => {
 @media (max-width: 768px) {
   .dashboard {
     padding: 1rem;
+  }
+
+  .header-section {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+
+  .add-socio-button {
+    width: 100%;
+    text-align: center;
+    justify-content: center;
+  }
+
+  .results-header {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: stretch;
+  }
+
+  .results-count {
+    text-align: center;
   }
 
   .debug-panel {

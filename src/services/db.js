@@ -532,3 +532,83 @@ export async function downloadSocioExport(socioId) {
 
   throw new Error(result.error || 'Export failed')
 }
+
+/**
+ * Adds a new payment record for a member
+ * @param {object} paymentData - The payment data to insert
+ * @param {number} paymentData.id_socio - ID of the member
+ * @param {number} paymentData.anno - Year of the payment
+ * @param {number} paymentData.quota_pagata - Amount paid
+ * @param {string} paymentData.data_pagamento - Date of payment (YYYY-MM-DD)
+ * @param {number} paymentData.numero_ricevuta - Receipt number
+ * @param {number} paymentData.numero_blocchetto - Block number
+ * @returns {Promise<string>} ID of the created payment record
+ */
+export async function addTesseramento(paymentData) {
+  try {
+    const id_tesseramento = crypto.randomUUID()
+
+    const paymentRecord = {
+      id_tesseramento,
+      id_socio: paymentData.id_socio,
+      anno: paymentData.anno,
+      quota_pagata: paymentData.quota_pagata,
+      data_pagamento: paymentData.data_pagamento,
+      numero_ricevuta: paymentData.numero_ricevuta,
+      numero_blocchetto: paymentData.numero_blocchetto
+    }
+
+    await db.tesseramenti.add(paymentRecord)
+
+    // Log the change for tracking
+    await logLocalChange('tesseramenti', id_tesseramento, 'create', null, paymentRecord)
+
+    return id_tesseramento
+  } catch (error) {
+    console.error('Error adding tesseramento:', error)
+    throw new Error(`Failed to add payment record: ${error.message}`)
+  }
+}
+
+/**
+ * Adds a new member to the database
+ * @param {object} socioData - The member data to insert
+ * @param {string} socioData.cognome - Last name
+ * @param {string} socioData.nome - First name
+ * @param {string} socioData.data_nascita - Date of birth (YYYY-MM-DD)
+ * @param {string} socioData.luogo_nascita - Place of birth
+ * @param {string} socioData.gruppo_appartenenza - Membership group
+ * @param {number} [socioData.data_prima_iscrizione] - First registration year
+ * @param {string} [socioData.note] - Notes
+ * @returns {Promise<number>} ID of the created member
+ */
+export async function addSocio(socioData) {
+  try {
+    // Generate the next ID by finding the maximum existing ID
+    const allSoci = await db.soci.toArray()
+    const maxId = allSoci.length > 0 ? Math.max(...allSoci.map(s => s.id)) : 0
+    const newId = maxId + 1
+
+    const socioRecord = {
+      id: newId,
+      cognome: socioData.cognome,
+      nome: socioData.nome,
+      data_nascita: socioData.data_nascita,
+      luogo_nascita: socioData.luogo_nascita,
+      gruppo_appartenenza: socioData.gruppo_appartenenza,
+      data_prima_iscrizione: socioData.data_prima_iscrizione || new Date().getFullYear(),
+      note: socioData.note || '',
+      timestamp_creazione: Date.now()
+    }
+
+    await db.soci.add(socioRecord)
+
+    // Log the change for tracking
+    await logLocalChange('soci', newId, 'create', null, socioRecord)
+
+    return newId
+  } catch (error) {
+    console.error('Error adding socio:', error)
+    throw new Error(`Failed to add member: ${error.message}`)
+  }
+}

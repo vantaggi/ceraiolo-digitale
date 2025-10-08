@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
 import ImportView from '../views/ImportView.vue'
 import SocioDetailView from '../views/SocioDetailView.vue'
+import AddSocioView from '../views/AddSocioView.vue'
 import { isDatabaseEmpty } from '@/services/db'
 
 const router = createRouter({
@@ -31,6 +32,14 @@ const router = createRouter({
         title: 'Dettaglio Socio - Ceraiolo Digitale',
       },
       props: true,
+    },
+    {
+      path: '/socio/nuovo',
+      name: 'add-socio',
+      component: AddSocioView,
+      meta: {
+        title: 'Nuovo Socio - Ceraiolo Digitale',
+      },
     },
     {
       path: '/:pathMatch(.*)*',
