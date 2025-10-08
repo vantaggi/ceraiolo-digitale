@@ -243,12 +243,34 @@ const isMinor = computed(() => calculateAge.value < 18)
 const arretrati = computed(() => {
   if (!socio.value) return []
 
-  const anniPagati = tesseramenti.value.map((t) => t.anno)
-  const primaIscrizione = socio.value.data_prima_iscrizione
+  const anniPagati = tesseramenti.value.map((t) => t.anno).sort((a, b) => a - b)
+  const primaIscrizioneEsplicita = socio.value.data_prima_iscrizione
   const annoCorrente = new Date().getFullYear()
 
+  // Determina l'anno di prima iscrizione
+  let annoPrimaIscrizione
+
+  // Prima prova con la data esplicita se valida
+  if (
+    primaIscrizioneEsplicita &&
+    primaIscrizioneEsplicita >= 1900 &&
+    primaIscrizioneEsplicita <= annoCorrente
+  ) {
+    annoPrimaIscrizione = primaIscrizioneEsplicita
+  }
+  // Altrimenti usa il primo anno di pagamento registrato
+  else if (anniPagati.length > 0) {
+    annoPrimaIscrizione = anniPagati[0]
+  }
+  // Se non abbiamo nessuna informazione valida, non mostrare arretrati
+  else {
+    return []
+  }
+
   const anniMancanti = []
-  for (let anno = primaIscrizione; anno <= annoCorrente; anno++) {
+  // Gli arretrati partono dall'anno di prima iscrizione fino all'anno precedente
+  // (l'anno corrente potrebbe ancora essere pagato)
+  for (let anno = annoPrimaIscrizione; anno < annoCorrente; anno++) {
     if (!anniPagati.includes(anno)) {
       anniMancanti.push(anno)
     }
