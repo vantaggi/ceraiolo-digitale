@@ -191,7 +191,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { db } from '@/services/db'
+import { db, getSocioById, getTesseramentiBySocioId } from '@/services/db'
 
 const route = useRoute()
 
@@ -283,10 +283,10 @@ const loadSocioData = async () => {
   error.value = null
 
   try {
-    const socioId = route.params.id
+    const socioId = parseInt(route.params.id)
 
     // Carica dati socio
-    socio.value = await db.soci.get(socioId)
+    socio.value = await getSocioById(socioId)
 
     if (!socio.value) {
       error.value = 'Socio non trovato'
@@ -294,7 +294,7 @@ const loadSocioData = async () => {
     }
 
     // Carica tesseramenti
-    tesseramenti.value = await db.tesseramenti.where('id_socio').equals(socioId).sortBy('anno')
+    tesseramenti.value = await getTesseramentiBySocioId(socioId)
 
     console.log('Dati caricati:', { socio: socio.value, tesseramenti: tesseramenti.value })
   } catch (err) {

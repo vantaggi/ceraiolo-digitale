@@ -6,18 +6,17 @@
       <p>Gruppo: {{ socio.gruppo_appartenenza }}</p>
     </div>
     <div class="socio-actions">
-      <!-- Replace button with router-link for navigation -->
-      <router-link
-        :to="{ name: 'socio-detail', params: { id: socio.id } }"
-        class="detail-button accent"
-      >
+      <!-- Use RouterLink to navigate to the detail page with the correct ID -->
+      <RouterLink :to="{ name: 'socio-detail', params: { id: socio.id } }" class="details-button">
         Vedi Dettagli
-      </router-link>
+      </RouterLink>
     </div>
   </div>
 </template>
 
 <script setup>
+import { RouterLink } from 'vue-router'
+
 defineProps({
   socio: {
     type: Object,
@@ -49,5 +48,26 @@ defineProps({
   font-size: 0.9rem;
   color: var(--color-text-secondary);
 }
-/* No special button styles needed here anymore, they are global! */
+
+.details-button {
+  display: inline-block;
+  padding: 0.75rem 1.5rem;
+  font-family: var(--font-family-body);
+  font-weight: 500;
+  font-size: 1rem;
+  background-color: var(--color-accent);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  text-decoration: none;
+  text-align: center;
+  transition:
+    background-color 0.2s,
+    transform 0.1s;
+}
+
+.details-button:hover {
+  background-color: #c62828;
+}
 </style>

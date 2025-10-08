@@ -92,3 +92,26 @@ export async function applyFiltersAndSearch(filters) {
 
   return finalResults
 }
+
+/**
+ * Retrieves a single member by their ID.
+ * @param {number} id The ID of the member to retrieve.
+ * @returns {Promise<Object|undefined>} A promise that resolves to the member object or undefined if not found.
+ */
+export async function getSocioById(id) {
+  if (isNaN(id)) return undefined
+  return db.soci.get(id)
+}
+
+/**
+ * Retrieves all payments for a specific member, sorted by year descending.
+ * @param {number} socioId The ID of the member.
+ * @returns {Promise<Array>} A promise that resolves to an array of payment records.
+ */
+export async function getTesseramentiBySocioId(socioId) {
+  return db.tesseramenti
+    .where('id_socio')
+    .equals(socioId)
+    .reverse() // Sort by most recent year
+    .sortBy('anno')
+}
