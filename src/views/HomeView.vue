@@ -33,13 +33,17 @@
 
       <!-- Pulsante utility per sviluppo -->
       <button @click="clearDatabase" class="dev-button">🗑️ Clear Database (DEV)</button>
+
+      <!-- Pulsante per esportare il database -->
+      <button @click="exportDatabase" class="export-button">📥 Export Database</button>
+      <button @click="exportChangeLogData" class="export-button">📊 Export Changelog</button>
     </main>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, computed, watch } from 'vue'
-import { db } from '@/services/db'
+import { db, downloadDatabaseExport, exportChangeLog } from '@/services/db'
 import { applyFiltersAndSearch } from '@/services/db'
 import SocioCard from '@/components/SocioCard.vue'
 import FilterPanel from '@/components/FilterPanel.vue'
@@ -148,6 +152,46 @@ const clearDatabase = async () => {
     console.error('Errore durante la cancellazione:', error)
   }
 }
+
+/**
+ * Export the entire database as SQLite file
+ */
+const exportDatabase = async () => {
+  try {
+    await downloadDatabaseExport()
+    alert('Database export completato! Controlla i download del browser.')
+  } catch (error) {
+    console.error('Export failed:', error)
+    alert('Errore durante l\'esportazione: ' + error.message)
+  }
+}
+
+/**
+ * Export the change log as JSON file
+ */
+const exportChangeLogData = async () => {
+  try {
+    const result = await exportChangeLog()
+    if (result.success) {
+      // Trigger download
+      const url = URL.createObjectURL(result.blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = result.filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+
+      alert(`Changelog esportato! ${result.changes_count} modifiche registrate.`)
+    } else {
+      alert('Errore durante l\'esportazione del changelog: ' + result.error)
+    }
+  } catch (error) {
+    console.error('Changelog export failed:', error)
+    alert('Errore durante l\'esportazione del changelog: ' + error.message)
+  }
+}
 </script>
 
 <style scoped>
@@ -233,6 +277,20 @@ const clearDatabase = async () => {
 }
 
 .dev-button:hover {
+  opacity: 1;
+}
+
+.export-button {
+  position: fixed;
+  bottom: 60px;
+  left: 20px;
+  background-color: #4caf50;
+  opacity: 0.7;
+  font-size: 0.9rem;
+  z-index: 1000;
+}
+
+.export-button:hover {
   opacity: 1;
 }
 

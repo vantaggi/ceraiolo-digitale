@@ -21,8 +21,9 @@
           <router-link to="/" class="back-link">← Torna alla ricerca</router-link>
           <h1>{{ socio.cognome }} {{ socio.nome }}</h1>
         </div>
-        <button @click="editMode = !editMode" class="edit-button">
-          {{ editMode ? '✓ Salva' : '✏️ Modifica' }}
+        <button @click="exportSocio" class="export-button">📥 Export Socio</button>
+        <button @click="toggleEditMode" :disabled="isSaving" class="edit-button">
+          {{ isSaving ? '💾 Salvando...' : (editMode ? '✓ Salva' : '✏️ Modifica') }}
         </button>
       </div>
 
@@ -191,7 +192,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { db, getSocioById, getTesseramentiBySocioId } from '@/services/db'
+import { db, getSocioById, getTesseramentiBySocioId, downloadSocioExport, logLocalChange } from '@/services/db'
 
 const route = useRoute()
 
@@ -201,6 +202,7 @@ const tesseramenti = ref([])
 const loading = ref(true)
 const error = ref(null)
 const editMode = ref(false)
+const isSaving = ref(false)
 const showAddPayment = ref(false)
 
 // Nuovo pagamento
@@ -328,6 +330,92 @@ const loadSocioData = async () => {
 }
 
 /**
+ * Attiva/disattiva la modalità modifica o salva i dati
+ */
+const toggleEditMode = async () => {
+  if (editMode.value) {
+    // Salva modifiche
+    await saveSocioChanges()
+  } else {
+    // Entra in modalità modifica
+    editMode.value = true
+  }
+}
+
+/**
+ * Salva le modifiche ai dati anagrafici del socio
+ */
+const saveSocioChanges = async () => {
+  const oldData = { ...socio.value }
+  if (!socio.value) return
+
+  try {
+    isSaving.value = true
+    const newData = {
+      cognome: socio.value.cognome,
+      nome: socio.value.nome,
+      data_nascita: socio.value.data_nascita,
+      luogo_nascita: socio.value.luogo_nascita,
+      gruppo_appartenenza: socio.value.gruppo_appartenenza,
+      data_prima_iscrizione: socio.value.data_prima_iscrizione,
+      note: socio.value.note,
+      timestamp_modifica: Date.now()
+    }
+
+    await db.soci.update(socio.value.id, newData)
+
+    // Logga la modifica per il tracking
+    await logLocalChange('soci', socio.value.id, 'update', oldData, newData)
+
+    editMode.value = false
+    alert('Modifiche salvate con successo!')
+  } catch (err) {
+    console.error('Errore nel salvataggio socio:', err)
+    alert('Errore nel salvataggio: ' + err.message)
+  } finally {
+    isSaving.value = false
+  }
+}
+
+/**
+ * Esporta i dati del socio corrente in formato JSON
+ */
+const exportSocio = async () => {
+  if (!socio.value) return
+
+  try {
+    const exportData = {
+      export_type: 'single_socio',
+      export_timestamp: new Date().toISOString(),
+      socio: socio.value,
+      tesseramenti: tesseramenti.value,
+      arretrati: arretrati.value,
+      metadata: {
+        totale_tesseramenti: tesseramenti.value.length,
+        anni_considerati: socio.value.data_prima_iscrizione,
+        anni_mancanti: arretrati.value.length
+      }
+    }
+
+    const jsonString = JSON.stringify(exportData, null, 2)
+    const blob = new Blob([jsonString], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `socio_${socio.value.cognome}_${socio.value.nome}_${new Date().toISOString().split('T')[0]}.json`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  } catch (err) {
+    console.error('Errore esportazione socio:', err)
+    alert('Errore nell\esportazione: ' + err.message)
+  }
+}
+
+
+/**
  * Aggiunge un nuovo pagamento
  */
 const addPayment = async () => {
@@ -342,6 +430,9 @@ const addPayment = async () => {
     }
 
     await db.tesseramenti.add(tesseramento)
+
+    // Logga la modifica
+    await logLocalChange('tesseramenti', tesseramento.id_tesseramento, 'create', null, tesseramento)
 
     // Ricarica i tesseramenti
     await loadSocioData()
@@ -374,7 +465,16 @@ const deleteTesseramento = async (id) => {
   }
 
   try {
+    // Recupera i dati prima della cancellazione per il log
+    const tesseramentoToDelete = await db.tesseramenti.where('id_tesseramento').equals(id).first()
+
     await db.tesseramenti.delete(id)
+
+    // Logga la cancellazione
+    if (tesseramentoToDelete) {
+      await logLocalChange('tesseramenti', id, 'delete', tesseramentoToDelete, null)
+    }
+
     await loadSocioData()
     alert('Pagamento eliminato')
   } catch (err) {

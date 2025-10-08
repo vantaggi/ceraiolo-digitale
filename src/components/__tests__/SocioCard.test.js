@@ -15,6 +15,14 @@ describe('SocioCard', () => {
 
     const wrapper = mount(SocioCard, {
       props: { socio },
+      global: {
+        stubs: {
+          RouterLink: {
+            template: '<a><slot /></a>',
+            props: ['to'],
+          },
+        },
+      },
     })
 
     expect(wrapper.text()).toContain('Rossi Mario')
@@ -31,6 +39,14 @@ describe('SocioCard', () => {
 
     const wrapper = mount(SocioCard, {
       props: { socio },
+      global: {
+        stubs: {
+          RouterLink: {
+            template: '<a><slot /></a>',
+            props: ['to'],
+          },
+        },
+      },
     })
 
     const button = wrapper.find('a')
