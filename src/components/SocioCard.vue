@@ -6,8 +6,13 @@
       <p>Gruppo: {{ socio.gruppo_appartenenza }}</p>
     </div>
     <div class="socio-actions">
-      <!-- We add the 'accent' class to make this button red -->
-      <button class="accent">Vedi Dettagli</button>
+      <!-- Replace button with router-link for navigation -->
+      <router-link
+        :to="{ name: 'socio-detail', params: { id: socio.id } }"
+        class="detail-button accent"
+      >
+        Vedi Dettagli
+      </router-link>
     </div>
   </div>
 </template>

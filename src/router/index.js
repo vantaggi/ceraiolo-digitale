@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
 import ImportView from '../views/ImportView.vue' // Import the new view
+import SocioDetail from '../views/SocioDetail.vue' // Import SocioDetail component
 import { isDatabaseEmpty } from '@/services/db' // Import our utility function
 
 const router = createRouter({
@@ -15,6 +16,11 @@ const router = createRouter({
       path: '/import', // Define the route for the import page
       name: 'import',
       component: ImportView,
+    },
+    {
+      path: '/socio/:id', // Add new route for socio detail
+      name: 'socio-detail',
+      component: SocioDetail,
     },
     // ... other routes like AboutView can be removed for now
   ],
