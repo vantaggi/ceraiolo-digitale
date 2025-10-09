@@ -7,6 +7,16 @@ class MockURL {
   toString() {
     return this.href
   }
+  get protocol() {
+    return 'https:'
+  }
+  get hostname() {
+    return 'localhost'
+  }
 }
 
-vi.stubGlobal('URL', MockURL)
+vi.mock('whatwg-url', async () => {
+  return {
+    URL: MockURL,
+  }
+})
