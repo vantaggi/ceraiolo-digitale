@@ -40,12 +40,35 @@ jobs:
       - name: Build application
         run: npm run build
 
+      - name: Prepare release package
+        run: |
+          mkdir -p release/ceraiolo-digitale
+          cp -r dist/* release/ceraiolo-digitale/
+          cp start-server.bat release/ceraiolo-digitale/
+          cp README.md release/ceraiolo-digitale/README.md
+          echo "# Ceraiolo Digitale PWA" > release/ceraiolo-digitale/DEPLOYMENT_README.md
+          echo "" >> release/ceraiolo-digitale/DEPLOYMENT_README.md
+          echo "## Come utilizzare" >> release/ceraiolo-digitale/DEPLOYMENT_README.md
+          echo "" >> release/ceraiolo-digitale/DEPLOYMENT_README.md
+          echo "### Opzione 1: Server di Sviluppo Rapido (Windows)" >> release/ceraiolo-digitale/DEPLOYMENT_README.md
+          echo "Esegui il file start-server.bat per avviare un server locale." >> release/ceraiolo-digitale/DEPLOYMENT_README.md
+          echo "" >> release/ceraiolo-digitale/DEPLOYMENT_README.md
+          echo "### Opzione 2: Server Web Statico" >> release/ceraiolo-digitale/DEPLOYMENT_README.md
+          echo "Servi i file in questa cartella con qualsiasi server web statico:" >> release/ceraiolo-digitale/DEPLOYMENT_README.md
+          echo "- Apache, Nginx, o qualsiasi server web" >> release/ceraiolo-digitale/DEPLOYMENT_README.md
+          echo "- Node.js: npx serve ." >> release/ceraiolo-digitale/DEPLOYMENT_README.md
+          echo "- Python: python -m http.server 8000" >> release/ceraiolo-digitale/DEPLOYMENT_README.md
+          echo "" >> release/ceraiolo-digitale/DEPLOYMENT_README.md
+          echo "## Requisiti" >> release/ceraiolo-digitale/DEPLOYMENT_README.md
+          echo "- Browser moderno con supporto PWA" >> release/ceraiolo-digitale/DEPLOYMENT_README.md
+          echo "- Connessione internet per la sincronizzazione iniziale" >> release/ceraiolo-digitale/DEPLOYMENT_README.md
+
       - name: Archive production artifacts
-        run: zip -r dist.zip ./dist
+        run: cd release && zip -r ../ceraiolo-digitale-pwa.zip ceraiolo-digitale
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ceraiolo-digitale-pwa
-          path: dist.zip
+          path: ceraiolo-digitale-pwa.zip
           retention-days: 30
