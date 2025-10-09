@@ -1,9 +1,11 @@
 @echo off
+
 setlocal enabledelayedexpansion
 
 title Ceraiolo Digitale Server
+
 echo ========================================
-echo    Ceraiolo Digitale - Avvio Server
+echo Ceraiolo Digitale - Avvio Server
 echo ========================================
 echo.
 
@@ -11,14 +13,50 @@ REM Controllo presenza Node.js
 echo [1/4] Verifico presenza di Node.js...
 where node >nul 2>nul
 if %errorlevel% neq 0 (
-    echo ERRORE: Node.js non è installato!
+    echo Node.js non trovato!
     echo.
-    echo Per favore, scarica e installa Node.js da:
-    echo https://nodejs.org/
+    echo Tentativo di installazione automatica tramite Winget...
+    echo Questo richiede alcuni minuti. Attendere...
+    echo.
+    
+    REM Verifica se Winget è disponibile
+    where winget >nul 2>nul
+    if %errorlevel% neq 0 (
+        echo ERRORE: Winget non è disponibile su questo sistema!
+        echo.
+        echo Per favore, scarica e installa Node.js manualmente da:
+        echo https://nodejs.org/
+        echo.
+        pause
+        exit /b 1
+    )
+    
+    REM Installa Node.js con Winget
+    winget install -e --id OpenJS.NodeJS.LTS --silent --accept-package-agreements --accept-source-agreements
+    
+    if %errorlevel% neq 0 (
+        echo.
+        echo ERRORE: Installazione automatica di Node.js fallita!
+        echo.
+        echo Per favore, installa Node.js manualmente da:
+        echo https://nodejs.org/
+        echo.
+        pause
+        exit /b 1
+    )
+    
+    echo.
+    echo ✓ Node.js installato con successo!
+    echo.
+    echo IMPORTANTE: È necessario riavviare questo script per applicare
+    echo le modifiche alle variabili d'ambiente.
+    echo.
+    echo Chiudi questa finestra e riavvia il file start-server.bat
     echo.
     pause
-    exit /b 1
+    exit /b 0
 )
+
 echo ✓ Node.js trovato
 
 REM Controllo presenza npm
@@ -33,6 +71,7 @@ if %errorlevel% neq 0 (
     pause
     exit /b 1
 )
+
 echo ✓ npm trovato
 
 REM Controllo e installazione serve
