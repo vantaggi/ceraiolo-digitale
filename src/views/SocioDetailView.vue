@@ -23,7 +23,7 @@
         </div>
         <button @click="exportSocio" class="export-button">📥 Export Socio</button>
         <button @click="toggleEditMode" :disabled="isSaving" class="edit-button">
-          {{ isSaving ? '💾 Salvando...' : (editMode ? '✓ Salva' : '✏️ Modifica') }}
+          {{ isSaving ? '💾 Salvando...' : editMode ? '✓ Salva' : '✏️ Modifica' }}
         </button>
       </div>
 
@@ -104,7 +104,12 @@
         </div>
 
         <div class="chronology-container">
-          <div v-for="item in paymentChronology" :key="item.anno" class="year-item" :class="item.stato">
+          <div
+            v-for="item in paymentChronology"
+            :key="item.anno"
+            class="year-item"
+            :class="item.stato"
+          >
             <div class="year-header">
               <div class="year-info">
                 <span class="year-number">{{ item.anno }}</span>
@@ -113,11 +118,7 @@
                 </span>
               </div>
               <div class="year-actions">
-                <button
-                  v-if="!item.isPagato"
-                  @click="payYear(item.anno)"
-                  class="pay-button accent"
-                >
+                <button v-if="!item.isPagato" @click="payYear(item.anno)" class="pay-button accent">
                   💳 Paga Ora
                 </button>
                 <button
@@ -142,7 +143,10 @@
               </div>
               <div class="detail-row">
                 <span class="detail-label">📄 Ricevuta:</span>
-                <span class="detail-value">{{ item.tesseramento.numero_ricevuta }} / {{ item.tesseramento.numero_blocchetto }}</span>
+                <span class="detail-value"
+                  >{{ item.tesseramento.numero_ricevuta }} /
+                  {{ item.tesseramento.numero_blocchetto }}</span
+                >
               </div>
             </div>
           </div>
@@ -168,7 +172,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { db, getSocioById, getTesseramentiBySocioId, downloadSocioExport, addTesseramento } from '@/services/db'
+import { db, getSocioById, getTesseramentiBySocioId, addTesseramento } from '@/services/db'
 import AddPaymentModal from '@/components/AddPaymentModal.vue'
 
 const route = useRoute()
@@ -183,7 +187,7 @@ const isSaving = ref(false)
 const showAddPaymentModal = ref(false)
 const paymentYearToAdd = ref(null)
 
-const currentYear = new Date().getFullYear()
+// const currentYear = new Date().getFullYear()
 
 /**
  * Calcola l'età del socio
@@ -242,13 +246,13 @@ const paymentChronology = computed(() => {
   // Genera la cronologia completa dall'anno di prima iscrizione all'anno corrente
   for (let anno = annoPrimaIscrizione; anno <= annoCorrente; anno++) {
     const isPagato = anniPagati.includes(anno)
-    const tesseramento = tesseramenti.value.find(t => t.anno === anno)
+    const tesseramento = tesseramenti.value.find((t) => t.anno === anno)
 
     chronology.push({
       anno,
       isPagato,
       tesseramento,
-      stato: isPagato ? 'pagato' : 'non-pagato'
+      stato: isPagato ? 'pagato' : 'non-pagato',
     })
   }
 
@@ -320,7 +324,7 @@ const toggleEditMode = async () => {
  * Salva le modifiche ai dati anagrafici del socio
  */
 const saveSocioChanges = async () => {
-  const oldData = { ...socio.value }
+  //const oldData = { ...socio.value }
   if (!socio.value) return
 
   try {
@@ -333,13 +337,13 @@ const saveSocioChanges = async () => {
       gruppo_appartenenza: socio.value.gruppo_appartenenza,
       data_prima_iscrizione: socio.value.data_prima_iscrizione,
       note: socio.value.note,
-      timestamp_modifica: Date.now()
+      timestamp_modifica: Date.now(),
     }
 
     await db.soci.update(socio.value.id, newData)
 
     // Logga la modifica per il tracking
-    await logLocalChange('soci', socio.value.id, 'update', oldData, newData)
+    // await logLocalChange('soci', socio.value.id, 'update', oldData, newData)
 
     editMode.value = false
     alert('Modifiche salvate con successo!')
@@ -366,8 +370,8 @@ const exportSocio = async () => {
       metadata: {
         totale_tesseramenti: tesseramenti.value.length,
         anni_considerati: socio.value.data_prima_iscrizione,
-        anni_totali_cronologia: paymentChronology.value.length
-      }
+        anni_totali_cronologia: paymentChronology.value.length,
+      },
     }
 
     const jsonString = JSON.stringify(exportData, null, 2)
@@ -383,10 +387,9 @@ const exportSocio = async () => {
     URL.revokeObjectURL(url)
   } catch (err) {
     console.error('Errore esportazione socio:', err)
-    alert('Errore nell\esportazione: ' + err.message)
+    alert("Errore nell'esportazione: " + err.message)
   }
 }
-
 
 /**
  * Gestisce il salvataggio di un nuovo pagamento dal modal

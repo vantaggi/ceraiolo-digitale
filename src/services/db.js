@@ -125,14 +125,6 @@ export async function getTesseramentiBySocioId(socioId) {
 }
 
 /**
- * Creates an export directory structure for database backups and exports
- * @returns {string} Path to the export directory
- */
-function getExportDirectory() {
-  return 'exports'
-}
-
-/**
  * Generates a timestamp string for file naming
  * @returns {string} Formatted timestamp (YYYY-MM-DD_HH-MM-SS)
  */
@@ -151,14 +143,13 @@ function generateTimestamp() {
 /**
  * Creates a log file with export metadata
  * @param {Object} exportData - Information about the export operation
- * @param {string} exportDir - Directory where files are exported
  */
-async function createExportLog(exportData, exportDir) {
+async function createExportLog(exportData) {
   const logContent = {
     export_timestamp: new Date().toISOString(),
     export_version: '1.0',
     export_type: 'single_device_backup',
-    ...exportData
+    ...exportData,
   }
 
   // In browser environment, we can't directly write files, but we can offer downloads
@@ -214,7 +205,7 @@ export async function exportDatabaseToSqlite(customFilename = null) {
     // Export Soci table
     const sociData = await db.soci.toArray()
     const sociStmt = sqliteDb.prepare(
-      'INSERT INTO Soci (id, cognome, nome, data_nascita, luogo_nascita, gruppo_appartenenza, data_prima_iscrizione, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+      'INSERT INTO Soci (id, cognome, nome, data_nascita, luogo_nascita, gruppo_appartenenza, data_prima_iscrizione, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
     )
 
     for (const socio of sociData) {
@@ -226,7 +217,7 @@ export async function exportDatabaseToSqlite(customFilename = null) {
         socio.luogo_nascita || null,
         socio.gruppo_appartenenza || null,
         socio.data_prima_iscrizione || null,
-        socio.note || null
+        socio.note || null,
       ])
     }
     sociStmt.free()
@@ -234,7 +225,7 @@ export async function exportDatabaseToSqlite(customFilename = null) {
     // Export Tesseramenti table
     const tesseramentiData = await db.tesseramenti.toArray()
     const tessStmt = sqliteDb.prepare(
-      'INSERT INTO Tesseramenti (id_tesseramento, id_socio, anno, data_pagamento, quota_pagata, numero_ricevuta, numero_blocchetto) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      'INSERT INTO Tesseramenti (id_tesseramento, id_socio, anno, data_pagamento, quota_pagata, numero_ricevuta, numero_blocchetto) VALUES (?, ?, ?, ?, ?, ?, ?)',
     )
 
     for (const tess of tesseramentiData) {
@@ -245,7 +236,7 @@ export async function exportDatabaseToSqlite(customFilename = null) {
         tess.data_pagamento || null,
         tess.quota_pagata || null,
         tess.numero_ricevuta || null,
-        tess.numero_blocchetto || null
+        tess.numero_blocchetto || null,
       ])
     }
     tessStmt.free()
@@ -260,7 +251,7 @@ export async function exportDatabaseToSqlite(customFilename = null) {
       soci_count: sociData.length,
       tesseramenti_count: tesseramentiData.length,
       file_size: binaryArray.length,
-      timestamp
+      timestamp,
     }
 
     sqliteDb.close()
@@ -269,13 +260,13 @@ export async function exportDatabaseToSqlite(customFilename = null) {
       success: true,
       blob,
       filename,
-      metadata: exportMetadata
+      metadata: exportMetadata,
     }
   } catch (error) {
     console.error('Database export failed:', error)
     return {
       success: false,
-      error: error.message
+      error: error.message,
     }
   }
 }
@@ -288,7 +279,13 @@ export async function exportDatabaseToSqlite(customFilename = null) {
  * @param {Object} [oldData] - Dati precedenti (per update)
  * @param {Object} [newData] - Dati nuovi
  */
-export async function logLocalChange(tableName, recordId, changeType, oldData = null, newData = null) {
+export async function logLocalChange(
+  tableName,
+  recordId,
+  changeType,
+  oldData = null,
+  newData = null,
+) {
   try {
     await db.local_changes.add({
       table_name: tableName,
@@ -296,7 +293,7 @@ export async function logLocalChange(tableName, recordId, changeType, oldData = 
       change_type: changeType,
       timestamp: Date.now(),
       old_data: oldData,
-      new_data: newData
+      new_data: newData,
     })
     console.log('Modifica loggata:', { tableName, recordId, changeType })
   } catch (error) {
@@ -341,7 +338,7 @@ export async function exportChangeLog() {
     const exportData = {
       export_type: 'changelog',
       export_timestamp: new Date().toISOString(),
-      changes: changes
+      changes: changes,
     }
 
     const jsonString = JSON.stringify(exportData, null, 2)
@@ -352,13 +349,13 @@ export async function exportChangeLog() {
       success: true,
       blob,
       filename,
-      changes_count: changes.length
+      changes_count: changes.length,
     }
   } catch (error) {
     console.error('Errore esportazione changelog:', error)
     return {
       success: false,
-      error: error.message
+      error: error.message,
     }
   }
 }
@@ -417,7 +414,10 @@ export async function exportSocioToSqlite(socioId) {
     const tesseramenti = await getTesseramentiBySocioId(socioId)
 
     const timestamp = generateTimestamp()
-    const filename = `socio_${socio.id}_${socio.cognome}_${socio.nome}_${timestamp}.sqlite`.replace(/\s+/g, '_')
+    const filename = `socio_${socio.id}_${socio.cognome}_${socio.nome}_${timestamp}.sqlite`.replace(
+      /\s+/g,
+      '_',
+    )
 
     // Initialize sql.js
     const SQL = await initSqlJs({
@@ -456,7 +456,7 @@ export async function exportSocioToSqlite(socioId) {
 
     // Insert socio data
     const sociStmt = sqliteDb.prepare(
-      'INSERT INTO Soci (id, cognome, nome, data_nascita, luogo_nascita, gruppo_appartenenza, data_prima_iscrizione, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+      'INSERT INTO Soci (id, cognome, nome, data_nascita, luogo_nascita, gruppo_appartenenza, data_prima_iscrizione, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
     )
     sociStmt.run([
       socio.id,
@@ -466,13 +466,13 @@ export async function exportSocioToSqlite(socioId) {
       socio.luogo_nascita || null,
       socio.gruppo_appartenenza || null,
       socio.data_prima_iscrizione || null,
-      socio.note || null
+      socio.note || null,
     ])
     sociStmt.free()
 
     // Insert tesseramenti data
     const tessStmt = sqliteDb.prepare(
-      'INSERT INTO Tesseramenti (id_tesseramento, id_socio, anno, data_pagamento, quota_pagata, numero_ricevuta, numero_blocchetto) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      'INSERT INTO Tesseramenti (id_tesseramento, id_socio, anno, data_pagamento, quota_pagata, numero_ricevuta, numero_blocchetto) VALUES (?, ?, ?, ?, ?, ?, ?)',
     )
 
     for (const tess of tesseramenti) {
@@ -483,7 +483,7 @@ export async function exportSocioToSqlite(socioId) {
         tess.data_pagamento || null,
         tess.quota_pagata || null,
         tess.numero_ricevuta || null,
-        tess.numero_blocchetto || null
+        tess.numero_blocchetto || null,
       ])
     }
     tessStmt.free()
@@ -499,13 +499,13 @@ export async function exportSocioToSqlite(socioId) {
       blob,
       filename,
       socio,
-      tesseramenti_count: tesseramenti.length
+      tesseramenti_count: tesseramenti.length,
     }
   } catch (error) {
     console.error('Single socio export failed:', error)
     return {
       success: false,
-      error: error.message
+      error: error.message,
     }
   }
 }
@@ -555,7 +555,7 @@ export async function addTesseramento(paymentData) {
       quota_pagata: paymentData.quota_pagata,
       data_pagamento: paymentData.data_pagamento,
       numero_ricevuta: paymentData.numero_ricevuta,
-      numero_blocchetto: paymentData.numero_blocchetto
+      numero_blocchetto: paymentData.numero_blocchetto,
     }
 
     await db.tesseramenti.add(paymentRecord)
@@ -586,7 +586,7 @@ export async function addSocio(socioData) {
   try {
     // Generate the next ID by finding the maximum existing ID
     const allSoci = await db.soci.toArray()
-    const maxId = allSoci.length > 0 ? Math.max(...allSoci.map(s => s.id)) : 0
+    const maxId = allSoci.length > 0 ? Math.max(...allSoci.map((s) => s.id)) : 0
     const newId = maxId + 1
 
     const socioRecord = {
@@ -598,7 +598,7 @@ export async function addSocio(socioData) {
       gruppo_appartenenza: socioData.gruppo_appartenenza,
       data_prima_iscrizione: socioData.data_prima_iscrizione || new Date().getFullYear(),
       note: socioData.note || '',
-      timestamp_creazione: Date.now()
+      timestamp_creazione: Date.now(),
     }
 
     await db.soci.add(socioRecord)
