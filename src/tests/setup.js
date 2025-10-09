@@ -1,7 +1,12 @@
 import { vi } from 'vitest'
 
-vi.mock('whatwg-url', () => {
-  return {
-    URL: vi.fn(),
+class MockURL {
+  constructor(url) {
+    this.href = url
   }
-})
+  toString() {
+    return this.href
+  }
+}
+
+vi.stubGlobal('URL', MockURL)
