@@ -31,6 +31,32 @@
         </button>
       </section>
 
+      <!-- Sezione Preview Tessera -->
+      <section class="report-section">
+        <h2>👁️ Preview Tessera</h2>
+        <p>Visualizza come apparirà la tessera prima di generare il PDF</p>
+
+        <div class="preview-container">
+          <TesseraTemplate
+            :nome-cognome="previewData.nomeCognome"
+            :gruppo="previewData.gruppo"
+            :anno="renewalYear || currentYear + 1"
+          />
+        </div>
+
+        <div class="preview-controls">
+          <div class="control-group">
+            <label>Nome e Cognome:</label>
+            <input v-model="previewData.nomeCognome" type="text" placeholder="Mario Rossi" />
+          </div>
+
+          <div class="control-group">
+            <label>Gruppo:</label>
+            <input v-model="previewData.gruppo" type="text" placeholder="INTERNA" />
+          </div>
+        </div>
+      </section>
+
       <!-- Sezione Tessere -->
       <section class="report-section">
         <h2>🎫 Tessere Annuali</h2>
@@ -59,12 +85,19 @@
 import { ref } from 'vue'
 import { generateRenewalListPDF, generateAllCardsPDF } from '@/services/export'
 import { getAllSociWithTesseramenti } from '@/services/db'
+import TesseraTemplate from '@/components/TesseraTemplate.vue'
 
 // Stato del componente
 const renewalYear = ref(new Date().getFullYear() + 1)
 const loading = ref(false)
 const loadingMessage = ref('')
 const cardProgress = ref(0)
+
+// Dati per la preview della tessera
+const previewData = ref({
+  nomeCognome: 'Mario Rossi',
+  gruppo: 'INTERNA',
+})
 
 const currentYear = new Date().getFullYear()
 
@@ -279,5 +312,48 @@ h1 {
   color: white;
   font-size: 1.1rem;
   font-weight: 600;
+}
+
+/* Preview Tessera */
+.preview-container {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 2rem;
+  padding: 2rem;
+  background-color: #f8f8f8;
+  border-radius: 8px;
+  border: 2px dashed var(--color-border);
+}
+
+.preview-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.control-group label {
+  font-weight: 600;
+  color: var(--color-text-primary);
+  font-size: 0.9rem;
+}
+
+.control-group input {
+  padding: 0.75rem;
+  border: 2px solid var(--color-border);
+  border-radius: 6px;
+  font-size: 1rem;
+  transition: border-color 0.2s;
+}
+
+.control-group input:focus {
+  outline: none;
+  border-color: var(--color-accent);
 }
 </style>
