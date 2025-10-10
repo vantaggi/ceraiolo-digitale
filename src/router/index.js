@@ -31,9 +31,8 @@ const router = createRouter({
       name: 'socio-detail',
       component: SocioDetailView,
       meta: {
-        title: 'Dettaglio Socio - Ceraiolo Digitale',
+        title: 'Dettagli Socio - Ceraiolo Digitale',
       },
-      props: true,
     },
     {
       path: '/socio/nuovo',

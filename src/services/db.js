@@ -113,12 +113,14 @@ export async function applyFiltersAndSearch(filters) {
 
 /**
  * Retrieves a single member by their ID.
- * @param {number} id The ID of the member to retrieve.
+ * @param {number|string} id The ID of the member to retrieve.
  * @returns {Promise<Object|undefined>} A promise that resolves to the member object or undefined if not found.
  */
 export async function getSocioById(id) {
-  if (isNaN(id)) return undefined
-  return db.soci.get(id)
+  // Convert to number if it's a string
+  const numericId = typeof id === 'string' ? parseInt(id, 10) : id
+  if (isNaN(numericId)) return undefined
+  return db.soci.get(numericId)
 }
 
 /**
@@ -178,6 +180,29 @@ export async function deleteSocio(socioId) {
   } catch (error) {
     console.error('Error deleting socio:', error)
     throw new Error(`Errore durante l'eliminazione del socio: ${error.message}`)
+  }
+}
+
+/**
+ * Update an existing socio
+ * @param {string} socioId - The UUID of the socio to update
+ * @param {Object} socioData - The updated socio data
+ * @returns {Promise<void>}
+ */
+export async function updateSocio(socioId, socioData) {
+  try {
+    await db.soci.update(socioId, socioData)
+
+    // Log the update
+    await logLocalChange({
+      table_name: 'soci',
+      record_id: socioId,
+      change_type: 'UPDATE',
+      timestamp: new Date().toISOString(),
+    })
+  } catch (error) {
+    console.error('Error updating socio:', error)
+    throw new Error(`Errore durante l'aggiornamento del socio: ${error.message}`)
   }
 }
 

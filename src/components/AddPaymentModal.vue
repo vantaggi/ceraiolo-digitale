@@ -79,9 +79,7 @@
         </div>
 
         <div class="modal-actions">
-          <button type="button" @click="closeModal" class="cancel-button">
-            Annulla
-          </button>
+          <button type="button" @click="closeModal" class="cancel-button">Annulla</button>
           <button type="submit" class="save-button" :disabled="isSubmitting">
             {{ isSubmitting ? 'Salvando...' : 'Salva Pagamento' }}
           </button>
@@ -99,16 +97,16 @@ const emit = defineEmits(['payment-saved', 'close'])
 const props = defineProps({
   show: {
     type: Boolean,
-    default: false
+    default: false,
   },
   socioId: {
     type: Number,
-    required: true
+    required: true,
   },
   year: {
     type: Number,
-    required: true
-  }
+    default: new Date().getFullYear(),
+  },
 })
 
 const isSubmitting = ref(false)
@@ -117,15 +115,18 @@ const formData = reactive({
   quota_pagata: '',
   data_pagamento: new Date().toISOString().split('T')[0], // Default today's date
   numero_blocchetto: '',
-  numero_ricevuta: ''
+  numero_ricevuta: '',
 })
 
 // Reset form when modal opens
-watch(() => props.show, (show) => {
-  if (show) {
-    resetForm()
-  }
-})
+watch(
+  () => props.show,
+  (show) => {
+    if (show) {
+      resetForm()
+    }
+  },
+)
 
 const resetForm = () => {
   formData.quota_pagata = ''
@@ -174,7 +175,7 @@ const submitPayment = async () => {
       quota_pagata: parseFloat(formData.quota_pagata),
       data_pagamento: formData.data_pagamento,
       numero_ricevuta: parseInt(formData.numero_ricevuta),
-      numero_blocchetto: parseInt(formData.numero_blocchetto)
+      numero_blocchetto: parseInt(formData.numero_blocchetto),
     }
 
     emit('payment-saved', paymentData)
@@ -309,7 +310,8 @@ const submitPayment = async () => {
   margin-top: 1rem;
 }
 
-.cancel-button, .save-button {
+.cancel-button,
+.save-button {
   padding: 0.75rem 1.5rem;
   border: none;
   border-radius: 8px;
@@ -385,7 +387,8 @@ const submitPayment = async () => {
     flex-direction: column;
   }
 
-  .cancel-button, .save-button {
+  .cancel-button,
+  .save-button {
     width: 100%;
   }
 }

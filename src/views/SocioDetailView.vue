@@ -22,8 +22,13 @@
           <h1>{{ socio.cognome }} {{ socio.nome }}</h1>
         </div>
         <button @click="exportSocio" class="export-button">📥 Export Socio</button>
-        <button @click="toggleEditMode" :disabled="isSaving" class="edit-button">
-          {{ isSaving ? '💾 Salvando...' : editMode ? '✓ Salva' : '✏️ Modifica' }}
+        <button
+          @click="toggleEditMode"
+          :disabled="isSaving"
+          class="edit-button"
+          title="Modifica rapida in questa pagina"
+        >
+          {{ isSaving ? '💾 Salvando...' : editMode ? '✓ Salva' : '✏️ Modifica Rapida' }}
         </button>
         <button @click="showDeleteModal" class="delete-socio-button" :disabled="isDeleting">
           {{ isDeleting ? '🗑️ Eliminando...' : '🗑️ Elimina Socio' }}
@@ -204,7 +209,7 @@ const error = ref(null)
 const editMode = ref(false)
 const isSaving = ref(false)
 const showAddPaymentModal = ref(false)
-const paymentYearToAdd = ref(null)
+const paymentYearToAdd = ref(new Date().getFullYear())
 const showDeleteConfirmModal = ref(false)
 const isDeleting = ref(false)
 
@@ -593,6 +598,25 @@ onMounted(() => {
 
 .edit-button:hover {
   background-color: var(--color-accent);
+}
+
+.edit-data-button {
+  padding: 0.75rem 1.5rem;
+  background-color: #2196f3;
+  color: white;
+  text-decoration: none;
+  border-radius: 8px;
+  font-weight: 600;
+  transition: all 0.2s;
+  display: inline-block;
+  text-align: center;
+  margin-left: 0.5rem;
+}
+
+.edit-data-button:hover {
+  background-color: #1976d2;
+  text-decoration: none;
+  color: white;
 }
 
 .delete-socio-button {
