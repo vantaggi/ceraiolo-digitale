@@ -71,7 +71,7 @@ const importDatabase = async () => {
 
     // Initialize sql.js
     const SQL = await initSqlJs({
-      locateFile: (file) => `https://sql.js.org/dist/${file}`,
+      locateFile: (file) => `/${file}`,
     })
 
     const dbFile = new SQL.Database(new Uint8Array(fileBuffer))

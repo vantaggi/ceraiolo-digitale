@@ -311,7 +311,7 @@ export async function exportDatabaseToSqlite(customFilename = null) {
 
     // Initialize sql.js
     const SQL = await initSqlJs({
-      locateFile: (file) => `https://sql.js.org/dist/${file}`,
+      locateFile: (file) => `/${file}`,
     })
 
     // Create new SQLite database
@@ -563,7 +563,7 @@ export async function exportSocioToSqlite(socioId) {
 
     // Initialize sql.js
     const SQL = await initSqlJs({
-      locateFile: (file) => `https://sql.js.org/dist/${file}`,
+      locateFile: (file) => `/${file}`,
     })
 
     // Create new SQLite database
