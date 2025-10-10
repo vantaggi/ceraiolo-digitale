@@ -147,6 +147,32 @@ export async function getAllSociWithTesseramenti() {
 }
 
 /**
+ * Deletes a socio and all their associated tesseramenti
+ * @param {number} socioId - The ID of the socio to delete
+ * @returns {Promise<void>}
+ */
+export async function deleteSocio(socioId) {
+  try {
+    // First delete all tesseramenti associated with this socio
+    await db.tesseramenti.where('id_socio').equals(socioId).delete()
+
+    // Then delete the socio
+    await db.soci.delete(socioId)
+
+    // Log the deletion
+    await logLocalChange({
+      table_name: 'soci',
+      record_id: socioId,
+      change_type: 'DELETE',
+      timestamp: new Date().toISOString(),
+    })
+  } catch (error) {
+    console.error('Error deleting socio:', error)
+    throw new Error(`Errore durante l'eliminazione del socio: ${error.message}`)
+  }
+}
+
+/**
  * Generates a timestamp string for file naming
  * @returns {string} Formatted timestamp (YYYY-MM-DD_HH-MM-SS)
  */

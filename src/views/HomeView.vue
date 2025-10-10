@@ -24,7 +24,10 @@
         <!-- PDF Export Button -->
         <div v-if="searchResults.length > 0" class="results-header">
           <span class="results-count">{{ searchResults.length }} soci trovati</span>
-          <button @click="exportSociToPdf" class="pdf-export-button">📄 Esporta in PDF</button>
+          <button @click="exportSociToPdf" :disabled="isExporting" class="pdf-export-button">
+            <span v-if="isExporting" class="loading-spinner">⏳</span>
+            {{ isExporting ? 'Generazione PDF...' : '📄 Esporta in PDF' }}
+          </button>
         </div>
 
         <p v-if="isSearching">Ricerca in corso...</p>
@@ -59,6 +62,7 @@
 
 <script setup>
 import { ref, reactive, computed, watch } from 'vue'
+import { useToast } from 'vue-toastification'
 import {
   db,
   downloadDatabaseExport,
@@ -75,6 +79,10 @@ const searchTerm = ref('')
 const searchResults = ref([])
 const isSearching = ref(false)
 const showDebug = ref(false) // Cambia a true per vedere i dettagli
+const isExporting = ref(false) // Stato per l'export PDF
+
+// Toast notifications
+const toast = useToast()
 
 // Filtri reattivi centralizzati
 const filters = reactive({
@@ -220,11 +228,14 @@ const exportChangeLogData = async () => {
  */
 const exportSociToPdf = async () => {
   if (searchResults.value.length === 0) {
-    alert('Nessun socio da esportare')
+    toast.warning('Nessun socio da esportare')
     return
   }
 
   try {
+    isExporting.value = true
+    toast.info("Preparazione dati per l'export...")
+
     // Carica tutti i soci con i tesseramenti per calcolare correttamente gli arretrati
     const allSociWithTesseramenti = await getAllSociWithTesseramenti()
 
@@ -241,11 +252,14 @@ const exportSociToPdf = async () => {
       sociToExport = allSociWithTesseramenti.filter((socio) => searchResultIds.includes(socio.id))
     }
 
+    toast.info('Generazione PDF in corso...')
     await generateAndDownloadSociPDF(sociToExport)
-    alert('PDF esportato con successo! Controlla i download del browser.')
+    toast.success('PDF esportato con successo! Controlla i download del browser.')
   } catch (error) {
     console.error('PDF export failed:', error)
-    alert("Errore durante l'esportazione PDF: " + error.message)
+    toast.error("Errore durante l'esportazione PDF: " + error.message)
+  } finally {
+    isExporting.value = false
   }
 }
 
@@ -257,11 +271,12 @@ const generateSingleCard = async (socio) => {
 
   try {
     const renewalYear = new Date().getFullYear() + 1
+    toast.info('Generazione tessera in corso...')
     await generateSingleCardPDF(socio, renewalYear)
-    alert('Tessera generata con successo! Controlla i download del browser.')
+    toast.success('Tessera generata con successo! Controlla i download del browser.')
   } catch (error) {
     console.error('Single card generation failed:', error)
-    alert('Errore durante la generazione della tessera: ' + error.message)
+    toast.error('Errore durante la generazione della tessera: ' + error.message)
   }
 }
 </script>
@@ -428,6 +443,22 @@ const generateSingleCard = async (socio) => {
 
 .export-button:hover {
   opacity: 1;
+}
+
+/* Loading spinner */
+.loading-spinner {
+  display: inline-block;
+  animation: spin 1s linear infinite;
+  margin-right: 0.5rem;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Responsive */

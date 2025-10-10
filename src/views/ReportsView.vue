@@ -83,6 +83,7 @@
 
 <script setup>
 import { ref } from 'vue'
+import { useToast } from 'vue-toastification'
 import { generateRenewalListPDF, generateAllCardsPDF } from '@/services/export'
 import { getAllSociWithTesseramenti } from '@/services/db'
 import TesseraTemplate from '@/components/TesseraTemplate.vue'
@@ -92,6 +93,9 @@ const renewalYear = ref(new Date().getFullYear() + 1)
 const loading = ref(false)
 const loadingMessage = ref('')
 const cardProgress = ref(0)
+
+// Toast notifications
+const toast = useToast()
 
 // Dati per la preview della tessera
 const previewData = ref({
@@ -110,16 +114,18 @@ const generateRenewalList = async () => {
   try {
     loading.value = true
     loadingMessage.value = 'Caricamento dati soci...'
+    toast.info('Caricamento dati soci...')
 
     const soci = await getAllSociWithTesseramenti()
 
     loadingMessage.value = 'Generazione PDF...'
+    toast.info('Generazione PDF in corso...')
     await generateRenewalListPDF(soci, renewalYear.value)
 
-    alert('PDF Lista Rinnovi generato con successo!')
+    toast.success('PDF Lista Rinnovi generato con successo!')
   } catch (error) {
     console.error('Errore generazione lista rinnovi:', error)
-    alert('Errore nella generazione del PDF: ' + error.message)
+    toast.error('Errore nella generazione del PDF: ' + error.message)
   } finally {
     loading.value = false
     loadingMessage.value = ''
@@ -136,18 +142,20 @@ const generateCards = async () => {
     loading.value = true
     cardProgress.value = 0
     loadingMessage.value = 'Caricamento dati soci...'
+    toast.info('Caricamento dati soci...')
 
     const soci = await getAllSociWithTesseramenti()
 
     loadingMessage.value = 'Generazione tessere...'
+    toast.info('Generazione tessere in corso...')
     await generateAllCardsPDF(soci, renewalYear.value, (progress) => {
       cardProgress.value = progress
     })
 
-    alert('PDF Tessere generato con successo!')
+    toast.success('PDF Tessere generato con successo!')
   } catch (error) {
     console.error('Errore generazione tessere:', error)
-    alert('Errore nella generazione del PDF: ' + error.message)
+    toast.error('Errore nella generazione del PDF: ' + error.message)
   } finally {
     loading.value = false
     loadingMessage.value = ''

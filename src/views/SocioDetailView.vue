@@ -25,6 +25,9 @@
         <button @click="toggleEditMode" :disabled="isSaving" class="edit-button">
           {{ isSaving ? '💾 Salvando...' : editMode ? '✓ Salva' : '✏️ Modifica' }}
         </button>
+        <button @click="showDeleteModal" class="delete-socio-button" :disabled="isDeleting">
+          {{ isDeleting ? '🗑️ Eliminando...' : '🗑️ Elimina Socio' }}
+        </button>
       </div>
 
       <!-- Sezione Dati Anagrafici -->
@@ -165,15 +168,31 @@
         @payment-saved="handlePaymentSaved"
         @close="closeAddPaymentModal"
       />
+
+      <!-- Modal Conferma Eliminazione -->
+      <ConfirmDeleteModal
+        :is-visible="showDeleteConfirmModal"
+        :socio-name="socio ? `${socio.cognome} ${socio.nome}` : ''"
+        @close="closeDeleteModal"
+        @confirm="confirmDeleteSocio"
+      />
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
-import { db, getSocioById, getTesseramentiBySocioId, addTesseramento } from '@/services/db'
+import { useRoute, useRouter } from 'vue-router'
+import { useToast } from 'vue-toastification'
+import {
+  db,
+  getSocioById,
+  getTesseramentiBySocioId,
+  addTesseramento,
+  deleteSocio,
+} from '@/services/db'
 import AddPaymentModal from '@/components/AddPaymentModal.vue'
+import ConfirmDeleteModal from '@/components/ConfirmDeleteModal.vue'
 
 const route = useRoute()
 
@@ -186,6 +205,12 @@ const editMode = ref(false)
 const isSaving = ref(false)
 const showAddPaymentModal = ref(false)
 const paymentYearToAdd = ref(null)
+const showDeleteConfirmModal = ref(false)
+const isDeleting = ref(false)
+
+// Toast notifications
+const toast = useToast()
+const router = useRouter()
 
 // const currentYear = new Date().getFullYear()
 
@@ -346,10 +371,10 @@ const saveSocioChanges = async () => {
     // await logLocalChange('soci', socio.value.id, 'update', oldData, newData)
 
     editMode.value = false
-    alert('Modifiche salvate con successo!')
+    toast.success('Modifiche salvate con successo!')
   } catch (err) {
     console.error('Errore nel salvataggio socio:', err)
-    alert('Errore nel salvataggio: ' + err.message)
+    toast.error('Errore nel salvataggio: ' + err.message)
   } finally {
     isSaving.value = false
   }
@@ -436,9 +461,43 @@ const deleteTesseramento = async (id) => {
   try {
     await db.tesseramenti.delete(id)
     await loadSocioData()
-    alert('Pagamento eliminato')
+    toast.success('Pagamento eliminato')
   } catch (err) {
-    alert('Errore: ' + err.message)
+    toast.error('Errore: ' + err.message)
+  }
+}
+
+/**
+ * Mostra il modale di conferma eliminazione socio
+ */
+const showDeleteModal = () => {
+  showDeleteConfirmModal.value = true
+}
+
+/**
+ * Chiudi il modale di conferma eliminazione
+ */
+const closeDeleteModal = () => {
+  showDeleteConfirmModal.value = false
+}
+
+/**
+ * Conferma ed esegui l'eliminazione del socio
+ */
+const confirmDeleteSocio = async () => {
+  if (!socio.value) return
+
+  try {
+    isDeleting.value = true
+    await deleteSocio(socio.value.id)
+    toast.success('Socio eliminato con successo!')
+    router.push('/')
+  } catch (error) {
+    console.error('Errore eliminazione socio:', error)
+    toast.error("Errore durante l'eliminazione: " + error.message)
+    showDeleteConfirmModal.value = false
+  } finally {
+    isDeleting.value = false
   }
 }
 
@@ -534,6 +593,27 @@ onMounted(() => {
 
 .edit-button:hover {
   background-color: var(--color-accent);
+}
+
+.delete-socio-button {
+  padding: 0.75rem 1.5rem;
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s;
+  margin-left: 0.5rem;
+}
+
+.delete-socio-button:hover:not(:disabled) {
+  background-color: #c82333;
+}
+
+.delete-socio-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* Info Section */
