@@ -6,7 +6,7 @@
         <button @click="closeModal" class="close-button">✕</button>
       </div>
 
-      <form @submit.prevent="submitPayment" class="payment-form">
+      <form @submit.prevent="handleSubmit" class="payment-form">
         <div class="form-group">
           <label for="quota-pagata">
             <span class="field-icon">💰</span>
@@ -14,13 +14,13 @@
           </label>
           <input
             id="quota-pagata"
-            v-model.number="formData.quota_pagata"
+            v-model.number="paymentDetails.quota_pagata"
             type="number"
             step="0.01"
             min="0"
             required
             class="form-input"
-            placeholder="Es: 25.00"
+            placeholder="Es: 10.00"
           />
         </div>
 
@@ -31,7 +31,7 @@
           </label>
           <input
             id="data-pagamento"
-            v-model="formData.data_pagamento"
+            v-model="paymentDetails.data_pagamento"
             type="date"
             required
             class="form-input"
@@ -46,7 +46,7 @@
           </label>
           <input
             id="numero-blocchetto"
-            v-model.number="formData.numero_blocchetto"
+            v-model.number="paymentDetails.numero_blocchetto"
             type="number"
             min="1"
             required
@@ -62,7 +62,7 @@
           </label>
           <input
             id="numero-ricevuta"
-            v-model.number="formData.numero_ricevuta"
+            v-model.number="paymentDetails.numero_ricevuta"
             type="number"
             min="1"
             required
@@ -79,9 +79,11 @@
         </div>
 
         <div class="modal-actions">
-          <button type="button" @click="closeModal" class="cancel-button">Annulla</button>
+          <button type="button" @click="closeModal" class="cancel-button" :disabled="isSubmitting">
+            Annulla
+          </button>
           <button type="submit" class="save-button" :disabled="isSubmitting">
-            {{ isSubmitting ? 'Salvando...' : 'Salva Pagamento' }}
+            {{ isSubmitting ? 'Salvando...' : `Salva Pagamenti (${props.yearsToPay.length} anni)` }}
           </button>
         </div>
       </form>
@@ -92,7 +94,7 @@
 <script setup>
 import { ref, reactive, watch } from 'vue'
 
-const emit = defineEmits(['payment-saved', 'close'])
+const emit = defineEmits(['close', 'payments-saved'])
 
 const props = defineProps({
   show: {
@@ -100,22 +102,22 @@ const props = defineProps({
     default: false,
   },
   socioId: {
-    type: Number,
+    type: String,
     required: true,
   },
-  year: {
-    type: Number,
-    default: new Date().getFullYear(),
+  yearsToPay: {
+    type: Array,
+    required: true,
   },
 })
 
 const isSubmitting = ref(false)
 
-const formData = reactive({
-  quota_pagata: '',
-  data_pagamento: new Date().toISOString().split('T')[0], // Default today's date
-  numero_blocchetto: '',
-  numero_ricevuta: '',
+const paymentDetails = reactive({
+  quota_pagata: 10.0, // Default quota set to 10
+  data_pagamento: new Date().toISOString().split('T')[0],
+  numero_ricevuta: null,
+  numero_blocchetto: null,
 })
 
 // Reset form when modal opens
@@ -129,10 +131,10 @@ watch(
 )
 
 const resetForm = () => {
-  formData.quota_pagata = ''
-  formData.data_pagamento = new Date().toISOString().split('T')[0]
-  formData.numero_blocchetto = ''
-  formData.numero_ricevuta = ''
+  paymentDetails.quota_pagata = 10.0
+  paymentDetails.data_pagamento = new Date().toISOString().split('T')[0]
+  paymentDetails.numero_blocchetto = null
+  paymentDetails.numero_ricevuta = null
   isSubmitting.value = false
 }
 
@@ -142,49 +144,14 @@ const closeModal = () => {
   }
 }
 
-const submitPayment = async () => {
-  if (isSubmitting.value) return
-
-  // Validate form
-  if (!formData.quota_pagata || formData.quota_pagata <= 0) {
-    alert('Inserire una quota valida maggiore di 0')
-    return
-  }
-
-  if (!formData.data_pagamento) {
-    alert('Selezionare una data di pagamento')
-    return
-  }
-
-  if (!formData.numero_blocchetto || formData.numero_blocchetto < 1) {
-    alert('Inserire un numero bloccetto valido')
-    return
-  }
-
-  if (!formData.numero_ricevuta || formData.numero_ricevuta < 1) {
-    alert('Inserire un numero ricevuta valido')
-    return
-  }
-
-  isSubmitting.value = true
-
-  try {
-    const paymentData = {
-      id_socio: props.socioId,
-      anno: props.year,
-      quota_pagata: parseFloat(formData.quota_pagata),
-      data_pagamento: formData.data_pagamento,
-      numero_ricevuta: parseInt(formData.numero_ricevuta),
-      numero_blocchetto: parseInt(formData.numero_blocchetto),
-    }
-
-    emit('payment-saved', paymentData)
-  } catch (error) {
-    console.error('Errore durante il salvataggio del pagamento:', error)
-    alert('Errore durante il salvataggio del pagamento. Riprovare.')
-  } finally {
-    isSubmitting.value = false
-  }
+const handleSubmit = () => {
+  // Pass all details to the parent to handle the save logic
+  emit('payments-saved', {
+    details: { ...paymentDetails },
+    years: props.yearsToPay,
+    socioId: props.socioId,
+  })
+  // The parent component will be responsible for closing the modal on success
 }
 </script>
 

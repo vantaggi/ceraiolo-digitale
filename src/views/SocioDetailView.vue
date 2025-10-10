@@ -246,7 +246,9 @@ const isMinor = computed(() => calculateAge.value < 18)
  * Calcola la cronologia completa dei pagamenti
  */
 const paymentChronology = computed(() => {
-  if (!socio.value) return []
+  if (!socio.value || tesseramenti.value.length === 0) {
+    return []
+  }
 
   const anniPagati = tesseramenti.value.map((t) => t.anno).sort((a, b) => a - b)
   const primaIscrizioneEsplicita = socio.value.data_prima_iscrizione
@@ -272,9 +274,16 @@ const paymentChronology = computed(() => {
     annoPrimaIscrizione = annoCorrente
   }
 
+  // --- START OF FIX ---
+  // Determine the end year for the history view
+  // It should be the latest year between the current year and the most recent payment
+  const latestPaymentYear = tesseramenti.value.reduce((max, t) => (t.anno > max ? t.anno : max), 0)
+  const annoFinale = Math.max(annoCorrente, latestPaymentYear)
+  // --- END OF FIX ---
+
   const chronology = []
-  // Genera la cronologia completa dall'anno di prima iscrizione all'anno corrente
-  for (let anno = annoPrimaIscrizione; anno <= annoCorrente; anno++) {
+  // Genera la cronologia completa dall'anno di prima iscrizione all'anno finale
+  for (let anno = annoPrimaIscrizione; anno <= annoFinale; anno++) {
     const isPagato = anniPagati.includes(anno)
     const tesseramento = tesseramenti.value.find((t) => t.anno === anno)
 

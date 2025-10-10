@@ -112,6 +112,36 @@ export async function applyFiltersAndSearch(filters) {
 }
 
 /**
+ * Search soci by name or surname (simple search for batch entry)
+ * @param {string} searchTerm The search term to match against nome or cognome
+ * @returns {Promise<Array>} A promise that resolves to an array of matching soci
+ */
+export async function searchSoci(searchTerm) {
+  if (!searchTerm || searchTerm.trim() === '') {
+    return []
+  }
+
+  const lowerCaseSearchTerm = searchTerm.toLowerCase().trim()
+
+  try {
+    const results = await db.soci
+      .filter((socio) => {
+        const cognomeMatch =
+          socio.cognome && socio.cognome.toLowerCase().includes(lowerCaseSearchTerm)
+        const nomeMatch = socio.nome && socio.nome.toLowerCase().includes(lowerCaseSearchTerm)
+
+        return cognomeMatch || nomeMatch
+      })
+      .toArray()
+
+    return results
+  } catch (error) {
+    console.error('Error searching soci:', error)
+    throw new Error(`Failed to search soci: ${error.message}`)
+  }
+}
+
+/**
  * Retrieves a single member by their ID.
  * @param {number|string} id The ID of the member to retrieve.
  * @returns {Promise<Object|undefined>} A promise that resolves to the member object or undefined if not found.
@@ -753,4 +783,56 @@ export async function addSocio(socioData) {
     console.error('Error adding socio:', error)
     throw new Error(`Failed to add member: ${error.message}`)
   }
+}
+
+// Get arretrati (anni non pagati) for a socio
+export async function getArretrati(socioId) {
+  try {
+    const currentYear = new Date().getFullYear()
+
+    // Get all tesseramenti for this socio
+    const tesseramenti = await db.tesseramenti.where('id_socio').equals(socioId).toArray()
+
+    // Find paid years
+    const paidYears = new Set(tesseramenti.map((t) => t.anno))
+
+    // Get socio's first registration year
+    const socio = await db.soci.get(socioId)
+    if (!socio) {
+      console.warn(`Socio with id ${socioId} not found, returning empty arretrati`)
+      return []
+    }
+
+    const firstYear = socio.data_prima_iscrizione || currentYear
+    const arretrati = []
+
+    // Check each year from first registration to current year
+    for (let year = firstYear; year < currentYear; year++) {
+      if (!paidYears.has(year)) {
+        arretrati.push(year)
+      }
+    }
+
+    return arretrati
+  } catch (error) {
+    console.error('Error getting arretrati:', error)
+    // Return empty array instead of throwing to prevent crashes
+    return []
+  }
+}
+
+/**
+ * Checks if one or more payments already exist for a specific member in given years.
+ * @param {string} socioId The ID of the member.
+ * @param {Array<number>} years An array of years to check.
+ * @returns {Promise<number|null>} Returns the first year found that already has a payment, or null if none exist.
+ */
+export async function findExistingPaymentYear(socioId, years) {
+  for (const year of years) {
+    const count = await db.tesseramenti.where({ id_socio: socioId, anno: year }).count()
+    if (count > 0) {
+      return year // Return the first year that already exists
+    }
+  }
+  return null // All clear
 }

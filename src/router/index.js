@@ -3,6 +3,7 @@ import HomeView from '../views/HomeView.vue'
 import ImportView from '../views/ImportView.vue'
 import SocioDetailView from '../views/SocioDetailView.vue'
 import AddSocioView from '../views/AddSocioView.vue'
+import BatchEntryView from '../views/BatchEntryView.vue'
 import ReportsView from '../views/ReportsView.vue'
 import SettingsView from '../views/SettingsView.vue'
 import { isDatabaseEmpty } from '@/services/db'
@@ -40,6 +41,14 @@ const router = createRouter({
       component: AddSocioView,
       meta: {
         title: 'Nuovo Socio - Ceraiolo Digitale',
+      },
+    },
+    {
+      path: '/registrazione-seriale',
+      name: 'batch-entry',
+      component: BatchEntryView,
+      meta: {
+        title: 'Registrazione Seriale - Ceraiolo Digitale',
       },
     },
     {
