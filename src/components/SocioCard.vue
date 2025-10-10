@@ -10,6 +10,7 @@
       <RouterLink :to="{ name: 'socio-detail', params: { id: socio.id } }" class="details-button">
         Vedi Dettagli
       </RouterLink>
+      <button @click="$emit('generate-card', socio)" class="card-button">🎫 Genera Tessera</button>
     </div>
   </div>
 </template>
@@ -69,5 +70,28 @@ defineProps({
 
 .details-button:hover {
   background-color: #c62828;
+}
+
+.card-button {
+  display: inline-block;
+  padding: 0.75rem 1.5rem;
+  font-family: var(--font-family-body);
+  font-weight: 500;
+  font-size: 1rem;
+  background-color: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  text-decoration: none;
+  text-align: center;
+  transition:
+    background-color 0.2s,
+    transform 0.1s;
+  margin-left: 0.5rem;
+}
+
+.card-button:hover {
+  background-color: #388e3c;
 }
 </style>

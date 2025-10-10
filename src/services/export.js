@@ -445,6 +445,112 @@ export async function generateRenewalListPDF(soci, renewalYear) {
 }
 
 /**
+ * Generates a PDF with a single member card
+ * @param {Object} socio - Member object
+ * @param {number} renewalYear - The year for the card
+ * @returns {Promise<void>}
+ */
+export async function generateSingleCardPDF(socio, renewalYear) {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4',
+  })
+
+  // Crea un elemento DOM temporaneo per renderizzare la tessera
+  const tempContainer = document.createElement('div')
+  tempContainer.style.position = 'absolute'
+  tempContainer.style.left = '-9999px'
+  tempContainer.style.top = '-9999px'
+  document.body.appendChild(tempContainer)
+
+  try {
+    // Crea la tessera per questo socio
+    const cardElement = document.createElement('div')
+    cardElement.innerHTML = `
+      <div style="
+        width: 400px;
+        height: 250px;
+        background-color: white;
+        border: 3px solid #333;
+        border-radius: 15px;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        font-family: Arial, sans-serif;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      ">
+        <div style="display: flex; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #B71C1C; padding-bottom: 10px;">
+          <div style="margin-right: 15px;">
+            <svg width="50" height="50" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M50 0 L95 25 L95 75 L50 100 L5 75 L5 25 Z" fill="#1a1a1a" />
+              <path d="M50 10 L85 30 L85 70 L50 90 L15 70 L15 30 Z" stroke-width="3" stroke="#B71C1C" />
+              <text x="50" y="58" fill="#B71C1C" font-size="24" text-anchor="middle" font-weight="bold">S</text>
+            </svg>
+          </div>
+          <div>
+            <h1 style="font-size: 18px; margin: 0 0 5px 0; color: #1a1a1a; font-weight: bold;">Famiglia Sant'antoniari</h1>
+            <h2 style="font-size: 14px; margin: 0; color: #B71C1C;">Tessera Annuale</h2>
+          </div>
+        </div>
+        <div style="flex-grow: 1; display: flex; align-items: center;">
+          <div style="width: 100%;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 5px 0;">
+              <span style="font-weight: bold; color: #1a1a1a; font-size: 14px; min-width: 80px;">Socio:</span>
+              <span style="color: #333; font-size: 14px; text-align: right; flex-grow: 1; border-bottom: 1px dotted #ccc; padding-bottom: 2px;">${socio.cognome} ${socio.nome}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 5px 0;">
+              <span style="font-weight: bold; color: #1a1a1a; font-size: 14px; min-width: 80px;">Data nascita:</span>
+              <span style="color: #333; font-size: 14px; text-align: right; flex-grow: 1; border-bottom: 1px dotted #ccc; padding-bottom: 2px;">${socio.data_nascita || '-'}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 5px 0;">
+              <span style="font-weight: bold; color: #1a1a1a; font-size: 14px; min-width: 80px;">Anno:</span>
+              <span style="color: #333; font-size: 14px; text-align: right; flex-grow: 1; border-bottom: 1px dotted #ccc; padding-bottom: 2px;">${renewalYear}</span>
+            </div>
+          </div>
+        </div>
+        <div style="border-top: 2px solid #B71C1C; padding-top: 10px; text-align: center; font-size: 12px; color: #666;">
+          <p style="margin: 3px 0;">Valida per l'anno ${renewalYear}</p>
+          <p style="margin: 3px 0;">Firma del Responsabile ____________________</p>
+        </div>
+      </div>
+    `
+    tempContainer.appendChild(cardElement)
+
+    // Aspetta che l'elemento sia renderizzato
+    await new Promise((resolve) => setTimeout(resolve, 100))
+
+    // Cattura l'immagine della tessera
+    const canvas = await html2canvas(cardElement, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: '#ffffff',
+    })
+
+    // Centra la tessera sulla pagina A4 (portrait)
+    const imgWidth = 85.6 // mm (larghezza tessera)
+    const imgHeight = 53.98 // mm (altezza tessera)
+    const pageWidth = 210 // mm (A4 width)
+    const pageHeight = 297 // mm (A4 height)
+
+    const x = (pageWidth - imgWidth) / 2 // Centra orizzontalmente
+    const y = (pageHeight - imgHeight) / 2 // Centra verticalmente
+
+    // Aggiungi l'immagine al PDF
+    const imgData = canvas.toDataURL('image/png')
+    doc.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight)
+
+    // Salva il PDF
+    const fileName = `tessera_${socio.cognome}_${socio.nome}_${renewalYear}.pdf`
+    doc.save(fileName)
+  } finally {
+    // Pulisci
+    document.body.removeChild(tempContainer)
+  }
+}
+
+/**
  * Generates a PDF with all member cards
  * @param {Array} soci - Array of member objects
  * @param {number} renewalYear - The year for the cards

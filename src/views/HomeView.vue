@@ -29,7 +29,12 @@
 
         <p v-if="isSearching">Ricerca in corso...</p>
         <div v-else-if="searchResults.length > 0" class="results-list">
-          <SocioCard v-for="socio in searchResults" :key="socio.id" :socio="socio" />
+          <SocioCard
+            v-for="socio in searchResults"
+            :key="socio.id"
+            :socio="socio"
+            @generate-card="generateSingleCard"
+          />
         </div>
         <p v-else-if="hasSearchCriteria && !isSearching">Nessun risultato trovato.</p>
         <p v-else class="help-text">Usa i filtri o la barra di ricerca per trovare i soci.</p>
@@ -61,7 +66,7 @@ import {
   getAllSociWithTesseramenti,
 } from '@/services/db'
 import { applyFiltersAndSearch } from '@/services/db'
-import { generateAndDownloadSociPDF } from '@/services/export'
+import { generateAndDownloadSociPDF, generateSingleCardPDF } from '@/services/export'
 import SocioCard from '@/components/SocioCard.vue'
 import FilterPanel from '@/components/FilterPanel.vue'
 
@@ -241,6 +246,22 @@ const exportSociToPdf = async () => {
   } catch (error) {
     console.error('PDF export failed:', error)
     alert("Errore durante l'esportazione PDF: " + error.message)
+  }
+}
+
+/**
+ * Generate a single card PDF for a specific member
+ */
+const generateSingleCard = async (socio) => {
+  if (!socio) return
+
+  try {
+    const renewalYear = new Date().getFullYear() + 1
+    await generateSingleCardPDF(socio, renewalYear)
+    alert('Tessera generata con successo! Controlla i download del browser.')
+  } catch (error) {
+    console.error('Single card generation failed:', error)
+    alert('Errore durante la generazione della tessera: ' + error.message)
   }
 }
 </script>
