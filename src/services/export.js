@@ -2,67 +2,32 @@ import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
 
 /**
- * Formats a date for display
- * @param {string} dateString - Date string in YYYY-MM-DD format
- * @returns {string} Formatted date string
- */
-function formatDate(dateString) {
-  if (!dateString) return 'N/D'
-
-  try {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('it-IT', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    })
-  } catch {
-    return dateString
-  }
-}
-
-/**
- * Calculates age from birth date
- * @param {string} birthDateString - Birth date string
- * @returns {number|string} Age in years or empty string
- */
-function calculateAge(birthDateString) {
-  if (!birthDateString) return ''
-
-  try {
-    const birthDate = new Date(birthDateString)
-    const today = new Date()
-    let age = today.getFullYear() - birthDate.getFullYear()
-    const monthDiff = today.getMonth() - birthDate.getMonth()
-
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--
-    }
-
-    return age
-  } catch {
-    return ''
-  }
-}
-
-/**
  * Generates a PDF with a table of members from the provided search results
  * @param {Array} sociList - Array of member objects from search results
+ * @param {number} renewalYear - The year for renewal
  * @returns {Object} Result object with success status and blob or error
  */
-export async function generateSociPDF(sociList) {
+export async function generateSociPDF(sociList, renewalYear) {
   try {
     if (!sociList || sociList.length === 0) {
       throw new Error('Nessun dato da esportare')
     }
 
-    // Create new PDF document
-    const doc = new jsPDF()
+    // Crea PDF in orizzontale (landscape) come la lista rinnovi
+    const doc = new jsPDF({
+      orientation: 'landscape',
+      unit: 'mm',
+      format: 'a4',
+    })
 
-    // Add header
+    // Titolo
+    const gruppoNome = sociList[0]?.gruppo_appartenenza || 'Tutti'
     doc.setFontSize(20)
     doc.setFont('helvetica', 'bold')
-    doc.text('Elenco Soci - Ceraiolo Digitale', 20, 20)
+    doc.text(`Elenco ${gruppoNome}`, 148, 20, { align: 'center' })
+    doc.setFontSize(14)
+    doc.setFont('helvetica', 'normal')
+    doc.text(`Anno ${renewalYear}`, 148, 30, { align: 'center' })
 
     // Add generation date
     const generationDate = new Date().toLocaleDateString('it-IT', {
@@ -74,61 +39,91 @@ export async function generateSociPDF(sociList) {
     })
     doc.setFontSize(12)
     doc.setFont('helvetica', 'normal')
-    doc.text(`Generato il: ${generationDate}`, 20, 30)
+    doc.text(`Generato il: ${generationDate}`, 148, 35, { align: 'center' })
 
     // Summary info
     const totalSoci = sociList.length
-    doc.text(`Totale soci esportati: ${totalSoci}`, 20, 40)
+    doc.text(`Totale soci: ${totalSoci}`, 148, 45, { align: 'center' })
 
-    // Prepare table data
-    const tableData = sociList.map((socio) => [
-      socio.id,
-      socio.cognome || '',
-      socio.nome || '',
-      formatDate(socio.data_nascita),
-      calculateAge(socio.data_nascita),
-      socio.gruppo_appartenenza || '',
-    ])
+    // Prepara i dati per la tabella (stesse colonne della lista rinnovi)
+    const tableData = sociList
+      .sort((a, b) => a.cognome.localeCompare(b.cognome)) // Ordina alfabeticamente per cognome
+      .map((socio) => {
+        // Calcola gli arretrati (anni precedenti al rinnovo non pagati)
+        const anniPagati = socio.tesseramenti ? socio.tesseramenti.map((t) => t.anno) : []
+        const anniArretrati = []
 
-    // Genera tabella manuale
-    const startY = 50
-    const rowHeight = 8
-    const colWidths = [15, 35, 35, 30, 15, 40] // Larghezze colonne
-    const colPositions = [20, 35, 70, 105, 135, 150]
+        // Trova l'anno di prima iscrizione
+        let annoPrimaIscrizione = socio.data_prima_iscrizione
+        if (!annoPrimaIscrizione && anniPagati.length > 0) {
+          annoPrimaIscrizione = Math.min(...anniPagati)
+        }
 
-    // Intestazione
-    doc.setFillColor(183, 28, 28) // Rosso
+        // Calcola gli anni non pagati precedenti al rinnovo
+        if (annoPrimaIscrizione) {
+          for (let anno = annoPrimaIscrizione; anno < renewalYear; anno++) {
+            if (!anniPagati.includes(anno)) {
+              anniArretrati.push(anno)
+            }
+          }
+        }
+
+        return {
+          nomeCompleto: `${socio.cognome} ${socio.nome}`,
+          gruppo: socio.gruppo_appartenenza || '-',
+          arretrati: anniArretrati.length > 0 ? anniArretrati.join(', ') : '-',
+          pagato: '', // Colonna vuota per scrivere a mano
+        }
+      })
+
+    // Configurazione tabella per landscape (come lista rinnovi)
+    const startY = 55
+    const rowHeight = 10 // Righe più alte per ospitare testo multi-riga
+    const colWidths = [60, 40, 80, 60] // Larghezze colonne in landscape
+    const colPositions = [20, 80, 120, 200]
+
+    // Intestazione con colori accattivanti (come lista rinnovi)
+    doc.setFillColor(183, 28, 28) // Rosso scuro
     doc.setTextColor(255) // Bianco
-    doc.setFontSize(9)
+    doc.setFontSize(11)
     doc.setFont('helvetica', 'bold')
 
-    doc.rect(20, startY, 170, rowHeight, 'F') // Sfondo rosso
-    doc.text('ID', colPositions[0] + 1, startY + 6)
-    doc.text('Cognome', colPositions[1] + 1, startY + 6)
-    doc.text('Nome', colPositions[2] + 1, startY + 6)
-    doc.text('Data Nascita', colPositions[3] + 1, startY + 6)
-    doc.text('Età', colPositions[4] + 1, startY + 6)
-    doc.text('Gruppo', colPositions[5] + 1, startY + 6)
+    // Sfondo intestazione
+    doc.rect(20, startY, 240, rowHeight, 'F')
 
-    // Righe dati con alternanza colori
+    // Bordi intestazione
+    doc.setDrawColor(100, 100, 100)
+    doc.setLineWidth(0.5)
+    doc.rect(20, startY, 240, rowHeight)
+
+    // Testo intestazione
+    doc.text('Cognome e Nome', colPositions[0] + 2, startY + 7)
+    doc.text('Gruppo', colPositions[1] + 2, startY + 7)
+    doc.text('Arretrati', colPositions[2] + 2, startY + 7)
+
+    // Colonna "Pagato" con evidenziazione speciale
+    doc.setFillColor(46, 125, 50) // Verde scuro per la colonna pagamento
+    doc.rect(colPositions[3], startY, colWidths[3], rowHeight, 'F')
+    doc.text(`Pagato ${renewalYear}`, colPositions[3] + 2, startY + 7)
+
+    // Righe dati con alternanza colori (come lista rinnovi)
     doc.setTextColor(0) // Nero
     doc.setFont('helvetica', 'normal')
-    doc.setFontSize(8)
+    doc.setFontSize(9)
 
     let currentY = startY + rowHeight
     tableData.forEach((row, index) => {
       // Alternanza righe: pari grigio chiaro, dispari bianco
       const isEvenRow = index % 2 === 0
-      const fillColor = isEvenRow ? [248, 248, 248] : [255, 255, 255]
+      const fillColor = isEvenRow ? [248, 248, 248] : [255, 255, 255] // Grigio chiarissimo per righe pari
       doc.setFillColor(fillColor[0], fillColor[1], fillColor[2])
-      doc.rect(20, currentY, 170, rowHeight, 'F')
+      doc.rect(20, currentY, 240, rowHeight, 'F')
 
-      // Bordi sottili
+      // Bordi sottili per ogni cella
       doc.setDrawColor(220, 220, 220)
       doc.setLineWidth(0.3)
-      doc.rect(20, currentY, 170, rowHeight)
 
-      // Linee verticali delle colonne
+      // Disegna le linee verticali delle colonne
       for (let i = 0; i < colPositions.length; i++) {
         const x = colPositions[i]
         doc.line(x, currentY, x, currentY + rowHeight)
@@ -141,38 +136,59 @@ export async function generateSociPDF(sociList) {
         currentY + rowHeight,
       )
 
-      // Testo delle celle
-      doc.text(String(row[0]), colPositions[0] + 1, currentY + 6)
-      doc.text(row[1], colPositions[1] + 1, currentY + 6)
-      doc.text(row[2], colPositions[2] + 1, currentY + 6)
-      doc.text(row[3], colPositions[3] + 1, currentY + 6)
-      doc.text(String(row[4]), colPositions[4] + 1, currentY + 6)
-      doc.text(row[5], colPositions[5] + 1, currentY + 6)
+      // Bordo orizzontale
+      doc.rect(20, currentY, 240, rowHeight)
+
+      // Testo delle celle con gestione word wrap per arretrati
+      doc.text(row.nomeCompleto, colPositions[0] + 2, currentY + 7)
+
+      doc.text(row.gruppo, colPositions[1] + 2, currentY + 7)
+
+      // Arretrati con word wrap se necessario
+      const arretratiText = row.arretrati
+      if (arretratiText.length > 20) {
+        // Se il testo è lungo, vai a capo
+        const lines = doc.splitTextToSize(arretratiText, colWidths[2] - 4)
+        doc.text(lines, colPositions[2] + 2, currentY + 5)
+      } else {
+        doc.text(arretratiText, colPositions[2] + 2, currentY + 7)
+      }
+
+      // Colonna pagamento con bordo più spesso per evidenziare
+      doc.setDrawColor(46, 125, 50) // Verde scuro
+      doc.setLineWidth(1)
+      doc.rect(colPositions[3], currentY, colWidths[3], rowHeight)
 
       currentY += rowHeight
 
-      // Se la pagina è piena, aggiungi una nuova pagina
-      if (currentY > 270) {
+      // Se la pagina è piena (considerando il margine inferiore), aggiungi una nuova pagina
+      if (currentY > 180) {
+        // 180mm invece di 270 per landscape
         doc.addPage()
-        currentY = 50
+        currentY = 55 // Stessa posizione della prima pagina
 
         // Ripeti intestazione su nuova pagina
         doc.setFillColor(183, 28, 28)
         doc.setTextColor(255)
-        doc.setFontSize(9)
+        doc.setFontSize(11)
         doc.setFont('helvetica', 'bold')
-        doc.rect(20, currentY, 170, rowHeight, 'F')
-        doc.text('ID', colPositions[0] + 1, currentY + 6)
-        doc.text('Cognome', colPositions[1] + 1, currentY + 6)
-        doc.text('Nome', colPositions[2] + 1, currentY + 6)
-        doc.text('Data Nascita', colPositions[3] + 1, currentY + 6)
-        doc.text('Età', colPositions[4] + 1, currentY + 6)
-        doc.text('Gruppo', colPositions[5] + 1, currentY + 6)
+        doc.rect(20, currentY, 240, rowHeight, 'F')
+        doc.setDrawColor(100, 100, 100)
+        doc.setLineWidth(0.5)
+        doc.rect(20, currentY, 240, rowHeight)
+        doc.text('Cognome e Nome', colPositions[0] + 2, currentY + 7)
+        doc.text('Gruppo', colPositions[1] + 2, currentY + 7)
+        doc.text('Arretrati', colPositions[2] + 2, currentY + 7)
+
+        // Colonna "Pagato" con evidenziazione speciale
+        doc.setFillColor(46, 125, 50)
+        doc.rect(colPositions[3], currentY, colWidths[3], rowHeight, 'F')
+        doc.text(`Pagato ${renewalYear}`, colPositions[3] + 2, currentY + 7)
 
         currentY += rowHeight
         doc.setTextColor(0)
         doc.setFont('helvetica', 'normal')
-        doc.setFontSize(8)
+        doc.setFontSize(9)
       }
     })
 
@@ -195,7 +211,7 @@ export async function generateSociPDF(sociList) {
     return {
       success: true,
       blob: pdfOutput,
-      filename: `elenco_soci_${new Date().toISOString().split('T')[0]}.pdf`,
+      filename: `elenco_${gruppoNome}_${renewalYear}.pdf`,
       totalSoci: totalSoci,
     }
   } catch (error) {
@@ -233,7 +249,8 @@ export function downloadSociPDF(result) {
  * @returns {Promise<boolean>} Success status
  */
 export async function generateAndDownloadSociPDF(sociList) {
-  const result = await generateSociPDF(sociList)
+  const renewalYear = new Date().getFullYear() + 1
+  const result = await generateSociPDF(sociList, renewalYear)
 
   if (result.success) {
     return downloadSociPDF(result)

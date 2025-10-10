@@ -24,9 +24,7 @@
         <!-- PDF Export Button -->
         <div v-if="searchResults.length > 0" class="results-header">
           <span class="results-count">{{ searchResults.length }} soci trovati</span>
-          <button @click="exportSociToPdf" class="pdf-export-button">
-            📄 Esporta in PDF
-          </button>
+          <button @click="exportSociToPdf" class="pdf-export-button">📄 Esporta in PDF</button>
         </div>
 
         <p v-if="isSearching">Ricerca in corso...</p>
@@ -56,7 +54,12 @@
 
 <script setup>
 import { ref, reactive, computed, watch } from 'vue'
-import { db, downloadDatabaseExport, exportChangeLog } from '@/services/db'
+import {
+  db,
+  downloadDatabaseExport,
+  exportChangeLog,
+  getAllSociWithTesseramenti,
+} from '@/services/db'
 import { applyFiltersAndSearch } from '@/services/db'
 import { generateAndDownloadSociPDF } from '@/services/export'
 import SocioCard from '@/components/SocioCard.vue'
@@ -176,7 +179,7 @@ const exportDatabase = async () => {
     alert('Database export completato! Controlla i download del browser.')
   } catch (error) {
     console.error('Export failed:', error)
-    alert('Errore durante l\'esportazione: ' + error.message)
+    alert("Errore durante l'esportazione: " + error.message)
   }
 }
 
@@ -199,11 +202,11 @@ const exportChangeLogData = async () => {
 
       alert(`Changelog esportato! ${result.changes_count} modifiche registrate.`)
     } else {
-      alert('Errore durante l\'esportazione del changelog: ' + result.error)
+      alert("Errore durante l'esportazione del changelog: " + result.error)
     }
   } catch (error) {
     console.error('Changelog export failed:', error)
-    alert('Errore durante l\'esportazione del changelog: ' + error.message)
+    alert("Errore durante l'esportazione del changelog: " + error.message)
   }
 }
 
@@ -217,11 +220,27 @@ const exportSociToPdf = async () => {
   }
 
   try {
-    await generateAndDownloadSociPDF(searchResults.value)
+    // Carica tutti i soci con i tesseramenti per calcolare correttamente gli arretrati
+    const allSociWithTesseramenti = await getAllSociWithTesseramenti()
+
+    // Filtra per il gruppo selezionato (se presente)
+    let sociToExport = allSociWithTesseramenti
+    if (filters.group && filters.group !== 'Tutti') {
+      sociToExport = allSociWithTesseramenti.filter(
+        (socio) => socio.gruppo_appartenenza === filters.group,
+      )
+    } else {
+      // Se non c'è filtro gruppo specifico, usa i risultati della ricerca corrente
+      // ma dobbiamo matchare con i dati completi che hanno i tesseramenti
+      const searchResultIds = searchResults.value.map((s) => s.id)
+      sociToExport = allSociWithTesseramenti.filter((socio) => searchResultIds.includes(socio.id))
+    }
+
+    await generateAndDownloadSociPDF(sociToExport)
     alert('PDF esportato con successo! Controlla i download del browser.')
   } catch (error) {
     console.error('PDF export failed:', error)
-    alert('Errore durante l\'esportazione PDF: ' + error.message)
+    alert("Errore durante l'esportazione PDF: " + error.message)
   }
 }
 </script>
