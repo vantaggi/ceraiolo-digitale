@@ -1,5 +1,5 @@
 <script setup>
-import { RouterView } from 'vue-router'
+import { RouterView, RouterLink } from 'vue-router'
 // Using the new official colors
 const primaryColor = '#1a1a1a' // Black
 const accentColor = '#B71C1C' // Red
@@ -31,7 +31,8 @@ const accentColor = '#B71C1C' // Red
         <h1 class="app-title">Ceraiolo Digitale</h1>
       </div>
       <nav>
-        <!-- Navigation links can go here in the future -->
+        <RouterLink to="/" class="nav-link">🏠 Ricerca</RouterLink>
+        <RouterLink to="/reports" class="nav-link">📊 Report</RouterLink>
       </nav>
     </header>
     <main class="app-content">
@@ -72,5 +73,29 @@ const accentColor = '#B71C1C' // Red
 .app-content {
   flex-grow: 1;
   padding: 2rem;
+}
+
+nav {
+  display: flex;
+  gap: 1rem;
+}
+
+.nav-link {
+  padding: 0.75rem 1.5rem;
+  background-color: var(--color-primary);
+  color: white;
+  text-decoration: none;
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.nav-link:hover {
+  background-color: var(--color-accent);
+  transform: translateY(-1px);
+}
+
+.nav-link.router-link-active {
+  background-color: var(--color-accent);
 }
 </style>

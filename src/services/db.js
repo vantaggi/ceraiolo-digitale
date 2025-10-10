@@ -12,7 +12,8 @@ db.version(1).stores({
     id,
     [cognome+nome],
     cognome,
-    nome
+    nome,
+    gruppo_appartenenza
   `,
   tesseramenti: `
     id_tesseramento,
@@ -122,6 +123,27 @@ export async function getTesseramentiBySocioId(socioId) {
     .equals(socioId)
     .reverse() // Sort by most recent year
     .sortBy('anno')
+}
+
+/**
+ * Retrieves all members with their payment history
+ * @returns {Promise<Array>} A promise that resolves to an array of member objects with tesseramenti
+ */
+export async function getAllSociWithTesseramenti() {
+  const soci = await db.soci.toArray()
+
+  // Per ogni socio, carica i suoi tesseramenti
+  const sociWithTesseramenti = await Promise.all(
+    soci.map(async (socio) => {
+      const tesseramenti = await getTesseramentiBySocioId(socio.id)
+      return {
+        ...socio,
+        tesseramenti,
+      }
+    }),
+  )
+
+  return sociWithTesseramenti
 }
 
 /**
