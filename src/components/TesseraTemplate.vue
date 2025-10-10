@@ -1,6 +1,9 @@
 <template>
   <div class="tessera-vertical">
-    <div class="tessera-front">
+    <div
+      class="tessera-front"
+      :style="{ backgroundImage: backgroundImage ? `url(${backgroundImage})` : undefined }"
+    >
       <!-- Parte superiore con gradiente dei colori -->
       <div class="header-section">
         <div class="logo-container">
@@ -82,6 +85,10 @@ defineProps({
     type: [String, Number],
     required: true,
   },
+  backgroundImage: {
+    type: String,
+    default: null,
+  },
 })
 </script>
 
@@ -97,6 +104,9 @@ defineProps({
   width: 100%;
   height: 100%;
   background: linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
   border-radius: 3.18mm;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   padding: 5mm;

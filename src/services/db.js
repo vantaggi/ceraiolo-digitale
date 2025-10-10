@@ -29,6 +29,15 @@ db.version(1).stores({
   `,
 })
 
+// Version 2: Add settings table for dynamic templates
+db.version(2).stores({
+  settings: `
+    key,
+    value,
+    updated_at
+  `,
+})
+
 // A utility function to check if the database is empty.
 // We'll use this to decide whether to show the import screen.
 export async function isDatabaseEmpty() {
@@ -169,6 +178,40 @@ export async function deleteSocio(socioId) {
   } catch (error) {
     console.error('Error deleting socio:', error)
     throw new Error(`Errore durante l'eliminazione del socio: ${error.message}`)
+  }
+}
+
+/**
+ * Get a setting value by key
+ * @param {string} key - The setting key
+ * @returns {Promise<any>} The setting value or null if not found
+ */
+export async function getSetting(key) {
+  try {
+    const setting = await db.settings.get(key)
+    return setting ? setting.value : null
+  } catch (error) {
+    console.error('Error getting setting:', error)
+    return null
+  }
+}
+
+/**
+ * Update or create a setting
+ * @param {string} key - The setting key
+ * @param {any} value - The setting value
+ * @returns {Promise<void>}
+ */
+export async function updateSetting(key, value) {
+  try {
+    await db.settings.put({
+      key,
+      value,
+      updated_at: new Date().toISOString(),
+    })
+  } catch (error) {
+    console.error('Error updating setting:', error)
+    throw new Error(`Errore durante il salvataggio dell'impostazione: ${error.message}`)
   }
 }
 

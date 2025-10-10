@@ -4,6 +4,7 @@ import ImportView from '../views/ImportView.vue'
 import SocioDetailView from '../views/SocioDetailView.vue'
 import AddSocioView from '../views/AddSocioView.vue'
 import ReportsView from '../views/ReportsView.vue'
+import SettingsView from '../views/SettingsView.vue'
 import { isDatabaseEmpty } from '@/services/db'
 
 const router = createRouter({
@@ -48,6 +49,14 @@ const router = createRouter({
       component: ReportsView,
       meta: {
         title: 'Report e Stampe - Ceraiolo Digitale',
+      },
+    },
+    {
+      path: '/settings',
+      name: 'settings',
+      component: SettingsView,
+      meta: {
+        title: 'Impostazioni - Ceraiolo Digitale',
       },
     },
     {

@@ -33,6 +33,7 @@ const accentColor = '#B71C1C' // Red
       <nav>
         <RouterLink to="/" class="nav-link">🏠 Ricerca</RouterLink>
         <RouterLink to="/reports" class="nav-link">📊 Report</RouterLink>
+        <RouterLink to="/settings" class="nav-link">⚙️ Impostazioni</RouterLink>
       </nav>
     </header>
     <main class="app-content">

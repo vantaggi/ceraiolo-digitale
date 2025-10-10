@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
+import { getSetting } from './db'
 
 /**
  * Generates a PDF with a table of members from the provided search results
@@ -451,6 +452,9 @@ export async function generateRenewalListPDF(soci, renewalYear) {
  * @returns {Promise<void>}
  */
 export async function generateSingleCardPDF(socio, renewalYear) {
+  // Recupera l'immagine di sfondo dal database
+  const cardBackground = await getSetting('cardBackground')
+
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -467,11 +471,14 @@ export async function generateSingleCardPDF(socio, renewalYear) {
   try {
     // Crea la tessera per questo socio
     const cardElement = document.createElement('div')
+    const backgroundStyle = cardBackground
+      ? `background-image: url(${cardBackground}); background-size: cover; background-position: center; background-repeat: no-repeat;`
+      : 'background-color: white;'
     cardElement.innerHTML = `
       <div style="
         width: 400px;
         height: 250px;
-        background-color: white;
+        ${backgroundStyle}
         border: 3px solid #333;
         border-radius: 15px;
         padding: 20px;
@@ -558,6 +565,9 @@ export async function generateSingleCardPDF(socio, renewalYear) {
  * @returns {Promise<void>}
  */
 export async function generateAllCardsPDF(soci, renewalYear, onProgress = () => {}) {
+  // Recupera l'immagine di sfondo dal database
+  const cardBackground = await getSetting('cardBackground')
+
   const doc = new jsPDF({
     orientation: 'landscape',
     unit: 'mm',
@@ -578,11 +588,15 @@ export async function generateAllCardsPDF(soci, renewalYear, onProgress = () => 
     for (const socio of soci) {
       // Crea la tessera per questo socio
       const cardElement = document.createElement('div')
+      const backgroundStyle = cardBackground
+        ? `background-image: url(${cardBackground}); background-size: cover; background-position: center; background-repeat: no-repeat;`
+        : 'background-color: white;'
+
       cardElement.innerHTML = `
         <div style="
           width: 400px;
           height: 250px;
-          background-color: white;
+          ${backgroundStyle}
           border: 3px solid #333;
           border-radius: 15px;
           padding: 20px;
