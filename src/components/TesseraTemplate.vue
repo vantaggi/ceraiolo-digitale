@@ -1,52 +1,69 @@
 <template>
-  <div class="tessera-template" :style="{ backgroundColor: backgroundColor }">
-    <div class="tessera-header">
-      <div class="logo-section">
-        <svg class="logo" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M50 0 L95 25 L95 75 L50 100 L5 75 L5 25 Z" :fill="primaryColor" />
+  <div class="tessera-vertical">
+    <div class="tessera-front">
+      <!-- Parte superiore con gradiente dei colori -->
+      <div class="header-section">
+        <div class="logo-container">
+          <svg class="logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <path d="M50 5 L90 25 L90 75 L50 95 L10 75 L10 25 Z" fill="#1a1a1a" />
+            <path
+              d="M50 15 L80 30 L80 70 L50 85 L20 70 L20 30 Z"
+              stroke="#B71C1C"
+              stroke-width="2.5"
+              fill="none"
+            />
+            <text
+              x="50"
+              y="60"
+              fill="#B71C1C"
+              font-size="32"
+              text-anchor="middle"
+              font-weight="bold"
+              font-family="serif"
+            >
+              S
+            </text>
+          </svg>
+        </div>
+        <div class="title">
+          <h1>Famiglia</h1>
+          <h2>Sant'antoniari</h2>
+          <p class="subtitle">Gubbio</p>
+        </div>
+      </div>
+
+      <!-- Decorazione centrale con fiamma -->
+      <div class="flame-decoration">
+        <svg viewBox="0 0 60 80" xmlns="http://www.w3.org/2000/svg">
           <path
-            d="M50 10 L85 30 L85 70 L50 90 L15 70 L15 30 Z"
-            stroke-width="3"
-            :stroke="accentColor"
+            d="M30 10 Q35 25 30 35 Q32 30 35 28 Q38 40 30 50 Q28 45 25 48 Q20 35 30 10"
+            fill="#B71C1C"
+            opacity="0.15"
           />
-          <text
-            x="50"
-            y="58"
-            :fill="accentColor"
-            font-size="24"
-            text-anchor="middle"
-            font-weight="bold"
-          >
-            S
-          </text>
         </svg>
       </div>
-      <div class="title-section">
-        <h1>Famiglia Sant'antoniari</h1>
-        <h2>Tessera Annuale</h2>
-      </div>
-    </div>
 
-    <div class="tessera-content">
-      <div class="info-section">
-        <div class="info-row">
-          <span class="label">Socio:</span>
-          <span class="value">{{ nomeCognome }}</span>
+      <!-- Sezione dati socio -->
+      <div class="member-info">
+        <div class="info-group">
+          <label>Socio</label>
+          <div class="info-value">{{ nomeCognome }}</div>
         </div>
+
         <div class="info-row">
-          <span class="label">Gruppo:</span>
-          <span class="value">{{ gruppo }}</span>
-        </div>
-        <div class="info-row">
-          <span class="label">Anno:</span>
-          <span class="value">{{ anno }}</span>
+          <div class="info-group small">
+            <label>Data nascita</label>
+            <div class="info-value">{{ dataNascita }}</div>
+          </div>
+          <div class="info-group small">
+            <label>Anno</label>
+            <div class="info-value">{{ anno }}</div>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div class="tessera-footer">
-      <p>Valida per l'anno {{ anno }}</p>
-      <p>Firma del Responsabile ____________________</p>
+      <!-- Footer con pattern decorativo -->
+      <div class="footer-pattern"></div>
     </div>
   </div>
 </template>
@@ -57,7 +74,7 @@ defineProps({
     type: String,
     required: true,
   },
-  gruppo: {
+  dataNascita: {
     type: String,
     required: true,
   },
@@ -66,101 +83,152 @@ defineProps({
     required: true,
   },
 })
-
-// Colori ufficiali
-const primaryColor = '#1a1a1a' // Black
-const accentColor = '#B71C1C' // Red
-const backgroundColor = '#ffffff' // White background
 </script>
 
 <style scoped>
-.tessera-template {
-  width: 400px;
-  height: 250px;
-  border: 3px solid #333;
-  border-radius: 15px;
-  padding: 20px;
+.tessera-vertical {
+  width: 85.6mm;
+  height: 53.98mm;
+  perspective: 1000px;
+  font-family: 'Arial', 'Helvetica', sans-serif;
+}
+
+.tessera-front {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%);
+  border-radius: 3.18mm;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 5mm;
   display: flex;
   flex-direction: column;
-  font-family: 'Arial', sans-serif;
   position: relative;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+  border: 1px solid #e0e0e0;
 }
 
-.tessera-header {
+.header-section {
   display: flex;
   align-items: center;
-  margin-bottom: 20px;
-  border-bottom: 2px solid #b71c1c;
-  padding-bottom: 10px;
+  gap: 3mm;
+  margin-bottom: 4mm;
+  z-index: 2;
 }
 
-.logo-section {
-  margin-right: 15px;
+.logo-container {
+  flex-shrink: 0;
 }
 
 .logo {
-  width: 50px;
-  height: 50px;
+  width: 12mm;
+  height: 12mm;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
 }
 
-.title-section h1 {
-  font-size: 18px;
-  margin: 0 0 5px 0;
+.title {
+  flex-grow: 1;
+}
+
+.title h1 {
+  font-size: 4.5mm;
+  font-weight: 700;
   color: #1a1a1a;
-  font-weight: bold;
-}
-
-.title-section h2 {
-  font-size: 14px;
   margin: 0;
-  color: #b71c1c;
-  font-weight: normal;
+  line-height: 1.1;
+  letter-spacing: -0.3px;
 }
 
-.tessera-content {
+.title h2 {
+  font-size: 4mm;
+  font-weight: 600;
+  color: #b71c1c;
+  margin: 0.5mm 0 0 0;
+  line-height: 1;
+}
+
+.subtitle {
+  font-size: 2.5mm;
+  color: #666;
+  margin: 0.5mm 0 0 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+}
+
+.flame-decoration {
+  position: absolute;
+  right: -5mm;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20mm;
+  height: 25mm;
+  opacity: 0.4;
+  z-index: 1;
+}
+
+.member-info {
   flex-grow: 1;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  gap: 3mm;
+  z-index: 2;
+  margin-top: 2mm;
 }
 
-.info-section {
-  width: 100%;
+.info-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1mm;
+}
+
+.info-group.small {
+  flex: 1;
 }
 
 .info-row {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-  padding: 5px 0;
+  gap: 3mm;
 }
 
-.label {
-  font-weight: bold;
-  color: #1a1a1a;
-  font-size: 14px;
-  min-width: 80px;
-}
-
-.value {
-  color: #333;
-  font-size: 14px;
-  text-align: right;
-  flex-grow: 1;
-  border-bottom: 1px dotted #ccc;
-  padding-bottom: 2px;
-}
-
-.tessera-footer {
-  border-top: 2px solid #b71c1c;
-  padding-top: 10px;
-  text-align: center;
-  font-size: 12px;
+label {
+  font-size: 2.2mm;
   color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  font-weight: 600;
 }
 
-.tessera-footer p {
-  margin: 3px 0;
+.info-value {
+  font-size: 3.5mm;
+  color: #1a1a1a;
+  font-weight: 600;
+  padding-bottom: 1mm;
+  border-bottom: 1.5px solid #b71c1c;
+  min-height: 5mm;
+  display: flex;
+  align-items: center;
+}
+
+.footer-pattern {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3mm;
+  background: linear-gradient(90deg, #1a1a1a 0%, #b71c1c 50%, #1a1a1a 100%);
+  opacity: 0.8;
+}
+
+/* Pattern decorativo opzionale per lo sfondo */
+.tessera-front::before {
+  content: '';
+  position: absolute;
+  top: -10mm;
+  right: -10mm;
+  width: 30mm;
+  height: 30mm;
+  background: radial-gradient(circle, rgba(183, 28, 28, 0.05) 0%, transparent 70%);
+  border-radius: 50%;
+  z-index: 0;
 }
 </style>

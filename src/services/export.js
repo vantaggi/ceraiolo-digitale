@@ -488,8 +488,8 @@ export async function generateAllCardsPDF(soci, renewalYear, onProgress = () => 
                 <span style="color: #333; font-size: 14px; text-align: right; flex-grow: 1; border-bottom: 1px dotted #ccc; padding-bottom: 2px;">${socio.cognome} ${socio.nome}</span>
               </div>
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 5px 0;">
-                <span style="font-weight: bold; color: #1a1a1a; font-size: 14px; min-width: 80px;">Gruppo:</span>
-                <span style="color: #333; font-size: 14px; text-align: right; flex-grow: 1; border-bottom: 1px dotted #ccc; padding-bottom: 2px;">${socio.gruppo_appartenenza || '-'}</span>
+                <span style="font-weight: bold; color: #1a1a1a; font-size: 14px; min-width: 80px;">Data nascita:</span>
+                <span style="color: #333; font-size: 14px; text-align: right; flex-grow: 1; border-bottom: 1px dotted #ccc; padding-bottom: 2px;">${socio.data_nascita || '-'}</span>
               </div>
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 5px 0;">
                 <span style="font-weight: bold; color: #1a1a1a; font-size: 14px; min-width: 80px;">Anno:</span>

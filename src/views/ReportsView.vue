@@ -39,7 +39,7 @@
         <div class="preview-container">
           <TesseraTemplate
             :nome-cognome="previewData.nomeCognome"
-            :gruppo="previewData.gruppo"
+            :data-nascita="previewData.dataNascita"
             :anno="renewalYear || currentYear + 1"
           />
         </div>
@@ -51,8 +51,8 @@
           </div>
 
           <div class="control-group">
-            <label>Gruppo:</label>
-            <input v-model="previewData.gruppo" type="text" placeholder="INTERNA" />
+            <label>Data di nascita:</label>
+            <input v-model="previewData.dataNascita" type="date" placeholder="1980-05-15" />
           </div>
         </div>
       </section>
@@ -96,7 +96,7 @@ const cardProgress = ref(0)
 // Dati per la preview della tessera
 const previewData = ref({
   nomeCognome: 'Mario Rossi',
-  gruppo: 'INTERNA',
+  dataNascita: '1980-05-15',
 })
 
 const currentYear = new Date().getFullYear()
