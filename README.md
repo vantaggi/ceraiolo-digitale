@@ -1,3 +1,7 @@
+# Guida all'Installazione e Configurazione per Collaboratori - Ceraiolo Digitale
+
+Ciao! Benvenuto nel team di sviluppo del "Ceraiolo Digitale".
+
 # Guida all'Installazione per Collaboratori - Ceraiolo Digitale
 
 Ciao! Benvenuto nel team di sviluppo del "Ceraiolo Digitale".
@@ -9,8 +13,9 @@ Questa guida ti mostrerà come installare il progetto sul tuo computer e iniziar
 Prima di iniziare, assicurati di avere installato sul tuo sistema:
 
 - **Git**: Per scaricare e gestire il codice.
-- **Node.js**: Versione 18 o superiore. Puoi scaricarlo da [nodejs.org](https://nodejs.org/).
+- **Node.js**: Versione **20** o superiore. Puoi scaricarlo da [nodejs.org](https://nodejs.org/).
 - **Python**: Per generare il database di test. Puoi scaricarlo da [python.org](https://python.org/).
+- **jsPDF** e **html2canvas**: Sono installati automaticamente tramite `npm install` e sono usati per la generazione di PDF.
 
 ## 2. Setup del Progetto: Passo-Passo
 
@@ -70,6 +75,35 @@ python generate_mock_data.py
 ```
 
 3. Questo comando creerà un file `santantoniari_test.sqlite` nella cartella. L'applicazione è configurata per importare questo file al primo avvio.
+
+## 3. Nuove funzionalità
+
+Il progetto è stato esteso con una nuova sezione **Reports** che consente di esportare in PDF:
+
+- **Renewal List**: esporta la lista di rinnovi in un PDF in modalità landscape con righe alternate.
+- **Membership Cards**: esporta le tessere di iscrizione in PDF utilizzando `html2canvas` per catturare l'immagine del componente `TesseraTemplate`.
+
+Queste funzionalità sono accessibili tramite la nuova route `/reports` e sono integrate nella barra di navigazione.
+
+Il file di servizio `src/services/export.js` contiene la logica di generazione PDF, sostituendo l'uso di `jspdf-autotable` con rendering manuale delle tabelle.
+
+Per visualizzare un'anteprima della tessera, è possibile utilizzare il componente `TesseraTemplate` in modalità preview.
+
+### 3.1. Aggiornamenti di dipendenze
+
+- `jspdf-autotable` è stato rimosso dal progetto.
+- `html2canvas` è stato aggiunto per la cattura di componenti Vue in PDF.
+- Node.js 20 è ora la versione minima richiesta.
+
+### 3.2. Test e CI
+
+Sono stati aggiunti nuovi test unitari per `ReportsView.vue` e `TesseraTemplate.vue`. Per eseguirli, usa:
+
+```bash
+npm run test
+```
+
+Il file `DEVELOPMENT_GUIDELINES.md` è stato aggiornato con la sezione **PDF Generation Workflow**.
 
 ### Passo 5: Avvia l'Applicazione
 
