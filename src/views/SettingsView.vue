@@ -67,6 +67,45 @@
         </div>
       </section>
 
+      <!-- Sezione Gestione Dati -->
+      <section class="settings-section">
+        <h2>💾 Gestione Dati</h2>
+        <p>Esporta i dati dell'applicazione in diversi formati</p>
+
+        <div class="data-section">
+          <div class="export-options">
+            <div class="export-option">
+              <h3>📦 Database di Backup</h3>
+              <p>Esporta tutto il database in formato SQLite per backup e ripristino</p>
+              <button @click="exportDatabase" :disabled="isExporting" class="export-button">
+                <span v-if="isExporting" class="loading-spinner">⏳</span>
+                {{ isExporting ? 'Esportazione...' : '📥 Esporta Database' }}
+              </button>
+            </div>
+
+            <div class="export-option">
+              <h3>📊 Esporta in Excel</h3>
+              <p>Esporta tutti i dati in formato Excel con fogli separati per categorie</p>
+              <button @click="exportExcel" :disabled="isExporting" class="export-button">
+                <span v-if="isExporting" class="loading-spinner">⏳</span>
+                {{ isExporting ? 'Esportazione...' : '📊 Esporta Excel' }}
+              </button>
+            </div>
+          </div>
+
+          <div class="export-info">
+            <h4>💡 Informazioni sui formati:</h4>
+            <ul>
+              <li><strong>SQLite:</strong> Database completo per backup e migrazione</li>
+              <li>
+                <strong>Excel:</strong> 4 fogli (Maggiorenni, Minorenni, Nuovi Maggiorenni, Nuovi
+                Minorenni)
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
       <!-- Sezione Altre Impostazioni (placeholder per future espansioni) -->
       <section class="settings-section">
         <h2>🔧 Altre Impostazioni</h2>
@@ -79,7 +118,8 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useToast } from 'vue-toastification'
-import { getSetting, updateSetting } from '@/services/db'
+import { getSetting, updateSetting, downloadDatabaseExport } from '@/services/db'
+import { exportDataToExcel } from '@/services/export'
 import TesseraTemplate from '@/components/TesseraTemplate.vue'
 
 const toast = useToast()
@@ -89,6 +129,7 @@ const currentYear = new Date().getFullYear()
 const selectedImage = ref(null)
 const previewBackground = ref(null)
 const isSaving = ref(false)
+const isExporting = ref(false)
 
 // Carica il template attuale al mount
 onMounted(async () => {
@@ -174,6 +215,44 @@ const resetTemplate = async () => {
     toast.error('Errore durante il ripristino del template')
   } finally {
     isSaving.value = false
+  }
+}
+
+/**
+ * Esporta il database in formato SQLite
+ */
+const exportDatabase = async () => {
+  try {
+    isExporting.value = true
+    toast.info('Preparazione export database...')
+
+    await downloadDatabaseExport()
+
+    toast.success('Database esportato con successo!')
+  } catch (error) {
+    console.error('Errore esportazione database:', error)
+    toast.error("Errore durante l'esportazione del database")
+  } finally {
+    isExporting.value = false
+  }
+}
+
+/**
+ * Esporta i dati in formato Excel
+ */
+const exportExcel = async () => {
+  try {
+    isExporting.value = true
+    toast.info('Preparazione export Excel...')
+
+    await exportDataToExcel()
+
+    toast.success('Dati esportati in Excel con successo!')
+  } catch (error) {
+    console.error('Errore esportazione Excel:', error)
+    toast.error("Errore durante l'esportazione Excel")
+  } finally {
+    isExporting.value = false
   }
 }
 </script>
@@ -335,6 +414,92 @@ const resetTemplate = async () => {
   cursor: not-allowed;
 }
 
+/* Data Management Section */
+.data-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.export-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
+
+.export-option {
+  background: var(--color-background);
+  padding: 1.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+}
+
+.export-option h3 {
+  margin: 0 0 0.5rem 0;
+  color: var(--color-primary);
+  font-size: 1.1rem;
+}
+
+.export-option p {
+  margin: 0 0 1rem 0;
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.export-button {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background-color: #2196f3;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.export-button:hover:not(:disabled) {
+  background-color: #1976d2;
+}
+
+.export-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.export-info {
+  background: var(--color-background);
+  padding: 1.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+}
+
+.export-info h4 {
+  margin: 0 0 1rem 0;
+  color: var(--color-primary);
+  font-size: 1rem;
+}
+
+.export-info ul {
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.export-info li {
+  margin-bottom: 0.5rem;
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+}
+
+.export-info strong {
+  color: var(--color-text-primary);
+}
+
 .loading-spinner {
   display: inline-block;
   animation: spin 1s linear infinite;
@@ -368,6 +533,15 @@ const resetTemplate = async () => {
   .reset-button {
     width: 100%;
     justify-content: center;
+  }
+
+  .export-options {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .data-section {
+    gap: 1.5rem;
   }
 }
 </style>

@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
-import { getSetting } from './db'
+import * as XLSX from 'xlsx'
+import { getSetting, exportAllSoci, exportAllTesseramenti } from './db'
 
 /**
  * Generates a PDF with a table of members from the provided search results
@@ -688,5 +689,105 @@ export async function generateAllCardsPDF(soci, renewalYear, onProgress = () => 
   } finally {
     // Pulisci il container temporaneo
     document.body.removeChild(tempContainer)
+  }
+}
+
+/**
+ * Export all data to Excel format with multiple worksheets
+ * @returns {Promise<void>}
+ */
+export async function exportDataToExcel() {
+  try {
+    // Recupera tutti i dati
+    const [soci, tesseramenti] = await Promise.all([exportAllSoci(), exportAllTesseramenti()])
+
+    const currentYear = new Date().getFullYear()
+
+    // Crea mappe per lookup efficiente
+    const tesseramentiBySocio = tesseramenti.reduce((acc, tess) => {
+      if (!acc[tess.id_socio]) acc[tess.id_socio] = []
+      acc[tess.id_socio].push(tess)
+      return acc
+    }, {})
+
+    // Calcola l'età per ogni socio
+    const calculateAge = (birthDateString) => {
+      if (!birthDateString) return null
+      try {
+        const birthDate = new Date(birthDateString)
+        const today = new Date()
+        let age = today.getFullYear() - birthDate.getFullYear()
+        const monthDiff = today.getMonth() - birthDate.getMonth()
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+          age--
+        }
+        return age
+      } catch {
+        return null
+      }
+    }
+
+    // Prepara i dati per ogni foglio
+    const sheetsData = {
+      Maggiorenni: [],
+      Minorenni: [],
+      'Nuovi Maggiorenni': [],
+      'Nuovi Minorenni': [],
+    }
+
+    soci.forEach((socio) => {
+      const tessSocio = tesseramentiBySocio[socio.id] || []
+      const eta = calculateAge(socio.data_nascita)
+      const primoAnno = tessSocio.length > 0 ? Math.min(...tessSocio.map((t) => t.anno)) : null
+      const isNuovo = primoAnno === currentYear
+
+      const socioData = {
+        Cognome: socio.cognome || '',
+        Nome: socio.nome || '',
+        'Data Nascita': socio.data_nascita || '',
+        'Luogo Nascita': socio.luogo_nascita || '',
+        Età: eta,
+        Gruppo: socio.gruppo_appartenenza || '',
+        'Primo Anno': primoAnno,
+        'Anni Tesseramento': tessSocio
+          .map((t) => t.anno)
+          .sort()
+          .join(', '),
+        'Totale Pagamenti': tessSocio.length,
+      }
+
+      if (eta >= 18) {
+        if (isNuovo) {
+          sheetsData['Nuovi Maggiorenni'].push(socioData)
+        } else {
+          sheetsData['Maggiorenni'].push(socioData)
+        }
+      } else {
+        if (isNuovo) {
+          sheetsData['Nuovi Minorenni'].push(socioData)
+        } else {
+          sheetsData['Minorenni'].push(socioData)
+        }
+      }
+    })
+
+    // Crea il workbook
+    const workbook = XLSX.utils.book_new()
+
+    // Aggiungi ogni foglio
+    Object.entries(sheetsData).forEach(([sheetName, data]) => {
+      if (data.length > 0) {
+        const worksheet = XLSX.utils.json_to_sheet(data)
+        XLSX.utils.book_append_sheet(workbook, worksheet, sheetName)
+      }
+    })
+
+    // Genera il file e avvia il download
+    const timestamp = new Date().toISOString().split('T')[0]
+    const filename = `ceraiolo_dati_${timestamp}.xlsx`
+    XLSX.writeFile(workbook, filename)
+  } catch (error) {
+    console.error('Errore esportazione Excel:', error)
+    throw new Error(`Errore durante l'esportazione Excel: ${error.message}`)
   }
 }

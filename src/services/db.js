@@ -182,6 +182,32 @@ export async function deleteSocio(socioId) {
 }
 
 /**
+ * Export all soci data
+ * @returns {Promise<Array>} Array of all soci records
+ */
+export async function exportAllSoci() {
+  try {
+    return await db.soci.toArray()
+  } catch (error) {
+    console.error('Error exporting soci:', error)
+    throw new Error(`Errore durante l'esportazione dei soci: ${error.message}`)
+  }
+}
+
+/**
+ * Export all tesseramenti data
+ * @returns {Promise<Array>} Array of all tesseramenti records
+ */
+export async function exportAllTesseramenti() {
+  try {
+    return await db.tesseramenti.toArray()
+  } catch (error) {
+    console.error('Error exporting tesseramenti:', error)
+    throw new Error(`Errore durante l'esportazione dei tesseramenti: ${error.message}`)
+  }
+}
+
+/**
  * Get a setting value by key
  * @param {string} key - The setting key
  * @returns {Promise<any>} The setting value or null if not found
