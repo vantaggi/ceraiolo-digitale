@@ -81,50 +81,99 @@ export async function generateSociPDF(sociList) {
     doc.text(`Totale soci esportati: ${totalSoci}`, 20, 40)
 
     // Prepare table data
-    const tableColumns = [
-      { header: 'ID', dataKey: 'id' },
-      { header: 'Cognome', dataKey: 'cognome' },
-      { header: 'Nome', dataKey: 'nome' },
-      { header: 'Data Nascita', dataKey: 'data_nascita' },
-      { header: 'Età', dataKey: 'eta' },
-      { header: 'Gruppo', dataKey: 'gruppo_appartenenza' },
-    ]
+    const tableData = sociList.map((socio) => [
+      socio.id,
+      socio.cognome || '',
+      socio.nome || '',
+      formatDate(socio.data_nascita),
+      calculateAge(socio.data_nascita),
+      socio.gruppo_appartenenza || '',
+    ])
 
-    const tableRows = sociList.map((socio) => ({
-      id: socio.id,
-      cognome: socio.cognome || '',
-      nome: socio.nome || '',
-      data_nascita: formatDate(socio.data_nascita),
-      eta: calculateAge(socio.data_nascita),
-      gruppo_appartenenza: socio.gruppo_appartenenza || '',
-    }))
+    // Genera tabella manuale
+    const startY = 50
+    const rowHeight = 8
+    const colWidths = [15, 35, 35, 30, 15, 40] // Larghezze colonne
+    const colPositions = [20, 35, 70, 105, 135, 150]
 
-    // Add table
-    doc.autoTable({
-      columns: tableColumns,
-      body: tableRows,
-      startY: 50,
-      margin: { top: 50 },
-      styles: {
-        fontSize: 8,
-        cellPadding: 3,
-      },
-      headStyles: {
-        fillColor: [183, 28, 28], // accent color
-        textColor: 255,
-        fontStyle: 'bold',
-      },
-      alternateRowStyles: {
-        fillColor: [245, 245, 245],
-      },
-      columnStyles: {
-        id: { cellWidth: 15 },
-        cognome: { cellWidth: 35 },
-        nome: { cellWidth: 35 },
-        data_nascita: { cellWidth: 30 },
-        eta: { cellWidth: 15 },
-        gruppo_appartenenza: { cellWidth: 40 },
-      },
+    // Intestazione
+    doc.setFillColor(183, 28, 28) // Rosso
+    doc.setTextColor(255) // Bianco
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'bold')
+
+    doc.rect(20, startY, 170, rowHeight, 'F') // Sfondo rosso
+    doc.text('ID', colPositions[0] + 1, startY + 6)
+    doc.text('Cognome', colPositions[1] + 1, startY + 6)
+    doc.text('Nome', colPositions[2] + 1, startY + 6)
+    doc.text('Data Nascita', colPositions[3] + 1, startY + 6)
+    doc.text('Età', colPositions[4] + 1, startY + 6)
+    doc.text('Gruppo', colPositions[5] + 1, startY + 6)
+
+    // Righe dati con alternanza colori
+    doc.setTextColor(0) // Nero
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8)
+
+    let currentY = startY + rowHeight
+    tableData.forEach((row, index) => {
+      // Alternanza righe: pari grigio chiaro, dispari bianco
+      const isEvenRow = index % 2 === 0
+      const fillColor = isEvenRow ? [248, 248, 248] : [255, 255, 255]
+      doc.setFillColor(fillColor[0], fillColor[1], fillColor[2])
+      doc.rect(20, currentY, 170, rowHeight, 'F')
+
+      // Bordi sottili
+      doc.setDrawColor(220, 220, 220)
+      doc.setLineWidth(0.3)
+      doc.rect(20, currentY, 170, rowHeight)
+
+      // Linee verticali delle colonne
+      for (let i = 0; i < colPositions.length; i++) {
+        const x = colPositions[i]
+        doc.line(x, currentY, x, currentY + rowHeight)
+      }
+      // Linea verticale finale
+      doc.line(
+        colPositions[colPositions.length - 1] + colWidths[colWidths.length - 1],
+        currentY,
+        colPositions[colPositions.length - 1] + colWidths[colWidths.length - 1],
+        currentY + rowHeight,
+      )
+
+      // Testo delle celle
+      doc.text(String(row[0]), colPositions[0] + 1, currentY + 6)
+      doc.text(row[1], colPositions[1] + 1, currentY + 6)
+      doc.text(row[2], colPositions[2] + 1, currentY + 6)
+      doc.text(row[3], colPositions[3] + 1, currentY + 6)
+      doc.text(String(row[4]), colPositions[4] + 1, currentY + 6)
+      doc.text(row[5], colPositions[5] + 1, currentY + 6)
+
+      currentY += rowHeight
+
+      // Se la pagina è piena, aggiungi una nuova pagina
+      if (currentY > 270) {
+        doc.addPage()
+        currentY = 50
+
+        // Ripeti intestazione su nuova pagina
+        doc.setFillColor(183, 28, 28)
+        doc.setTextColor(255)
+        doc.setFontSize(9)
+        doc.setFont('helvetica', 'bold')
+        doc.rect(20, currentY, 170, rowHeight, 'F')
+        doc.text('ID', colPositions[0] + 1, currentY + 6)
+        doc.text('Cognome', colPositions[1] + 1, currentY + 6)
+        doc.text('Nome', colPositions[2] + 1, currentY + 6)
+        doc.text('Data Nascita', colPositions[3] + 1, currentY + 6)
+        doc.text('Età', colPositions[4] + 1, currentY + 6)
+        doc.text('Gruppo', colPositions[5] + 1, currentY + 6)
+
+        currentY += rowHeight
+        doc.setTextColor(0)
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(8)
+      }
     })
 
     // Add footer
