@@ -30,7 +30,7 @@
         </div>
         <div class="title">
           <h1>Famiglia</h1>
-          <h2>Sant'antoniari</h2>
+          <h2>Santanoniari</h2>
           <p class="subtitle">Gubbio</p>
         </div>
       </div>

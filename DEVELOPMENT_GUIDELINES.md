@@ -1,6 +1,6 @@
-# Manuale per lo Sviluppatore: App Famiglia Sant'antoniari
+# Manuale per lo Sviluppatore: App Famiglia Santanoniari
 
-Questo documento contiene tutte le informazioni necessarie per sviluppare l'applicazione gestionale per la Famiglia Sant'antoniari. È la fonte di verità per l'architettura, le funzionalità e le procedure da seguire.
+Questo documento contiene tutte le informazioni necessarie per sviluppare l'applicazione gestionale per la Famiglia Santanoniari. È la fonte di verità per l'architettura, le funzionalità e le procedure da seguire.
 
 ## 1. Visione d'Insieme e Obiettivi
 

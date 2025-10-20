@@ -9,7 +9,7 @@ const accentColor = '#B71C1C' // Red
   <div id="app-layout">
     <header class="app-header">
       <div class="logo-container">
-        <!-- SVG Stemma Sant'antoniari con nuovi colori -->
+        <!-- SVG Stemma Santanoniari con nuovi colori -->
         <svg class="logo" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M50 0 L95 25 L95 75 L50 100 L5 75 L5 25 Z" :fill="primaryColor" />
           <path

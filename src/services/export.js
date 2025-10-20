@@ -497,7 +497,7 @@ export async function generateSingleCardPDF(socio, renewalYear) {
             </svg>
           </div>
           <div>
-            <h1 style="font-size: 18px; margin: 0 0 5px 0; color: #1a1a1a; font-weight: bold;">Famiglia Sant'antoniari</h1>
+            <h1 style="font-size: 18px; margin: 0 0 5px 0; color: #1a1a1a; font-weight: bold;">Famiglia Santanoniari</h1>
             <h2 style="font-size: 14px; margin: 0; color: #B71C1C;">Tessera Annuale</h2>
           </div>
         </div>
@@ -615,7 +615,7 @@ export async function generateAllCardsPDF(soci, renewalYear, onProgress = () => 
               </svg>
             </div>
             <div>
-              <h1 style="font-size: 18px; margin: 0 0 5px 0; color: #1a1a1a; font-weight: bold;">Famiglia Sant'antoniari</h1>
+              <h1 style="font-size: 18px; margin: 0 0 5px 0; color: #1a1a1a; font-weight: bold;">Famiglia Santanoniari</h1>
               <h2 style="font-size: 14px; margin: 0; color: #B71C1C;">Tessera Annuale</h2>
             </div>
           </div>
@@ -689,6 +689,502 @@ export async function generateAllCardsPDF(soci, renewalYear, onProgress = () => 
   } finally {
     // Pulisci il container temporaneo
     document.body.removeChild(tempContainer)
+  }
+}
+
+/**
+ * Generates a PDF with new members list for a specific year
+ * @param {Array} newMembers - Array of new members
+ * @param {number} year - The year for the report
+ * @param {string} ageCategory - The age category filter applied
+ * @returns {Promise<Object>} Result object with success status and blob or error
+ */
+export async function generateNewMembersPDF(newMembers, year, ageCategory = 'tutti') {
+  try {
+    if (!newMembers || newMembers.length === 0) {
+      throw new Error('No new members to export')
+    }
+
+    // Create PDF in landscape orientation
+    const doc = new jsPDF({
+      orientation: 'landscape',
+      unit: 'mm',
+      format: 'a4',
+    })
+
+    // Title
+    const ageCategoryText =
+      {
+        tutti: 'Tutti',
+        maggiorenni: 'Maggiorenni',
+        minorenni: 'Minorenni',
+      }[ageCategory] || 'Tutti'
+
+    doc.setFontSize(20)
+    doc.setFont('helvetica', 'bold')
+    doc.text(`Nuovi Soci ${year} - ${ageCategoryText}`, 148, 20, { align: 'center' })
+    doc.setFontSize(14)
+    doc.setFont('helvetica', 'normal')
+    doc.text(`Elenco dei nuovi iscritti per l'anno ${year}`, 148, 30, { align: 'center' })
+
+    // Add generation date
+    const generationDate = new Date().toLocaleDateString('it-IT', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+    doc.setFontSize(12)
+    doc.setFont('helvetica', 'normal')
+    doc.text(`Generato il: ${generationDate}`, 148, 35, { align: 'center' })
+
+    // Summary info
+    const totalMembers = newMembers.length
+    doc.text(`Totale nuovi soci: ${totalMembers}`, 148, 45, { align: 'center' })
+
+    // Prepare table data
+    const tableData = newMembers
+      .sort((a, b) => a.cognome.localeCompare(b.cognome))
+      .map((member) => ({
+        nomeCompleto: `${member.cognome} ${member.nome}`,
+        dataNascita: member.data_nascita || '-',
+        gruppo: member.gruppo_appartenenza || '-',
+        primoAnno: member.primo_anno,
+      }))
+
+    // Table configuration
+    const startY = 55
+    const rowHeight = 10
+    const colWidths = [70, 40, 40, 30]
+    const colPositions = [20, 90, 130, 170]
+
+    // Header
+    doc.setFillColor(183, 28, 28)
+    doc.setTextColor(255)
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'bold')
+    doc.rect(20, startY, 240, rowHeight, 'F')
+    doc.setDrawColor(100, 100, 100)
+    doc.setLineWidth(0.5)
+    doc.rect(20, startY, 240, rowHeight)
+    doc.text('Cognome e Nome', colPositions[0] + 2, startY + 7)
+    doc.text('Data Nascita', colPositions[1] + 2, startY + 7)
+    doc.text('Gruppo', colPositions[2] + 2, startY + 7)
+    doc.text('Anno', colPositions[3] + 2, startY + 7)
+
+    // Data rows
+    doc.setTextColor(0)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+
+    let currentY = startY + rowHeight
+    tableData.forEach((row, index) => {
+      const isEvenRow = index % 2 === 0
+      const fillColor = isEvenRow ? [248, 248, 248] : [255, 255, 255]
+      doc.setFillColor(fillColor[0], fillColor[1], fillColor[2])
+      doc.rect(20, currentY, 240, rowHeight, 'F')
+      doc.setDrawColor(220, 220, 220)
+      doc.setLineWidth(0.3)
+
+      for (let i = 0; i < colPositions.length; i++) {
+        const x = colPositions[i]
+        doc.line(x, currentY, x, currentY + rowHeight)
+      }
+      doc.line(
+        colPositions[colPositions.length - 1] + colWidths[colWidths.length - 1],
+        currentY,
+        colPositions[colPositions.length - 1] + colWidths[colWidths.length - 1],
+        currentY + rowHeight,
+      )
+      doc.rect(20, currentY, 240, rowHeight)
+
+      doc.text(row.nomeCompleto, colPositions[0] + 2, currentY + 7)
+      doc.text(row.dataNascita, colPositions[1] + 2, currentY + 7)
+      doc.text(row.gruppo, colPositions[2] + 2, currentY + 7)
+      doc.text(row.primoAnno.toString(), colPositions[3] + 2, currentY + 7)
+
+      currentY += rowHeight
+
+      if (currentY > 180) {
+        doc.addPage()
+        currentY = 55
+        // Repeat header
+        doc.setFillColor(183, 28, 28)
+        doc.setTextColor(255)
+        doc.setFontSize(11)
+        doc.setFont('helvetica', 'bold')
+        doc.rect(20, currentY, 240, rowHeight, 'F')
+        doc.rect(20, currentY, 240, rowHeight)
+        doc.text('Cognome e Nome', colPositions[0] + 2, currentY + 7)
+        doc.text('Data Nascita', colPositions[1] + 2, currentY + 7)
+        doc.text('Gruppo', colPositions[2] + 2, currentY + 7)
+        doc.text('Anno', colPositions[3] + 2, currentY + 7)
+        currentY += rowHeight
+        doc.setTextColor(0)
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(9)
+      }
+    })
+
+    // Footer
+    const pageHeight = doc.internal.pageSize.height
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'italic')
+    doc.text('Sistema di gestione soci - Ceraiolo Digitale', 20, pageHeight - 20)
+
+    const pageCount = doc.internal.getNumberOfPages()
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i)
+      doc.text(`Pagina ${i} di ${pageCount}`, doc.internal.pageSize.width - 40, pageHeight - 20)
+    }
+
+    const pdfOutput = doc.output('blob')
+    return {
+      success: true,
+      blob: pdfOutput,
+      filename: `nuovi_soci_${year}_${ageCategory}_${new Date().toISOString().split('T')[0]}.pdf`,
+      totalMembers,
+    }
+  } catch (error) {
+    console.error('Error generating new members PDF:', error)
+    return {
+      success: false,
+      error: error.message,
+    }
+  }
+}
+
+/**
+ * Generates a PDF with complete payment list
+ * @param {Array} payments - Array of payments with member info
+ * @param {string} ageCategory - The age category filter applied
+ * @returns {Promise<Object>} Result object with success status and blob or error
+ */
+export async function generateCompletePaymentListPDF(payments, ageCategory = 'tutti') {
+  try {
+    if (!payments || payments.length === 0) {
+      throw new Error('Nessun pagamento da esportare')
+    }
+
+    const doc = new jsPDF({
+      orientation: 'landscape',
+      unit: 'mm',
+      format: 'a4',
+    })
+
+    const ageCategoryText =
+      {
+        tutti: 'Tutti',
+        maggiorenni: 'Maggiorenni',
+        minorenni: 'Minorenni',
+      }[ageCategory] || 'Tutti'
+
+    doc.setFontSize(20)
+    doc.setFont('helvetica', 'bold')
+    doc.text(`Lista Completa Pagamenti - ${ageCategoryText}`, 148, 20, { align: 'center' })
+    doc.setFontSize(14)
+    doc.setFont('helvetica', 'normal')
+    doc.text('Tutti i pagamenti registrati', 148, 30, { align: 'center' })
+
+    const generationDate = new Date().toLocaleDateString('it-IT', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+    doc.setFontSize(12)
+    doc.setFont('helvetica', 'normal')
+    doc.text(`Generato il: ${generationDate}`, 148, 35, { align: 'center' })
+
+    const totalPayments = payments.length
+    doc.text(`Totale pagamenti: ${totalPayments}`, 148, 45, { align: 'center' })
+
+    // Prepara i dati per la tabella
+    const tableData = payments.map((payment) => ({
+      nomeCompleto: `${payment.socio.cognome} ${payment.socio.nome}`,
+      anno: payment.anno,
+      dataPagamento: payment.data_pagamento || '-',
+      quotaPagata: payment.quota_pagata ? `€ ${payment.quota_pagata.toFixed(2)}` : '-',
+      ricevuta: payment.numero_ricevuta || '-',
+      blocchetto: payment.numero_blocchetto || '-',
+    }))
+
+    // Configurazione tabella
+    const startY = 55
+    const rowHeight = 8
+    const colWidths = [50, 20, 35, 30, 25, 25]
+    const colPositions = [20, 70, 90, 125, 155, 180]
+
+    // Intestazione
+    doc.setFillColor(183, 28, 28)
+    doc.setTextColor(255)
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'bold')
+    doc.rect(20, startY, 240, rowHeight, 'F')
+    doc.setDrawColor(100, 100, 100)
+    doc.setLineWidth(0.5)
+    doc.rect(20, startY, 240, rowHeight)
+    doc.text('Socio', colPositions[0] + 2, startY + 6)
+    doc.text('Anno', colPositions[1] + 2, startY + 6)
+    doc.text('Data Pagamento', colPositions[2] + 2, startY + 6)
+    doc.text('Quota', colPositions[3] + 2, startY + 6)
+    doc.text('Ricevuta', colPositions[4] + 2, startY + 6)
+    doc.text('Blocchetto', colPositions[5] + 2, startY + 6)
+
+    // Righe dati
+    doc.setTextColor(0)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(7)
+
+    let currentY = startY + rowHeight
+    tableData.forEach((row, index) => {
+      const isEvenRow = index % 2 === 0
+      const fillColor = isEvenRow ? [248, 248, 248] : [255, 255, 255]
+      doc.setFillColor(fillColor[0], fillColor[1], fillColor[2])
+      doc.rect(20, currentY, 240, rowHeight, 'F')
+      doc.setDrawColor(220, 220, 220)
+      doc.setLineWidth(0.3)
+
+      for (let i = 0; i < colPositions.length; i++) {
+        const x = colPositions[i]
+        doc.line(x, currentY, x, currentY + rowHeight)
+      }
+      doc.line(
+        colPositions[colPositions.length - 1] + colWidths[colWidths.length - 1],
+        currentY,
+        colPositions[colPositions.length - 1] + colWidths[colWidths.length - 1],
+        currentY + rowHeight,
+      )
+      doc.rect(20, currentY, 240, rowHeight)
+
+      doc.text(row.nomeCompleto.substring(0, 25), colPositions[0] + 2, currentY + 6)
+      doc.text(row.anno.toString(), colPositions[1] + 2, currentY + 6)
+      doc.text(row.dataPagamento, colPositions[2] + 2, currentY + 6)
+      doc.text(row.quotaPagata, colPositions[3] + 2, currentY + 6)
+      doc.text(row.ricevuta.toString(), colPositions[4] + 2, currentY + 6)
+      doc.text(row.blocchetto.toString(), colPositions[5] + 2, currentY + 6)
+
+      currentY += rowHeight
+
+      if (currentY > 185) {
+        doc.addPage()
+        currentY = 55
+        // Ripeti intestazione
+        doc.setFillColor(183, 28, 28)
+        doc.setTextColor(255)
+        doc.setFontSize(9)
+        doc.setFont('helvetica', 'bold')
+        doc.rect(20, currentY, 240, rowHeight, 'F')
+        doc.rect(20, currentY, 240, rowHeight)
+        doc.text('Socio', colPositions[0] + 2, currentY + 6)
+        doc.text('Anno', colPositions[1] + 2, currentY + 6)
+        doc.text('Data Pagamento', colPositions[2] + 2, currentY + 6)
+        doc.text('Quota', colPositions[3] + 2, currentY + 6)
+        doc.text('Ricevuta', colPositions[4] + 2, currentY + 6)
+        doc.text('Blocchetto', colPositions[5] + 2, currentY + 6)
+        currentY += rowHeight
+        doc.setTextColor(0)
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(7)
+      }
+    })
+
+    // Footer
+    const pageHeight = doc.internal.pageSize.height
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'italic')
+    doc.text('Sistema di gestione soci - Ceraiolo Digitale', 20, pageHeight - 20)
+
+    const pageCount = doc.internal.getNumberOfPages()
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i)
+      doc.text(`Pagina ${i} di ${pageCount}`, doc.internal.pageSize.width - 40, pageHeight - 20)
+    }
+
+    const pdfOutput = doc.output('blob')
+    return {
+      success: true,
+      blob: pdfOutput,
+      filename: `lista_completa_pagamenti_${ageCategory}_${new Date().toISOString().split('T')[0]}.pdf`,
+      totalPayments,
+    }
+  } catch (error) {
+    console.error('Errore nella generazione del PDF lista completa pagamenti:', error)
+    return {
+      success: false,
+      error: error.message,
+    }
+  }
+}
+
+/**
+ * Generates a PDF with members by group
+ * @param {Array} members - Array of members by group
+ * @param {string} gruppo - The group filter applied
+ * @param {string} ageCategory - The age category filter applied
+ * @param {string} paymentStatus - The payment status filter applied
+ * @returns {Promise<Object>} Result object with success status and blob or error
+ */
+export async function generateMembersByGroupPDF(members, gruppo, ageCategory, paymentStatus) {
+  try {
+    if (!members || members.length === 0) {
+      throw new Error('Nessun socio da esportare')
+    }
+
+    const doc = new jsPDF({
+      orientation: 'landscape',
+      unit: 'mm',
+      format: 'a4',
+    })
+
+    const groupText = gruppo && gruppo !== 'Tutti' ? gruppo : 'Tutti i Gruppi'
+    const ageText =
+      {
+        tutti: 'Tutti',
+        maggiorenni: 'Maggiorenni',
+        minorenni: 'Minorenni',
+      }[ageCategory] || 'Tutti'
+    const statusText =
+      {
+        tutti: 'Tutti',
+        in_regola: 'In Regola',
+        non_in_regola: 'Non in Regola',
+      }[paymentStatus] || 'Tutti'
+
+    doc.setFontSize(18)
+    doc.setFont('helvetica', 'bold')
+    doc.text(`Soci per Gruppo: ${groupText}`, 148, 20, { align: 'center' })
+    doc.setFontSize(12)
+    doc.setFont('helvetica', 'normal')
+    doc.text(`${ageText} - Stato Pagamento: ${statusText}`, 148, 28, { align: 'center' })
+
+    const generationDate = new Date().toLocaleDateString('it-IT', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'normal')
+    doc.text(`Generato il: ${generationDate}`, 148, 35, { align: 'center' })
+
+    const totalMembers = members.length
+    doc.text(`Totale soci: ${totalMembers}`, 148, 42, { align: 'center' })
+
+    // Prepara i dati per la tabella
+    const tableData = members.map((member) => ({
+      nomeCompleto: `${member.cognome} ${member.nome}`,
+      gruppo: member.gruppo_appartenenza || '-',
+      dataNascita: member.data_nascita || '-',
+      anniPagati: member.anni_pagati.join(', ') || '-',
+      statoPagamento: member.in_regola ? 'In Regola' : 'Da Regolarizzare',
+    }))
+
+    // Configurazione tabella
+    const startY = 50
+    const rowHeight = 8
+    const colWidths = [50, 30, 35, 60, 30]
+    const colPositions = [20, 70, 100, 135, 195]
+
+    // Intestazione
+    doc.setFillColor(183, 28, 28)
+    doc.setTextColor(255)
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'bold')
+    doc.rect(20, startY, 240, rowHeight, 'F')
+    doc.setDrawColor(100, 100, 100)
+    doc.setLineWidth(0.5)
+    doc.rect(20, startY, 240, rowHeight)
+    doc.text('Socio', colPositions[0] + 2, startY + 6)
+    doc.text('Gruppo', colPositions[1] + 2, startY + 6)
+    doc.text('Data Nascita', colPositions[2] + 2, startY + 6)
+    doc.text('Anni Pagati', colPositions[3] + 2, startY + 6)
+    doc.text('Stato', colPositions[4] + 2, startY + 6)
+
+    // Righe dati
+    doc.setTextColor(0)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(7)
+
+    let currentY = startY + rowHeight
+    tableData.forEach((row, index) => {
+      const isEvenRow = index % 2 === 0
+      const fillColor = isEvenRow ? [248, 248, 248] : [255, 255, 255]
+      doc.setFillColor(fillColor[0], fillColor[1], fillColor[2])
+      doc.rect(20, currentY, 240, rowHeight, 'F')
+      doc.setDrawColor(220, 220, 220)
+      doc.setLineWidth(0.3)
+
+      for (let i = 0; i < colPositions.length; i++) {
+        const x = colPositions[i]
+        doc.line(x, currentY, x, currentY + rowHeight)
+      }
+      doc.line(
+        colPositions[colPositions.length - 1] + colWidths[colWidths.length - 1],
+        currentY,
+        colPositions[colPositions.length - 1] + colWidths[colWidths.length - 1],
+        currentY + rowHeight,
+      )
+      doc.rect(20, currentY, 240, rowHeight)
+
+      doc.text(row.nomeCompleto.substring(0, 25), colPositions[0] + 2, currentY + 6)
+      doc.text(row.gruppo.substring(0, 15), colPositions[1] + 2, currentY + 6)
+      doc.text(row.dataNascita, colPositions[2] + 2, currentY + 6)
+      doc.text(row.anniPagati.substring(0, 35), colPositions[3] + 2, currentY + 6)
+      doc.text(row.statoPagamento, colPositions[4] + 2, currentY + 6)
+
+      currentY += rowHeight
+
+      if (currentY > 185) {
+        doc.addPage()
+        currentY = 50
+        // Ripeti intestazione
+        doc.setFillColor(183, 28, 28)
+        doc.setTextColor(255)
+        doc.setFontSize(9)
+        doc.setFont('helvetica', 'bold')
+        doc.rect(20, currentY, 240, rowHeight, 'F')
+        doc.rect(20, currentY, 240, rowHeight)
+        doc.text('Socio', colPositions[0] + 2, currentY + 6)
+        doc.text('Gruppo', colPositions[1] + 2, currentY + 6)
+        doc.text('Data Nascita', colPositions[2] + 2, currentY + 6)
+        doc.text('Anni Pagati', colPositions[3] + 2, currentY + 6)
+        doc.text('Stato', colPositions[4] + 2, currentY + 6)
+        currentY += rowHeight
+        doc.setTextColor(0)
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(7)
+      }
+    })
+
+    // Footer
+    const pageHeight = doc.internal.pageSize.height
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'italic')
+    doc.text('Sistema di gestione soci - Ceraiolo Digitale', 20, pageHeight - 20)
+
+    const pageCount = doc.internal.getNumberOfPages()
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i)
+      doc.text(`Pagina ${i} di ${pageCount}`, doc.internal.pageSize.width - 40, pageHeight - 20)
+    }
+
+    const pdfOutput = doc.output('blob')
+    return {
+      success: true,
+      blob: pdfOutput,
+      filename: `soci_per_gruppo_${gruppo || 'tutti'}_${ageCategory}_${paymentStatus}_${new Date().toISOString().split('T')[0]}.pdf`,
+      totalMembers,
+    }
+  } catch (error) {
+    console.error('Errore nella generazione del PDF soci per gruppo:', error)
+    return {
+      success: false,
+      error: error.message,
+    }
   }
 }
 

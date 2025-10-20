@@ -112,12 +112,7 @@
         </div>
 
         <div class="chronology-container">
-          <div
-            v-for="item in paymentChronology"
-            :key="item.anno"
-            class="year-item"
-            :class="item.stato"
-          >
+          <div v-for="item in arretrati" :key="item.anno" class="year-item" :class="item.stato">
             <div class="year-header">
               <div class="year-info">
                 <span class="year-number">{{ item.anno }}</span>
@@ -160,8 +155,8 @@
           </div>
         </div>
 
-        <div v-if="paymentChronology.length === 0" class="no-chronology">
-          <p>Nessuna cronologia disponibile per questo socio.</p>
+        <div v-if="arretrati.length === 0" class="no-chronology">
+          <p>Nessun arretrato per questo socio.</p>
         </div>
       </section>
 
@@ -186,7 +181,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'vue-toastification'
 import {
@@ -212,6 +207,10 @@ const showAddPaymentModal = ref(false)
 const paymentYearToAdd = ref(new Date().getFullYear())
 const showDeleteConfirmModal = ref(false)
 const isDeleting = ref(false)
+
+// Dirty check for unsaved changes
+const originalMemberData = ref(null)
+const hasUnsavedChanges = ref(false)
 
 // Toast notifications
 const toast = useToast()
@@ -296,6 +295,35 @@ const paymentChronology = computed(() => {
   }
 
   return chronology.reverse() // Mostra gli anni più recenti prima
+})
+
+/**
+ * Calcola gli arretrati (anni non pagati) per la visualizzazione
+ */
+const arretrati = computed(() => {
+  if (!socio.value || tesseramenti.value.length === 0) {
+    return []
+  }
+
+  const anniPagati = new Set(tesseramenti.value.map((t) => t.anno))
+  const annoCorrente = new Date().getFullYear()
+  const annoInizio = annoCorrente - 5 // 5 anni prima dell'anno corrente
+
+  const arretratiList = []
+
+  // Mostra solo gli anni non pagati a partire da 5 anni prima dell'anno corrente
+  for (let anno = annoInizio; anno <= annoCorrente; anno++) {
+    if (!anniPagati.has(anno)) {
+      arretratiList.push({
+        anno,
+        isPagato: false,
+        tesseramento: null, // Non dovrebbe esserci un tesseramento per gli anni non pagati
+        stato: 'non-pagato',
+      })
+    }
+  }
+
+  return arretratiList.reverse() // Mostra gli anni più recenti prima
 })
 
 /**
@@ -518,6 +546,59 @@ const confirmDeleteSocio = async () => {
 // Carica i dati al mount
 onMounted(() => {
   loadSocioData()
+})
+
+// Watch for changes in edit mode to store original data
+watch(editMode, (newEditMode) => {
+  if (newEditMode && socio.value) {
+    // Store original data when entering edit mode
+    originalMemberData.value = {
+      cognome: socio.value.cognome,
+      nome: socio.value.nome,
+      data_nascita: socio.value.data_nascita,
+      luogo_nascita: socio.value.luogo_nascita,
+      gruppo_appartenenza: socio.value.gruppo_appartenenza,
+      data_prima_iscrizione: socio.value.data_prima_iscrizione,
+      note: socio.value.note,
+    }
+    hasUnsavedChanges.value = false
+  }
+})
+
+// Watch for changes in socio data during edit mode
+watch(
+  () => socio.value,
+  (newSocio) => {
+    if (editMode.value && originalMemberData.value && newSocio) {
+      hasUnsavedChanges.value =
+        newSocio.cognome !== originalMemberData.value.cognome ||
+        newSocio.nome !== originalMemberData.value.nome ||
+        newSocio.data_nascita !== originalMemberData.value.data_nascita ||
+        newSocio.luogo_nascita !== originalMemberData.value.luogo_nascita ||
+        newSocio.gruppo_appartenenza !== originalMemberData.value.gruppo_appartenenza ||
+        newSocio.data_prima_iscrizione !== originalMemberData.value.data_prima_iscrizione ||
+        newSocio.note !== originalMemberData.value.note
+    }
+  },
+  { deep: true },
+)
+
+// Prevent navigation with unsaved changes
+const handleBeforeUnload = (event) => {
+  if (hasUnsavedChanges.value) {
+    event.preventDefault()
+    event.returnValue = 'Hai modifiche non salvate. Vuoi davvero lasciare la pagina?'
+    return event.returnValue
+  }
+}
+
+// Add beforeunload listener
+onMounted(() => {
+  window.addEventListener('beforeunload', handleBeforeUnload)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('beforeunload', handleBeforeUnload)
 })
 </script>
 

@@ -106,6 +106,80 @@
         </div>
       </section>
 
+      <!-- Sezione Backup Automatico -->
+      <section class="settings-section">
+        <h2>🔄 Backup Automatico</h2>
+        <p>Configura il salvataggio automatico del database per proteggere i tuoi dati</p>
+
+        <div class="backup-section">
+          <div class="backup-options">
+            <div class="backup-option">
+              <h3>⏰ Backup Periodico</h3>
+              <p>Salva automaticamente il database ogni X minuti di inattività</p>
+              <div class="backup-controls">
+                <label for="auto-backup-interval">Intervallo (minuti):</label>
+                <input
+                  id="auto-backup-interval"
+                  v-model.number="autoBackupSettings.intervalMinutes"
+                  type="number"
+                  min="5"
+                  max="480"
+                  step="5"
+                  class="form-input"
+                />
+                <button
+                  @click="toggleAutoBackup"
+                  :disabled="isSavingBackup"
+                  class="backup-toggle-button"
+                  :class="{ active: autoBackupSettings.enabled }"
+                >
+                  {{ autoBackupSettings.enabled ? '✅ Attivo' : '⭕ Disattivo' }}
+                </button>
+              </div>
+            </div>
+
+            <div class="backup-option">
+              <h3>🚪 Backup alla Chiusura</h3>
+              <p>Salva automaticamente il database quando chiudi l'applicazione</p>
+              <div class="backup-controls">
+                <button
+                  @click="toggleExitBackup"
+                  :disabled="isSavingBackup"
+                  class="backup-toggle-button"
+                  :class="{ active: exitBackupSettings.enabled }"
+                >
+                  {{ exitBackupSettings.enabled ? '✅ Attivo' : '⭕ Disattivo' }}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="backup-info">
+            <h4>💡 Informazioni sui Backup:</h4>
+            <ul>
+              <li><strong>Backup Periodico:</strong> Si attiva solo dopo minuti di inattività</li>
+              <li>
+                <strong>Backup alla Chiusura:</strong> Garantisce che i dati siano sempre salvati
+              </li>
+              <li><strong>Posizione:</strong> I backup vengono salvati nella cartella Downloads</li>
+              <li><strong>Formato:</strong> File SQLite con timestamp nel nome</li>
+            </ul>
+          </div>
+
+          <div class="backup-actions">
+            <button
+              @click="createManualBackup"
+              :disabled="isSavingBackup"
+              class="manual-backup-button"
+            >
+              <span v-if="isSavingBackup" class="loading-spinner">⏳</span>
+              {{ isSavingBackup ? 'Creazione Backup...' : '💾 Backup Manuale' }}
+            </button>
+            <button @click="viewBackupHistory" class="history-button">📋 Cronologia Backup</button>
+          </div>
+        </div>
+      </section>
+
       <!-- Sezione Altre Impostazioni (placeholder per future espansioni) -->
       <section class="settings-section">
         <h2>🔧 Altre Impostazioni</h2>
@@ -130,6 +204,17 @@ const selectedImage = ref(null)
 const previewBackground = ref(null)
 const isSaving = ref(false)
 const isExporting = ref(false)
+const isSavingBackup = ref(false)
+
+// Auto-backup settings
+const autoBackupSettings = ref({
+  enabled: false,
+  intervalMinutes: 60,
+})
+
+const exitBackupSettings = ref({
+  enabled: true,
+})
 
 // Carica il template attuale al mount
 onMounted(async () => {
@@ -254,6 +339,79 @@ const exportExcel = async () => {
   } finally {
     isExporting.value = false
   }
+}
+
+/**
+ * Attiva/disattiva il backup automatico periodico
+ */
+const toggleAutoBackup = async () => {
+  try {
+    isSavingBackup.value = true
+    const newEnabled = !autoBackupSettings.value.enabled
+
+    await updateSetting('autoBackupEnabled', newEnabled)
+    await updateSetting('autoBackupInterval', autoBackupSettings.value.intervalMinutes)
+
+    autoBackupSettings.value.enabled = newEnabled
+
+    toast.success(
+      newEnabled
+        ? `Backup automatico attivato (${autoBackupSettings.value.intervalMinutes} minuti)`
+        : 'Backup automatico disattivato',
+    )
+  } catch (error) {
+    console.error('Errore toggle backup automatico:', error)
+    toast.error('Errore nel salvataggio delle impostazioni backup')
+  } finally {
+    isSavingBackup.value = false
+  }
+}
+
+/**
+ * Attiva/disattiva il backup alla chiusura dell'applicazione
+ */
+const toggleExitBackup = async () => {
+  try {
+    isSavingBackup.value = true
+    const newEnabled = !exitBackupSettings.value.enabled
+
+    await updateSetting('exitBackupEnabled', newEnabled)
+
+    exitBackupSettings.value.enabled = newEnabled
+
+    toast.success(newEnabled ? 'Backup alla chiusura attivato' : 'Backup alla chiusura disattivato')
+  } catch (error) {
+    console.error('Errore toggle backup chiusura:', error)
+    toast.error('Errore nel salvataggio delle impostazioni backup')
+  } finally {
+    isSavingBackup.value = false
+  }
+}
+
+/**
+ * Crea un backup manuale
+ */
+const createManualBackup = async () => {
+  try {
+    isSavingBackup.value = true
+    toast.info('Creazione backup manuale...')
+
+    await downloadDatabaseExport()
+
+    toast.success('Backup manuale creato con successo!')
+  } catch (error) {
+    console.error('Errore backup manuale:', error)
+    toast.error('Errore nella creazione del backup manuale')
+  } finally {
+    isSavingBackup.value = false
+  }
+}
+
+/**
+ * Visualizza la cronologia dei backup (placeholder per future implementazioni)
+ */
+const viewBackupHistory = () => {
+  toast.info('Funzionalità cronologia backup in sviluppo')
 }
 </script>
 
@@ -514,6 +672,158 @@ const exportExcel = async () => {
   }
 }
 
+/* Backup Section */
+.backup-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.backup-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
+
+.backup-option {
+  background: var(--color-background);
+  padding: 1.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+}
+
+.backup-option h3 {
+  margin: 0 0 0.5rem 0;
+  color: var(--color-primary);
+  font-size: 1.1rem;
+}
+
+.backup-option p {
+  margin: 0 0 1rem 0;
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.backup-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.backup-controls label {
+  font-weight: 600;
+  color: var(--color-text-primary);
+  font-size: 0.9rem;
+}
+
+.backup-toggle-button {
+  padding: 0.75rem 1rem;
+  background-color: var(--color-text-secondary);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.backup-toggle-button:hover:not(:disabled) {
+  background-color: #666;
+  transform: scale(1.02);
+}
+
+.backup-toggle-button.active {
+  background-color: #4caf50;
+}
+
+.backup-toggle-button.active:hover:not(:disabled) {
+  background-color: #388e3c;
+}
+
+.backup-toggle-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.backup-info {
+  background: var(--color-background);
+  padding: 1.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+}
+
+.backup-info h4 {
+  margin: 0 0 1rem 0;
+  color: var(--color-primary);
+  font-size: 1rem;
+}
+
+.backup-info ul {
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.backup-info li {
+  margin-bottom: 0.5rem;
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+}
+
+.backup-info strong {
+  color: var(--color-text-primary);
+}
+
+.backup-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.manual-backup-button {
+  padding: 0.75rem 1.5rem;
+  background-color: var(--color-accent);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.manual-backup-button:hover:not(:disabled) {
+  background-color: #a22a2a;
+  transform: scale(1.05);
+}
+
+.manual-backup-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.history-button {
+  padding: 0.75rem 1.5rem;
+  background-color: #9c27b0;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.history-button:hover {
+  background-color: #7b1fa2;
+  transform: scale(1.05);
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .container {
@@ -542,6 +852,21 @@ const exportExcel = async () => {
 
   .data-section {
     gap: 1.5rem;
+  }
+
+  .backup-options {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .backup-actions {
+    flex-direction: column;
+  }
+
+  .manual-backup-button,
+  .history-button {
+    width: 100%;
+    text-align: center;
   }
 }
 </style>

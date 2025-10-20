@@ -836,3 +836,254 @@ export async function findExistingPaymentYear(socioId, years) {
   }
   return null // All clear
 }
+
+/**
+ * Generates a list of new members for a specific year with age category filters
+ * @param {number} year - The year to check for new members
+ * @param {string} ageCategory - Filter: 'tutti', 'maggiorenni', or 'minorenni'
+ * @returns {Promise<Array>} Array of new members for the year
+ */
+export async function getNewMembersByYear(year, ageCategory = 'tutti') {
+  try {
+    // Get all members
+    const allMembers = await db.soci.toArray()
+
+    // Filter members who have their first registration in the given year
+    const newMembers = []
+
+    for (const member of allMembers) {
+      // Check if this member has a payment in the given year
+      const paymentsInYear = await db.tesseramenti
+        .where({ id_socio: member.id, anno: year })
+        .toArray()
+
+      if (paymentsInYear.length > 0) {
+        // Check if this is their first year (no payments before this year)
+        const paymentsBeforeYear = await db.tesseramenti
+          .where('id_socio')
+          .equals(member.id)
+          .and((payment) => payment.anno < year)
+          .toArray()
+
+        if (paymentsBeforeYear.length === 0) {
+          // This is a new member for this year
+          // Apply age filter
+          let includeMember = true
+
+          if (ageCategory === 'maggiorenni' || ageCategory === 'minorenni') {
+            if (!member.data_nascita || isNaN(new Date(member.data_nascita))) {
+              includeMember = false // Exclude records with invalid dates
+            } else {
+              const birthDate = new Date(member.data_nascita)
+              const today = new Date()
+              let age = today.getFullYear() - birthDate.getFullYear()
+              const monthDiff = today.getMonth() - birthDate.getMonth()
+              if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                age--
+              }
+
+              includeMember = ageCategory === 'maggiorenni' ? age >= 18 : age < 18
+            }
+          }
+
+          if (includeMember) {
+            newMembers.push({
+              ...member,
+              primo_anno: year,
+              tesseramenti: paymentsInYear,
+            })
+          }
+        }
+      }
+    }
+
+    return newMembers
+  } catch (error) {
+    console.error('Error getting new members by year:', error)
+    throw new Error(`Errore nel recupero dei nuovi soci per l'anno ${year}: ${error.message}`)
+  }
+}
+
+/**
+ * Generates a complete list of all payments with age category filters
+ * @param {string} ageCategory - Filter: 'tutti', 'maggiorenni', or 'minorenni'
+ * @returns {Promise<Array>} Array of all payments with member info
+ */
+export async function getCompletePaymentList(ageCategory = 'tutti') {
+  try {
+    // Get all payments with member info
+    const allPayments = await db.tesseramenti.toArray()
+    const sociMap = new Map()
+
+    // Get all soci data for lookup
+    const allSoci = await db.soci.toArray()
+    allSoci.forEach((socio) => sociMap.set(socio.id, socio))
+
+    const filteredPayments = []
+
+    for (const payment of allPayments) {
+      const socio = sociMap.get(payment.id_socio)
+
+      if (socio) {
+        // Apply age filter
+        let includePayment = true
+
+        if (ageCategory === 'maggiorenni' || ageCategory === 'minorenni') {
+          if (!socio.data_nascita || isNaN(new Date(socio.data_nascita))) {
+            includePayment = false // Exclude records with invalid dates
+          } else {
+            const birthDate = new Date(socio.data_nascita)
+            const today = new Date()
+            let age = today.getFullYear() - birthDate.getFullYear()
+            const m = today.getMonth() - birthDate.getMonth()
+            if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+              age--
+            }
+
+            includePayment = ageCategory === 'maggiorenni' ? age >= 18 : age < 18
+          }
+        }
+
+        if (includePayment) {
+          filteredPayments.push({
+            ...payment,
+            socio: socio,
+          })
+        }
+      }
+    }
+
+    // Sort by socio name and then by year
+    return filteredPayments.sort((a, b) => {
+      const nameCompare = (a.socio.cognome + a.socio.nome).localeCompare(
+        b.socio.cognome + b.socio.nome,
+      )
+      if (nameCompare !== 0) return nameCompare
+      return a.anno - b.anno
+    })
+  } catch (error) {
+    console.error('Error getting complete payment list:', error)
+    throw new Error(`Errore nel recupero della lista completa dei pagamenti: ${error.message}`)
+  }
+}
+
+/**
+ * Generates a list of members by membership group with age and payment status filters
+ * @param {string} gruppo - The membership group to filter by (optional)
+ * @param {string} ageCategory - Filter: 'tutti', 'maggiorenni', or 'minorenni'
+ * @param {string} paymentStatus - Filter: 'tutti', 'in_regola', or 'non_in_regola'
+ * @returns {Promise<Array>} Array of members by group
+ */
+export async function getMembersByGroup(
+  gruppo = null,
+  ageCategory = 'tutti',
+  paymentStatus = 'tutti',
+) {
+  try {
+    let sociQuery = db.soci.toCollection()
+
+    // Apply group filter
+    if (gruppo && gruppo !== 'Tutti') {
+      sociQuery = sociQuery.filter((socio) => socio.gruppo_appartenenza === gruppo)
+    }
+
+    const soci = await sociQuery.toArray()
+    const currentYear = new Date().getFullYear()
+    const result = []
+
+    for (const socio of soci) {
+      // Apply age filter
+      let includeMember = true
+
+      if (ageCategory === 'maggiorenni' || ageCategory === 'minorenni') {
+        if (!socio.data_nascita || isNaN(new Date(socio.data_nascita))) {
+          includeMember = false // Exclude records with invalid dates
+        } else {
+          const birthDate = new Date(socio.data_nascita)
+          const today = new Date()
+          let age = today.getFullYear() - birthDate.getFullYear()
+          const m = today.getMonth() - birthDate.getMonth()
+          if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+            age--
+          }
+
+          includeMember = ageCategory === 'maggiorenni' ? age >= 18 : age < 18
+        }
+      }
+
+      if (!includeMember) continue
+
+      // Get payment info
+      const payments = await getTesseramentiBySocioId(socio.id)
+      const paidYears = new Set(payments.map((p) => p.anno))
+
+      // Determine payment status
+      const firstYear = socio.data_prima_iscrizione || Math.min(...paidYears) || currentYear
+      let isInRegola = true
+
+      for (let year = firstYear; year <= currentYear; year++) {
+        if (!paidYears.has(year)) {
+          isInRegola = false
+          break
+        }
+      }
+
+      // Apply payment status filter
+      let includeByPaymentStatus = true
+      if (paymentStatus === 'in_regola') {
+        includeByPaymentStatus = isInRegola
+      } else if (paymentStatus === 'non_in_regola') {
+        includeByPaymentStatus = !isInRegola
+      }
+
+      if (includeByPaymentStatus) {
+        result.push({
+          ...socio,
+          tesseramenti: payments,
+          anni_pagati: Array.from(paidYears).sort(),
+          in_regola: isInRegola,
+        })
+      }
+    }
+
+    // Sort by group and then by name
+    return result.sort((a, b) => {
+      const groupCompare = (a.gruppo_appartenenza || '').localeCompare(b.gruppo_appartenenza || '')
+      if (groupCompare !== 0) return groupCompare
+      return (a.cognome + a.nome).localeCompare(b.cognome + b.nome)
+    })
+  } catch (error) {
+    console.error('Error getting members by group:', error)
+    throw new Error(`Errore nel recupero dei soci per gruppo: ${error.message}`)
+  }
+}
+
+/**
+ * Gets the reference year for minors list (configurable)
+ * @returns {Promise<number>} The reference year for minors
+ */
+export async function getMinorsReferenceYear() {
+  try {
+    const setting = await getSetting('minorsReferenceYear')
+    return setting || new Date().getFullYear()
+  } catch (error) {
+    console.error('Error getting minors reference year:', error)
+    return new Date().getFullYear()
+  }
+}
+
+/**
+ * Sets the reference year for minors list
+ * @param {number} year - The reference year
+ * @returns {Promise<void>}
+ */
+export async function setMinorsReferenceYear(year) {
+  try {
+    await updateSetting('minorsReferenceYear', year)
+  } catch (error) {
+    console.error('Error setting minors reference year:', error)
+    throw new Error(
+      `Errore nel salvataggio dell'anno di riferimento per i minorenni: ${error.message}`,
+    )
+  }
+}
