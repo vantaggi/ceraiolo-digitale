@@ -95,7 +95,7 @@
             <select id="newMembersAge" v-model="newMembersFilters.ageCategory" class="form-input">
               <option value="tutti">Tutti</option>
               <option value="maggiorenni">Maggiorenni (18+)</option>
-              <option value="minorenni">Minorenni (<18)</option>
+              <option value="minorenni">Minorenni (&lt;18)</option>
             </select>
           </div>
         </div>
@@ -120,7 +120,7 @@
             <select id="paymentsAge" v-model="paymentsFilters.ageCategory" class="form-input">
               <option value="tutti">Tutti</option>
               <option value="maggiorenni">Maggiorenni (18+)</option>
-              <option value="minorenni">Minorenni (<18)</option>
+              <option value="minorenni">Minorenni (&lt;18)</option>
             </select>
           </div>
         </div>
@@ -151,7 +151,7 @@
             <select id="groupAge" v-model="groupFilters.ageCategory" class="form-input">
               <option value="tutti">Tutti</option>
               <option value="maggiorenni">Maggiorenni (18+)</option>
-              <option value="minorenni">Minorenni (<18)</option>
+              <option value="minorenni">Minorenni (&lt;18)</option>
             </select>
           </div>
 
@@ -428,7 +428,7 @@ const generateAllReports = async () => {
     toast.success(`Generati ${reports.length} report: ${reports.join(', ')}`)
   } catch (error) {
     console.error('Errore generazione report multipli:', error)
-    toast.error('Errore nella generazione dei report: ' + error.message)
+    toast.error('Errore nella generazione del PDF: ' + error.message)
   } finally {
     loading.value = false
     loadingMessage.value = ''
