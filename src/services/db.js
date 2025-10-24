@@ -1,31 +1,42 @@
 import Dexie from 'dexie'
 import initSqlJs from 'sql.js'
+import { v4 as uuidv4 } from 'uuid'
 
 // Create a new Dexie database instance
 export const db = new Dexie('CeraioloDigitaleDB')
 
 // Define the database schema.
 // This must match the structure defined in the developer manual.
-// NOTE: We use compound indexes '++id' to make lookups faster.
+// NOTE: We use manual ID assignment for soci to maintain compatibility.
 db.version(1).stores({
   soci: `
     id,
     [cognome+nome],
     cognome,
     nome,
-    gruppo_appartenenza
+    data_nascita,
+    luogo_nascita,
+    gruppo_appartenenza,
+    data_prima_iscrizione,
+    note
   `,
   tesseramenti: `
     id_tesseramento,
     id_socio,
-    anno
+    anno,
+    data_pagamento,
+    quota_pagata,
+    numero_ricevuta,
+    numero_blocchetto
   `,
   local_changes: `
     ++id,
     table_name,
     record_id,
     change_type,
-    timestamp
+    timestamp,
+    old_data,
+    new_data
   `,
 })
 
@@ -193,7 +204,17 @@ export async function getAllSociWithTesseramenti() {
  * @returns {Promise<void>}
  */
 export async function deleteSocio(socioId) {
+  if (!socioId || typeof socioId !== 'number') {
+    throw new Error('Invalid socioId: must be a number')
+  }
+
   try {
+    // Get the socio data before deletion for logging
+    const socioToDelete = await db.soci.get(socioId)
+    if (!socioToDelete) {
+      throw new Error(`Socio with id ${socioId} not found`)
+    }
+
     // First delete all tesseramenti associated with this socio
     await db.tesseramenti.where('id_socio').equals(socioId).delete()
 
@@ -201,12 +222,7 @@ export async function deleteSocio(socioId) {
     await db.soci.delete(socioId)
 
     // Log the deletion
-    await logLocalChange({
-      table_name: 'soci',
-      record_id: socioId,
-      change_type: 'DELETE',
-      timestamp: new Date().toISOString(),
-    })
+    await logLocalChange('soci', socioId, 'DELETE', socioToDelete, null)
   } catch (error) {
     console.error('Error deleting socio:', error)
     throw new Error(`Errore durante l'eliminazione del socio: ${error.message}`)
@@ -215,21 +231,30 @@ export async function deleteSocio(socioId) {
 
 /**
  * Update an existing socio
- * @param {string} socioId - The UUID of the socio to update
+ * @param {number} socioId - The ID of the socio to update
  * @param {Object} socioData - The updated socio data
  * @returns {Promise<void>}
  */
 export async function updateSocio(socioId, socioData) {
+  if (!socioId || typeof socioId !== 'number') {
+    throw new Error('Invalid socioId: must be a number')
+  }
+
+  if (!socioData || typeof socioData !== 'object') {
+    throw new Error('Invalid socioData: must be an object')
+  }
+
   try {
+    // Get old data for logging
+    const oldSocio = await db.soci.get(socioId)
+    if (!oldSocio) {
+      throw new Error(`Socio with id ${socioId} not found`)
+    }
+
     await db.soci.update(socioId, socioData)
 
     // Log the update
-    await logLocalChange({
-      table_name: 'soci',
-      record_id: socioId,
-      change_type: 'UPDATE',
-      timestamp: new Date().toISOString(),
-    })
+    await logLocalChange('soci', socioId, 'UPDATE', oldSocio, { ...oldSocio, ...socioData })
   } catch (error) {
     console.error('Error updating socio:', error)
     throw new Error(`Errore durante l'aggiornamento del socio: ${error.message}`)
@@ -755,6 +780,14 @@ export async function addTesseramento(paymentData) {
  * @returns {Promise<number>} ID of the created member
  */
 export async function addSocio(socioData) {
+  if (!socioData || typeof socioData !== 'object') {
+    throw new Error('Invalid socioData: must be an object')
+  }
+
+  if (!socioData.cognome || !socioData.nome) {
+    throw new Error('Invalid socioData: cognome and nome are required')
+  }
+
   try {
     // Generate the next ID by finding the maximum existing ID
     const allSoci = await db.soci.toArray()
@@ -770,7 +803,6 @@ export async function addSocio(socioData) {
       gruppo_appartenenza: socioData.gruppo_appartenenza,
       data_prima_iscrizione: socioData.data_prima_iscrizione || new Date().getFullYear(),
       note: socioData.note || '',
-      timestamp_creazione: Date.now(),
     }
 
     await db.soci.add(socioRecord)
@@ -980,6 +1012,8 @@ export async function getMembersByGroup(
   paymentStatus = 'tutti',
 ) {
   try {
+    console.log('getMembersByGroup called with:', { gruppo, ageCategory, paymentStatus })
+
     let sociQuery = db.soci.toCollection()
 
     // Apply group filter
@@ -988,6 +1022,8 @@ export async function getMembersByGroup(
     }
 
     const soci = await sociQuery.toArray()
+    console.log('Soci found after group filter:', soci.length)
+
     const currentYear = new Date().getFullYear()
     const result = []
 
@@ -1002,14 +1038,16 @@ export async function getMembersByGroup(
           const birthDate = new Date(socio.data_nascita)
           const today = new Date()
           let age = today.getFullYear() - birthDate.getFullYear()
-          const m = today.getMonth() - birthDate.getMonth()
-          if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+          const monthDiff = today.getMonth() - birthDate.getMonth()
+          if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
             age--
           }
 
           includeMember = ageCategory === 'maggiorenni' ? age >= 18 : age < 18
         }
       }
+
+      console.log(`Socio ${socio.cognome} ${socio.nome}: age filter = ${includeMember}`)
 
       if (!includeMember) continue
 
@@ -1036,6 +1074,10 @@ export async function getMembersByGroup(
         includeByPaymentStatus = !isInRegola
       }
 
+      console.log(
+        `Socio ${socio.cognome} ${socio.nome}: payment status filter = ${includeByPaymentStatus} (isInRegola: ${isInRegola})`,
+      )
+
       if (includeByPaymentStatus) {
         result.push({
           ...socio,
@@ -1045,6 +1087,8 @@ export async function getMembersByGroup(
         })
       }
     }
+
+    console.log('Final result after all filters:', result.length)
 
     // Sort by group and then by name
     return result.sort((a, b) => {

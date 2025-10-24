@@ -85,7 +85,7 @@
               type="number"
               class="edit-input"
             />
-            <span v-else class="value">{{ socio.data_prima_iscrizione }}</span>
+            <span v-else class="value">{{ primaIscrizioneDisplay }}</span>
           </div>
         </div>
 
@@ -112,7 +112,12 @@
         </div>
 
         <div class="chronology-container">
-          <div v-for="item in arretrati" :key="item.anno" class="year-item" :class="item.stato">
+          <div
+            v-for="item in paymentChronology"
+            :key="item.anno"
+            class="year-item"
+            :class="item.stato"
+          >
             <div class="year-header">
               <div class="year-info">
                 <span class="year-number">{{ item.anno }}</span>
@@ -155,15 +160,16 @@
           </div>
         </div>
 
-        <div v-if="arretrati.length === 0" class="no-chronology">
-          <p>Nessun arretrato per questo socio.</p>
+        <div v-if="paymentChronology.length === 0" class="no-chronology">
+          <p>Nessuna cronologia pagamenti disponibile.</p>
         </div>
       </section>
 
       <!-- Modal Aggiungi Pagamento -->
       <AddPaymentModal
         :show="showAddPaymentModal"
-        :socio-id="socio?.id"
+        :socio-id="socio?.id?.toString()"
+        :years-to-pay="paymentYearToAdd ? [paymentYearToAdd] : []"
         :year="paymentYearToAdd"
         @payment-saved="handlePaymentSaved"
         @close="closeAddPaymentModal"
@@ -242,6 +248,27 @@ const calculateAge = computed(() => {
 const isMinor = computed(() => calculateAge.value < 18)
 
 /**
+ * Calcola e mostra l'anno di prima iscrizione
+ */
+const primaIscrizioneDisplay = computed(() => {
+  if (!socio.value) return '-'
+
+  // Prima controlla se è impostato esplicitamente
+  if (socio.value.data_prima_iscrizione && socio.value.data_prima_iscrizione > 0) {
+    return socio.value.data_prima_iscrizione
+  }
+
+  // Altrimenti calcola dal primo pagamento
+  if (tesseramenti.value && tesseramenti.value.length > 0) {
+    const anniPagati = tesseramenti.value.map((t) => t.anno).sort((a, b) => a - b)
+    return anniPagati[0]
+  }
+
+  // Se non ci sono pagamenti, mostra l'anno corrente come default
+  return new Date().getFullYear()
+})
+
+/**
  * Calcola la cronologia completa dei pagamenti
  */
 const paymentChronology = computed(() => {
@@ -295,35 +322,6 @@ const paymentChronology = computed(() => {
   }
 
   return chronology.reverse() // Mostra gli anni più recenti prima
-})
-
-/**
- * Calcola gli arretrati (anni non pagati) per la visualizzazione
- */
-const arretrati = computed(() => {
-  if (!socio.value || tesseramenti.value.length === 0) {
-    return []
-  }
-
-  const anniPagati = new Set(tesseramenti.value.map((t) => t.anno))
-  const annoCorrente = new Date().getFullYear()
-  const annoInizio = annoCorrente - 5 // 5 anni prima dell'anno corrente
-
-  const arretratiList = []
-
-  // Mostra solo gli anni non pagati a partire da 5 anni prima dell'anno corrente
-  for (let anno = annoInizio; anno <= annoCorrente; anno++) {
-    if (!anniPagati.has(anno)) {
-      arretratiList.push({
-        anno,
-        isPagato: false,
-        tesseramento: null, // Non dovrebbe esserci un tesseramento per gli anni non pagati
-        stato: 'non-pagato',
-      })
-    }
-  }
-
-  return arretratiList.reverse() // Mostra gli anni più recenti prima
 })
 
 /**

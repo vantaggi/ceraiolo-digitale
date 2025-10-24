@@ -90,14 +90,7 @@
             />
           </div>
 
-          <div class="filter-group">
-            <label for="newMembersAge">Categoria Età:</label>
-            <select id="newMembersAge" v-model="newMembersFilters.ageCategory" class="form-input">
-              <option value="tutti">Tutti</option>
-              <option value="maggiorenni">Maggiorenni (18+)</option>
-              <option value="minorenni">Minorenni (&lt;18)</option>
-            </select>
-          </div>
+          <AgeCategoryFilter id="newMembersAge" v-model="newMembersFilters.ageCategory" />
         </div>
 
         <button
@@ -115,14 +108,7 @@
         <p>Genera lista di tutti i pagamenti registrati con dettagli completi</p>
 
         <div class="filters-grid">
-          <div class="filter-group">
-            <label for="paymentsAge">Categoria Età:</label>
-            <select id="paymentsAge" v-model="paymentsFilters.ageCategory" class="form-input">
-              <option value="tutti">Tutti</option>
-              <option value="maggiorenni">Maggiorenni (18+)</option>
-              <option value="minorenni">Minorenni (&lt;18)</option>
-            </select>
-          </div>
+          <AgeCategoryFilter id="paymentsAge" v-model="paymentsFilters.ageCategory" />
         </div>
 
         <button @click="generateCompletePaymentsList" :disabled="loading" class="primary-button">
@@ -146,14 +132,7 @@
             </select>
           </div>
 
-          <div class="filter-group">
-            <label for="groupAge">Categoria Età:</label>
-            <select id="groupAge" v-model="groupFilters.ageCategory" class="form-input">
-              <option value="tutti">Tutti</option>
-              <option value="maggiorenni">Maggiorenni (18+)</option>
-              <option value="minorenni">Minorenni (&lt;18)</option>
-            </select>
-          </div>
+          <AgeCategoryFilter id="groupAge" v-model="groupFilters.ageCategory" />
 
           <div class="filter-group">
             <label for="paymentStatus">Stato Pagamento:</label>
@@ -213,6 +192,7 @@ import {
   getUniqueGroups,
 } from '@/services/db'
 import TesseraTemplate from '@/components/TesseraTemplate.vue'
+import AgeCategoryFilter from '@/components/AgeCategoryFilter.vue'
 
 // Stato del componente
 const renewalYear = ref(new Date().getFullYear() + 1)
@@ -343,6 +323,8 @@ const generateMembersByGroup = async () => {
       groupFilters.ageCategory,
       groupFilters.paymentStatus,
     )
+
+    console.log('Members found for PDF generation:', members.length, members)
 
     loadingMessage.value = 'Generazione PDF...'
     toast.info('Generazione PDF soci per gruppo...')

@@ -258,7 +258,7 @@
     <!-- Modal Pagamento -->
     <AddPaymentModal
       :show="showPaymentModal"
-      :socio-id="selectedSocio?.id || ''"
+      :socio-id="selectedSocio?.id?.toString() || ''"
       :years-to-pay="paymentData.selectedYears"
       @close="closePaymentModal"
       @payments-saved="handleSavePayments"

@@ -4,6 +4,20 @@ import * as XLSX from 'xlsx'
 import { getSetting, exportAllSoci, exportAllTesseramenti } from './db'
 
 /**
+ * Sanitizes a filename by removing or replacing invalid characters
+ * @param {string} filename - The filename to sanitize
+ * @returns {string} The sanitized filename
+ */
+function sanitizeFilename(filename) {
+  return filename
+    .replace(/[<>:"/\\|?*]/g, '_') // Replace invalid characters with underscore
+    .replace(/\s+/g, '_') // Replace spaces with underscore
+    .replace(/_+/g, '_') // Replace multiple underscores with single
+    .replace(/^_+|_+$/g, '') // Remove leading/trailing underscores
+    .substring(0, 255) // Limit length
+}
+
+/**
  * Generates a PDF with a table of members from the provided search results
  * @param {Array} sociList - Array of member objects from search results
  * @param {number} renewalYear - The year for renewal
@@ -213,7 +227,7 @@ export async function generateSociPDF(sociList, renewalYear) {
     return {
       success: true,
       blob: pdfOutput,
-      filename: `elenco_${gruppoNome}_${renewalYear}.pdf`,
+      filename: sanitizeFilename(`elenco_${gruppoNome}_${renewalYear}.pdf`),
       totalSoci: totalSoci,
     }
   } catch (error) {
@@ -442,7 +456,9 @@ export async function generateRenewalListPDF(soci, renewalYear) {
   }
 
   // Salva il PDF
-  const fileName = `lista_rinnovi_${renewalYear}_${new Date().toISOString().split('T')[0]}.pdf`
+  const fileName = sanitizeFilename(
+    `lista_rinnovi_${renewalYear}_${new Date().toISOString().split('T')[0]}.pdf`,
+  )
   doc.save(fileName)
 }
 
@@ -550,7 +566,7 @@ export async function generateSingleCardPDF(socio, renewalYear) {
     doc.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight)
 
     // Salva il PDF
-    const fileName = `tessera_${socio.cognome}_${socio.nome}_${renewalYear}.pdf`
+    const fileName = sanitizeFilename(`tessera_${socio.cognome}_${socio.nome}_${renewalYear}.pdf`)
     doc.save(fileName)
   } finally {
     // Pulisci
@@ -684,7 +700,9 @@ export async function generateAllCardsPDF(soci, renewalYear, onProgress = () => 
     }
 
     // Salva il PDF
-    const fileName = `tessere_${renewalYear}_${new Date().toISOString().split('T')[0]}.pdf`
+    const fileName = sanitizeFilename(
+      `tessere_${renewalYear}_${new Date().toISOString().split('T')[0]}.pdf`,
+    )
     doc.save(fileName)
   } finally {
     // Pulisci il container temporaneo
@@ -843,7 +861,9 @@ export async function generateNewMembersPDF(newMembers, year, ageCategory = 'tut
     return {
       success: true,
       blob: pdfOutput,
-      filename: `nuovi_soci_${year}_${ageCategory}_${new Date().toISOString().split('T')[0]}.pdf`,
+      filename: sanitizeFilename(
+        `nuovi_soci_${year}_${ageCategory}_${new Date().toISOString().split('T')[0]}.pdf`,
+      ),
       totalMembers,
     }
   } catch (error) {
@@ -1007,7 +1027,9 @@ export async function generateCompletePaymentListPDF(payments, ageCategory = 'tu
     return {
       success: true,
       blob: pdfOutput,
-      filename: `lista_completa_pagamenti_${ageCategory}_${new Date().toISOString().split('T')[0]}.pdf`,
+      filename: sanitizeFilename(
+        `lista_completa_pagamenti_${ageCategory}_${new Date().toISOString().split('T')[0]}.pdf`,
+      ),
       totalPayments,
     }
   } catch (error) {
@@ -1176,7 +1198,9 @@ export async function generateMembersByGroupPDF(members, gruppo, ageCategory, pa
     return {
       success: true,
       blob: pdfOutput,
-      filename: `soci_per_gruppo_${gruppo || 'tutti'}_${ageCategory}_${paymentStatus}_${new Date().toISOString().split('T')[0]}.pdf`,
+      filename: sanitizeFilename(
+        `soci_per_gruppo_${gruppo || 'tutti'}_${ageCategory}_${paymentStatus}_${new Date().toISOString().split('T')[0]}.pdf`,
+      ),
       totalMembers,
     }
   } catch (error) {
