@@ -41,6 +41,7 @@
             :nome-cognome="previewData.nomeCognome"
             :data-nascita="previewData.dataNascita"
             :anno="renewalYear || currentYear + 1"
+            :background-image="cardBackground"
           />
         </div>
 
@@ -190,6 +191,7 @@ import {
   getCompletePaymentList,
   getMembersByGroup,
   getUniqueGroups,
+  getSetting,
 } from '@/services/db'
 import TesseraTemplate from '@/components/TesseraTemplate.vue'
 import AgeCategoryFilter from '@/components/AgeCategoryFilter.vue'
@@ -199,6 +201,7 @@ const renewalYear = ref(new Date().getFullYear() + 1)
 const loading = ref(false)
 const loadingMessage = ref('')
 const cardProgress = ref(0)
+const cardBackground = ref(null)
 
 // Toast notifications
 const toast = useToast()
@@ -232,9 +235,10 @@ const groupFilters = reactive({
 onMounted(async () => {
   try {
     availableGroups.value = await getUniqueGroups()
+    cardBackground.value = await getSetting('cardBackground')
   } catch (error) {
-    console.error('Errore caricamento gruppi:', error)
-    toast.error('Errore nel caricamento dei gruppi')
+    console.error('Errore caricamento dati:', error)
+    toast.error('Errore nel caricamento dei dati')
   }
 })
 

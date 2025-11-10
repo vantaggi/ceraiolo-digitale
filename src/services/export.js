@@ -18,6 +18,80 @@ function sanitizeFilename(filename) {
 }
 
 /**
+ * Generates the HTML for a single member card
+ * @param {Object} socio - Member object
+ * @param {string} backgroundStyle - CSS background style string
+ * @returns {string} HTML string for the card
+ */
+function generateCardHTML(socio, backgroundStyle = '') {
+  // Formatta la data di nascita
+  const mesi = [
+    'Gennaio',
+    'Febbraio',
+    'Marzo',
+    'Aprile',
+    'Maggio',
+    'Giugno',
+    'Luglio',
+    'Agosto',
+    'Settembre',
+    'Ottobre',
+    'Novembre',
+    'Dicembre',
+  ]
+  let dataNascitaFormattata = '-'
+  if (socio.data_nascita) {
+    const [anno, mese, giorno] = socio.data_nascita.split('-')
+    const meseNome = mesi[parseInt(mese) - 1]
+    dataNascitaFormattata = `${parseInt(giorno)} ${meseNome} ${anno}`
+  }
+
+  return `
+    <div style="
+      width: 305px;
+      height: 462px;
+      ${backgroundStyle}
+      padding: 18.5px 18.5px 18.5px 18.5px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      font-family: cursive;
+    ">
+      <div style="
+        display: flex;
+        flex-direction: column;
+        gap: 9.25px;
+        text-align: center;
+      ">
+        <div style="
+          font-size: 18mm;
+          color: #000000;
+          font-weight: 600;
+          min-height: 24mm;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        ">
+          ${socio.cognome} ${socio.nome}
+        </div>
+        <div style="
+          font-size: 18mm;
+          color: #000000;
+          font-weight: 600;
+          min-height: 24mm;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        ">
+          ${dataNascitaFormattata}
+        </div>
+      </div>
+    </div>
+  `
+}
+
+/**
  * Generates a PDF with a table of members from the provided search results
  * @param {Array} sociList - Array of member objects from search results
  * @param {number} renewalYear - The year for renewal
@@ -490,55 +564,8 @@ export async function generateSingleCardPDF(socio, renewalYear) {
     const cardElement = document.createElement('div')
     const backgroundStyle = cardBackground
       ? `background-image: url(${cardBackground}); background-size: cover; background-position: center; background-repeat: no-repeat;`
-      : 'background-color: white;'
-    cardElement.innerHTML = `
-      <div style="
-        width: 400px;
-        height: 250px;
-        ${backgroundStyle}
-        border: 3px solid #333;
-        border-radius: 15px;
-        padding: 20px;
-        display: flex;
-        flex-direction: column;
-        font-family: Arial, sans-serif;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-      ">
-        <div style="display: flex; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #B71C1C; padding-bottom: 10px;">
-          <div style="margin-right: 15px;">
-            <svg width="50" height="50" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M50 0 L95 25 L95 75 L50 100 L5 75 L5 25 Z" fill="#1a1a1a" />
-              <path d="M50 10 L85 30 L85 70 L50 90 L15 70 L15 30 Z" stroke-width="3" stroke="#B71C1C" />
-              <text x="50" y="58" fill="#B71C1C" font-size="24" text-anchor="middle" font-weight="bold">S</text>
-            </svg>
-          </div>
-          <div>
-            <h1 style="font-size: 18px; margin: 0 0 5px 0; color: #1a1a1a; font-weight: bold;">Famiglia Santanoniari</h1>
-            <h2 style="font-size: 14px; margin: 0; color: #B71C1C;">Tessera Annuale</h2>
-          </div>
-        </div>
-        <div style="flex-grow: 1; display: flex; align-items: center;">
-          <div style="width: 100%;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 5px 0;">
-              <span style="font-weight: bold; color: #1a1a1a; font-size: 14px; min-width: 80px;">Socio:</span>
-              <span style="color: #333; font-size: 14px; text-align: right; flex-grow: 1; border-bottom: 1px dotted #ccc; padding-bottom: 2px;">${socio.cognome} ${socio.nome}</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 5px 0;">
-              <span style="font-weight: bold; color: #1a1a1a; font-size: 14px; min-width: 80px;">Data nascita:</span>
-              <span style="color: #333; font-size: 14px; text-align: right; flex-grow: 1; border-bottom: 1px dotted #ccc; padding-bottom: 2px;">${socio.data_nascita || '-'}</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 5px 0;">
-              <span style="font-weight: bold; color: #1a1a1a; font-size: 14px; min-width: 80px;">Anno:</span>
-              <span style="color: #333; font-size: 14px; text-align: right; flex-grow: 1; border-bottom: 1px dotted #ccc; padding-bottom: 2px;">${renewalYear}</span>
-            </div>
-          </div>
-        </div>
-        <div style="border-top: 2px solid #B71C1C; padding-top: 10px; text-align: center; font-size: 12px; color: #666;">
-          <p style="margin: 3px 0;">Valida per l'anno ${renewalYear}</p>
-          <p style="margin: 3px 0;">Firma del Responsabile ____________________</p>
-        </div>
-      </div>
-    `
+      : ''
+    cardElement.innerHTML = generateCardHTML(socio, backgroundStyle)
     tempContainer.appendChild(cardElement)
 
     // Aspetta che l'elemento sia renderizzato
@@ -549,12 +576,12 @@ export async function generateSingleCardPDF(socio, renewalYear) {
       scale: 2,
       useCORS: true,
       allowTaint: true,
-      backgroundColor: '#ffffff',
+      backgroundColor: 'transparent',
     })
 
-    // Centra la tessera sulla pagina A4 (portrait)
-    const imgWidth = 85.6 // mm (larghezza tessera)
-    const imgHeight = 53.98 // mm (altezza tessera)
+    // Dimensioni della tessera in mm
+    const imgWidth = 80.77 // mm
+    const imgHeight = 122.17 // mm
     const pageWidth = 210 // mm (A4 width)
     const pageHeight = 297 // mm (A4 height)
 
@@ -607,56 +634,8 @@ export async function generateAllCardsPDF(soci, renewalYear, onProgress = () => 
       const cardElement = document.createElement('div')
       const backgroundStyle = cardBackground
         ? `background-image: url(${cardBackground}); background-size: cover; background-position: center; background-repeat: no-repeat;`
-        : 'background-color: white;'
-
-      cardElement.innerHTML = `
-        <div style="
-          width: 400px;
-          height: 250px;
-          ${backgroundStyle}
-          border: 3px solid #333;
-          border-radius: 15px;
-          padding: 20px;
-          display: flex;
-          flex-direction: column;
-          font-family: Arial, sans-serif;
-          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-        ">
-          <div style="display: flex; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #B71C1C; padding-bottom: 10px;">
-            <div style="margin-right: 15px;">
-              <svg width="50" height="50" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M50 0 L95 25 L95 75 L50 100 L5 75 L5 25 Z" fill="#1a1a1a" />
-                <path d="M50 10 L85 30 L85 70 L50 90 L15 70 L15 30 Z" stroke-width="3" stroke="#B71C1C" />
-                <text x="50" y="58" fill="#B71C1C" font-size="24" text-anchor="middle" font-weight="bold">S</text>
-              </svg>
-            </div>
-            <div>
-              <h1 style="font-size: 18px; margin: 0 0 5px 0; color: #1a1a1a; font-weight: bold;">Famiglia Santanoniari</h1>
-              <h2 style="font-size: 14px; margin: 0; color: #B71C1C;">Tessera Annuale</h2>
-            </div>
-          </div>
-          <div style="flex-grow: 1; display: flex; align-items: center;">
-            <div style="width: 100%;">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 5px 0;">
-                <span style="font-weight: bold; color: #1a1a1a; font-size: 14px; min-width: 80px;">Socio:</span>
-                <span style="color: #333; font-size: 14px; text-align: right; flex-grow: 1; border-bottom: 1px dotted #ccc; padding-bottom: 2px;">${socio.cognome} ${socio.nome}</span>
-              </div>
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 5px 0;">
-                <span style="font-weight: bold; color: #1a1a1a; font-size: 14px; min-width: 80px;">Data nascita:</span>
-                <span style="color: #333; font-size: 14px; text-align: right; flex-grow: 1; border-bottom: 1px dotted #ccc; padding-bottom: 2px;">${socio.data_nascita || '-'}</span>
-              </div>
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 5px 0;">
-                <span style="font-weight: bold; color: #1a1a1a; font-size: 14px; min-width: 80px;">Anno:</span>
-                <span style="color: #333; font-size: 14px; text-align: right; flex-grow: 1; border-bottom: 1px dotted #ccc; padding-bottom: 2px;">${renewalYear}</span>
-              </div>
-            </div>
-          </div>
-          <div style="border-top: 2px solid #B71C1C; padding-top: 10px; text-align: center; font-size: 12px; color: #666;">
-            <p style="margin: 3px 0;">Valida per l'anno ${renewalYear}</p>
-            <p style="margin: 3px 0;">Firma del Responsabile ____________________</p>
-          </div>
-        </div>
-      `
+        : ''
+      cardElement.innerHTML = generateCardHTML(socio, backgroundStyle)
       tempContainer.appendChild(cardElement)
 
       // Converti in immagine
