@@ -1,5 +1,5 @@
 <template>
-  <div class="tessera-vertical">
+  <div class="tessera-vertical" :style="cardStyle">
     <div
       class="tessera-front"
       :style="{ backgroundImage: backgroundImage ? `url(${backgroundImage})` : undefined }"
@@ -29,6 +29,14 @@ const props = defineProps({
     type: String,
     default: null,
   },
+  width: {
+    type: Number,
+    default: 80.77,
+  },
+  height: {
+    type: Number,
+    default: 122.17,
+  },
 })
 
 const mesi = [
@@ -52,6 +60,11 @@ const dataNascitaFormattata = computed(() => {
   const meseNome = mesi[parseInt(mese) - 1]
   return `${parseInt(giorno)} ${meseNome} ${anno}`
 })
+
+const cardStyle = computed(() => ({
+  width: `${props.width}mm`,
+  height: `${props.height}mm`,
+}))
 </script>
 
 <style scoped>
@@ -68,7 +81,6 @@ const dataNascitaFormattata = computed(() => {
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  padding: 5mm 5% 5mm 5%;
   display: flex;
   flex-direction: column;
   position: relative;
@@ -82,6 +94,9 @@ const dataNascitaFormattata = computed(() => {
   flex-direction: column;
   gap: 3mm;
   text-align: center;
+  padding: 5mm 5% 5mm 5%;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .info-value {

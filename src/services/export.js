@@ -51,24 +51,27 @@ function generateCardHTML(socio, backgroundStyle = '') {
       width: 305px;
       height: 462px;
       ${backgroundStyle}
-      padding: 18.5px 18.5px 18.5px 18.5px;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
       font-family: cursive;
+      position: relative;
     ">
       <div style="
         display: flex;
         flex-direction: column;
         gap: 9.25px;
         text-align: center;
+        padding: 18.5px 18.5px 18.5px 18.5px;
+        width: 100%;
+        box-sizing: border-box;
       ">
         <div style="
-          font-size: 18mm;
+          font-size: 6mm;
           color: #000000;
           font-weight: 600;
-          min-height: 24mm;
+          min-height: 8mm;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -76,10 +79,10 @@ function generateCardHTML(socio, backgroundStyle = '') {
           ${socio.cognome} ${socio.nome}
         </div>
         <div style="
-          font-size: 18mm;
+          font-size: 6mm;
           color: #000000;
           font-weight: 600;
-          min-height: 24mm;
+          min-height: 8mm;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -543,82 +546,107 @@ export async function generateRenewalListPDF(soci, renewalYear) {
  * @returns {Promise<void>}
  */
 export async function generateSingleCardPDF(socio, renewalYear) {
-  // Recupera l'immagine di sfondo dal database
   const cardBackground = await getSetting('cardBackground')
 
+  // Dimensioni fisse originali del TesseraTemplate (80.77mm x 122.17mm)
+  const cardWidthMm = 80.77
+  const cardHeightMm = 122.17
+
+  // Crea PDF con formato personalizzato - dimensioni esatte della tessera
   const doc = new jsPDF({
-    orientation: 'portrait',
+    orientation: cardWidthMm > cardHeightMm ? 'landscape' : 'portrait',
     unit: 'mm',
-    format: 'a4',
+    format: [cardWidthMm, cardHeightMm], // Dimensioni esatte senza margini
   })
 
-  // Crea un elemento DOM temporaneo per renderizzare la tessera
-  const tempContainer = document.createElement('div')
-  tempContainer.style.position = 'absolute'
-  tempContainer.style.left = '-9999px'
-  tempContainer.style.top = '-9999px'
-  document.body.appendChild(tempContainer)
-
   try {
-    // Crea la tessera per questo socio
-    const cardElement = document.createElement('div')
-    const backgroundStyle = cardBackground
-      ? `background-image: url(${cardBackground}); background-size: cover; background-position: center; background-repeat: no-repeat;`
-      : ''
-    cardElement.innerHTML = generateCardHTML(socio, backgroundStyle)
-    tempContainer.appendChild(cardElement)
+    // Aggiungi l'immagine di sfondo direttamente al PDF se presente
+    if (cardBackground) {
+      // Crea un'immagine per ottenere le dimensioni originali
+      const img = new Image()
+      img.crossOrigin = 'anonymous'
 
-    // Aspetta che l'elemento sia renderizzato
-    await new Promise((resolve) => setTimeout(resolve, 100))
+      await new Promise((resolve, reject) => {
+        img.onload = resolve
+        img.onerror = reject
+        img.src = cardBackground
+      })
 
-    // Cattura l'immagine della tessera
-    const canvas = await html2canvas(cardElement, {
-      scale: 2,
-      useCORS: true,
-      allowTaint: true,
-      backgroundColor: 'transparent',
-    })
+      // Aggiungi l'immagine di sfondo che copre tutta la pagina
+      doc.addImage(cardBackground, 'JPEG', 0, 0, cardWidthMm, cardHeightMm)
+    }
 
-    // Dimensioni della tessera in mm
-    const imgWidth = 80.77 // mm
-    const imgHeight = 122.17 // mm
-    const pageWidth = 210 // mm (A4 width)
-    const pageHeight = 297 // mm (A4 height)
+    // Aggiungi il testo sopra l'immagine
+    // Formatta la data di nascita
+    const mesi = [
+      'Gennaio',
+      'Febbraio',
+      'Marzo',
+      'Aprile',
+      'Maggio',
+      'Giugno',
+      'Luglio',
+      'Agosto',
+      'Settembre',
+      'Ottobre',
+      'Novembre',
+      'Dicembre',
+    ]
+    let dataNascitaFormattata = '-'
+    if (socio.data_nascita) {
+      const [anno, mese, giorno] = socio.data_nascita.split('-')
+      const meseNome = mesi[parseInt(mese) - 1]
+      dataNascitaFormattata = `${parseInt(giorno)} ${meseNome} ${anno}`
+    }
 
-    const x = (pageWidth - imgWidth) / 2 // Centra orizzontalmente
-    const y = (pageHeight - imgHeight) / 2 // Centra verticalmente
+    // Imposta il font e il colore per il testo (corrispondenti al CSS originale)
+    doc.setFont('helvetica', 'bold') // Il più vicino a 'cursive' disponibile in jsPDF
+    doc.setTextColor(0, 0, 0) // Nero come nel CSS (#000000)
 
-    // Aggiungi l'immagine al PDF
-    const imgData = canvas.toDataURL('image/png')
-    doc.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight)
+    // Posizioni del testo corrispondenti al layout originale
+    // Il PDF è centrato verticalmente come il div originale
+    const centerX = cardWidthMm / 2
+    const centerY = cardHeightMm / 2
+
+    // Font-size: 6mm nel CSS corrisponde a circa 17-18pt nel PDF
+    doc.setFontSize(18) // Dimensione corretta equivalente a 6mm
+
+    // Nome e cognome - leggermente sopra il centro (gap di 9.25px originale)
+    doc.text(`${socio.cognome} ${socio.nome}`, centerX, centerY - 3, { align: 'center' })
+
+    // Data di nascita - leggermente sotto il centro (gap di 9.25px originale)
+    doc.text(dataNascitaFormattata, centerX, centerY + 15, { align: 'center' })
 
     // Salva il PDF
     const fileName = sanitizeFilename(`tessera_${socio.cognome}_${socio.nome}_${renewalYear}.pdf`)
     doc.save(fileName)
-  } finally {
-    // Pulisci
-    document.body.removeChild(tempContainer)
+  } catch (error) {
+    console.error('Errore nella generazione del PDF:', error)
+    throw error
   }
 }
 
 /**
- * Generates a PDF with all member cards
+ * Generates a PDF with all member cards - one card per page
  * @param {Array} soci - Array of member objects
  * @param {number} renewalYear - The year for the cards
  * @param {Function} onProgress - Callback function for progress updates
  * @returns {Promise<void>}
  */
 export async function generateAllCardsPDF(soci, renewalYear, onProgress = () => {}) {
-  // Recupera l'immagine di sfondo dal database
   const cardBackground = await getSetting('cardBackground')
 
+  // Dimensioni fisse originali del TesseraTemplate (80.77mm x 122.17mm)
+  const cardWidthMm = 80.77
+  const cardHeightMm = 122.17
+
+  // Crea PDF con formato personalizzato - dimensioni esatte della tessera
   const doc = new jsPDF({
-    orientation: 'landscape',
+    orientation: cardWidthMm > cardHeightMm ? 'landscape' : 'portrait',
     unit: 'mm',
-    format: 'a4',
+    format: [cardWidthMm, cardHeightMm], // Dimensioni esatte senza margini
   })
 
-  const cardsPerPage = 6 // 2 righe x 3 colonne
   let cardIndex = 0
 
   // Crea un elemento DOM temporaneo per renderizzare le tessere
@@ -638,35 +666,28 @@ export async function generateAllCardsPDF(soci, renewalYear, onProgress = () => 
       cardElement.innerHTML = generateCardHTML(socio, backgroundStyle)
       tempContainer.appendChild(cardElement)
 
-      // Converti in immagine
+      // Converti in immagine ad alta qualità
       const canvas = await html2canvas(cardElement, {
-        scale: 2,
         useCORS: true,
         allowTaint: true,
-        backgroundColor: '#ffffff',
+        backgroundColor: 'transparent',
+        scale: 2,
+        imageTimeout: 0,
+        logging: false,
       })
 
-      // Calcola la posizione sulla pagina
-      const pageIndex = Math.floor(cardIndex / cardsPerPage)
-      if (cardIndex % cardsPerPage === 0) {
-        if (pageIndex > 0) {
-          doc.addPage()
-        }
+      // Ogni tessera è su una pagina separata
+      if (cardIndex > 0) {
+        doc.addPage()
       }
 
-      const cardsPerRow = 3
-      const rowIndex = Math.floor((cardIndex % cardsPerPage) / cardsPerRow)
-      const colIndex = (cardIndex % cardsPerPage) % cardsPerRow
+      // Posiziona l'immagine esattamente agli angoli del PDF (nessun margine)
+      const x = 0
+      const y = 0
 
-      const margin = 10
-      const cardWidth = 90 // mm
-      const cardHeight = 60 // mm
-      const x = margin + colIndex * (cardWidth + margin)
-      const y = margin + rowIndex * (cardHeight + margin)
-
-      // Aggiungi l'immagine al PDF
+      // Aggiungi l'immagine al PDF con le dimensioni esatte
       const imgData = canvas.toDataURL('image/png')
-      doc.addImage(imgData, 'PNG', x, y, cardWidth, cardHeight)
+      doc.addImage(imgData, 'PNG', x, y, cardWidthMm, cardHeightMm)
 
       // Rimuovi l'elemento temporaneo
       tempContainer.removeChild(cardElement)

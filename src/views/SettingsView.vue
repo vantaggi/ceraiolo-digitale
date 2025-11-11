@@ -291,6 +291,8 @@ const resetTemplate = async () => {
     toast.info('Ripristino template di default...')
 
     await updateSetting('cardBackground', null)
+    await updateSetting('cardWidth', null)
+    await updateSetting('cardHeight', null)
     previewBackground.value = null
     selectedImage.value = null
 
