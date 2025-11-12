@@ -532,9 +532,11 @@ export async function generateSingleCardPDF(socio, renewalYear) {
   const cardWidthMm = 80.77
   const cardHeightMm = 122.17
 
-  // Converti mm in pixel per il canvas (1mm ≈ 3.78px a 96 DPI)
-  const cardWidthPx = Math.round(cardWidthMm * 3.78)
-  const cardHeightPx = Math.round(cardHeightMm * 3.78)
+  // Converti mm in pixel per il canvas ad alta risoluzione per stampa (300 DPI)
+  // 300 DPI = 300 pixel per pollice, 1 pollice = 25.4mm
+  const dpi = 300
+  const cardWidthPx = Math.round((cardWidthMm / 25.4) * dpi)
+  const cardHeightPx = Math.round((cardHeightMm / 25.4) * dpi)
 
   // Crea PDF con formato personalizzato - dimensioni esatte della tessera
   const doc = new jsPDF({
@@ -610,9 +612,9 @@ export async function generateSingleCardPDF(socio, renewalYear) {
       return `${parseInt(giorno)} ${meseNome} ${anno}`
     }
 
-    // Imposta il font e lo stile del testo
+    // Imposta il font e lo stile del testo (scalato per 300 DPI)
     ctx.fillStyle = '#000000'
-    ctx.font = 'bold 24px cursive' // 6mm ≈ 24px
+    ctx.font = 'bold 71px cursive' // 6mm a 300 DPI ≈ 71px
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
 
@@ -621,7 +623,7 @@ export async function generateSingleCardPDF(socio, renewalYear) {
 
     // Calcola le posizioni Y per centrare il testo
     const centerY = cardHeightPx / 2
-    const textSpacing = 12 // Spazio tra le righe (3mm ≈ 12px)
+    const textSpacing = 35 // Spazio tra le righe (3mm a 300 DPI ≈ 35px)
 
     // Disegna il nome e cognome
     ctx.fillText(nomeCognome, cardWidthPx / 2, centerY - textSpacing)
