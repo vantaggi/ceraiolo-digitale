@@ -13,8 +13,8 @@
 
       <!-- Sezione dati socio -->
       <div class="member-info">
-        <div class="info-value name">{{ nomeCognome }}</div>
-        <div class="info-value birthdate">{{ dataNascitaFormattata }}</div>
+        <div class="info-value name-value">{{ nomeCognome }}</div>
+        <div class="info-value birthdate-value">{{ dataNascitaFormattata }}</div>
       </div>
     </div>
   </div>
@@ -105,19 +105,32 @@ const cardStyle = computed(() => ({
   flex-direction: column;
   gap: 3mm;
   text-align: center;
-  padding: 5mm 5% 5mm 5%;
+  padding: 12mm 5% 12mm 5%;
   width: 100%;
   box-sizing: border-box;
 }
 
 .info-value {
-  font-size: 6mm;
   color: #000000;
   font-weight: 600;
-  min-height: 8mm;
   display: flex;
   align-items: center;
   justify-content: center;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+
+.name-value {
+  font-size: 5mm;
+  min-height: 8mm;
+  line-height: 1.2;
+}
+
+.birthdate-value {
+  font-size: 4.5mm;
+  min-height: 6mm;
+  line-height: 1.1;
 }
 
 /* PDF Template Styles */

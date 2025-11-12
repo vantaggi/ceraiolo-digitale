@@ -63,6 +63,21 @@
         <h2>🎫 Tessere Annuali</h2>
         <p>Genera tessere pre-stampate per tutti i soci</p>
 
+        <!-- Filtro soci inattivi -->
+        <div class="filter-section">
+          <label class="checkbox-label">
+            <input type="checkbox" v-model="excludeInactiveMembers" :disabled="loading" />
+            <span class="checkmark"></span>
+            Escludi soci inattivi (senza rinnovo da 5+ anni)
+          </label>
+          <div v-if="excludeInactiveMembers && sociStats.total > 0" class="filter-info">
+            <small>
+              Soci attivi: {{ sociStats.active }} su {{ sociStats.total }} (esclusi:
+              {{ sociStats.inactive }})
+            </small>
+          </div>
+        </div>
+
         <div v-if="cardProgress > 0" class="progress-bar">
           <div class="progress-fill" :style="{ width: cardProgress + '%' }"></div>
           <span class="progress-text">{{ Math.round(cardProgress) }}% completato</span>
@@ -202,6 +217,12 @@ const loading = ref(false)
 const loadingMessage = ref('')
 const cardProgress = ref(0)
 const cardBackground = ref(null)
+const excludeInactiveMembers = ref(false)
+const sociStats = reactive({
+  total: 0,
+  active: 0,
+  inactive: 0,
+})
 
 // Toast notifications
 const toast = useToast()
@@ -236,11 +257,48 @@ onMounted(async () => {
   try {
     availableGroups.value = await getUniqueGroups()
     cardBackground.value = await getSetting('cardBackground')
+    await updateSociStats()
   } catch (error) {
     console.error('Errore caricamento dati:', error)
     toast.error('Errore nel caricamento dei dati')
   }
 })
+
+/**
+ * Determina se un socio è attivo (ha pagato negli ultimi 5 anni)
+ * @param {Object} socio - Oggetto socio con tesseramenti
+ * @returns {boolean} True se attivo, false se inattivo
+ */
+const isSocioActive = (socio) => {
+  if (!socio.tesseramenti || socio.tesseramenti.length === 0) {
+    return false // Nessun pagamento mai fatto
+  }
+
+  const currentYear = new Date().getFullYear()
+  const fiveYearsAgo = currentYear - 5
+
+  // Trova l'anno più recente di pagamento
+  const latestPaymentYear = Math.max(...socio.tesseramenti.map((t) => t.anno))
+
+  return latestPaymentYear >= fiveYearsAgo
+}
+
+/**
+ * Aggiorna le statistiche dei soci (totale, attivi, inattivi)
+ */
+const updateSociStats = async () => {
+  try {
+    const allSoci = await getAllSociWithTesseramenti()
+    sociStats.total = allSoci.length
+    sociStats.active = allSoci.filter(isSocioActive).length
+    sociStats.inactive = sociStats.total - sociStats.active
+  } catch (error) {
+    console.error('Errore calcolo statistiche soci:', error)
+    sociStats.total = 0
+    sociStats.active = 0
+    sociStats.inactive = 0
+  }
+}
 
 /**
  * Genera la lista nuovi soci
@@ -463,7 +521,13 @@ const generateCards = async () => {
     loadingMessage.value = 'Caricamento dati soci...'
     toast.info('Caricamento dati soci...')
 
-    const soci = await getAllSociWithTesseramenti()
+    let soci = await getAllSociWithTesseramenti()
+
+    // Applica filtro soci inattivi se selezionato
+    if (excludeInactiveMembers.value) {
+      soci = soci.filter(isSocioActive)
+      console.log(`Filtro applicato: ${soci.length} soci attivi su ${sociStats.total} totali`)
+    }
 
     loadingMessage.value = 'Generazione tessere...'
     toast.info('Generazione tessere in corso...')
@@ -488,7 +552,8 @@ const generateCards = async () => {
       totalCards += risultato.count
     }
 
-    toast.success(`Generati ${risultati.length} PDF di tessere (${totalCards} soci totali)!`)
+    const filterText = excludeInactiveMembers.value ? ' attivi' : ''
+    toast.success(`Generati ${risultati.length} PDF di tessere (${totalCards} soci${filterText})!`)
   } catch (error) {
     console.error('Errore generazione tessere:', error)
     toast.error('Errore nella generazione del PDF: ' + error.message)
@@ -767,5 +832,63 @@ h1 {
   color: var(--color-text-secondary);
   font-size: 0.9rem;
   line-height: 1.4;
+}
+
+/* Filter Section */
+.filter-section {
+  margin-bottom: 1.5rem;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  font-size: 1rem;
+  color: var(--color-text-primary);
+  user-select: none;
+}
+
+.checkbox-label input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+
+.checkmark {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--color-border);
+  border-radius: 4px;
+  background-color: var(--color-background);
+  position: relative;
+  transition: all 0.2s;
+}
+
+.checkbox-label input[type='checkbox']:checked + .checkmark {
+  background-color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.checkbox-label input[type='checkbox']:checked + .checkmark::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.filter-info {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background-color: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text-secondary);
 }
 </style>

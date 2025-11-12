@@ -481,10 +481,10 @@ export async function generateSingleCardPDF(socio, renewalYear) {
     const dataNascitaFormattata = formattaData(socio.data_nascita)
 
     // Calcola le dimensioni dell'area di testo (stesso calcolo di TesseraTemplate.vue)
-    // Padding: 5mm sopra/sotto, 5% sinistra/destra
-    const paddingTopBottom = 5 * 2.83465 // 5mm in punti
-    const paddingLeftRightPercent = 0.05 // 5%
-    const availableWidth = width * (1 - 2 * paddingLeftRightPercent) // 90% della larghezza
+    // Padding: 12mm sopra/sotto, 15% sinistra/destra per forzare wrapping
+    const paddingTopBottom = 12 * 2.83465 // 12mm in punti
+    const paddingLeftRightPercent = 0.15 // 15% per area di testo più stretta
+    const availableWidth = width * (1 - 2 * paddingLeftRightPercent) // 70% della larghezza
 
     // Centro dell'area di testo
     const textAreaCenterX = width / 2
@@ -492,9 +492,11 @@ export async function generateSingleCardPDF(socio, renewalYear) {
     const textAreaBottom = height - paddingTopBottom
     const textAreaCenterY = (textAreaTop + textAreaBottom) / 2
 
-    const fontSize = 6 * 2.83465 // 6mm font size
+    const nameFontSize = 5 * 2.83465 // 5mm font size for names
+    const dateFontSize = 4.5 * 2.83465 // 4.5mm font size for dates
     const lineSpacing = 3 * 2.83465 // 3mm gap tra righe
-    const minLineHeight = 8 * 2.83465 // 8mm min-height per riga
+    const nameMinLineHeight = 8 * 2.83465 // 8mm min-height per name line
+    const dateMinLineHeight = 6 * 2.83465 // 6mm min-height per date line
 
     // Font - usa Times-Italic per imitare scrittura a penna
     const font = await pdfDoc.embedFont('Times-Italic')
@@ -529,31 +531,31 @@ export async function generateSingleCardPDF(socio, renewalYear) {
     }
 
     // Gestisci il nome e cognome con wrapping se necessario
-    const nomeLines = wrapText(nomeCognome, availableWidth, font, fontSize)
-    const dataLines = wrapText(dataNascitaFormattata, availableWidth, font, fontSize)
+    const nomeLines = wrapText(nomeCognome, availableWidth, font, nameFontSize)
+    const dataLines = wrapText(dataNascitaFormattata, availableWidth, font, dateFontSize)
 
     // Calcola l'altezza totale del contenuto (nome + gap + data)
-    const nomeHeight = nomeLines.length * minLineHeight
-    const dataHeight = dataLines.length * minLineHeight
+    const nomeHeight = nomeLines.length * nameMinLineHeight
+    const dataHeight = dataLines.length * dateMinLineHeight
     const gapHeight = lineSpacing
     const totalContentHeight = nomeHeight + gapHeight + dataHeight
 
     // Posizione Y iniziale (centrata verticalmente nell'area di testo)
-    let currentY = textAreaCenterY + totalContentHeight / 2 - minLineHeight / 2
+    let currentY = textAreaCenterY + totalContentHeight / 2 - nameMinLineHeight / 2
 
     // Disegna le righe del nome (dall'alto verso il basso)
     for (let i = 0; i < nomeLines.length; i++) {
-      const textWidth = font.widthOfTextAtSize(nomeLines[i], fontSize)
+      const textWidth = font.widthOfTextAtSize(nomeLines[i], nameFontSize)
       const x = textAreaCenterX - textWidth / 2 // Centra manualmente
 
       page.drawText(nomeLines[i], {
         x: x,
         y: currentY,
-        size: fontSize,
+        size: nameFontSize,
         font: font,
         color: rgb(0, 0, 0),
       })
-      currentY -= minLineHeight
+      currentY -= nameMinLineHeight
     }
 
     // Aggiungi il gap tra nome e data
@@ -561,17 +563,17 @@ export async function generateSingleCardPDF(socio, renewalYear) {
 
     // Disegna le righe della data
     for (let i = 0; i < dataLines.length; i++) {
-      const textWidth = font.widthOfTextAtSize(dataLines[i], fontSize)
+      const textWidth = font.widthOfTextAtSize(dataLines[i], dateFontSize)
       const x = textAreaCenterX - textWidth / 2 // Centra manualmente
 
       page.drawText(dataLines[i], {
         x: x,
         y: currentY,
-        size: fontSize,
+        size: dateFontSize,
         font: font,
         color: rgb(0, 0, 0),
       })
-      currentY -= minLineHeight
+      currentY -= dateMinLineHeight
     }
 
     // Salva il PDF
@@ -673,10 +675,10 @@ export async function generateAllCardsPDF(soci, renewalYear, onProgress = () => 
         const dataNascitaFormattata = formattaData(socio.data_nascita)
 
         // Calcola le dimensioni dell'area di testo (stesso calcolo di TesseraTemplate.vue)
-        // Padding: 5mm sopra/sotto, 5% sinistra/destra
-        const paddingTopBottom = 5 * 2.83465 // 5mm in punti
-        const paddingLeftRightPercent = 0.05 // 5%
-        const availableWidth = width * (1 - 2 * paddingLeftRightPercent) // 90% della larghezza
+        // Padding: 12mm sopra/sotto, 15% sinistra/destra per forzare wrapping
+        const paddingTopBottom = 12 * 2.83465 // 12mm in punti
+        const paddingLeftRightPercent = 0.15 // 15% per area di testo più stretta
+        const availableWidth = width * (1 - 2 * paddingLeftRightPercent) // 70% della larghezza
 
         // Centro dell'area di testo
         const textAreaCenterX = width / 2
@@ -684,9 +686,11 @@ export async function generateAllCardsPDF(soci, renewalYear, onProgress = () => 
         const textAreaBottom = height - paddingTopBottom
         const textAreaCenterY = (textAreaTop + textAreaBottom) / 2
 
-        const fontSize = 6 * 2.83465 // 6mm font size
+        const nameFontSize = 5 * 2.83465 // 5mm font size for names
+        const dateFontSize = 4.5 * 2.83465 // 4.5mm font size for dates
         const lineSpacing = 3 * 2.83465 // 3mm gap tra righe
-        const minLineHeight = 8 * 2.83465 // 8mm min-height per riga
+        const nameMinLineHeight = 8 * 2.83465 // 8mm min-height per name line
+        const dateMinLineHeight = 6 * 2.83465 // 6mm min-height per date line
 
         // Font - usa Times-Italic per imitare scrittura a penna
         const font = await pdfDoc.embedFont('Times-Italic')
@@ -721,31 +725,31 @@ export async function generateAllCardsPDF(soci, renewalYear, onProgress = () => 
         }
 
         // Gestisci il nome e cognome con wrapping se necessario
-        const nomeLines = wrapText(nomeCognome, availableWidth, font, fontSize)
-        const dataLines = wrapText(dataNascitaFormattata, availableWidth, font, fontSize)
+        const nomeLines = wrapText(nomeCognome, availableWidth, font, nameFontSize)
+        const dataLines = wrapText(dataNascitaFormattata, availableWidth, font, dateFontSize)
 
         // Calcola l'altezza totale del contenuto (nome + gap + data)
-        const nomeHeight = nomeLines.length * minLineHeight
-        const dataHeight = dataLines.length * minLineHeight
+        const nomeHeight = nomeLines.length * nameMinLineHeight
+        const dataHeight = dataLines.length * dateMinLineHeight
         const gapHeight = lineSpacing
         const totalContentHeight = nomeHeight + gapHeight + dataHeight
 
         // Posizione Y iniziale (centrata verticalmente nell'area di testo)
-        let currentY = textAreaCenterY + totalContentHeight / 2 - minLineHeight / 2
+        let currentY = textAreaCenterY + totalContentHeight / 2 - nameMinLineHeight / 2
 
         // Disegna le righe del nome (dall'alto verso il basso)
         for (let i = 0; i < nomeLines.length; i++) {
-          const textWidth = font.widthOfTextAtSize(nomeLines[i], fontSize)
+          const textWidth = font.widthOfTextAtSize(nomeLines[i], nameFontSize)
           const x = textAreaCenterX - textWidth / 2 // Centra manualmente
 
           page.drawText(nomeLines[i], {
             x: x,
             y: currentY,
-            size: fontSize,
+            size: nameFontSize,
             font: font,
             color: rgb(0, 0, 0),
           })
-          currentY -= minLineHeight
+          currentY -= nameMinLineHeight
         }
 
         // Aggiungi il gap tra nome e data
@@ -753,17 +757,17 @@ export async function generateAllCardsPDF(soci, renewalYear, onProgress = () => 
 
         // Disegna le righe della data
         for (let i = 0; i < dataLines.length; i++) {
-          const textWidth = font.widthOfTextAtSize(dataLines[i], fontSize)
+          const textWidth = font.widthOfTextAtSize(dataLines[i], dateFontSize)
           const x = textAreaCenterX - textWidth / 2 // Centra manualmente
 
           page.drawText(dataLines[i], {
             x: x,
             y: currentY,
-            size: fontSize,
+            size: dateFontSize,
             font: font,
             color: rgb(0, 0, 0),
           })
-          currentY -= minLineHeight
+          currentY -= dateMinLineHeight
         }
 
         progressoTotale++
