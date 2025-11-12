@@ -16,8 +16,8 @@
   },
   "dependencies": {
     "dexie": "^4.2.1",
-    "html2canvas": "^1.4.1",
     "jspdf": "^3.0.3",
+    "pdf-lib": "^1.17.1",
     "pinia": "^3.0.3",
     "sql.js": "^1.13.0",
     "uuid": "^13.0.0",

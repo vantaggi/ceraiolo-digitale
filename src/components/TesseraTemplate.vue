@@ -2,8 +2,15 @@
   <div class="tessera-vertical" :style="cardStyle">
     <div
       class="tessera-front"
+      :class="{ 'pdf-template': hasPdfTemplate && !backgroundImage }"
       :style="{ backgroundImage: backgroundImage ? `url(${backgroundImage})` : undefined }"
     >
+      <!-- Messaggio PDF Template -->
+      <div v-if="hasPdfTemplate && !backgroundImage" class="pdf-template-message">
+        <div class="pdf-icon">📄</div>
+        <div class="pdf-text">PDF Template<br />Configurato</div>
+      </div>
+
       <!-- Sezione dati socio -->
       <div class="member-info">
         <div class="info-value name">{{ nomeCognome }}</div>
@@ -28,6 +35,10 @@ const props = defineProps({
   backgroundImage: {
     type: String,
     default: null,
+  },
+  hasPdfTemplate: {
+    type: Boolean,
+    default: false,
   },
   width: {
     type: Number,
@@ -107,5 +118,32 @@ const cardStyle = computed(() => ({
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* PDF Template Styles */
+.pdf-template {
+  background-color: #f5f5f5;
+  border: 2px dashed #ccc;
+}
+
+.pdf-template-message {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: #666;
+  z-index: 1;
+}
+
+.pdf-icon {
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+.pdf-text {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
 }
 </style>

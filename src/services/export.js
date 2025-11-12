@@ -1,4 +1,5 @@
 import jsPDF from 'jspdf'
+import { PDFDocument, rgb } from 'pdf-lib'
 import * as XLSX from 'xlsx'
 import { getSetting, exportAllSoci, exportAllTesseramenti } from './db'
 
@@ -424,75 +425,35 @@ export async function generateRenewalListPDF(soci, renewalYear) {
 }
 
 /**
- * Generates a PDF with a single member card using direct canvas drawing
+ * Generates a PDF with a single member card using PDF template
  * @param {Object} socio - Member object
  * @param {number} renewalYear - The year for the card
  * @returns {Promise<void>}
  */
 export async function generateSingleCardPDF(socio, renewalYear) {
-  const cardBackground = await getSetting('cardBackground')
-
-  // Dimensioni originali di TesseraTemplate.vue (80.77mm x 122.17mm)
-  const cardWidthMm = 80.77
-  const cardHeightMm = 122.17
-
-  // Converti mm in pixel per il canvas ad alta risoluzione per stampa (300 DPI)
-  // 300 DPI = 300 pixel per pollice, 1 pollice = 25.4mm
-  const dpi = 300
-  const cardWidthPx = Math.round((cardWidthMm / 25.4) * dpi)
-  const cardHeightPx = Math.round((cardHeightMm / 25.4) * dpi)
-
-  // Crea PDF con formato personalizzato - dimensioni esatte della tessera
-  const doc = new jsPDF({
-    orientation: cardWidthMm > cardHeightMm ? 'landscape' : 'portrait',
-    unit: 'mm',
-    format: [cardWidthMm, cardHeightMm], // Dimensioni esatte senza margini
-  })
-
   try {
-    // Crea un canvas per disegnare la tessera
-    const canvas = document.createElement('canvas')
-    canvas.width = cardWidthPx
-    canvas.height = cardHeightPx
-    const ctx = canvas.getContext('2d')
-
-    // Sfondo bianco
-    ctx.fillStyle = 'white'
-    ctx.fillRect(0, 0, cardWidthPx, cardHeightPx)
-
-    // Disegna l'immagine di sfondo se presente
-    if (cardBackground) {
-      await new Promise((resolve, reject) => {
-        const img = new Image()
-        img.crossOrigin = 'anonymous'
-        img.onload = () => {
-          // Calcola le dimensioni per mantenere le proporzioni e coprire tutto
-          const imgAspect = img.width / img.height
-          const canvasAspect = cardWidthPx / cardHeightPx
-
-          let drawWidth, drawHeight, drawX, drawY
-
-          if (imgAspect > canvasAspect) {
-            // Immagine più larga del canvas
-            drawHeight = cardHeightPx
-            drawWidth = drawHeight * imgAspect
-            drawX = (cardWidthPx - drawWidth) / 2
-            drawY = 0
-          } else {
-            // Immagine più alta del canvas
-            drawWidth = cardWidthPx
-            drawHeight = drawWidth / imgAspect
-            drawX = 0
-            drawY = (cardHeightPx - drawHeight) / 2
-          }
-
-          ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight)
-          resolve()
-        }
-        img.onerror = reject
-        img.src = cardBackground
-      })
+    // Carica il PDF template dal database
+    const pdfTemplateData = await getSetting('cardTemplatePDF')
+    if (!pdfTemplateData) {
+      throw new Error('Nessun template PDF configurato. Carica un template PDF nelle impostazioni.')
     }
+
+    // Converti i dati del template in Uint8Array
+    const templateBytes = new Uint8Array(pdfTemplateData)
+
+    // Carica il PDF template
+    const templateDoc = await PDFDocument.load(templateBytes)
+
+    // Crea un nuovo documento basato sul template
+    const pdfDoc = await PDFDocument.create()
+
+    // Copia la prima pagina del template
+    const [templatePage] = await pdfDoc.copyPages(templateDoc, [0])
+    pdfDoc.addPage(templatePage)
+
+    // Ottieni la pagina per aggiungere il testo
+    const page = pdfDoc.getPages()[0]
+    const { width, height } = page.getSize()
 
     // Formatta la data come nel componente Vue
     const formattaData = (dataNascita) => {
@@ -516,32 +477,116 @@ export async function generateSingleCardPDF(socio, renewalYear) {
       return `${parseInt(giorno)} ${meseNome} ${anno}`
     }
 
-    // Imposta il font e lo stile del testo (scalato per 300 DPI)
-    ctx.fillStyle = '#000000'
-    ctx.font = 'bold 71px cursive' // 6mm a 300 DPI ≈ 71px
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-
     const nomeCognome = `${socio.cognome} ${socio.nome}`
     const dataNascitaFormattata = formattaData(socio.data_nascita)
 
-    // Calcola le posizioni Y per centrare il testo
-    const centerY = cardHeightPx / 2
-    const textSpacing = 35 // Spazio tra le righe (3mm a 300 DPI ≈ 35px)
+    // Calcola le dimensioni dell'area di testo (stesso calcolo di TesseraTemplate.vue)
+    // Padding: 5mm sopra/sotto, 5% sinistra/destra
+    const paddingTopBottom = 5 * 2.83465 // 5mm in punti
+    const paddingLeftRightPercent = 0.05 // 5%
+    const availableWidth = width * (1 - 2 * paddingLeftRightPercent) // 90% della larghezza
 
-    // Disegna il nome e cognome
-    ctx.fillText(nomeCognome, cardWidthPx / 2, centerY - textSpacing)
+    // Centro dell'area di testo
+    const textAreaCenterX = width / 2
+    const textAreaTop = paddingTopBottom
+    const textAreaBottom = height - paddingTopBottom
+    const textAreaCenterY = (textAreaTop + textAreaBottom) / 2
 
-    // Disegna la data di nascita
-    ctx.fillText(dataNascitaFormattata, cardWidthPx / 2, centerY + textSpacing)
+    const fontSize = 6 * 2.83465 // 6mm font size
+    const lineSpacing = 3 * 2.83465 // 3mm gap tra righe
+    const minLineHeight = 8 * 2.83465 // 8mm min-height per riga
 
-    // Converti il canvas in immagine e aggiungila al PDF
-    const imgData = canvas.toDataURL('image/png')
-    doc.addImage(imgData, 'PNG', 0, 0, cardWidthMm, cardHeightMm)
+    // Font - usa Times-Italic per imitare scrittura a penna
+    const font = await pdfDoc.embedFont('Times-Italic')
+
+    // Funzione per wrapping del testo
+    const wrapText = (text, maxWidth, font, size) => {
+      const words = text.split(' ')
+      const lines = []
+      let currentLine = ''
+
+      for (const word of words) {
+        const testLine = currentLine ? `${currentLine} ${word}` : word
+        const textWidth = font.widthOfTextAtSize(testLine, size)
+
+        if (textWidth <= maxWidth && currentLine) {
+          currentLine = testLine
+        } else if (textWidth <= maxWidth) {
+          currentLine = word
+        } else {
+          if (currentLine) {
+            lines.push(currentLine)
+          }
+          currentLine = word
+        }
+      }
+
+      if (currentLine) {
+        lines.push(currentLine)
+      }
+
+      return lines
+    }
+
+    // Gestisci il nome e cognome con wrapping se necessario
+    const nomeLines = wrapText(nomeCognome, availableWidth, font, fontSize)
+    const dataLines = wrapText(dataNascitaFormattata, availableWidth, font, fontSize)
+
+    // Calcola l'altezza totale del contenuto (nome + gap + data)
+    const nomeHeight = nomeLines.length * minLineHeight
+    const dataHeight = dataLines.length * minLineHeight
+    const gapHeight = lineSpacing
+    const totalContentHeight = nomeHeight + gapHeight + dataHeight
+
+    // Posizione Y iniziale (centrata verticalmente nell'area di testo)
+    let currentY = textAreaCenterY + totalContentHeight / 2 - minLineHeight / 2
+
+    // Disegna le righe del nome (dall'alto verso il basso)
+    for (let i = 0; i < nomeLines.length; i++) {
+      const textWidth = font.widthOfTextAtSize(nomeLines[i], fontSize)
+      const x = textAreaCenterX - textWidth / 2 // Centra manualmente
+
+      page.drawText(nomeLines[i], {
+        x: x,
+        y: currentY,
+        size: fontSize,
+        font: font,
+        color: rgb(0, 0, 0),
+      })
+      currentY -= minLineHeight
+    }
+
+    // Aggiungi il gap tra nome e data
+    currentY -= lineSpacing
+
+    // Disegna le righe della data
+    for (let i = 0; i < dataLines.length; i++) {
+      const textWidth = font.widthOfTextAtSize(dataLines[i], fontSize)
+      const x = textAreaCenterX - textWidth / 2 // Centra manualmente
+
+      page.drawText(dataLines[i], {
+        x: x,
+        y: currentY,
+        size: fontSize,
+        font: font,
+        color: rgb(0, 0, 0),
+      })
+      currentY -= minLineHeight
+    }
 
     // Salva il PDF
-    const fileName = sanitizeFilename(`tessera_${socio.cognome}_${socio.nome}_${renewalYear}.pdf`)
-    doc.save(fileName)
+    const pdfBytes = await pdfDoc.save()
+    const blob = new Blob([pdfBytes], { type: 'application/pdf' })
+
+    // Scarica il PDF
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = sanitizeFilename(`tessera_${socio.cognome}_${socio.nome}_${renewalYear}.pdf`)
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
   } catch (error) {
     console.error('Errore nella generazione del PDF della tessera:', error)
     throw error
@@ -549,25 +594,26 @@ export async function generateSingleCardPDF(socio, renewalYear) {
 }
 
 /**
- * Generates multiple PDFs with member cards grouped alphabetically
+ * Generates multiple PDFs with member cards grouped alphabetically using PDF template
  * @param {Array} soci - Array of member objects
  * @param {number} renewalYear - The year for the cards
  * @param {Function} onProgress - Callback function for progress updates
  * @returns {Promise<Array>} Array of PDF results with filename and blob
  */
 export async function generateAllCardsPDF(soci, renewalYear, onProgress = () => {}) {
-  const cardBackground = await getSetting('cardBackground')
-
-  // Dimensioni originali di TesseraTemplate.vue (80.77mm x 122.17mm)
-  const cardWidthMm = 80.77
-  const cardHeightMm = 122.17
-
-  // Usa risoluzione alta per qualità di stampa (300 DPI) - ora possibile con PDF separati
-  const dpi = 300
-  const cardWidthPx = Math.round((cardWidthMm / 25.4) * dpi)
-  const cardHeightPx = Math.round((cardHeightMm / 25.4) * dpi)
-
   try {
+    // Carica il PDF template dal database
+    const pdfTemplateData = await getSetting('cardTemplatePDF')
+    if (!pdfTemplateData) {
+      throw new Error('Nessun template PDF configurato. Carica un template PDF nelle impostazioni.')
+    }
+
+    // Converti i dati del template in Uint8Array
+    const templateBytes = new Uint8Array(pdfTemplateData)
+
+    // Carica il PDF template
+    const templateDoc = await PDFDocument.load(templateBytes)
+
     // Ordina i soci per cognome
     const sociOrdinati = soci.sort((a, b) => a.cognome.localeCompare(b.cognome))
 
@@ -587,59 +633,19 @@ export async function generateAllCardsPDF(soci, renewalYear, onProgress = () => 
 
     // Genera un PDF per ogni gruppo alfabetico
     for (const [lettera, sociGruppo] of Object.entries(gruppiAlfabetici)) {
-      // Crea PDF per questo gruppo
-      const doc = new jsPDF({
-        orientation: cardWidthMm > cardHeightMm ? 'landscape' : 'portrait',
-        unit: 'mm',
-        format: [cardWidthMm, cardHeightMm],
-      })
+      // Crea un nuovo documento per questo gruppo
+      const pdfDoc = await PDFDocument.create()
 
       for (let i = 0; i < sociGruppo.length; i++) {
         const socio = sociGruppo[i]
 
-        // Crea un canvas per disegnare la tessera
-        const canvas = document.createElement('canvas')
-        canvas.width = cardWidthPx
-        canvas.height = cardHeightPx
-        const ctx = canvas.getContext('2d')
+        // Copia la prima pagina del template per ogni tessera
+        const [templatePage] = await pdfDoc.copyPages(templateDoc, [0])
+        pdfDoc.addPage(templatePage)
 
-        // Sfondo bianco
-        ctx.fillStyle = 'white'
-        ctx.fillRect(0, 0, cardWidthPx, cardHeightPx)
-
-        // Disegna l'immagine di sfondo se presente
-        if (cardBackground) {
-          await new Promise((resolve, reject) => {
-            const img = new Image()
-            img.crossOrigin = 'anonymous'
-            img.onload = () => {
-              // Calcola le dimensioni per mantenere le proporzioni e coprire tutto
-              const imgAspect = img.width / img.height
-              const canvasAspect = cardWidthPx / cardHeightPx
-
-              let drawWidth, drawHeight, drawX, drawY
-
-              if (imgAspect > canvasAspect) {
-                // Immagine più larga del canvas
-                drawHeight = cardHeightPx
-                drawWidth = drawHeight * imgAspect
-                drawX = (cardWidthPx - drawWidth) / 2
-                drawY = 0
-              } else {
-                // Immagine più alta del canvas
-                drawWidth = cardWidthPx
-                drawHeight = drawWidth / imgAspect
-                drawX = 0
-                drawY = (cardHeightPx - drawHeight) / 2
-              }
-
-              ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight)
-              resolve()
-            }
-            img.onerror = reject
-            img.src = cardBackground
-          })
-        }
+        // Ottieni la pagina corrente per aggiungere il testo
+        const page = pdfDoc.getPages()[i]
+        const { width, height } = page.getSize()
 
         // Formatta la data come nel componente Vue
         const formattaData = (dataNascita) => {
@@ -663,38 +669,111 @@ export async function generateAllCardsPDF(soci, renewalYear, onProgress = () => 
           return `${parseInt(giorno)} ${meseNome} ${anno}`
         }
 
-        // Imposta il font e lo stile del testo (scalato per 300 DPI)
-        ctx.fillStyle = '#000000'
-        ctx.font = 'bold 71px cursive' // 6mm a 300 DPI ≈ 71px
-        ctx.textAlign = 'center'
-        ctx.textBaseline = 'middle'
-
         const nomeCognome = `${socio.cognome} ${socio.nome}`
         const dataNascitaFormattata = formattaData(socio.data_nascita)
 
-        // Calcola le posizioni Y per centrare il testo
-        const centerY = cardHeightPx / 2
-        const textSpacing = 35 // Spazio tra le righe (3mm a 300 DPI ≈ 35px)
+        // Calcola le dimensioni dell'area di testo (stesso calcolo di TesseraTemplate.vue)
+        // Padding: 5mm sopra/sotto, 5% sinistra/destra
+        const paddingTopBottom = 5 * 2.83465 // 5mm in punti
+        const paddingLeftRightPercent = 0.05 // 5%
+        const availableWidth = width * (1 - 2 * paddingLeftRightPercent) // 90% della larghezza
 
-        // Disegna il nome e cognome
-        ctx.fillText(nomeCognome, cardWidthPx / 2, centerY - textSpacing)
+        // Centro dell'area di testo
+        const textAreaCenterX = width / 2
+        const textAreaTop = paddingTopBottom
+        const textAreaBottom = height - paddingTopBottom
+        const textAreaCenterY = (textAreaTop + textAreaBottom) / 2
 
-        // Disegna la data di nascita
-        ctx.fillText(dataNascitaFormattata, cardWidthPx / 2, centerY + textSpacing)
+        const fontSize = 6 * 2.83465 // 6mm font size
+        const lineSpacing = 3 * 2.83465 // 3mm gap tra righe
+        const minLineHeight = 8 * 2.83465 // 8mm min-height per riga
 
-        // Ogni tessera è su una pagina separata
-        if (i > 0) {
-          doc.addPage()
+        // Font - usa Times-Italic per imitare scrittura a penna
+        const font = await pdfDoc.embedFont('Times-Italic')
+
+        // Funzione per wrapping del testo
+        const wrapText = (text, maxWidth, font, size) => {
+          const words = text.split(' ')
+          const lines = []
+          let currentLine = ''
+
+          for (const word of words) {
+            const testLine = currentLine ? `${currentLine} ${word}` : word
+            const textWidth = font.widthOfTextAtSize(testLine, size)
+
+            if (textWidth <= maxWidth && currentLine) {
+              currentLine = testLine
+            } else if (textWidth <= maxWidth) {
+              currentLine = word
+            } else {
+              if (currentLine) {
+                lines.push(currentLine)
+              }
+              currentLine = word
+            }
+          }
+
+          if (currentLine) {
+            lines.push(currentLine)
+          }
+
+          return lines
         }
 
-        // Converti il canvas in immagine e aggiungila al PDF
-        const imgData = canvas.toDataURL('image/png')
-        doc.addImage(imgData, 'PNG', 0, 0, cardWidthMm, cardHeightMm)
+        // Gestisci il nome e cognome con wrapping se necessario
+        const nomeLines = wrapText(nomeCognome, availableWidth, font, fontSize)
+        const dataLines = wrapText(dataNascitaFormattata, availableWidth, font, fontSize)
+
+        // Calcola l'altezza totale del contenuto (nome + gap + data)
+        const nomeHeight = nomeLines.length * minLineHeight
+        const dataHeight = dataLines.length * minLineHeight
+        const gapHeight = lineSpacing
+        const totalContentHeight = nomeHeight + gapHeight + dataHeight
+
+        // Posizione Y iniziale (centrata verticalmente nell'area di testo)
+        let currentY = textAreaCenterY + totalContentHeight / 2 - minLineHeight / 2
+
+        // Disegna le righe del nome (dall'alto verso il basso)
+        for (let i = 0; i < nomeLines.length; i++) {
+          const textWidth = font.widthOfTextAtSize(nomeLines[i], fontSize)
+          const x = textAreaCenterX - textWidth / 2 // Centra manualmente
+
+          page.drawText(nomeLines[i], {
+            x: x,
+            y: currentY,
+            size: fontSize,
+            font: font,
+            color: rgb(0, 0, 0),
+          })
+          currentY -= minLineHeight
+        }
+
+        // Aggiungi il gap tra nome e data
+        currentY -= lineSpacing
+
+        // Disegna le righe della data
+        for (let i = 0; i < dataLines.length; i++) {
+          const textWidth = font.widthOfTextAtSize(dataLines[i], fontSize)
+          const x = textAreaCenterX - textWidth / 2 // Centra manualmente
+
+          page.drawText(dataLines[i], {
+            x: x,
+            y: currentY,
+            size: fontSize,
+            font: font,
+            color: rgb(0, 0, 0),
+          })
+          currentY -= minLineHeight
+        }
 
         progressoTotale++
         const progress = (progressoTotale / totaleSoci) * 100
         onProgress(progress)
       }
+
+      // Salva il PDF per questo gruppo
+      const pdfBytes = await pdfDoc.save()
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' })
 
       // Genera il nome file per questo gruppo
       const fileName = sanitizeFilename(
@@ -705,7 +784,7 @@ export async function generateAllCardsPDF(soci, renewalYear, onProgress = () => 
       risultati.push({
         letter: lettera,
         filename: fileName,
-        blob: doc.output('blob'),
+        blob: blob,
         count: sociGruppo.length,
       })
     }

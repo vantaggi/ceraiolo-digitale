@@ -19,6 +19,7 @@
                 data-nascita="1980-05-15"
                 :anno="currentYear + 1"
                 :background-image="previewBackground"
+                :has-pdf-template="hasPdfTemplate"
               />
             </div>
           </div>
@@ -28,31 +29,33 @@
             <h3>Impostazioni Template</h3>
 
             <div class="control-group">
-              <label for="background-upload">Immagine di Sfondo:</label>
+              <label for="background-upload">Template PDF Tessera:</label>
               <input
                 id="background-upload"
                 type="file"
-                accept="image/*"
-                @change="handleImageUpload"
+                accept=".pdf"
+                @change="handlePDFUpload"
                 :disabled="isSaving"
               />
               <small class="help-text">
-                Carica un'immagine per personalizzare lo sfondo delle tessere.<br />
-                Formati supportati: JPG, PNG, GIF. Dimensione massima: 2MB.
+                Carica un file PDF che contiene solo lo sfondo della tessera.<br />
+                Il PDF deve avere una singola pagina con le dimensioni esatte della tessera.<br />
+                Formato supportato: PDF. Dimensione massima: 5MB.
               </small>
             </div>
 
-            <div class="control-group" v-if="selectedImage">
-              <label>Anteprima selezionata:</label>
-              <div class="image-preview">
-                <img :src="selectedImage" alt="Anteprima immagine" />
+            <div class="control-group" v-if="selectedPDF">
+              <label>PDF selezionato:</label>
+              <div class="pdf-info">
+                <span class="pdf-name">{{ selectedPDF.name }}</span>
+                <span class="pdf-size">({{ formatFileSize(selectedPDF.size) }})</span>
               </div>
             </div>
 
             <div class="action-buttons">
               <button
                 @click="saveTemplate"
-                :disabled="!selectedImage || isSaving"
+                :disabled="(!selectedPDF && !selectedImage) || isSaving"
                 class="save-button"
               >
                 <span v-if="isSaving" class="loading-spinner">⏳</span>
@@ -201,7 +204,9 @@ const currentYear = new Date().getFullYear()
 
 // Stato del componente
 const selectedImage = ref(null)
+const selectedPDF = ref(null)
 const previewBackground = ref(null)
+const hasPdfTemplate = ref(false)
 const isSaving = ref(false)
 const isExporting = ref(false)
 const isSavingBackup = ref(false)
@@ -220,8 +225,18 @@ const exitBackupSettings = ref({
 onMounted(async () => {
   try {
     const savedBackground = await getSetting('cardBackground')
-    if (savedBackground) {
+    const savedPdfTemplate = await getSetting('cardTemplatePDF')
+
+    if (savedPdfTemplate) {
+      hasPdfTemplate.value = true
+      // Mostra l'immagine di anteprima se disponibile
       previewBackground.value = savedBackground
+    } else if (savedBackground) {
+      previewBackground.value = savedBackground
+      hasPdfTemplate.value = false
+    } else {
+      previewBackground.value = null
+      hasPdfTemplate.value = false
     }
   } catch (error) {
     console.error('Errore caricamento template:', error)
@@ -230,49 +245,142 @@ onMounted(async () => {
 })
 
 /**
- * Gestisce l'upload dell'immagine
+ * Gestisce l'upload del PDF template
  */
-const handleImageUpload = (event) => {
+const handlePDFUpload = (event) => {
   const file = event.target.files[0]
   if (!file) return
 
   // Controlla il tipo di file
-  if (!file.type.startsWith('image/')) {
-    toast.error('Seleziona un file immagine valido')
+  if (file.type !== 'application/pdf') {
+    toast.error('Seleziona un file PDF valido')
     return
   }
 
-  // Controlla la dimensione (max 2MB)
-  if (file.size > 2 * 1024 * 1024) {
-    toast.error("L'immagine è troppo grande. Dimensione massima: 2MB")
+  // Controlla la dimensione (max 5MB)
+  if (file.size > 5 * 1024 * 1024) {
+    toast.error('Il PDF è troppo grande. Dimensione massima: 5MB')
     return
   }
 
-  const reader = new FileReader()
-  reader.onload = (e) => {
-    selectedImage.value = e.target.result
-    previewBackground.value = e.target.result
-    toast.success('Immagine caricata con successo!')
-  }
-  reader.onerror = () => {
-    toast.error('Errore nella lettura del file')
-  }
-  reader.readAsDataURL(file)
+  selectedPDF.value = file
+  selectedImage.value = null // Reset immagine se presente
+  toast.success('PDF caricato con successo!')
+}
+
+/**
+ * Formatta la dimensione del file in formato leggibile
+ */
+const formatFileSize = (bytes) => {
+  if (bytes === 0) return '0 Bytes'
+  const k = 1024
+  const sizes = ['Bytes', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+}
+
+/**
+ * Crea un'immagine di anteprima dal PDF
+ */
+const createPDFPreview = async (pdfFile) => {
+  return new Promise((resolve, reject) => {
+    try {
+      // Crea un iframe nascosto per renderizzare il PDF
+      const iframe = document.createElement('iframe')
+      iframe.style.display = 'none'
+      iframe.style.width = '80.77mm'
+      iframe.style.height = '122.17mm'
+
+      // Converti il file in URL blob
+      const pdfUrl = URL.createObjectURL(pdfFile)
+
+      iframe.onload = () => {
+        // Aspetta un po' per il rendering
+        setTimeout(() => {
+          try {
+            // Crea un canvas per catturare l'immagine
+            const canvas = document.createElement('canvas')
+            canvas.width = 227 // 80.77mm a 72 DPI
+            canvas.height = 345 // 122.17mm a 72 DPI
+            const ctx = canvas.getContext('2d')
+
+            // Disegna uno sfondo bianco
+            ctx.fillStyle = 'white'
+            ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+            // Aggiungi testo placeholder
+            ctx.fillStyle = '#666'
+            ctx.font = '16px Arial'
+            ctx.textAlign = 'center'
+            ctx.fillText('PDF Template', canvas.width / 2, canvas.height / 2 - 20)
+            ctx.fillText('Anteprima', canvas.width / 2, canvas.height / 2 + 20)
+
+            // Converti in immagine
+            const imageData = canvas.toDataURL('image/png')
+
+            // Pulisci
+            document.body.removeChild(iframe)
+            URL.revokeObjectURL(pdfUrl)
+
+            resolve(imageData)
+          } catch (error) {
+            reject(error)
+          }
+        }, 1000)
+      }
+
+      iframe.onerror = () => {
+        document.body.removeChild(iframe)
+        URL.revokeObjectURL(pdfUrl)
+        reject(new Error('Errore caricamento PDF'))
+      }
+
+      iframe.src = pdfUrl
+      document.body.appendChild(iframe)
+    } catch (error) {
+      reject(error)
+    }
+  })
 }
 
 /**
  * Salva il template nel database
  */
 const saveTemplate = async () => {
-  if (!selectedImage.value) return
+  if (!selectedPDF.value && !selectedImage.value) return
 
   try {
     isSaving.value = true
     toast.info('Salvataggio template in corso...')
 
-    await updateSetting('cardBackground', selectedImage.value)
+    if (selectedPDF.value) {
+      // Converti il PDF in ArrayBuffer per salvarlo
+      const arrayBuffer = await selectedPDF.value.arrayBuffer()
+      const uint8Array = new Uint8Array(arrayBuffer)
+
+      // Salva il PDF template
+      await updateSetting('cardTemplatePDF', Array.from(uint8Array))
+
+      // Crea anche un'immagine di anteprima dal PDF
+      try {
+        const previewImage = await createPDFPreview(selectedPDF.value)
+        await updateSetting('cardBackground', previewImage)
+        previewBackground.value = previewImage
+      } catch (previewError) {
+        console.warn('Errore creazione anteprima PDF:', previewError)
+        // Se fallisce l'anteprima, almeno salva il PDF
+        await updateSetting('cardBackground', null)
+        previewBackground.value = null
+      }
+    } else if (selectedImage.value) {
+      // Salva immagine come prima (per retrocompatibilità)
+      await updateSetting('cardBackground', selectedImage.value)
+      await updateSetting('cardTemplatePDF', null) // Rimuovi PDF se presente
+      previewBackground.value = selectedImage.value
+    }
 
     toast.success('Template salvato con successo!')
+    selectedPDF.value = null
     selectedImage.value = null
   } catch (error) {
     console.error('Errore salvataggio template:', error)
@@ -291,10 +399,12 @@ const resetTemplate = async () => {
     toast.info('Ripristino template di default...')
 
     await updateSetting('cardBackground', null)
+    await updateSetting('cardTemplatePDF', null)
     await updateSetting('cardWidth', null)
     await updateSetting('cardHeight', null)
     previewBackground.value = null
     selectedImage.value = null
+    selectedPDF.value = null
 
     toast.success('Template ripristinato al default!')
   } catch (error) {
@@ -529,6 +639,27 @@ const viewBackupHistory = () => {
   width: 100%;
   height: auto;
   display: block;
+}
+
+.pdf-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 1rem;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+
+.pdf-name {
+  font-weight: 600;
+  color: var(--color-text-primary);
+  font-size: 0.9rem;
+}
+
+.pdf-size {
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
 }
 
 .action-buttons {
