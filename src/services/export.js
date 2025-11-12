@@ -4,6 +4,231 @@ import * as XLSX from 'xlsx'
 import { getSetting, exportAllSoci, exportAllTesseramenti } from './db'
 
 /**
+ * Crea un documento PDF con configurazione base
+ * @param {string} orientation - 'portrait' o 'landscape'
+ * @param {string} format - Formato pagina ('a4', ecc.)
+ * @returns {jsPDF} Istanza jsPDF configurata
+ */
+function createPDFDocument(orientation = 'landscape', format = 'a4') {
+  return new jsPDF({
+    orientation,
+    unit: 'mm',
+    format,
+  })
+}
+
+/**
+ * Aggiunge header standard al PDF
+ * @param {jsPDF} doc - Documento PDF
+ * @param {string} title - Titolo principale
+ * @param {string} subtitle - Sottotitolo (opzionale)
+ * @param {string} summary - Testo riassuntivo (opzionale)
+ * @returns {number} Posizione Y dopo l'header
+ */
+function addPDFHeader(doc, title, subtitle = '', summary = '') {
+  let currentY = 20
+
+  // Titolo principale
+  doc.setFontSize(20)
+  doc.setFont('helvetica', 'bold')
+  doc.text(title, 148, currentY, { align: 'center' })
+  currentY += 10
+
+  // Sottotitolo
+  if (subtitle) {
+    doc.setFontSize(14)
+    doc.setFont('helvetica', 'normal')
+    doc.text(subtitle, 148, currentY, { align: 'center' })
+    currentY += 10
+  }
+
+  // Data generazione
+  const generationDate = new Date().toLocaleDateString('it-IT', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+  doc.setFontSize(12)
+  doc.setFont('helvetica', 'normal')
+  doc.text(`Generato il: ${generationDate}`, 148, currentY, { align: 'center' })
+  currentY += 10
+
+  // Testo riassuntivo
+  if (summary) {
+    doc.text(summary, 148, currentY, { align: 'center' })
+    currentY += 10
+  }
+
+  return currentY
+}
+
+/**
+ * Crea una tabella PDF con intestazione e righe
+ * @param {jsPDF} doc - Documento PDF
+ * @param {Array} headers - Array di oggetti header {text, width}
+ * @param {Array} rows - Array di righe (ogni riga è un array di valori)
+ * @param {number} startY - Posizione Y iniziale
+ * @param {number} rowHeight - Altezza delle righe
+ * @returns {number} Posizione Y dopo la tabella
+ */
+function createPDFTable(doc, headers, rows, startY, rowHeight = 10) {
+  const tableWidth = 240
+  const startX = 20
+
+  // Calcola posizioni colonne
+  const colPositions = [startX]
+  headers.forEach((header, index) => {
+    const prevPos = colPositions[index]
+    colPositions.push(prevPos + header.width)
+  })
+
+  let currentY = startY
+
+  // Intestazione
+  doc.setFillColor(183, 28, 28) // Rosso scuro
+  doc.setTextColor(255) // Bianco
+  doc.setFontSize(11)
+  doc.setFont('helvetica', 'bold')
+
+  // Sfondo intestazione
+  doc.rect(startX, currentY, tableWidth, rowHeight, 'F')
+
+  // Bordi intestazione
+  doc.setDrawColor(100, 100, 100)
+  doc.setLineWidth(0.5)
+  doc.rect(startX, currentY, tableWidth, rowHeight)
+
+  // Testo intestazione
+  headers.forEach((header, index) => {
+    doc.text(header.text, colPositions[index] + 2, currentY + 7)
+  })
+
+  currentY += rowHeight
+
+  // Righe dati
+  doc.setTextColor(0) // Nero
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(9)
+
+  rows.forEach((row, rowIndex) => {
+    // Alternanza colori
+    const isEvenRow = rowIndex % 2 === 0
+    const fillColor = isEvenRow ? [248, 248, 248] : [255, 255, 255]
+    doc.setFillColor(fillColor[0], fillColor[1], fillColor[2])
+    doc.rect(startX, currentY, tableWidth, rowHeight, 'F')
+
+    // Bordi celle
+    doc.setDrawColor(220, 220, 220)
+    doc.setLineWidth(0.3)
+
+    // Linee verticali
+    colPositions.forEach((x) => {
+      doc.line(x, currentY, x, currentY + rowHeight)
+    })
+    doc.line(
+      colPositions[colPositions.length - 1],
+      currentY,
+      colPositions[colPositions.length - 1],
+      currentY + rowHeight,
+    )
+
+    // Bordo orizzontale
+    doc.rect(startX, currentY, tableWidth, rowHeight)
+
+    // Testo celle
+    row.forEach((cellValue, cellIndex) => {
+      const cellText = String(cellValue || '')
+      const maxWidth = headers[cellIndex].width - 4
+
+      if (cellText.length > 15 && maxWidth < 50) {
+        // Testo lungo, tronca
+        doc.text(cellText.substring(0, 12) + '...', colPositions[cellIndex] + 2, currentY + 7)
+      } else if (cellText.includes('\n') || cellText.length > 20) {
+        // Testo multi-riga
+        const lines = doc.splitTextToSize(cellText, maxWidth)
+        doc.text(lines, colPositions[cellIndex] + 2, currentY + 5)
+      } else {
+        // Testo normale
+        doc.text(cellText, colPositions[cellIndex] + 2, currentY + 7)
+      }
+    })
+
+    currentY += rowHeight
+
+    // Controllo paginazione (se vicino al fondo)
+    if (currentY > 170) {
+      // 180 - 10 per margine
+      doc.addPage()
+      currentY = 20
+
+      // Ripeti intestazione su nuova pagina
+      doc.setFillColor(183, 28, 28)
+      doc.setTextColor(255)
+      doc.setFontSize(11)
+      doc.setFont('helvetica', 'bold')
+      doc.rect(startX, currentY, tableWidth, rowHeight, 'F')
+      doc.setDrawColor(100, 100, 100)
+      doc.setLineWidth(0.5)
+      doc.rect(startX, currentY, tableWidth, rowHeight)
+
+      headers.forEach((header, index) => {
+        doc.text(header.text, colPositions[index] + 2, currentY + 7)
+      })
+
+      currentY += rowHeight
+      doc.setTextColor(0)
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(9)
+    }
+  })
+
+  return currentY
+}
+
+/**
+ * Aggiunge footer standard al PDF con numeri di pagina
+ * @param {jsPDF} doc - Documento PDF
+ */
+function addPDFFooter(doc) {
+  const pageHeight = doc.internal.pageSize.height
+  const pageCount = doc.internal.getNumberOfPages()
+
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i)
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'italic')
+    doc.text('Sistema di gestione soci - Ceraiolo Digitale', 20, pageHeight - 20)
+
+    doc.setFont('helvetica', 'normal')
+    doc.text(`Pagina ${i} di ${pageCount}`, doc.internal.pageSize.width - 40, pageHeight - 20)
+  }
+}
+
+/**
+ * Genera un nome file PDF standardizzato
+ * @param {string} baseName - Nome base del file
+ * @param {Object} params - Parametri aggiuntivi per il nome file
+ * @returns {string} Nome file sanitizzato
+ */
+function generatePDFFilename(baseName, params = {}) {
+  const parts = [baseName]
+
+  // Aggiungi parametri se presenti
+  Object.values(params).forEach((param) => {
+    if (param && param !== 'tutti' && param !== 'Tutti') {
+      parts.push(String(param).toLowerCase().replace(/\s+/g, '_'))
+    }
+  })
+
+  // Aggiungi data
+  parts.push(new Date().toISOString().split('T')[0])
+
+  return sanitizeFilename(`${parts.join('_')}.pdf`)
+}
+
+/**
  * Sanitizes a filename by removing or replacing invalid characters
  * @param {string} filename - The filename to sanitize
  * @returns {string} The sanitized filename
@@ -18,80 +243,98 @@ function sanitizeFilename(filename) {
 }
 
 /**
- * Generates the HTML for a single member card
+ * Creates a DOM element with the TesseraTemplate styles applied
  * @param {Object} socio - Member object
- * @param {string} backgroundStyle - CSS background style string
- * @returns {string} HTML string for the card
+ * @param {string} backgroundImage - Background image URL
+ * @returns {Promise<HTMLElement>} DOM element with the card content
  */
-function generateCardHTML(socio, backgroundStyle = '') {
-  // Formatta la data di nascita
-  const mesi = [
-    'Gennaio',
-    'Febbraio',
-    'Marzo',
-    'Aprile',
-    'Maggio',
-    'Giugno',
-    'Luglio',
-    'Agosto',
-    'Settembre',
-    'Ottobre',
-    'Novembre',
-    'Dicembre',
-  ]
-  let dataNascitaFormattata = '-'
-  if (socio.data_nascita) {
-    const [anno, mese, giorno] = socio.data_nascita.split('-')
+async function createCardElement(socio, backgroundImage = null) {
+  // Formatta la data come nel componente Vue
+  const formattaData = (dataNascita) => {
+    if (!dataNascita) return ''
+    const [anno, mese, giorno] = dataNascita.split('-')
+    const mesi = [
+      'Gennaio',
+      'Febbraio',
+      'Marzo',
+      'Aprile',
+      'Maggio',
+      'Giugno',
+      'Luglio',
+      'Agosto',
+      'Settembre',
+      'Ottobre',
+      'Novembre',
+      'Dicembre',
+    ]
     const meseNome = mesi[parseInt(mese) - 1]
-    dataNascitaFormattata = `${parseInt(giorno)} ${meseNome} ${anno}`
+    return `${parseInt(giorno)} ${meseNome} ${anno}`
   }
 
-  return `
+  const nomeCognome = `${socio.cognome} ${socio.nome}`
+  const dataNascitaFormattata = formattaData(socio.data_nascita)
+
+  // Crea il container con gli stili esatti del componente TesseraTemplate
+  const container = document.createElement('div')
+  container.innerHTML = `
     <div style="
-      width: 305px;
-      height: 462px;
-      ${backgroundStyle}
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
+      width: 80.77mm;
+      height: 122.17mm;
+      perspective: 1000px;
       font-family: cursive;
-      position: relative;
     ">
       <div style="
+        width: 100%;
+        height: 100%;
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
         display: flex;
         flex-direction: column;
-        gap: 9.25px;
-        text-align: center;
-        padding: 18.5px 18.5px 18.5px 18.5px;
-        width: 100%;
-        box-sizing: border-box;
+        position: relative;
+        overflow: hidden;
+        justify-content: center;
+        align-items: center;
+        ${backgroundImage ? `background-image: url(${backgroundImage});` : ''}
       ">
         <div style="
-          font-size: 6mm;
-          color: #000000;
-          font-weight: 600;
-          min-height: 8mm;
           display: flex;
-          align-items: center;
-          justify-content: center;
+          flex-direction: column;
+          gap: 3mm;
+          text-align: center;
+          padding: 5mm 5% 5mm 5%;
+          width: 100%;
+          box-sizing: border-box;
         ">
-          ${socio.cognome} ${socio.nome}
-        </div>
-        <div style="
-          font-size: 6mm;
-          color: #000000;
-          font-weight: 600;
-          min-height: 8mm;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        ">
-          ${dataNascitaFormattata}
+          <div class="info-value name" style="
+            font-size: 6mm;
+            color: #000000;
+            font-weight: 600;
+            min-height: 8mm;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          ">
+            ${nomeCognome}
+          </div>
+          <div class="info-value birthdate" style="
+            font-size: 6mm;
+            color: #000000;
+            font-weight: 600;
+            min-height: 8mm;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          ">
+            ${dataNascitaFormattata}
+          </div>
         </div>
       </div>
     </div>
   `
+
+  // Ritorna l'elemento della tessera
+  return container.firstElementChild
 }
 
 /**
@@ -106,53 +349,31 @@ export async function generateSociPDF(sociList, renewalYear) {
       throw new Error('Nessun dato da esportare')
     }
 
-    // Crea PDF in orizzontale (landscape) come la lista rinnovi
-    const doc = new jsPDF({
-      orientation: 'landscape',
-      unit: 'mm',
-      format: 'a4',
-    })
+    // Crea documento PDF
+    const doc = createPDFDocument()
 
-    // Titolo
+    // Header
     const gruppoNome = sociList[0]?.gruppo_appartenenza || 'Tutti'
-    doc.setFontSize(20)
-    doc.setFont('helvetica', 'bold')
-    doc.text(`Elenco ${gruppoNome}`, 148, 20, { align: 'center' })
-    doc.setFontSize(14)
-    doc.setFont('helvetica', 'normal')
-    doc.text(`Anno ${renewalYear}`, 148, 30, { align: 'center' })
+    const headerY = addPDFHeader(
+      doc,
+      `Elenco ${gruppoNome}`,
+      `Anno ${renewalYear}`,
+      `Totale soci: ${sociList.length}`,
+    )
 
-    // Add generation date
-    const generationDate = new Date().toLocaleDateString('it-IT', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-    doc.setFontSize(12)
-    doc.setFont('helvetica', 'normal')
-    doc.text(`Generato il: ${generationDate}`, 148, 35, { align: 'center' })
-
-    // Summary info
-    const totalSoci = sociList.length
-    doc.text(`Totale soci: ${totalSoci}`, 148, 45, { align: 'center' })
-
-    // Prepara i dati per la tabella (stesse colonne della lista rinnovi)
+    // Prepara i dati per la tabella
     const tableData = sociList
-      .sort((a, b) => a.cognome.localeCompare(b.cognome)) // Ordina alfabeticamente per cognome
+      .sort((a, b) => a.cognome.localeCompare(b.cognome))
       .map((socio) => {
-        // Calcola gli arretrati (anni precedenti al rinnovo non pagati)
+        // Calcola gli arretrati
         const anniPagati = socio.tesseramenti ? socio.tesseramenti.map((t) => t.anno) : []
         const anniArretrati = []
 
-        // Trova l'anno di prima iscrizione
         let annoPrimaIscrizione = socio.data_prima_iscrizione
         if (!annoPrimaIscrizione && anniPagati.length > 0) {
           annoPrimaIscrizione = Math.min(...anniPagati)
         }
 
-        // Calcola gli anni non pagati precedenti al rinnovo
         if (annoPrimaIscrizione) {
           for (let anno = annoPrimaIscrizione; anno < renewalYear; anno++) {
             if (!anniPagati.includes(anno)) {
@@ -161,151 +382,36 @@ export async function generateSociPDF(sociList, renewalYear) {
           }
         }
 
-        return {
-          nomeCompleto: `${socio.cognome} ${socio.nome}`,
-          gruppo: socio.gruppo_appartenenza || '-',
-          arretrati: anniArretrati.length > 0 ? anniArretrati.join(', ') : '-',
-          pagato: '', // Colonna vuota per scrivere a mano
-        }
+        return [
+          `${socio.cognome} ${socio.nome}`,
+          socio.gruppo_appartenenza || '-',
+          anniArretrati.length > 0 ? anniArretrati.join(', ') : '-',
+          '', // Colonna vuota per scrivere a mano
+        ]
       })
 
-    // Configurazione tabella per landscape (come lista rinnovi)
-    const startY = 55
-    const rowHeight = 10 // Righe più alte per ospitare testo multi-riga
-    const colWidths = [60, 40, 80, 60] // Larghezze colonne in landscape
-    const colPositions = [20, 80, 120, 200]
+    // Configurazione tabella
+    const headers = [
+      { text: 'Cognome e Nome', width: 60 },
+      { text: 'Gruppo', width: 40 },
+      { text: 'Arretrati', width: 80 },
+      { text: `Pagato ${renewalYear}`, width: 60 },
+    ]
 
-    // Intestazione con colori accattivanti (come lista rinnovi)
-    doc.setFillColor(183, 28, 28) // Rosso scuro
-    doc.setTextColor(255) // Bianco
-    doc.setFontSize(11)
-    doc.setFont('helvetica', 'bold')
+    // Crea tabella
+    createPDFTable(doc, headers, tableData, headerY + 10)
 
-    // Sfondo intestazione
-    doc.rect(20, startY, 240, rowHeight, 'F')
+    // Footer
+    addPDFFooter(doc)
 
-    // Bordi intestazione
-    doc.setDrawColor(100, 100, 100)
-    doc.setLineWidth(0.5)
-    doc.rect(20, startY, 240, rowHeight)
-
-    // Testo intestazione
-    doc.text('Cognome e Nome', colPositions[0] + 2, startY + 7)
-    doc.text('Gruppo', colPositions[1] + 2, startY + 7)
-    doc.text('Arretrati', colPositions[2] + 2, startY + 7)
-
-    // Colonna "Pagato" con evidenziazione speciale
-    doc.setFillColor(46, 125, 50) // Verde scuro per la colonna pagamento
-    doc.rect(colPositions[3], startY, colWidths[3], rowHeight, 'F')
-    doc.text(`Pagato ${renewalYear}`, colPositions[3] + 2, startY + 7)
-
-    // Righe dati con alternanza colori (come lista rinnovi)
-    doc.setTextColor(0) // Nero
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(9)
-
-    let currentY = startY + rowHeight
-    tableData.forEach((row, index) => {
-      // Alternanza righe: pari grigio chiaro, dispari bianco
-      const isEvenRow = index % 2 === 0
-      const fillColor = isEvenRow ? [248, 248, 248] : [255, 255, 255] // Grigio chiarissimo per righe pari
-      doc.setFillColor(fillColor[0], fillColor[1], fillColor[2])
-      doc.rect(20, currentY, 240, rowHeight, 'F')
-
-      // Bordi sottili per ogni cella
-      doc.setDrawColor(220, 220, 220)
-      doc.setLineWidth(0.3)
-
-      // Disegna le linee verticali delle colonne
-      for (let i = 0; i < colPositions.length; i++) {
-        const x = colPositions[i]
-        doc.line(x, currentY, x, currentY + rowHeight)
-      }
-      // Linea verticale finale
-      doc.line(
-        colPositions[colPositions.length - 1] + colWidths[colWidths.length - 1],
-        currentY,
-        colPositions[colPositions.length - 1] + colWidths[colWidths.length - 1],
-        currentY + rowHeight,
-      )
-
-      // Bordo orizzontale
-      doc.rect(20, currentY, 240, rowHeight)
-
-      // Testo delle celle con gestione word wrap per arretrati
-      doc.text(row.nomeCompleto, colPositions[0] + 2, currentY + 7)
-
-      doc.text(row.gruppo, colPositions[1] + 2, currentY + 7)
-
-      // Arretrati con word wrap se necessario
-      const arretratiText = row.arretrati
-      if (arretratiText.length > 20) {
-        // Se il testo è lungo, vai a capo
-        const lines = doc.splitTextToSize(arretratiText, colWidths[2] - 4)
-        doc.text(lines, colPositions[2] + 2, currentY + 5)
-      } else {
-        doc.text(arretratiText, colPositions[2] + 2, currentY + 7)
-      }
-
-      // Colonna pagamento con bordo più spesso per evidenziare
-      doc.setDrawColor(46, 125, 50) // Verde scuro
-      doc.setLineWidth(1)
-      doc.rect(colPositions[3], currentY, colWidths[3], rowHeight)
-
-      currentY += rowHeight
-
-      // Se la pagina è piena (considerando il margine inferiore), aggiungi una nuova pagina
-      if (currentY > 180) {
-        // 180mm invece di 270 per landscape
-        doc.addPage()
-        currentY = 55 // Stessa posizione della prima pagina
-
-        // Ripeti intestazione su nuova pagina
-        doc.setFillColor(183, 28, 28)
-        doc.setTextColor(255)
-        doc.setFontSize(11)
-        doc.setFont('helvetica', 'bold')
-        doc.rect(20, currentY, 240, rowHeight, 'F')
-        doc.setDrawColor(100, 100, 100)
-        doc.setLineWidth(0.5)
-        doc.rect(20, currentY, 240, rowHeight)
-        doc.text('Cognome e Nome', colPositions[0] + 2, currentY + 7)
-        doc.text('Gruppo', colPositions[1] + 2, currentY + 7)
-        doc.text('Arretrati', colPositions[2] + 2, currentY + 7)
-
-        // Colonna "Pagato" con evidenziazione speciale
-        doc.setFillColor(46, 125, 50)
-        doc.rect(colPositions[3], currentY, colWidths[3], rowHeight, 'F')
-        doc.text(`Pagato ${renewalYear}`, colPositions[3] + 2, currentY + 7)
-
-        currentY += rowHeight
-        doc.setTextColor(0)
-        doc.setFont('helvetica', 'normal')
-        doc.setFontSize(9)
-      }
-    })
-
-    // Add footer
-    const pageHeight = doc.internal.pageSize.height
-    doc.setFontSize(8)
-    doc.setFont('helvetica', 'italic')
-    doc.text('Sistema di gestione soci - Ceraiolo Digitale', 20, pageHeight - 20)
-
-    // Add page numbers
-    const pageCount = doc.internal.getNumberOfPages()
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i)
-      doc.text(`Pagina ${i} di ${pageCount}`, doc.internal.pageSize.width - 40, pageHeight - 20)
-    }
-
-    // Get PDF as blob
-    const pdfOutput = doc.output('blob')
+    // Genera filename e output
+    const filename = generatePDFFilename('elenco', { gruppoNome, renewalYear })
 
     return {
       success: true,
-      blob: pdfOutput,
-      filename: sanitizeFilename(`elenco_${gruppoNome}_${renewalYear}.pdf`),
-      totalSoci: totalSoci,
+      blob: doc.output('blob'),
+      filename,
+      totalSoci: sociList.length,
     }
   } catch (error) {
     console.error('Errore nella generazione del PDF:', error)
@@ -359,36 +465,25 @@ export async function generateAndDownloadSociPDF(sociList) {
  * @returns {Promise<void>}
  */
 export async function generateRenewalListPDF(soci, renewalYear) {
-  // Crea PDF in orizzontale (landscape) per più spazio
-  const doc = new jsPDF({
-    orientation: 'landscape',
-    unit: 'mm',
-    format: 'a4',
-  })
+  // Crea documento PDF
+  const doc = createPDFDocument()
 
-  // Titolo
-  doc.setFontSize(20)
-  doc.setFont('helvetica', 'bold')
-  doc.text('Lista Rinnovi Annuali', 148, 20, { align: 'center' })
-  doc.setFontSize(14)
-  doc.setFont('helvetica', 'normal')
-  doc.text(`Anno ${renewalYear}`, 148, 30, { align: 'center' })
+  // Header
+  const headerY = addPDFHeader(doc, 'Lista Rinnovi Annuali', `Anno ${renewalYear}`)
 
   // Prepara i dati per la tabella
   const tableData = soci
-    .sort((a, b) => a.cognome.localeCompare(b.cognome)) // Ordina alfabeticamente per cognome
+    .sort((a, b) => a.cognome.localeCompare(b.cognome))
     .map((socio) => {
-      // Calcola gli arretrati (anni precedenti al rinnovo non pagati)
+      // Calcola gli arretrati
       const anniPagati = socio.tesseramenti.map((t) => t.anno)
       const anniArretrati = []
 
-      // Trova l'anno di prima iscrizione
       let annoPrimaIscrizione = socio.data_prima_iscrizione
       if (!annoPrimaIscrizione && anniPagati.length > 0) {
         annoPrimaIscrizione = Math.min(...anniPagati)
       }
 
-      // Calcola gli anni non pagati precedenti al rinnovo
       if (annoPrimaIscrizione) {
         for (let anno = annoPrimaIscrizione; anno < renewalYear; anno++) {
           if (!anniPagati.includes(anno)) {
@@ -397,150 +492,35 @@ export async function generateRenewalListPDF(soci, renewalYear) {
         }
       }
 
-      return {
-        nomeCompleto: `${socio.cognome} ${socio.nome}`,
-        gruppo: socio.gruppo_appartenenza || '-',
-        arretrati: anniArretrati.length > 0 ? anniArretrati.join(', ') : '-',
-        pagato: '', // Colonna vuota per scrivere a mano
-      }
+      return [
+        `${socio.cognome} ${socio.nome}`,
+        socio.gruppo_appartenenza || '-',
+        anniArretrati.length > 0 ? anniArretrati.join(', ') : '-',
+        '', // Colonna vuota per scrivere a mano
+      ]
     })
 
-  // Configurazione tabella per landscape
-  const startY = 40
-  const rowHeight = 10 // Righe più alte per ospitare testo multi-riga
-  const colWidths = [60, 40, 80, 60] // Larghezze colonne in landscape
-  const colPositions = [20, 80, 120, 200]
+  // Configurazione tabella
+  const headers = [
+    { text: 'Cognome e Nome', width: 60 },
+    { text: 'Gruppo', width: 40 },
+    { text: 'Arretrati', width: 80 },
+    { text: `Pagato ${renewalYear}`, width: 60 },
+  ]
 
-  // Intestazione con colori accattivanti
-  doc.setFillColor(183, 28, 28) // Rosso scuro
-  doc.setTextColor(255) // Bianco
-  doc.setFontSize(11)
-  doc.setFont('helvetica', 'bold')
+  // Crea tabella
+  createPDFTable(doc, headers, tableData, headerY + 10)
 
-  // Sfondo intestazione
-  doc.rect(20, startY, 240, rowHeight, 'F')
-
-  // Bordi intestazione
-  doc.setDrawColor(100, 100, 100)
-  doc.setLineWidth(0.5)
-  doc.rect(20, startY, 240, rowHeight)
-
-  // Testo intestazione
-  doc.text('Cognome e Nome', colPositions[0] + 2, startY + 7)
-  doc.text('Gruppo', colPositions[1] + 2, startY + 7)
-  doc.text('Arretrati', colPositions[2] + 2, startY + 7)
-
-  // Colonna "Pagato" con evidenziazione speciale
-  doc.setFillColor(46, 125, 50) // Verde scuro per la colonna pagamento
-  doc.rect(colPositions[3], startY, colWidths[3], rowHeight, 'F')
-  doc.text(`Pagato ${renewalYear}`, colPositions[3] + 2, startY + 7)
-
-  // Righe dati con alternanza colori
-  doc.setTextColor(0) // Nero
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(9)
-
-  let currentY = startY + rowHeight
-
-  tableData.forEach((row, index) => {
-    // Alternanza righe: pari grigio chiaro, dispari bianco
-    const isEvenRow = index % 2 === 0
-    const fillColor = isEvenRow ? [248, 248, 248] : [255, 255, 255] // Grigio chiarissimo per righe pari
-    doc.setFillColor(fillColor[0], fillColor[1], fillColor[2])
-    doc.rect(20, currentY, 240, rowHeight, 'F')
-
-    // Bordi sottili per ogni cella
-    doc.setDrawColor(220, 220, 220)
-    doc.setLineWidth(0.3)
-
-    // Disegna le linee verticali delle colonne
-    for (let i = 0; i < colPositions.length; i++) {
-      const x = colPositions[i]
-      doc.line(x, currentY, x, currentY + rowHeight)
-    }
-    // Linea verticale finale
-    doc.line(
-      colPositions[colPositions.length - 1] + colWidths[colWidths.length - 1],
-      currentY,
-      colPositions[colPositions.length - 1] + colWidths[colWidths.length - 1],
-      currentY + rowHeight,
-    )
-
-    // Bordo orizzontale
-    doc.rect(20, currentY, 240, rowHeight)
-
-    // Testo delle celle con gestione word wrap per arretrati
-    doc.text(row.nomeCompleto, colPositions[0] + 2, currentY + 7)
-
-    doc.text(row.gruppo, colPositions[1] + 2, currentY + 7)
-
-    // Arretrati con word wrap se necessario
-    const arretratiText = row.arretrati
-    if (arretratiText.length > 20) {
-      // Se il testo è lungo, vai a capo
-      const lines = doc.splitTextToSize(arretratiText, colWidths[2] - 4)
-      doc.text(lines, colPositions[2] + 2, currentY + 5)
-    } else {
-      doc.text(arretratiText, colPositions[2] + 2, currentY + 7)
-    }
-
-    // Colonna pagamento con bordo più spesso per evidenziare
-    doc.setDrawColor(46, 125, 50) // Verde scuro
-    doc.setLineWidth(1)
-    doc.rect(colPositions[3], currentY, colWidths[3], rowHeight)
-
-    currentY += rowHeight
-
-    // Se la pagina è piena (considerando il margine inferiore), aggiungi una nuova pagina
-    if (currentY > 180) {
-      // 180mm invece di 270 per landscape
-      doc.addPage()
-      currentY = 20
-
-      // Ripeti intestazione su nuova pagina
-      doc.setFillColor(183, 28, 28)
-      doc.setTextColor(255)
-      doc.setFontSize(11)
-      doc.setFont('helvetica', 'bold')
-      doc.rect(20, currentY, 240, rowHeight, 'F')
-      doc.rect(20, currentY, 240, rowHeight)
-      doc.text('Cognome e Nome', colPositions[0] + 2, currentY + 7)
-      doc.text('Gruppo', colPositions[1] + 2, currentY + 7)
-      doc.text('Arretrati', colPositions[2] + 2, currentY + 7)
-      doc.setFillColor(46, 125, 50)
-      doc.rect(colPositions[3], currentY, colWidths[3], rowHeight, 'F')
-      doc.text(`Pagato ${renewalYear}`, colPositions[3] + 2, currentY + 7)
-
-      currentY += rowHeight
-      doc.setTextColor(0)
-      doc.setFont('helvetica', 'normal')
-      doc.setFontSize(9)
-    }
-  })
-
-  // Footer con data generazione
-  const pageCount = doc.getNumberOfPages()
-  for (let i = 1; i <= pageCount; i++) {
-    doc.setPage(i)
-    doc.setFontSize(8)
-    doc.setTextColor(128)
-    doc.text(
-      `Generato il ${new Date().toLocaleDateString('it-IT')} - Pagina ${i} di ${pageCount}`,
-      148,
-      200,
-      { align: 'center' },
-    )
-  }
+  // Footer
+  addPDFFooter(doc)
 
   // Salva il PDF
-  const fileName = sanitizeFilename(
-    `lista_rinnovi_${renewalYear}_${new Date().toISOString().split('T')[0]}.pdf`,
-  )
-  doc.save(fileName)
+  const filename = generatePDFFilename('lista_rinnovi', { renewalYear })
+  doc.save(filename)
 }
 
 /**
- * Generates a PDF with a single member card
+ * Generates a PDF with a single member card using direct canvas drawing
  * @param {Object} socio - Member object
  * @param {number} renewalYear - The year for the card
  * @returns {Promise<void>}
@@ -548,9 +528,13 @@ export async function generateRenewalListPDF(soci, renewalYear) {
 export async function generateSingleCardPDF(socio, renewalYear) {
   const cardBackground = await getSetting('cardBackground')
 
-  // Dimensioni fisse originali del TesseraTemplate (80.77mm x 122.17mm)
+  // Dimensioni originali di TesseraTemplate.vue (80.77mm x 122.17mm)
   const cardWidthMm = 80.77
   const cardHeightMm = 122.17
+
+  // Converti mm in pixel per il canvas (1mm ≈ 3.78px a 96 DPI)
+  const cardWidthPx = Math.round(cardWidthMm * 3.78)
+  const cardHeightPx = Math.round(cardHeightMm * 3.78)
 
   // Crea PDF con formato personalizzato - dimensioni esatte della tessera
   const doc = new jsPDF({
@@ -560,68 +544,100 @@ export async function generateSingleCardPDF(socio, renewalYear) {
   })
 
   try {
-    // Aggiungi l'immagine di sfondo direttamente al PDF se presente
-    if (cardBackground) {
-      // Crea un'immagine per ottenere le dimensioni originali
-      const img = new Image()
-      img.crossOrigin = 'anonymous'
+    // Crea un canvas per disegnare la tessera
+    const canvas = document.createElement('canvas')
+    canvas.width = cardWidthPx
+    canvas.height = cardHeightPx
+    const ctx = canvas.getContext('2d')
 
+    // Sfondo bianco
+    ctx.fillStyle = 'white'
+    ctx.fillRect(0, 0, cardWidthPx, cardHeightPx)
+
+    // Disegna l'immagine di sfondo se presente
+    if (cardBackground) {
       await new Promise((resolve, reject) => {
-        img.onload = resolve
+        const img = new Image()
+        img.crossOrigin = 'anonymous'
+        img.onload = () => {
+          // Calcola le dimensioni per mantenere le proporzioni e coprire tutto
+          const imgAspect = img.width / img.height
+          const canvasAspect = cardWidthPx / cardHeightPx
+
+          let drawWidth, drawHeight, drawX, drawY
+
+          if (imgAspect > canvasAspect) {
+            // Immagine più larga del canvas
+            drawHeight = cardHeightPx
+            drawWidth = drawHeight * imgAspect
+            drawX = (cardWidthPx - drawWidth) / 2
+            drawY = 0
+          } else {
+            // Immagine più alta del canvas
+            drawWidth = cardWidthPx
+            drawHeight = drawWidth / imgAspect
+            drawX = 0
+            drawY = (cardHeightPx - drawHeight) / 2
+          }
+
+          ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight)
+          resolve()
+        }
         img.onerror = reject
         img.src = cardBackground
       })
-
-      // Aggiungi l'immagine di sfondo che copre tutta la pagina
-      doc.addImage(cardBackground, 'JPEG', 0, 0, cardWidthMm, cardHeightMm)
     }
 
-    // Aggiungi il testo sopra l'immagine
-    // Formatta la data di nascita
-    const mesi = [
-      'Gennaio',
-      'Febbraio',
-      'Marzo',
-      'Aprile',
-      'Maggio',
-      'Giugno',
-      'Luglio',
-      'Agosto',
-      'Settembre',
-      'Ottobre',
-      'Novembre',
-      'Dicembre',
-    ]
-    let dataNascitaFormattata = '-'
-    if (socio.data_nascita) {
-      const [anno, mese, giorno] = socio.data_nascita.split('-')
+    // Formatta la data come nel componente Vue
+    const formattaData = (dataNascita) => {
+      if (!dataNascita) return ''
+      const [anno, mese, giorno] = dataNascita.split('-')
+      const mesi = [
+        'Gennaio',
+        'Febbraio',
+        'Marzo',
+        'Aprile',
+        'Maggio',
+        'Giugno',
+        'Luglio',
+        'Agosto',
+        'Settembre',
+        'Ottobre',
+        'Novembre',
+        'Dicembre',
+      ]
       const meseNome = mesi[parseInt(mese) - 1]
-      dataNascitaFormattata = `${parseInt(giorno)} ${meseNome} ${anno}`
+      return `${parseInt(giorno)} ${meseNome} ${anno}`
     }
 
-    // Imposta il font e il colore per il testo (corrispondenti al CSS originale)
-    doc.setFont('helvetica', 'bold') // Il più vicino a 'cursive' disponibile in jsPDF
-    doc.setTextColor(0, 0, 0) // Nero come nel CSS (#000000)
+    // Imposta il font e lo stile del testo
+    ctx.fillStyle = '#000000'
+    ctx.font = 'bold 24px cursive' // 6mm ≈ 24px
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
 
-    // Posizioni del testo corrispondenti al layout originale
-    // Il PDF è centrato verticalmente come il div originale
-    const centerX = cardWidthMm / 2
-    const centerY = cardHeightMm / 2
+    const nomeCognome = `${socio.cognome} ${socio.nome}`
+    const dataNascitaFormattata = formattaData(socio.data_nascita)
 
-    // Font-size: 6mm nel CSS corrisponde a circa 17-18pt nel PDF
-    doc.setFontSize(18) // Dimensione corretta equivalente a 6mm
+    // Calcola le posizioni Y per centrare il testo
+    const centerY = cardHeightPx / 2
+    const textSpacing = 12 // Spazio tra le righe (3mm ≈ 12px)
 
-    // Nome e cognome - leggermente sopra il centro (gap di 9.25px originale)
-    doc.text(`${socio.cognome} ${socio.nome}`, centerX, centerY - 3, { align: 'center' })
+    // Disegna il nome e cognome
+    ctx.fillText(nomeCognome, cardWidthPx / 2, centerY - textSpacing)
 
-    // Data di nascita - leggermente sotto il centro (gap di 9.25px originale)
-    doc.text(dataNascitaFormattata, centerX, centerY + 15, { align: 'center' })
+    // Disegna la data di nascita
+    ctx.fillText(dataNascitaFormattata, cardWidthPx / 2, centerY + textSpacing)
+
+    // Converti il canvas in immagine e aggiungila al PDF
+    const imgData = canvas.toDataURL('image/png')
+    doc.addImage(imgData, 'PNG', 0, 0, cardWidthMm, cardHeightMm)
 
     // Salva il PDF
     const fileName = sanitizeFilename(`tessera_${socio.cognome}_${socio.nome}_${renewalYear}.pdf`)
     doc.save(fileName)
   } catch (error) {
-    console.error('Errore nella generazione del PDF:', error)
+    console.error('Errore nella generazione del PDF della tessera:', error)
     throw error
   }
 }
@@ -658,22 +674,19 @@ export async function generateAllCardsPDF(soci, renewalYear, onProgress = () => 
 
   try {
     for (const socio of soci) {
-      // Crea la tessera per questo socio
-      const cardElement = document.createElement('div')
-      const backgroundStyle = cardBackground
-        ? `background-image: url(${cardBackground}); background-size: cover; background-position: center; background-repeat: no-repeat;`
-        : ''
-      cardElement.innerHTML = generateCardHTML(socio, backgroundStyle)
-      tempContainer.appendChild(cardElement)
+      // Crea la tessera usando il componente Vue TesseraTemplate
+      const tesseraElement = await createCardElement(socio, cardBackground)
+      tempContainer.appendChild(tesseraElement)
 
       // Converti in immagine ad alta qualità
-      const canvas = await html2canvas(cardElement, {
+      const canvas = await html2canvas(tesseraElement, {
         useCORS: true,
-        allowTaint: true,
+        allowTaint: false,
         backgroundColor: 'transparent',
-        scale: 2,
+        scale: 4, // Aumentato da 2 a 4 per migliore qualità dell'immagine
         imageTimeout: 0,
         logging: false,
+        foreignObjectRendering: true, // Migliora il rendering delle immagini
       })
 
       // Ogni tessera è su una pagina separata
@@ -690,7 +703,7 @@ export async function generateAllCardsPDF(soci, renewalYear, onProgress = () => 
       doc.addImage(imgData, 'PNG', x, y, cardWidthMm, cardHeightMm)
 
       // Rimuovi l'elemento temporaneo
-      tempContainer.removeChild(cardElement)
+      tempContainer.removeChild(tesseraElement)
 
       cardIndex++
 
@@ -723,14 +736,10 @@ export async function generateNewMembersPDF(newMembers, year, ageCategory = 'tut
       throw new Error('No new members to export')
     }
 
-    // Create PDF in landscape orientation
-    const doc = new jsPDF({
-      orientation: 'landscape',
-      unit: 'mm',
-      format: 'a4',
-    })
+    // Crea documento PDF
+    const doc = createPDFDocument()
 
-    // Title
+    // Header
     const ageCategoryText =
       {
         tutti: 'Tutti',
@@ -738,133 +747,45 @@ export async function generateNewMembersPDF(newMembers, year, ageCategory = 'tut
         minorenni: 'Minorenni',
       }[ageCategory] || 'Tutti'
 
-    doc.setFontSize(20)
-    doc.setFont('helvetica', 'bold')
-    doc.text(`Nuovi Soci ${year} - ${ageCategoryText}`, 148, 20, { align: 'center' })
-    doc.setFontSize(14)
-    doc.setFont('helvetica', 'normal')
-    doc.text(`Elenco dei nuovi iscritti per l'anno ${year}`, 148, 30, { align: 'center' })
+    const headerY = addPDFHeader(
+      doc,
+      `Nuovi Soci ${year} - ${ageCategoryText}`,
+      `Elenco dei nuovi iscritti per l'anno ${year}`,
+      `Totale nuovi soci: ${newMembers.length}`,
+    )
 
-    // Add generation date
-    const generationDate = new Date().toLocaleDateString('it-IT', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-    doc.setFontSize(12)
-    doc.setFont('helvetica', 'normal')
-    doc.text(`Generato il: ${generationDate}`, 148, 35, { align: 'center' })
-
-    // Summary info
-    const totalMembers = newMembers.length
-    doc.text(`Totale nuovi soci: ${totalMembers}`, 148, 45, { align: 'center' })
-
-    // Prepare table data
+    // Prepara i dati per la tabella
     const tableData = newMembers
       .sort((a, b) => a.cognome.localeCompare(b.cognome))
-      .map((member) => ({
-        nomeCompleto: `${member.cognome} ${member.nome}`,
-        dataNascita: member.data_nascita || '-',
-        gruppo: member.gruppo_appartenenza || '-',
-        primoAnno: member.primo_anno,
-      }))
+      .map((member) => [
+        `${member.cognome} ${member.nome}`,
+        member.data_nascita || '-',
+        member.gruppo_appartenenza || '-',
+        member.primo_anno,
+      ])
 
-    // Table configuration
-    const startY = 55
-    const rowHeight = 10
-    const colWidths = [70, 40, 40, 30]
-    const colPositions = [20, 90, 130, 170]
+    // Configurazione tabella
+    const headers = [
+      { text: 'Cognome e Nome', width: 70 },
+      { text: 'Data Nascita', width: 40 },
+      { text: 'Gruppo', width: 40 },
+      { text: 'Anno', width: 30 },
+    ]
 
-    // Header
-    doc.setFillColor(183, 28, 28)
-    doc.setTextColor(255)
-    doc.setFontSize(11)
-    doc.setFont('helvetica', 'bold')
-    doc.rect(20, startY, 240, rowHeight, 'F')
-    doc.setDrawColor(100, 100, 100)
-    doc.setLineWidth(0.5)
-    doc.rect(20, startY, 240, rowHeight)
-    doc.text('Cognome e Nome', colPositions[0] + 2, startY + 7)
-    doc.text('Data Nascita', colPositions[1] + 2, startY + 7)
-    doc.text('Gruppo', colPositions[2] + 2, startY + 7)
-    doc.text('Anno', colPositions[3] + 2, startY + 7)
-
-    // Data rows
-    doc.setTextColor(0)
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(9)
-
-    let currentY = startY + rowHeight
-    tableData.forEach((row, index) => {
-      const isEvenRow = index % 2 === 0
-      const fillColor = isEvenRow ? [248, 248, 248] : [255, 255, 255]
-      doc.setFillColor(fillColor[0], fillColor[1], fillColor[2])
-      doc.rect(20, currentY, 240, rowHeight, 'F')
-      doc.setDrawColor(220, 220, 220)
-      doc.setLineWidth(0.3)
-
-      for (let i = 0; i < colPositions.length; i++) {
-        const x = colPositions[i]
-        doc.line(x, currentY, x, currentY + rowHeight)
-      }
-      doc.line(
-        colPositions[colPositions.length - 1] + colWidths[colWidths.length - 1],
-        currentY,
-        colPositions[colPositions.length - 1] + colWidths[colWidths.length - 1],
-        currentY + rowHeight,
-      )
-      doc.rect(20, currentY, 240, rowHeight)
-
-      doc.text(row.nomeCompleto, colPositions[0] + 2, currentY + 7)
-      doc.text(row.dataNascita, colPositions[1] + 2, currentY + 7)
-      doc.text(row.gruppo, colPositions[2] + 2, currentY + 7)
-      doc.text(row.primoAnno.toString(), colPositions[3] + 2, currentY + 7)
-
-      currentY += rowHeight
-
-      if (currentY > 180) {
-        doc.addPage()
-        currentY = 55
-        // Repeat header
-        doc.setFillColor(183, 28, 28)
-        doc.setTextColor(255)
-        doc.setFontSize(11)
-        doc.setFont('helvetica', 'bold')
-        doc.rect(20, currentY, 240, rowHeight, 'F')
-        doc.rect(20, currentY, 240, rowHeight)
-        doc.text('Cognome e Nome', colPositions[0] + 2, currentY + 7)
-        doc.text('Data Nascita', colPositions[1] + 2, currentY + 7)
-        doc.text('Gruppo', colPositions[2] + 2, currentY + 7)
-        doc.text('Anno', colPositions[3] + 2, currentY + 7)
-        currentY += rowHeight
-        doc.setTextColor(0)
-        doc.setFont('helvetica', 'normal')
-        doc.setFontSize(9)
-      }
-    })
+    // Crea tabella
+    createPDFTable(doc, headers, tableData, headerY + 10)
 
     // Footer
-    const pageHeight = doc.internal.pageSize.height
-    doc.setFontSize(8)
-    doc.setFont('helvetica', 'italic')
-    doc.text('Sistema di gestione soci - Ceraiolo Digitale', 20, pageHeight - 20)
+    addPDFFooter(doc)
 
-    const pageCount = doc.internal.getNumberOfPages()
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i)
-      doc.text(`Pagina ${i} di ${pageCount}`, doc.internal.pageSize.width - 40, pageHeight - 20)
-    }
+    // Genera filename e output
+    const filename = generatePDFFilename('nuovi_soci', { year, ageCategory })
 
-    const pdfOutput = doc.output('blob')
     return {
       success: true,
-      blob: pdfOutput,
-      filename: sanitizeFilename(
-        `nuovi_soci_${year}_${ageCategory}_${new Date().toISOString().split('T')[0]}.pdf`,
-      ),
-      totalMembers,
+      blob: doc.output('blob'),
+      filename,
+      totalMembers: newMembers.length,
     }
   } catch (error) {
     console.error('Error generating new members PDF:', error)
@@ -887,12 +808,10 @@ export async function generateCompletePaymentListPDF(payments, ageCategory = 'tu
       throw new Error('Nessun pagamento da esportare')
     }
 
-    const doc = new jsPDF({
-      orientation: 'landscape',
-      unit: 'mm',
-      format: 'a4',
-    })
+    // Crea documento PDF
+    const doc = createPDFDocument()
 
+    // Header
     const ageCategoryText =
       {
         tutti: 'Tutti',
@@ -900,137 +819,47 @@ export async function generateCompletePaymentListPDF(payments, ageCategory = 'tu
         minorenni: 'Minorenni',
       }[ageCategory] || 'Tutti'
 
-    doc.setFontSize(20)
-    doc.setFont('helvetica', 'bold')
-    doc.text(`Lista Completa Pagamenti - ${ageCategoryText}`, 148, 20, { align: 'center' })
-    doc.setFontSize(14)
-    doc.setFont('helvetica', 'normal')
-    doc.text('Tutti i pagamenti registrati', 148, 30, { align: 'center' })
-
-    const generationDate = new Date().toLocaleDateString('it-IT', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-    doc.setFontSize(12)
-    doc.setFont('helvetica', 'normal')
-    doc.text(`Generato il: ${generationDate}`, 148, 35, { align: 'center' })
-
-    const totalPayments = payments.length
-    doc.text(`Totale pagamenti: ${totalPayments}`, 148, 45, { align: 'center' })
+    const headerY = addPDFHeader(
+      doc,
+      `Lista Completa Pagamenti - ${ageCategoryText}`,
+      'Tutti i pagamenti registrati',
+      `Totale pagamenti: ${payments.length}`,
+    )
 
     // Prepara i dati per la tabella
-    const tableData = payments.map((payment) => ({
-      nomeCompleto: `${payment.socio.cognome} ${payment.socio.nome}`,
-      anno: payment.anno,
-      dataPagamento: payment.data_pagamento || '-',
-      quotaPagata: payment.quota_pagata ? `€ ${payment.quota_pagata.toFixed(2)}` : '-',
-      ricevuta: payment.numero_ricevuta || '-',
-      blocchetto: payment.numero_blocchetto || '-',
-    }))
+    const tableData = payments.map((payment) => [
+      `${payment.socio.cognome} ${payment.socio.nome}`.substring(0, 25),
+      payment.anno.toString(),
+      payment.data_pagamento || '-',
+      payment.quota_pagata ? `€ ${payment.quota_pagata.toFixed(2)}` : '-',
+      payment.numero_ricevuta?.toString() || '-',
+      payment.numero_blocchetto?.toString() || '-',
+    ])
 
     // Configurazione tabella
-    const startY = 55
-    const rowHeight = 8
-    const colWidths = [50, 20, 35, 30, 25, 25]
-    const colPositions = [20, 70, 90, 125, 155, 180]
+    const headers = [
+      { text: 'Socio', width: 50 },
+      { text: 'Anno', width: 20 },
+      { text: 'Data Pagamento', width: 35 },
+      { text: 'Quota', width: 30 },
+      { text: 'Ricevuta', width: 25 },
+      { text: 'Blocchetto', width: 25 },
+    ]
 
-    // Intestazione
-    doc.setFillColor(183, 28, 28)
-    doc.setTextColor(255)
-    doc.setFontSize(9)
-    doc.setFont('helvetica', 'bold')
-    doc.rect(20, startY, 240, rowHeight, 'F')
-    doc.setDrawColor(100, 100, 100)
-    doc.setLineWidth(0.5)
-    doc.rect(20, startY, 240, rowHeight)
-    doc.text('Socio', colPositions[0] + 2, startY + 6)
-    doc.text('Anno', colPositions[1] + 2, startY + 6)
-    doc.text('Data Pagamento', colPositions[2] + 2, startY + 6)
-    doc.text('Quota', colPositions[3] + 2, startY + 6)
-    doc.text('Ricevuta', colPositions[4] + 2, startY + 6)
-    doc.text('Blocchetto', colPositions[5] + 2, startY + 6)
-
-    // Righe dati
-    doc.setTextColor(0)
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(7)
-
-    let currentY = startY + rowHeight
-    tableData.forEach((row, index) => {
-      const isEvenRow = index % 2 === 0
-      const fillColor = isEvenRow ? [248, 248, 248] : [255, 255, 255]
-      doc.setFillColor(fillColor[0], fillColor[1], fillColor[2])
-      doc.rect(20, currentY, 240, rowHeight, 'F')
-      doc.setDrawColor(220, 220, 220)
-      doc.setLineWidth(0.3)
-
-      for (let i = 0; i < colPositions.length; i++) {
-        const x = colPositions[i]
-        doc.line(x, currentY, x, currentY + rowHeight)
-      }
-      doc.line(
-        colPositions[colPositions.length - 1] + colWidths[colWidths.length - 1],
-        currentY,
-        colPositions[colPositions.length - 1] + colWidths[colWidths.length - 1],
-        currentY + rowHeight,
-      )
-      doc.rect(20, currentY, 240, rowHeight)
-
-      doc.text(row.nomeCompleto.substring(0, 25), colPositions[0] + 2, currentY + 6)
-      doc.text(row.anno.toString(), colPositions[1] + 2, currentY + 6)
-      doc.text(row.dataPagamento, colPositions[2] + 2, currentY + 6)
-      doc.text(row.quotaPagata, colPositions[3] + 2, currentY + 6)
-      doc.text(row.ricevuta.toString(), colPositions[4] + 2, currentY + 6)
-      doc.text(row.blocchetto.toString(), colPositions[5] + 2, currentY + 6)
-
-      currentY += rowHeight
-
-      if (currentY > 185) {
-        doc.addPage()
-        currentY = 55
-        // Ripeti intestazione
-        doc.setFillColor(183, 28, 28)
-        doc.setTextColor(255)
-        doc.setFontSize(9)
-        doc.setFont('helvetica', 'bold')
-        doc.rect(20, currentY, 240, rowHeight, 'F')
-        doc.rect(20, currentY, 240, rowHeight)
-        doc.text('Socio', colPositions[0] + 2, currentY + 6)
-        doc.text('Anno', colPositions[1] + 2, currentY + 6)
-        doc.text('Data Pagamento', colPositions[2] + 2, currentY + 6)
-        doc.text('Quota', colPositions[3] + 2, currentY + 6)
-        doc.text('Ricevuta', colPositions[4] + 2, currentY + 6)
-        doc.text('Blocchetto', colPositions[5] + 2, currentY + 6)
-        currentY += rowHeight
-        doc.setTextColor(0)
-        doc.setFont('helvetica', 'normal')
-        doc.setFontSize(7)
-      }
-    })
+    // Crea tabella
+    createPDFTable(doc, headers, tableData, headerY + 10, 8)
 
     // Footer
-    const pageHeight = doc.internal.pageSize.height
-    doc.setFontSize(8)
-    doc.setFont('helvetica', 'italic')
-    doc.text('Sistema di gestione soci - Ceraiolo Digitale', 20, pageHeight - 20)
+    addPDFFooter(doc)
 
-    const pageCount = doc.internal.getNumberOfPages()
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i)
-      doc.text(`Pagina ${i} di ${pageCount}`, doc.internal.pageSize.width - 40, pageHeight - 20)
-    }
+    // Genera filename e output
+    const filename = generatePDFFilename('lista_completa_pagamenti', { ageCategory })
 
-    const pdfOutput = doc.output('blob')
     return {
       success: true,
-      blob: pdfOutput,
-      filename: sanitizeFilename(
-        `lista_completa_pagamenti_${ageCategory}_${new Date().toISOString().split('T')[0]}.pdf`,
-      ),
-      totalPayments,
+      blob: doc.output('blob'),
+      filename,
+      totalPayments: payments.length,
     }
   } catch (error) {
     console.error('Errore nella generazione del PDF lista completa pagamenti:', error)
@@ -1055,12 +884,10 @@ export async function generateMembersByGroupPDF(members, gruppo, ageCategory, pa
       throw new Error('Nessun socio da esportare')
     }
 
-    const doc = new jsPDF({
-      orientation: 'landscape',
-      unit: 'mm',
-      format: 'a4',
-    })
+    // Crea documento PDF
+    const doc = createPDFDocument()
 
+    // Header
     const groupText = gruppo && gruppo !== 'Tutti' ? gruppo : 'Tutti i Gruppi'
     const ageText =
       {
@@ -1075,133 +902,49 @@ export async function generateMembersByGroupPDF(members, gruppo, ageCategory, pa
         non_in_regola: 'Non in Regola',
       }[paymentStatus] || 'Tutti'
 
-    doc.setFontSize(18)
-    doc.setFont('helvetica', 'bold')
-    doc.text(`Soci per Gruppo: ${groupText}`, 148, 20, { align: 'center' })
-    doc.setFontSize(12)
-    doc.setFont('helvetica', 'normal')
-    doc.text(`${ageText} - Stato Pagamento: ${statusText}`, 148, 28, { align: 'center' })
-
-    const generationDate = new Date().toLocaleDateString('it-IT', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-    doc.setFontSize(10)
-    doc.setFont('helvetica', 'normal')
-    doc.text(`Generato il: ${generationDate}`, 148, 35, { align: 'center' })
-
-    const totalMembers = members.length
-    doc.text(`Totale soci: ${totalMembers}`, 148, 42, { align: 'center' })
+    const headerY = addPDFHeader(
+      doc,
+      `Soci per Gruppo: ${groupText}`,
+      `${ageText} - Stato Pagamento: ${statusText}`,
+      `Totale soci: ${members.length}`,
+    )
 
     // Prepara i dati per la tabella
-    const tableData = members.map((member) => ({
-      nomeCompleto: `${member.cognome} ${member.nome}`,
-      gruppo: member.gruppo_appartenenza || '-',
-      dataNascita: member.data_nascita || '-',
-      anniPagati: member.anni_pagati.join(', ') || '-',
-      statoPagamento: member.in_regola ? 'In Regola' : 'Da Regolarizzare',
-    }))
+    const tableData = members.map((member) => [
+      `${member.cognome} ${member.nome}`.substring(0, 25),
+      member.gruppo_appartenenza || '-',
+      member.data_nascita || '-',
+      member.anni_pagati?.join(', ') || '-',
+      member.in_regola ? 'In Regola' : 'Da Regolarizzare',
+    ])
 
     // Configurazione tabella
-    const startY = 50
-    const rowHeight = 8
-    const colWidths = [50, 30, 35, 60, 30]
-    const colPositions = [20, 70, 100, 135, 195]
+    const headers = [
+      { text: 'Socio', width: 50 },
+      { text: 'Gruppo', width: 30 },
+      { text: 'Data Nascita', width: 35 },
+      { text: 'Anni Pagati', width: 60 },
+      { text: 'Stato', width: 30 },
+    ]
 
-    // Intestazione
-    doc.setFillColor(183, 28, 28)
-    doc.setTextColor(255)
-    doc.setFontSize(9)
-    doc.setFont('helvetica', 'bold')
-    doc.rect(20, startY, 240, rowHeight, 'F')
-    doc.setDrawColor(100, 100, 100)
-    doc.setLineWidth(0.5)
-    doc.rect(20, startY, 240, rowHeight)
-    doc.text('Socio', colPositions[0] + 2, startY + 6)
-    doc.text('Gruppo', colPositions[1] + 2, startY + 6)
-    doc.text('Data Nascita', colPositions[2] + 2, startY + 6)
-    doc.text('Anni Pagati', colPositions[3] + 2, startY + 6)
-    doc.text('Stato', colPositions[4] + 2, startY + 6)
-
-    // Righe dati
-    doc.setTextColor(0)
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(7)
-
-    let currentY = startY + rowHeight
-    tableData.forEach((row, index) => {
-      const isEvenRow = index % 2 === 0
-      const fillColor = isEvenRow ? [248, 248, 248] : [255, 255, 255]
-      doc.setFillColor(fillColor[0], fillColor[1], fillColor[2])
-      doc.rect(20, currentY, 240, rowHeight, 'F')
-      doc.setDrawColor(220, 220, 220)
-      doc.setLineWidth(0.3)
-
-      for (let i = 0; i < colPositions.length; i++) {
-        const x = colPositions[i]
-        doc.line(x, currentY, x, currentY + rowHeight)
-      }
-      doc.line(
-        colPositions[colPositions.length - 1] + colWidths[colWidths.length - 1],
-        currentY,
-        colPositions[colPositions.length - 1] + colWidths[colWidths.length - 1],
-        currentY + rowHeight,
-      )
-      doc.rect(20, currentY, 240, rowHeight)
-
-      doc.text(row.nomeCompleto.substring(0, 25), colPositions[0] + 2, currentY + 6)
-      doc.text(row.gruppo.substring(0, 15), colPositions[1] + 2, currentY + 6)
-      doc.text(row.dataNascita, colPositions[2] + 2, currentY + 6)
-      doc.text(row.anniPagati.substring(0, 35), colPositions[3] + 2, currentY + 6)
-      doc.text(row.statoPagamento, colPositions[4] + 2, currentY + 6)
-
-      currentY += rowHeight
-
-      if (currentY > 185) {
-        doc.addPage()
-        currentY = 50
-        // Ripeti intestazione
-        doc.setFillColor(183, 28, 28)
-        doc.setTextColor(255)
-        doc.setFontSize(9)
-        doc.setFont('helvetica', 'bold')
-        doc.rect(20, currentY, 240, rowHeight, 'F')
-        doc.rect(20, currentY, 240, rowHeight)
-        doc.text('Socio', colPositions[0] + 2, currentY + 6)
-        doc.text('Gruppo', colPositions[1] + 2, currentY + 6)
-        doc.text('Data Nascita', colPositions[2] + 2, currentY + 6)
-        doc.text('Anni Pagati', colPositions[3] + 2, currentY + 6)
-        doc.text('Stato', colPositions[4] + 2, currentY + 6)
-        currentY += rowHeight
-        doc.setTextColor(0)
-        doc.setFont('helvetica', 'normal')
-        doc.setFontSize(7)
-      }
-    })
+    // Crea tabella
+    createPDFTable(doc, headers, tableData, headerY + 10, 8)
 
     // Footer
-    const pageHeight = doc.internal.pageSize.height
-    doc.setFontSize(8)
-    doc.setFont('helvetica', 'italic')
-    doc.text('Sistema di gestione soci - Ceraiolo Digitale', 20, pageHeight - 20)
+    addPDFFooter(doc)
 
-    const pageCount = doc.internal.getNumberOfPages()
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i)
-      doc.text(`Pagina ${i} di ${pageCount}`, doc.internal.pageSize.width - 40, pageHeight - 20)
-    }
+    // Genera filename e output
+    const filename = generatePDFFilename('soci_per_gruppo', {
+      gruppo: gruppo || 'tutti',
+      ageCategory,
+      paymentStatus,
+    })
 
-    const pdfOutput = doc.output('blob')
     return {
       success: true,
-      blob: pdfOutput,
-      filename: sanitizeFilename(
-        `soci_per_gruppo_${gruppo || 'tutti'}_${ageCategory}_${paymentStatus}_${new Date().toISOString().split('T')[0]}.pdf`,
-      ),
-      totalMembers,
+      blob: doc.output('blob'),
+      filename,
+      totalMembers: members.length,
     }
   } catch (error) {
     console.error('Errore nella generazione del PDF soci per gruppo:', error)
