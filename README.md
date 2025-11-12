@@ -1,21 +1,15 @@
-# Guida all'Installazione e Configurazione per Collaboratori - Ceraiolo Digitale
+# Guida all'Installazione e Configurazione - Ceraiolo Digitale
 
-Ciao! Benvenuto nel team di sviluppo del "Ceraiolo Digitale".
-
-# Guida all'Installazione per Collaboratori - Ceraiolo Digitale
-
-Ciao! Benvenuto nel team di sviluppo del "Ceraiolo Digitale".
-
-Questa guida ti mostrerà come installare il progetto sul tuo computer e iniziare a lavorare.
+Ciao! Questa guida ti mostrerà come installare e configurare Ceraiolo Digitale sul tuo computer.
 
 ## 1. Prerequisiti
 
 Prima di iniziare, assicurati di avere installato sul tuo sistema:
 
 - **Git**: Per scaricare e gestire il codice.
-- **Node.js**: Versione **20** o superiore. Puoi scaricarlo da [nodejs.org](https://nodejs.org/).
+- **Node.js**: Versione **20.19.0** o superiore. Puoi scaricarlo da [nodejs.org](https://nodejs.org/).
 - **Python**: Per generare il database di test. Puoi scaricarlo da [python.org](https://python.org/).
-- **jsPDF** e **html2canvas**: Sono installati automaticamente tramite `npm install` e sono usati per la generazione di PDF.
+- **SQLite**: Per il database (viene gestito automaticamente dall'applicazione).
 
 ## 2. Setup del Progetto: Passo-Passo
 
@@ -41,24 +35,7 @@ cd ceraiolo-digitale
 npm install
 ```
 
-### Passo 3: Configura le Variabili d'Ambiente
-
-Per far comunicare l'app con i servizi esterni (come Firebase), devi configurare le chiavi API.
-
-1. Nella cartella principale del progetto, crea un nuovo file chiamato `.env.local`.
-2. Chiedi al proprietario del progetto (il tuo amico) di fornirti le chiavi di sviluppo di Firebase.
-3. Incolla le chiavi nel file `.env.local` in questo formato:
-
-```env
-# Esempio per Vue.js
-VUE_APP_FIREBASE_API_KEY="AIzaSy...CHIAVE_FORNITA"
-VUE_APP_FIREBASE_PROJECT_ID="progetto-firebase"
-# ...tutte le altre chiavi necessarie...
-```
-
-**Importante**: Questo file è ignorato da Git per motivi di sicurezza e non deve mai essere condiviso pubblicamente.
-
-### Passo 4: Genera il Database di Test
+### Passo 3: Genera il Database di Test
 
 L'applicazione ha bisogno di un database per funzionare. Eseguiremo uno script Python per crearne uno con dati finti.
 
@@ -74,43 +51,47 @@ pip install pandas
 python generate_mock_data.py
 ```
 
-3. Questo comando creerà un file `santantoniari_test.sqlite` nella cartella. L'applicazione è configurata per importare questo file al primo avvio.
+3. Questo comando creerà un file `santantoniari_test.sqlite` nella cartella. L'applicazione importerà automaticamente questo file al primo avvio.
 
-## 3. Nuove funzionalità
-
-Il progetto è stato esteso con una nuova sezione **Reports** che consente di esportare in PDF:
-
-- **Renewal List**: esporta la lista di rinnovi in un PDF in modalità landscape con righe alternate.
-- **Membership Cards**: esporta le tessere di iscrizione in PDF utilizzando `html2canvas` per catturare l'immagine del componente `TesseraTemplate`.
-
-Queste funzionalità sono accessibili tramite la nuova route `/reports` e sono integrate nella barra di navigazione.
-
-Il file di servizio `src/services/export.js` contiene la logica di generazione PDF, sostituendo l'uso di `jspdf-autotable` con rendering manuale delle tabelle.
-
-Per visualizzare un'anteprima della tessera, è possibile utilizzare il componente `TesseraTemplate` in modalità preview.
-
-### 3.1. Aggiornamenti di dipendenze
-
-- `jspdf-autotable` è stato rimosso dal progetto.
-- `html2canvas` è stato aggiunto per la cattura di componenti Vue in PDF.
-- Node.js 20 è ora la versione minima richiesta.
-
-### 3.2. Test e CI
-
-Sono stati aggiunti nuovi test unitari per `ReportsView.vue` e `TesseraTemplate.vue`. Per eseguirli, usa:
-
-```bash
-npm run test
-```
-
-Il file `DEVELOPMENT_GUIDELINES.md` è stato aggiornato con la sezione **PDF Generation Workflow**.
-
-### Passo 5: Avvia l'Applicazione
+### Passo 4: Avvia l'Applicazione
 
 Tutto è pronto! Esegui questo comando per avviare il server di sviluppo.
 
 ```bash
 npm run dev
+```
+
+L'applicazione si aprirà automaticamente nel browser all'indirizzo `http://localhost:5173`. Al primo avvio, verrai reindirizzato alla pagina di importazione del database. Seleziona il file `santantoniari_test.sqlite` generato nel passo precedente.
+
+## 4. Funzionalità Principali
+
+L'applicazione include le seguenti funzionalità:
+
+- **Gestione Soci**: Ricerca, aggiunta, modifica ed eliminazione dei soci
+- **Gestione Pagamenti**: Registrazione e tracking dei pagamenti annuali
+- **Report e PDF**: Esportazione di liste rinnovi e tessere soci in formato PDF
+- **Impostazioni**: Configurazione del template delle tessere e gestione dati
+
+### 4.1. Generazione PDF
+
+Il sistema di generazione PDF utilizza:
+
+- **jsPDF**: Per la creazione di documenti PDF
+- **pdf-lib**: Per la modifica di template PDF esistenti (tessere soci)
+- **Tabelle manuali**: Rendering personalizzato delle tabelle senza dipendenze esterne
+
+### 4.2. Database
+
+- **Tecnologia**: IndexedDB (browser-based) gestito tramite Dexie.js
+- **Import/Export**: Supporto per file SQLite per backup e condivisione tra dispositivi
+- **Sincronizzazione**: Manuale tramite esportazione/importazione di file SQLite
+
+### 4.3. Test
+
+Sono disponibili test unitari per i componenti principali. Per eseguirli:
+
+```bash
+npm run test
 ```
 
 ## Comandi Utili
@@ -119,7 +100,7 @@ npm run dev
 # Installazione dipendenze
 npm install
 
-# Avvio sviluppo
+# Avvio server di sviluppo
 npm run dev
 
 # Esecuzione test
@@ -131,7 +112,7 @@ npm run lint
 # Formattazione codice
 npm run format
 
-# Build produzione
+# Build per produzione
 npm run build
 
 # Avvio server produzione locale (Windows)
@@ -153,4 +134,6 @@ start-server.bat
 
 ## Altre Risorse
 
-- [Manuale per lo Sviluppatore](DEVELOPMENT_GUIDELINES.md): Linee guida dettagliate per lo sviluppo dell'applicazione.
+- [Manuale Operativo](MANUALE_OPERATIVO.md): Istruzioni per l'uso operativo dell'applicazione
+- [Manuale per lo Sviluppatore](DEVELOPMENT_GUIDELINES.md): Linee guida dettagliate per lo sviluppo dell'applicazione
+- [Checklist di Test](TEST_CHECKLIST.md): Guida per verificare le funzionalità dell'applicazione

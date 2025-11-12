@@ -202,7 +202,7 @@ Per problemi tecnici o chiarimenti:
 
 ---
 
-**📅 Ultimo Aggiornamento**: Ottobre 2025
+**📅 Ultimo Aggiornamento**: Novembre 2025
 **📋 Versione**: 1.0
 **👥 Ambiente**: Multi-PC senza sincronizzazione automatica</content>
 </xai:function_call">Aggiunto il manuale operativo completo per l'uso multi-PC sicuro.

@@ -1,11 +1,14 @@
 @echo off
+REM Script per avviare Ceraiolo Digitale in modalità produzione
+REM Questo script serve l'applicazione built su localhost:3000
+REM Utilizza il package 'serve' per servire i file statici
 
 setlocal enabledelayedexpansion
 
 title Ceraiolo Digitale Server
 
 echo ========================================
-echo Ceraiolo Digitale - Avvio Server
+echo Ceraiolo Digitale - Avvio Server Produzione
 echo ========================================
 echo.
 

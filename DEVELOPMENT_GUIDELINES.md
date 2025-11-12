@@ -1,157 +1,270 @@
-# Manuale per lo Sviluppatore: App Famiglia Santanoniari
+# Manuale per lo Sviluppatore - Ceraiolo Digitale
 
-Questo documento contiene tutte le informazioni necessarie per sviluppare l'applicazione gestionale per la Famiglia Santanoniari. È la fonte di verità per l'architettura, le funzionalità e le procedure da seguire.
+Questo documento contiene tutte le informazioni necessarie per sviluppare e mantenere l'applicazione Ceraiolo Digitale.
 
-## 1. Visione d'Insieme e Obiettivi
+## 1. Panoramica del Progetto
 
-L'obiettivo è creare una Progressive Web App (PWA) per modernizzare la gestione dei soci e dei tesseramenti. L'app dovrà funzionare perfettamente offline su più dispositivi (PC e tablet), permettendo a diversi operatori di lavorare in contemporanea e di sincronizzare i dati in un secondo momento. L'interfaccia utente deve essere semplice, intuitiva e responsive.
+Ceraiolo Digitale è un'applicazione web per la gestione dei soci e dei pagamenti annuali. L'app funziona completamente offline utilizzando IndexedDB come database locale, con possibilità di importare/esportare dati tramite file SQLite per la sincronizzazione manuale tra dispositivi.
 
-## 2. Architettura e Stack Tecnologico
+## 2. Architettura Tecnologica
 
-Il sistema è basato su un'architettura disaccoppiata che garantisce performance e funzionamento offline.
+### Stack Principale
 
-- Applicazione (Frontend): Una PWA costruita con Vue.js (o React) e stilizzata con Tailwind CSS.
-- Database Locale: IndexedDB gestito tramite la libreria Dexie.js. Questo è il cuore dell'app e garantisce l'operatività offline.
-- Database Centrale & Sync: Firebase Firestore agisce come database "master" nel cloud per la sincronizzazione.
-- Generazione PDF: Una libreria lato client come jsPDF.
+- **Frontend**: Vue.js 3 con Composition API
+- **Build Tool**: Vite
+- **Database**: IndexedDB gestito tramite Dexie.js
+- **Styling**: CSS personalizzato
+- **Testing**: Vitest
+- **Linting**: ESLint con configurazione Vue
 
-## 3. Setup dell'Ambiente di Sviluppo (Azione Richiesta)
+### Dipendenze Principali
 
-Per ragioni di privacy e sicurezza, non avrai accesso al database reale con i dati sensibili. Lavorerai con un database di test che ha la stessa identica struttura ma è riempito con dati finti.
+- `dexie`: Wrapper per IndexedDB
+- `sql.js`: Per import/export SQLite
+- `jspdf` + `pdf-lib`: Generazione PDF
+- `vue-router`: Routing
+- `pinia`: State management
+- `vee-validate`: Form validation
 
-### 3.1. Creazione del Database di Test
+## 3. Struttura del Database
 
-- Esegui lo script Python: Ti verrà fornito uno script `generate_mock_data.py`. Eseguilo con Python (`python generate_mock_data.py`).
-- Ottieni il database: Questo comando creerà un file `santantoniari_test.sqlite` nella stessa cartella. Questo è il tuo database di sviluppo. Contiene dati finti ma strutturalmente identici a quelli reali. L'app che svilupperai dovrà importare questo file al primo avvio.
+L'applicazione utilizza IndexedDB con il seguente schema:
 
-### 3.2. Struttura del Database (Schema) - AGGIORNATO
+### Tabella `soci`
 
-Questa è la mappa del database con cui lavorerai. **NOTA**: Le chiavi primarie sono state cambiate da INTEGER a TEXT per supportare gli UUID, fondamentali per la sincronizzazione.
-
-**Tabella Soci**
-
-| Nome Colonna                | Tipo Dati     | Descrizione                                      |
-| :-------------------------- | :------------ | :----------------------------------------------- |
-| id                          | TEXT          | Chiave primaria (UUID)                           |
-| cognome, nome               | TEXT          | Dati anagrafici                                  |
-| luogo_nascita, data_nascita | TEXT          | Formato YYYY-MM-DD per la data                   |
-| gruppo_appartenenza         | TEXT          | Gruppo di riferimento                            |
-| data_prima_iscrizione       | INTEGER       | Anno della prima iscrizione                      |
-| note                        | TEXT          | Annotazioni                                      |
-| timestamp_modifica          | INTEGER       | Data e ora dell'ultima modifica (Unix timestamp) |
-| originale_id, file_origine  | INTEGER, TEXT | Dati storici dalla migrazione (non usati dopo)   |
-
-**Tabella Tesseramenti**
-
-| Nome Colonna                       | Tipo Dati | Descrizione                                      |
-| :--------------------------------- | :-------- | :----------------------------------------------- |
-| id_tesseramento                    | TEXT      | Chiave primaria (UUID)                           |
-| id_socio                           | TEXT      | Chiave esterna che si collega a Soci.id (UUID)   |
-| anno                               | INTEGER   | Anno del tesseramento                            |
-| data_pagamento                     | TEXT      | Formato YYYY-MM-DD                               |
-| quota_pagata                       | REAL      | Importo                                          |
-| numero_ricevuta, numero_blocchetto | INTEGER   | Dettagli ricevuta                                |
-| timestamp_modifica                 | INTEGER   | Data e ora dell'ultima modifica (Unix timestamp) |
-
-### 3.3. Gestione della Sicurezza (Obbligatorio)
-
-Le credenziali e i dati non devono mai finire su Git/GitHub.
-
-- Crea un file `.gitignore`: Nella root del progetto, crea questo file per dire a Git cosa ignorare.
-
-```
-# Database
-*.sqlite
-# Credenziali e variabili d'ambiente
-.env.local
-# Dipendenze e file di build
-node_modules/
-dist/
+```javascript
+{
+  id: number,              // Chiave primaria (auto-increment)
+  cognome: string,
+  nome: string,
+  data_nascita: string,    // YYYY-MM-DD
+  luogo_nascita: string,
+  gruppo_appartenenza: string,
+  data_prima_iscrizione: number, // Anno
+  note: string
+}
 ```
 
-- Crea un file `.env.local`: Qui inserirai le chiavi API di Firebase. Questo file non andrà su Git.
+### Tabella `tesseramenti`
+
+```javascript
+{
+  id_tesseramento: string, // UUID
+  id_socio: number,
+  anno: number,
+  data_pagamento: string,  // YYYY-MM-DD
+  quota_pagata: number,
+  numero_ricevuta: number,
+  numero_blocchetto: number
+}
+```
+
+### Tabella `settings`
+
+```javascript
+{
+  key: string,
+  value: any,
+  updated_at: string
+}
+```
+
+### Tabella `local_changes` (per tracking modifiche)
+
+```javascript
+{
+  id: number,
+  table_name: string,
+  record_id: any,
+  change_type: string,
+  timestamp: number,
+  old_data: object,
+  new_data: object
+}
+```
+
+## 4. Workflow di Sviluppo
+
+### Setup Ambiente di Sviluppo
+
+1. **Clona il repository**:
+
+   ```bash
+   git clone https://github.com/vantaggi/ceraiolo-digitale.git
+   cd ceraiolo-digitale
+   ```
+
+2. **Installa dipendenze**:
+
+   ```bash
+   npm install
+   ```
+
+3. **Genera database di test**:
+
+   ```bash
+   pip install pandas
+   python generate_mock_data.py
+   ```
+
+4. **Avvia server di sviluppo**:
+   ```bash
+   npm run dev
+   ```
+
+### Comandi Disponibili
+
+```bash
+npm run dev      # Avvia server di sviluppo
+npm run build    # Build per produzione
+npm run preview  # Preview build locale
+npm run test     # Esegui test
+npm run lint     # Linting e fix
+npm run format   # Formattazione codice
+```
+
+## 5. Struttura del Codice
 
 ```
-# Esempio per Vue.js
-VUE_APP_FIREBASE_API_KEY="AIzaSy...YOUR_KEY"
-VUE_APP_FIREBASE_PROJECT_ID="your-project-id"
-# ...altre chiavi...
+src/
+├── components/          # Componenti Vue riutilizzabili
+├── views/              # Pagine/Viste principali
+├── services/           # Servizi (db, export)
+├── stores/             # Pinia stores (se utilizzati)
+├── router/             # Configurazione routing
+├── assets/             # Risorse statiche
+└── main.js             # Entry point
 ```
 
-- Imposta le Regole di Sicurezza su Firebase: La vera protezione è sul backend. Imposta le regole di Firestore affinché solo gli utenti autenticati possano leggere e scrivere.
+### Componenti Principali
 
-## 4. Flusso dei Dati: Il "Viaggio" dei Dati
+- **FilterPanel.vue**: Filtri per ricerca soci
+- **SocioCard.vue**: Card per visualizzare socio
+- **TesseraTemplate.vue**: Template tessera socio
+- **ReportsView.vue**: Pagina report e PDF
 
-L'interazione con i dati segue un percorso a 3 livelli:
+### Servizi
 
-- Importazione (Una Tantum): L'app usa sql.js per leggere il file `.sqlite` e copiare tutti i dati dentro IndexedDB (gestito da Dexie.js).
-- Operatività Locale (99% del tempo): L'app lavora esclusivamente su IndexedDB. Ogni lettura e scrittura è locale, veloce e offline-first.
-- Sincronizzazione (On-demand): Quando l'utente clicca [Sincronizza], l'app invia le modifiche locali a Firestore e scarica quelle remote.
+- **db.js**: Gestione database IndexedDB
+- **export.js**: Generazione PDF e export dati
 
-## 5. Specifiche Funzionali (Minimum Viable Product)
+## 6. Generazione PDF
 
-**Schermata 1: Dashboard e Ricerca**
+Il sistema utilizza due approcci per la generazione PDF:
 
-- Funzione: Schermata principale con una grande barra di ricerca "live" per cognome o nome.
-- Componenti: `SearchBar`, `ResultsList`.
-- Azioni: Cliccando un risultato si va alla "Scheda Socio". Un pulsante [+ Aggiungi Nuovo Socio] apre il form di creazione.
+### Tabelle (jsPDF)
 
-**Schermata 2: Scheda Socio**
+- Utilizzato per liste rinnovi e report tabellari
+- Rendering manuale delle tabelle con styling personalizzato
+- Supporto per paginazione automatica
 
-- Funzione: Vista di dettaglio di un socio.
-- Componenti:
-  - `SocioInfo`: Mostra i dati anagrafici. Pulsante [Modifica Dati].
-  - `PaymentsTable`: Componente chiave. Mostra lo storico dei pagamenti e calcola gli arretrati. Per ogni anno non pagato, mostra un pulsante [Paga Ora].
-- Azioni: Registrazione di un nuovo pagamento (anche per anni passati) e modifica dei dati del socio.
+### Tessere Soci (pdf-lib)
 
-**Componente Globale: SyncStatus**
+- Utilizza template PDF caricati dall'utente
+- Modifica il PDF esistente aggiungendo testo formattato
+- Mantiene layout e grafica del template
 
-- Funzione: Un'icona sempre visibile che mostra lo stato della sincronizzazione (sincronizzato, modifiche locali, offline).
-- Azioni: Permette di avviare la sincronizzazione manuale.
+## 7. Import/Export Database
 
-## 6. Funzionalità Future (Post-MVP)
+### Import
 
-Una volta che il nucleo è stabile, implementeremo una sezione "Report e Stampe" per generare i seguenti PDF:
+- Supporto file SQLite (.sqlite, .sqlite3)
+- Utilizzo sql.js per lettura file binari
+- Conversione automatica a IndexedDB
+- Validazione integrità dati
 
-- Elenco Nuovi Soci dell'anno.
-- Elenco Soci Minorenni.
-- PDF multi-pagina delle Tessere per un dato anno.
-- PDF multi-pagina dei Foglietti Famiglia.
+### Export
 
-## 7. Strategia di Sincronizzazione Dettagliata
+- Esportazione completa database come SQLite
+- Utilizzo sql.js per creazione file binari
+- Download automatico nel browser
+- Naming automatico con timestamp
 
-Questa sezione descrive il meccanismo per unire in modo sicuro le modifiche da più dispositivi offline.
+## 8. Best Practices
 
-### 7.1. Modifica Strutturale: L'uso degli UUID
+### Codice
 
-- Problema: ID numerici auto-incrementanti (1, 2, 3...) non funzionano in un sistema distribuito. Due utenti offline potrebbero creare un "socio #501", creando un conflitto irrisolvibile.
-- Soluzione: Ogni nuovo record (sia Socio che Tesseramento) deve essere generato con un UUID (Universally Unique Identifier), una stringa di testo quasi garantita per essere unica (es: f47ac10b-58cc-4372-a567-0e02b2c3d479). La chiave primaria delle tabelle diventa di tipo TEXT.
+- Utilizzare Composition API Vue 3
+- Mantenere componenti piccoli e focalizzati
+- Utilizzare async/await per operazioni database
+- Gestire errori appropriatamente
 
-### 7.2. Il Log delle Modifiche (Outbox)
+### Database
 
-- Concetto: L'app non invia l'intero database. Traccia ogni singola operazione di scrittura (CREATE, UPDATE, DELETE) in una tabella locale separata su IndexedDB, chiamata `pending_changes`.
-- Struttura del Log: Ogni riga nel log conterrà:
-  - `id_operazione` (UUID)
-  - `tabella` (es: 'Soci' o 'Tesseramenti')
-  - `id_record` (l'UUID del socio o tesseramento modificato)
-  - `tipo_operazione` ('CREATE', 'UPDATE')
-  - `dati` (un oggetto JSON con i dati nuovi o modificati)
-  - `timestamp` (quando è stata fatta la modifica)
+- Utilizzare transazioni per operazioni multiple
+- Validare dati prima dell'inserimento
+- Loggare modifiche per debugging
+- Mantenere integrità referenziale
 
-### 7.3. Il Processo di Sincronizzazione
+### Performance
 
-- L'Utente Clicca [Sincronizza]:
-  - **PUSH (Invio Modifiche)**:
-    - L'app raccoglie tutte le operazioni dal log `pending_changes`.
-    - Le invia a una Cloud Function di Firebase.
-    - Se l'invio ha successo, l'app cancella le operazioni inviate dal log locale.
-  - **PULL (Ricezione Modifiche)**:
-    - L'app chiede a Firebase tutti i record che sono stati modificati dopo l'ultimo timestamp di sincronizzazione salvato localmente.
-    - Riceve l'elenco delle modifiche fatte da altri.
-    - Le applica al suo database IndexedDB locale (inserendo nuovi record o aggiornando quelli esistenti).
-    - Salva il nuovo timestamp come "ultima sincronizzazione effettuata".
+- Utilizzare indici appropriati in Dexie
+- Evitare query pesanti nel main thread
+- Implementare lazy loading se necessario
+- Ottimizzare operazioni PDF
 
-### 7.4. Gestione dei Conflitti: "Last Write Wins" (L'Ultimo Vince)
+## 9. Testing
 
-- Scenario: Due utenti modificano lo stesso socio mentre sono offline.
-- Soluzione: Si adotta la strategia "Last Write Wins". Quando la Cloud Function elabora le modifiche, confronta il `timestamp_modifica` del dato in arrivo con quello già presente nel database. La modifica con il timestamp più recente vince e sovrascrive l'altra. Questo approccio è semplice, prevedibile e sufficiente per le necessità di questo progetto.
+### Setup Test
+
+```bash
+npm run test
+```
+
+### Struttura Test
+
+- Test unitari per componenti Vue
+- Mock per servizi database
+- Test per funzioni di utilità
+- Coverage reporting
+
+## 10. Deployment
+
+### Build Produzione
+
+```bash
+npm run build
+```
+
+### Server Produzione
+
+Per servire l'app in produzione su Windows:
+
+```bash
+start-server.bat
+```
+
+Questo script:
+
+- Installa automaticamente `serve` se necessario
+- Avvia server sulla porta 3000
+- Apre automaticamente il browser
+
+## 11. Troubleshooting
+
+### Problemi Comuni
+
+**Database non si importa**:
+
+- Verificare che il file SQLite sia valido
+- Controllare console per errori sql.js
+- Assicurarsi che il database non sia già popolato
+
+**PDF non si genera**:
+
+- Verificare che il browser supporti PDF generation
+- Controllare console per errori jsPDF/pdf-lib
+- Assicurarsi che ci siano dati da esportare
+
+**Performance lente**:
+
+- Verificare numero di record nel database
+- Controllare query IndexedDB nella DevTools
+- Considerare ottimizzazioni per dataset grandi
+
+### Debug
+
+- Utilizzare Vue DevTools per componenti
+- Application → IndexedDB per database
+- Console per errori JavaScript
+- Network tab per richieste (se presenti)
