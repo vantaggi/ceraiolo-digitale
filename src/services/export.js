@@ -1,5 +1,4 @@
 import jsPDF from 'jspdf'
-import html2canvas from 'html2canvas'
 import * as XLSX from 'xlsx'
 import { getSetting, exportAllSoci, exportAllTesseramenti } from './db'
 
@@ -240,101 +239,6 @@ function sanitizeFilename(filename) {
     .replace(/_+/g, '_') // Replace multiple underscores with single
     .replace(/^_+|_+$/g, '') // Remove leading/trailing underscores
     .substring(0, 255) // Limit length
-}
-
-/**
- * Creates a DOM element with the TesseraTemplate styles applied
- * @param {Object} socio - Member object
- * @param {string} backgroundImage - Background image URL
- * @returns {Promise<HTMLElement>} DOM element with the card content
- */
-async function createCardElement(socio, backgroundImage = null) {
-  // Formatta la data come nel componente Vue
-  const formattaData = (dataNascita) => {
-    if (!dataNascita) return ''
-    const [anno, mese, giorno] = dataNascita.split('-')
-    const mesi = [
-      'Gennaio',
-      'Febbraio',
-      'Marzo',
-      'Aprile',
-      'Maggio',
-      'Giugno',
-      'Luglio',
-      'Agosto',
-      'Settembre',
-      'Ottobre',
-      'Novembre',
-      'Dicembre',
-    ]
-    const meseNome = mesi[parseInt(mese) - 1]
-    return `${parseInt(giorno)} ${meseNome} ${anno}`
-  }
-
-  const nomeCognome = `${socio.cognome} ${socio.nome}`
-  const dataNascitaFormattata = formattaData(socio.data_nascita)
-
-  // Crea il container con gli stili esatti del componente TesseraTemplate
-  const container = document.createElement('div')
-  container.innerHTML = `
-    <div style="
-      width: 80.77mm;
-      height: 122.17mm;
-      perspective: 1000px;
-      font-family: cursive;
-    ">
-      <div style="
-        width: 100%;
-        height: 100%;
-        background-size: cover;
-        background-position: center;
-        background-repeat: no-repeat;
-        display: flex;
-        flex-direction: column;
-        position: relative;
-        overflow: hidden;
-        justify-content: center;
-        align-items: center;
-        ${backgroundImage ? `background-image: url(${backgroundImage});` : ''}
-      ">
-        <div style="
-          display: flex;
-          flex-direction: column;
-          gap: 3mm;
-          text-align: center;
-          padding: 5mm 5% 5mm 5%;
-          width: 100%;
-          box-sizing: border-box;
-        ">
-          <div class="info-value name" style="
-            font-size: 6mm;
-            color: #000000;
-            font-weight: 600;
-            min-height: 8mm;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-          ">
-            ${nomeCognome}
-          </div>
-          <div class="info-value birthdate" style="
-            font-size: 6mm;
-            color: #000000;
-            font-weight: 600;
-            min-height: 8mm;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-          ">
-            ${dataNascitaFormattata}
-          </div>
-        </div>
-      </div>
-    </div>
-  `
-
-  // Ritorna l'elemento della tessera
-  return container.firstElementChild
 }
 
 /**
@@ -645,83 +549,171 @@ export async function generateSingleCardPDF(socio, renewalYear) {
 }
 
 /**
- * Generates a PDF with all member cards - one card per page
+ * Generates multiple PDFs with member cards grouped alphabetically
  * @param {Array} soci - Array of member objects
  * @param {number} renewalYear - The year for the cards
  * @param {Function} onProgress - Callback function for progress updates
- * @returns {Promise<void>}
+ * @returns {Promise<Array>} Array of PDF results with filename and blob
  */
 export async function generateAllCardsPDF(soci, renewalYear, onProgress = () => {}) {
   const cardBackground = await getSetting('cardBackground')
 
-  // Dimensioni fisse originali del TesseraTemplate (80.77mm x 122.17mm)
+  // Dimensioni originali di TesseraTemplate.vue (80.77mm x 122.17mm)
   const cardWidthMm = 80.77
   const cardHeightMm = 122.17
 
-  // Crea PDF con formato personalizzato - dimensioni esatte della tessera
-  const doc = new jsPDF({
-    orientation: cardWidthMm > cardHeightMm ? 'landscape' : 'portrait',
-    unit: 'mm',
-    format: [cardWidthMm, cardHeightMm], // Dimensioni esatte senza margini
-  })
-
-  let cardIndex = 0
-
-  // Crea un elemento DOM temporaneo per renderizzare le tessere
-  const tempContainer = document.createElement('div')
-  tempContainer.style.position = 'absolute'
-  tempContainer.style.left = '-9999px'
-  tempContainer.style.top = '-9999px'
-  document.body.appendChild(tempContainer)
+  // Usa risoluzione alta per qualità di stampa (300 DPI) - ora possibile con PDF separati
+  const dpi = 300
+  const cardWidthPx = Math.round((cardWidthMm / 25.4) * dpi)
+  const cardHeightPx = Math.round((cardHeightMm / 25.4) * dpi)
 
   try {
-    for (const socio of soci) {
-      // Crea la tessera usando il componente Vue TesseraTemplate
-      const tesseraElement = await createCardElement(socio, cardBackground)
-      tempContainer.appendChild(tesseraElement)
+    // Ordina i soci per cognome
+    const sociOrdinati = soci.sort((a, b) => a.cognome.localeCompare(b.cognome))
 
-      // Converti in immagine ad alta qualità
-      const canvas = await html2canvas(tesseraElement, {
-        useCORS: true,
-        allowTaint: false,
-        backgroundColor: 'transparent',
-        scale: 4, // Aumentato da 2 a 4 per migliore qualità dell'immagine
-        imageTimeout: 0,
-        logging: false,
-        foreignObjectRendering: true, // Migliora il rendering delle immagini
+    // Raggruppa per iniziale del cognome
+    const gruppiAlfabetici = sociOrdinati.reduce((acc, socio) => {
+      const iniziale = socio.cognome.charAt(0).toUpperCase()
+      if (!acc[iniziale]) {
+        acc[iniziale] = []
+      }
+      acc[iniziale].push(socio)
+      return acc
+    }, {})
+
+    const risultati = []
+    let progressoTotale = 0
+    const totaleSoci = soci.length
+
+    // Genera un PDF per ogni gruppo alfabetico
+    for (const [lettera, sociGruppo] of Object.entries(gruppiAlfabetici)) {
+      // Crea PDF per questo gruppo
+      const doc = new jsPDF({
+        orientation: cardWidthMm > cardHeightMm ? 'landscape' : 'portrait',
+        unit: 'mm',
+        format: [cardWidthMm, cardHeightMm],
       })
 
-      // Ogni tessera è su una pagina separata
-      if (cardIndex > 0) {
-        doc.addPage()
+      for (let i = 0; i < sociGruppo.length; i++) {
+        const socio = sociGruppo[i]
+
+        // Crea un canvas per disegnare la tessera
+        const canvas = document.createElement('canvas')
+        canvas.width = cardWidthPx
+        canvas.height = cardHeightPx
+        const ctx = canvas.getContext('2d')
+
+        // Sfondo bianco
+        ctx.fillStyle = 'white'
+        ctx.fillRect(0, 0, cardWidthPx, cardHeightPx)
+
+        // Disegna l'immagine di sfondo se presente
+        if (cardBackground) {
+          await new Promise((resolve, reject) => {
+            const img = new Image()
+            img.crossOrigin = 'anonymous'
+            img.onload = () => {
+              // Calcola le dimensioni per mantenere le proporzioni e coprire tutto
+              const imgAspect = img.width / img.height
+              const canvasAspect = cardWidthPx / cardHeightPx
+
+              let drawWidth, drawHeight, drawX, drawY
+
+              if (imgAspect > canvasAspect) {
+                // Immagine più larga del canvas
+                drawHeight = cardHeightPx
+                drawWidth = drawHeight * imgAspect
+                drawX = (cardWidthPx - drawWidth) / 2
+                drawY = 0
+              } else {
+                // Immagine più alta del canvas
+                drawWidth = cardWidthPx
+                drawHeight = drawWidth / imgAspect
+                drawX = 0
+                drawY = (cardHeightPx - drawHeight) / 2
+              }
+
+              ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight)
+              resolve()
+            }
+            img.onerror = reject
+            img.src = cardBackground
+          })
+        }
+
+        // Formatta la data come nel componente Vue
+        const formattaData = (dataNascita) => {
+          if (!dataNascita) return ''
+          const [anno, mese, giorno] = dataNascita.split('-')
+          const mesi = [
+            'Gennaio',
+            'Febbraio',
+            'Marzo',
+            'Aprile',
+            'Maggio',
+            'Giugno',
+            'Luglio',
+            'Agosto',
+            'Settembre',
+            'Ottobre',
+            'Novembre',
+            'Dicembre',
+          ]
+          const meseNome = mesi[parseInt(mese) - 1]
+          return `${parseInt(giorno)} ${meseNome} ${anno}`
+        }
+
+        // Imposta il font e lo stile del testo (scalato per 300 DPI)
+        ctx.fillStyle = '#000000'
+        ctx.font = 'bold 71px cursive' // 6mm a 300 DPI ≈ 71px
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+
+        const nomeCognome = `${socio.cognome} ${socio.nome}`
+        const dataNascitaFormattata = formattaData(socio.data_nascita)
+
+        // Calcola le posizioni Y per centrare il testo
+        const centerY = cardHeightPx / 2
+        const textSpacing = 35 // Spazio tra le righe (3mm a 300 DPI ≈ 35px)
+
+        // Disegna il nome e cognome
+        ctx.fillText(nomeCognome, cardWidthPx / 2, centerY - textSpacing)
+
+        // Disegna la data di nascita
+        ctx.fillText(dataNascitaFormattata, cardWidthPx / 2, centerY + textSpacing)
+
+        // Ogni tessera è su una pagina separata
+        if (i > 0) {
+          doc.addPage()
+        }
+
+        // Converti il canvas in immagine e aggiungila al PDF
+        const imgData = canvas.toDataURL('image/png')
+        doc.addImage(imgData, 'PNG', 0, 0, cardWidthMm, cardHeightMm)
+
+        progressoTotale++
+        const progress = (progressoTotale / totaleSoci) * 100
+        onProgress(progress)
       }
 
-      // Posiziona l'immagine esattamente agli angoli del PDF (nessun margine)
-      const x = 0
-      const y = 0
+      // Genera il nome file per questo gruppo
+      const fileName = sanitizeFilename(
+        `tessere_${lettera}_${renewalYear}_${new Date().toISOString().split('T')[0]}.pdf`,
+      )
 
-      // Aggiungi l'immagine al PDF con le dimensioni esatte
-      const imgData = canvas.toDataURL('image/png')
-      doc.addImage(imgData, 'PNG', x, y, cardWidthMm, cardHeightMm)
-
-      // Rimuovi l'elemento temporaneo
-      tempContainer.removeChild(tesseraElement)
-
-      cardIndex++
-
-      // Aggiorna il progresso
-      const progress = (cardIndex / soci.length) * 100
-      onProgress(progress)
+      // Aggiungi alla lista dei risultati
+      risultati.push({
+        letter: lettera,
+        filename: fileName,
+        blob: doc.output('blob'),
+        count: sociGruppo.length,
+      })
     }
 
-    // Salva il PDF
-    const fileName = sanitizeFilename(
-      `tessere_${renewalYear}_${new Date().toISOString().split('T')[0]}.pdf`,
-    )
-    doc.save(fileName)
-  } finally {
-    // Pulisci il container temporaneo
-    document.body.removeChild(tempContainer)
+    return risultati
+  } catch (error) {
+    console.error('Errore nella generazione del PDF delle tessere:', error)
+    throw error
   }
 }
 

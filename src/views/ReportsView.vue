@@ -452,7 +452,7 @@ const generateRenewalList = async () => {
 }
 
 /**
- * Genera le tessere in formato PDF
+ * Genera le tessere in formato PDF (divise per lettera alfabetica)
  */
 const generateCards = async () => {
   if (!renewalYear.value) return
@@ -467,11 +467,28 @@ const generateCards = async () => {
 
     loadingMessage.value = 'Generazione tessere...'
     toast.info('Generazione tessere in corso...')
-    await generateAllCardsPDF(soci, renewalYear.value, (progress) => {
+
+    const risultati = await generateAllCardsPDF(soci, renewalYear.value, (progress) => {
       cardProgress.value = progress
     })
 
-    toast.success('PDF Tessere generato con successo!')
+    // Scarica tutti i PDF generati
+    let totalCards = 0
+    for (const risultato of risultati) {
+      // Crea un link temporaneo per il download
+      const url = URL.createObjectURL(risultato.blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = risultato.filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+
+      totalCards += risultato.count
+    }
+
+    toast.success(`Generati ${risultati.length} PDF di tessere (${totalCards} soci totali)!`)
   } catch (error) {
     console.error('Errore generazione tessere:', error)
     toast.error('Errore nella generazione del PDF: ' + error.message)
