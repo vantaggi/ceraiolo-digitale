@@ -53,6 +53,28 @@ python generate_mock_data.py
 
 3. Questo comando creerà un file `santantoniari_test.sqlite` nella cartella. L'applicazione importerà automaticamente questo file al primo avvio.
 
+#### Migrazione Dati Reali (Opzionale)
+
+Se hai dati esistenti in formato CSV, puoi utilizzare lo script di migrazione per creare un database con i tuoi dati reali:
+
+1. Installa pandas per Python:
+
+```bash
+pip install pandas
+```
+
+2. Posiziona i file CSV (`maggiorenni.csv`, `minorenni.csv`, etc.) nella cartella principale
+
+3. Esegui la migrazione:
+
+```bash
+python migrazione_completa.py
+```
+
+4. Questo creerà un file `santantoniari.sqlite` con i tuoi dati reali
+
+Per dettagli completi sullo script di migrazione, consulta il [Manuale per lo Sviluppatore](DEVELOPMENT_GUIDELINES.md#8-migrazione-dati-da-csv).
+
 ### Passo 4: Avvia l'Applicazione
 
 Tutto è pronto! Esegui questo comando per avviare il server di sviluppo.

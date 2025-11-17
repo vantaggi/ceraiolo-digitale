@@ -108,6 +108,7 @@ L'applicazione utilizza IndexedDB con il seguente schema:
    ```
 
 4. **Avvia server di sviluppo**:
+
    ```bash
    npm run dev
    ```
@@ -180,7 +181,69 @@ Il sistema utilizza due approcci per la generazione PDF:
 - Download automatico nel browser
 - Naming automatico con timestamp
 
-## 8. Best Practices
+## 8. Migrazione Dati da CSV
+
+### Script di Migrazione Completa
+
+L'applicazione include uno script Python `migrazione_completa.py` per migrare dati legacy da file CSV al formato SQLite utilizzato dall'applicazione.
+
+#### File CSV Supportati
+
+Lo script elabora i seguenti file CSV contenenti dati dei soci:
+
+- `maggiorenni.csv` - Soci maggiorenni esistenti
+- `minorenni.csv` - Soci minorenni esistenti
+- `maggiorenni_nuovi.csv` - Nuovi soci maggiorenni
+- `minorenni_nuovi.csv` - Nuovi soci minorenni
+
+#### Funzionalità dello Script
+
+- **Pulizia Database**: Ricrea completamente il database prima della migrazione
+- **Elaborazione CSV**: Legge e valida i dati da ciascun file CSV
+- **Gestione Duplicati**: Identifica e gestisce soci duplicati basandosi su nome, cognome e data di nascita
+- **Normalizzazione Nomi**: Uniforma lo stile dei nomi (iniziale maiuscola, resto minuscolo)
+- **Analisi Dettagliata**: Fornisce report completi sui duplicati e statistiche finali
+
+#### Utilizzo dello Script
+
+1. **Prerequisiti**:
+
+   ```bash
+   pip install pandas
+   ```
+
+2. **Posizionare i file CSV** nella directory principale del progetto insieme allo script
+
+3. **Eseguire la migrazione**:
+
+   ```bash
+   python migrazione_completa.py
+   ```
+
+4. **Output**: Lo script genera un file `santantoniari.sqlite` pronto per l'import nell'applicazione
+
+#### Struttura Dati CSV Attesa
+
+I file CSV devono contenere le seguenti colonne principali:
+
+- `n°` - ID originale del socio
+- `SOCIO` - Cognome e nome (formato "COGNOME Nome")
+- `DATA` - Data di nascita
+- `LUOGO` - Luogo di nascita
+- `REFER.` - Gruppo di appartenenza
+- `NOTE` - Note aggiuntive
+- Colonne anno (es. `2023`, `2024`) - Contengono dati pagamenti per ciascun anno
+
+#### Report Generati
+
+Lo script produce analisi dettagliate sui:
+
+- Duplicati per ID originale
+- Duplicati per nome completo
+- Stili di capitalizzazione dei nomi
+- Statistiche generali del database
+
+## 9. Best Practices
 
 ### Codice
 
@@ -203,7 +266,7 @@ Il sistema utilizza due approcci per la generazione PDF:
 - Implementare lazy loading se necessario
 - Ottimizzare operazioni PDF
 
-## 9. Testing
+## 10. Testing
 
 ### Setup Test
 
@@ -218,7 +281,7 @@ npm run test
 - Test per funzioni di utilità
 - Coverage reporting
 
-## 10. Deployment
+## 11. Deployment
 
 ### Build Produzione
 
@@ -240,7 +303,7 @@ Questo script:
 - Avvia server sulla porta 3000
 - Apre automaticamente il browser
 
-## 11. Troubleshooting
+## 12. Troubleshooting
 
 ### Problemi Comuni
 
