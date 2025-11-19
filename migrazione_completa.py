@@ -100,25 +100,25 @@ def process_file(csv_path):
 
     processed_count = 0
     skipped_count = 0
-    for index, row in df.iterrows():
+    for row_idx, (index, row) in enumerate(df.iterrows(), start=2):
         notes = []
         
         # --- 1. Elabora Informazioni Socio ---
         socio_id_raw = row.get('n°', '')
         if not str(socio_id_raw).strip():
-            print(f"Salto riga {index+2} per 'n°' mancante.")
+            print(f"Salto riga {row_idx} per 'n°' mancante.")
             skipped_count += 1
             continue
         try:
             originale_id = int(float(socio_id_raw))
         except (ValueError, TypeError):
-            print(f"Salto riga {index+2} per 'n°' non valido: {socio_id_raw}")
+            print(f"Salto riga {row_idx} per 'n°' non valido: {socio_id_raw}")
             skipped_count += 1
             continue
 
         cognome, nome = parse_socio_name(row.get('SOCIO'))
         if not cognome and not nome:
-            print(f"Salto riga {index+2} (ID originale: {originale_id}) per campo SOCIO vuoto.")
+            print(f"Salto riga {row_idx} (ID originale: {originale_id}) per campo SOCIO vuoto.")
             skipped_count += 1
             continue
         
