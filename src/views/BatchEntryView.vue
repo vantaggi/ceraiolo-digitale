@@ -222,6 +222,18 @@
           </div>
 
           <div class="form-group">
+            <label for="new-luogo-nascita">Luogo di Nascita</label>
+            <input
+              id="new-luogo-nascita"
+              v-model="newSocioData.luogo_nascita"
+              type="text"
+              class="form-input"
+              placeholder="Gubbio"
+              :disabled="isProcessing"
+            />
+          </div>
+
+          <div class="form-group">
             <label for="new-gruppo">Gruppo</label>
             <select
               id="new-gruppo"
@@ -234,6 +246,18 @@
                 {{ group }}
               </option>
             </select>
+          </div>
+
+          <div class="form-group">
+            <label for="new-note">Note</label>
+            <textarea
+              id="new-note"
+              v-model="newSocioData.note"
+              class="form-input"
+              rows="2"
+              placeholder="Eventuali note aggiuntive..."
+              :disabled="isProcessing"
+            ></textarea>
           </div>
         </div>
 
@@ -320,7 +344,9 @@ const newSocioData = reactive({
   cognome: '',
   nome: '',
   data_nascita: '',
+  luogo_nascita: 'Gubbio', // Default value
   gruppo_appartenenza: '',
+  note: '',
 })
 
 const newSocioErrors = reactive({
@@ -558,9 +584,9 @@ const saveNewSocio = async () => {
       nome: newSocioData.nome.trim(),
       cognome: newSocioData.cognome.trim(),
       data_nascita: newSocioData.data_nascita,
-      luogo_nascita: '', // Potrebbe essere aggiunto in futuro
+      luogo_nascita: newSocioData.luogo_nascita || 'Gubbio',
       gruppo_appartenenza: newSocioData.gruppo_appartenenza || 'Non specificato',
-      note: '',
+      note: newSocioData.note || '',
     }
 
     const socioId = await addSocio(socioData)
