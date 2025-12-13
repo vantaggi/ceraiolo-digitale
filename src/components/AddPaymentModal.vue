@@ -71,11 +71,29 @@
           />
         </div>
 
+        <!-- Years Selection -->
         <div class="form-group">
-          <label class="info-label">
-            <span class="field-icon">ℹ️</span>
-            Anno Tesseramento: {{ year }}
+          <label>
+            <span class="field-icon">📅</span>
+            Anni di Tesseramento
           </label>
+          <div class="years-selection">
+            <div v-for="year in availableYears" :key="year" class="year-option">
+              <input
+                :id="'year-' + year"
+                type="checkbox"
+                :value="year"
+                v-model="selectedYears"
+                :disabled="isSubmitting"
+              />
+              <label :for="'year-' + year" class="year-label">
+                {{ year }}
+                <span v-if="year === props.annoRiferimento" class="reference-badge"
+                  >(anno riferimento)</span
+                >
+              </label>
+            </div>
+          </div>
         </div>
 
         <div class="modal-actions">
@@ -83,7 +101,7 @@
             Annulla
           </button>
           <button type="submit" class="save-button" :disabled="isSubmitting">
-            {{ isSubmitting ? 'Salvando...' : `Salva Pagamenti (${props.yearsToPay.length} anni)` }}
+            {{ isSubmitting ? 'Salvando...' : `Salva Pagamenti (${selectedYears.length} anni)` }}
           </button>
         </div>
       </form>
@@ -93,6 +111,7 @@
 
 <script setup>
 import { ref, reactive, watch } from 'vue'
+import { getTesseramentiBySocioId } from '@/services/db'
 
 const emit = defineEmits(['close', 'payments-saved'])
 
@@ -109,6 +128,18 @@ const props = defineProps({
     type: Array,
     required: true,
   },
+  numeroBlocchetto: {
+    type: Number,
+    default: null,
+  },
+  numeroRicevuta: {
+    type: Number,
+    default: null,
+  },
+  annoRiferimento: {
+    type: Number,
+    default: () => new Date().getFullYear(),
+  },
 })
 
 const isSubmitting = ref(false)
@@ -120,6 +151,77 @@ const paymentDetails = reactive({
   numero_blocchetto: null,
 })
 
+// Years selection
+const selectedYears = ref([...props.yearsToPay])
+const availableYears = ref([])
+const paidYears = ref(new Set())
+
+// Load available years when modal opens
+const loadAvailableYears = async () => {
+  try {
+    console.log('Loading available years for socioId:', props.socioId)
+
+    // Get socio info and paid years
+    const [socio, tesseramenti] = await Promise.all([
+      import('@/services/db').then((m) => m.getSocioById(props.socioId)),
+      getTesseramentiBySocioId(props.socioId),
+    ])
+
+    console.log('Socio info:', socio)
+    console.log('Tesseramenti:', tesseramenti)
+
+    paidYears.value = new Set(tesseramenti.map((t) => t.anno))
+    console.log('Paid years set:', Array.from(paidYears.value))
+
+    // Get socio's first registration year
+    // If data_prima_iscrizione is null but socio has payments, use the earliest payment year
+    let firstRegistrationYear = socio?.data_prima_iscrizione
+    if (!firstRegistrationYear && tesseramenti.length > 0) {
+      // Find the earliest payment year
+      const paymentYears = tesseramenti.map((t) => t.anno).sort((a, b) => a - b)
+      firstRegistrationYear = paymentYears[0]
+    }
+    firstRegistrationYear = firstRegistrationYear || new Date().getFullYear()
+    console.log('First registration year:', firstRegistrationYear)
+
+    // Get last 5 years, but not earlier than first registration
+    const currentYear = new Date().getFullYear()
+    const startYear = Math.max(currentYear - 4, firstRegistrationYear)
+    console.log('Start year calculation:', { currentYear, firstRegistrationYear, startYear })
+
+    const availableYearsRange = []
+    for (let year = startYear; year <= currentYear; year++) {
+      availableYearsRange.push(year)
+    }
+    console.log('Available years range:', availableYearsRange)
+
+    // Available years: years from first registration to current, excluding paid years
+    const years = []
+    for (const year of availableYearsRange) {
+      if (!paidYears.value.has(year)) {
+        years.push(year)
+      }
+    }
+    console.log('Years after filtering paid:', years)
+
+    // Always include reference year if not paid and not already included
+    if (!paidYears.value.has(props.annoRiferimento) && !years.includes(props.annoRiferimento)) {
+      years.push(props.annoRiferimento)
+      console.log('Added reference year:', props.annoRiferimento)
+    }
+
+    // Sort years ascending
+    years.sort((a, b) => a - b)
+    console.log('Final available years:', years)
+
+    availableYears.value = years
+  } catch (error) {
+    console.error('Error loading available years:', error)
+    // Fallback: show reference year only
+    availableYears.value = [props.annoRiferimento]
+  }
+}
+
 // Reset form when modal opens
 watch(
   () => props.show,
@@ -130,11 +232,24 @@ watch(
   },
 )
 
-const resetForm = () => {
+const resetForm = async () => {
   paymentDetails.quota_pagata = 10.0
   paymentDetails.data_pagamento = new Date().toISOString().split('T')[0]
-  paymentDetails.numero_blocchetto = null
-  paymentDetails.numero_ricevuta = null
+  paymentDetails.numero_blocchetto = props.numeroBlocchetto
+  paymentDetails.numero_ricevuta = props.numeroRicevuta
+
+  // Load available years and set default selection
+  await loadAvailableYears()
+
+  // Pre-select reference year if available, otherwise select first available year
+  if (availableYears.value.includes(props.annoRiferimento)) {
+    selectedYears.value = [props.annoRiferimento]
+  } else if (availableYears.value.length > 0) {
+    selectedYears.value = [availableYears.value[0]]
+  } else {
+    selectedYears.value = []
+  }
+
   isSubmitting.value = false
 }
 
@@ -148,7 +263,7 @@ const handleSubmit = () => {
   // Pass all details to the parent to handle the save logic
   emit('payments-saved', {
     details: { ...paymentDetails },
-    years: props.yearsToPay,
+    years: selectedYears.value,
     socioId: props.socioId,
   })
   // The parent component will be responsible for closing the modal on success
@@ -176,7 +291,9 @@ const handleSubmit = () => {
   border: 2px solid var(--color-border);
   box-shadow: var(--shadow-lg);
   min-width: 400px;
-  max-width: 500px;
+  max-width: 450px;
+  max-height: 80vh;
+  overflow-y: auto;
   animation: slideIn 0.3s ease-out;
 }
 
@@ -335,11 +452,62 @@ const handleSubmit = () => {
   }
 }
 
+/* Years Selection */
+.years-selection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.year-option {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  background-color: var(--color-background);
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  transition: all 0.2s;
+}
+
+.year-option:hover {
+  border-color: var(--color-accent);
+  background-color: rgba(183, 28, 28, 0.02);
+}
+
+.year-option input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-accent);
+}
+
+.year-label {
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.reference-badge {
+  background-color: var(--color-accent);
+  color: white;
+  padding: 0.125rem 0.375rem;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
 /* Responsive */
-@media (max-width: 480px) {
+@media (max-width: 768px) {
   .modal-content {
     min-width: 90vw;
+    max-width: 95vw;
     margin: 1rem;
+    max-height: 90vh;
   }
 
   .modal-header {
@@ -348,15 +516,38 @@ const handleSubmit = () => {
 
   .payment-form {
     padding: 1.5rem;
+    gap: 1rem;
   }
 
   .modal-actions {
     flex-direction: column;
+    gap: 0.5rem;
   }
 
   .cancel-button,
   .save-button {
     width: 100%;
+    padding: 1rem 1.5rem;
+  }
+
+  .years-selection {
+    max-height: 200px;
+    overflow-y: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .modal-content {
+    min-width: 95vw;
+    margin: 0.5rem;
+  }
+
+  .modal-header {
+    padding: 1rem;
+  }
+
+  .payment-form {
+    padding: 1rem;
   }
 }
 </style>

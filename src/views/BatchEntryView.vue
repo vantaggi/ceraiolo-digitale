@@ -260,6 +260,9 @@
       :show="showPaymentModal"
       :socio-id="selectedSocio?.id?.toString() || ''"
       :years-to-pay="paymentData.selectedYears"
+      :numero-blocchetto="sessionData.numeroBlocchetto"
+      :numero-ricevuta="currentReceipt.numero"
+      :anno-riferimento="sessionData.annoRiferimento"
       @close="closePaymentModal"
       @payments-saved="handleSavePayments"
     />
@@ -300,10 +303,6 @@ const sessionErrors = reactive({
 })
 
 // Contesto ricevuta attuale
-const ricevutaData = reactive({
-  numeroRicevuta: 1,
-})
-
 const currentReceipt = reactive({
   numero: 1,
   soci: [],
@@ -397,7 +396,8 @@ watch(
   () => sessionData.numeroBlocchetto,
   (newVal) => {
     if (newVal > 0) {
-      ricevutaData.numeroRicevuta = (newVal - 1) * 10 + 1
+      const calculatedReceiptNumber = (newVal - 1) * 10 + 1
+      currentReceipt.numero = calculatedReceiptNumber
     }
   },
 )
@@ -511,7 +511,7 @@ const handleSavePayments = async ({ details, years, socioId }) => {
         anno: year,
         quota_pagata: details.quota_pagata,
         data_pagamento: details.data_pagamento,
-        numero_ricevuta: ricevutaData.numeroRicevuta,
+        numero_ricevuta: currentReceipt.numero,
         numero_blocchetto: sessionData.numeroBlocchetto,
       })
     }

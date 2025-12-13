@@ -166,13 +166,17 @@ export async function getSocioById(id) {
 
 /**
  * Retrieves all payments for a specific member, sorted by year descending.
- * @param {number} socioId The ID of the member.
+ * @param {number|string} socioId The ID of the member.
  * @returns {Promise<Array>} A promise that resolves to an array of payment records.
  */
 export async function getTesseramentiBySocioId(socioId) {
+  // Convert to number if it's a string
+  const numericId = typeof socioId === 'string' ? parseInt(socioId, 10) : socioId
+  if (isNaN(numericId)) return []
+
   return db.tesseramenti
     .where('id_socio')
-    .equals(socioId)
+    .equals(numericId)
     .reverse() // Sort by most recent year
     .sortBy('anno')
 }
