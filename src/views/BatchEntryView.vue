@@ -86,6 +86,7 @@
               type="number"
               class="receipt-number-input"
               min="1"
+              readonly
               :disabled="isProcessing"
             />
             <button @click="incrementReceipt" class="receipt-btn" :disabled="isProcessing">
@@ -332,6 +333,9 @@ const currentReceipt = reactive({
   soci: [],
 })
 
+// Cache delle ricevute per mantenere i dati quando si naviga
+const receiptsCache = new Map()
+
 // Area di lavoro
 const searchQuery = ref('')
 const searchResults = ref([])
@@ -429,17 +433,39 @@ watch(
 )
 watch(() => sessionData.dataPagamento, validateSessionData)
 
+// Funzioni per gestire la cache delle ricevute
+const saveCurrentReceiptToCache = () => {
+  if (currentReceipt.soci.length > 0) {
+    receiptsCache.set(currentReceipt.numero, [...currentReceipt.soci])
+  }
+}
+
+const loadReceiptFromCache = (receiptNumber) => {
+  const cachedData = receiptsCache.get(receiptNumber)
+  if (cachedData) {
+    currentReceipt.soci = [...cachedData]
+  } else {
+    currentReceipt.soci = []
+  }
+}
+
 const incrementReceipt = () => {
+  // Salva la ricevuta corrente prima di cambiarla
+  saveCurrentReceiptToCache()
+
   currentReceipt.numero++
-  currentReceipt.soci = []
+  loadReceiptFromCache(currentReceipt.numero)
   clearSearch()
   nextTick(() => searchInput.value?.focus())
 }
 
 const decrementReceipt = () => {
   if (currentReceipt.numero > 1) {
+    // Salva la ricevuta corrente prima di cambiarla
+    saveCurrentReceiptToCache()
+
     currentReceipt.numero--
-    currentReceipt.soci = []
+    loadReceiptFromCache(currentReceipt.numero)
     clearSearch()
     nextTick(() => searchInput.value?.focus())
   }
@@ -522,6 +548,8 @@ const closePaymentModal = () => {
 
 // This function is called by the payment component when user clicks "Save"
 const handleSavePayments = async ({ details, years, socioId }) => {
+  console.log('Saving payments:', { details, years, socioId })
+
   // --- Security Check ---
   const existingYear = await findExistingPaymentYear(socioId, years)
   if (existingYear) {
@@ -531,15 +559,20 @@ const handleSavePayments = async ({ details, years, socioId }) => {
 
   // If check passes, save all payments
   try {
+    console.log('Saving tesseramenti for years:', years)
     for (const year of years) {
-      await addTesseramento({
+      const tesseramentoData = {
         id_socio: socioId,
         anno: year,
         quota_pagata: details.quota_pagata,
         data_pagamento: details.data_pagamento,
         numero_ricevuta: currentReceipt.numero,
         numero_blocchetto: sessionData.numeroBlocchetto,
-      })
+      }
+      console.log('Saving tesseramento:', tesseramentoData)
+
+      const result = await addTesseramento(tesseramentoData)
+      console.log('Tesseramento saved with ID:', result)
     }
 
     // Aggiungi alla ricevuta corrente
@@ -550,6 +583,17 @@ const handleSavePayments = async ({ details, years, socioId }) => {
       anniPagati: [...years],
     })
 
+    // Aggiorna la cache globale del socio per riflettere i nuovi pagamenti
+    // Questo assicura che quando si visita SocioDetailView, i dati siano aggiornati
+    if (selectedSocio.value) {
+      // Rimuovi il socio dalla cache per forzare un ricaricamento
+      // Nota: Questo è un workaround, idealmente servirebbe un sistema di cache più sofisticato
+      const socioKey = `socio_${selectedSocio.value.id}`
+      if (localStorage.getItem(socioKey)) {
+        localStorage.removeItem(socioKey)
+      }
+    }
+
     toast.success(
       `Pagamenti registrati per ${selectedSocio.value.cognome} ${selectedSocio.value.nome} (${years.join(', ')})`,
     )
@@ -558,6 +602,7 @@ const handleSavePayments = async ({ details, years, socioId }) => {
     clearSearch()
     nextTick(() => searchInput.value?.focus())
   } catch (err) {
+    console.error('Error saving payments:', err)
     errorMessage.value = `Si è verificato un errore durante il salvataggio: ${err.message}`
   }
 }
@@ -629,6 +674,8 @@ const removeFromReceipt = (socio) => {
   const index = currentReceipt.soci.findIndex((s) => s.id === socio.id)
   if (index > -1) {
     currentReceipt.soci.splice(index, 1)
+    // Salva i dati aggiornati nella cache
+    saveCurrentReceiptToCache()
     toast.info(`${socio.cognome} ${socio.nome} rimosso dalla ricevuta`)
   }
 }

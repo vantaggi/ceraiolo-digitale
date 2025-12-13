@@ -272,13 +272,22 @@ const primaIscrizioneDisplay = computed(() => {
  * Calcola la cronologia completa dei pagamenti
  */
 const paymentChronology = computed(() => {
+  console.log('Calculating payment chronology...')
+  console.log('Socio:', socio.value)
+  console.log('Tesseramenti:', tesseramenti.value)
+
   if (!socio.value || tesseramenti.value.length === 0) {
+    console.log('No socio or tesseramenti, returning empty chronology')
     return []
   }
 
   const anniPagati = tesseramenti.value.map((t) => t.anno).sort((a, b) => a - b)
   const primaIscrizioneEsplicita = socio.value.data_prima_iscrizione
   const annoCorrente = new Date().getFullYear()
+
+  console.log('Anni pagati:', anniPagati)
+  console.log('Prima iscrizione esplicita:', primaIscrizioneEsplicita)
+  console.log('Anno corrente:', annoCorrente)
 
   // Determina l'anno di prima iscrizione
   let annoPrimaIscrizione
@@ -300,11 +309,16 @@ const paymentChronology = computed(() => {
     annoPrimaIscrizione = annoCorrente
   }
 
+  console.log('Anno prima iscrizione calcolato:', annoPrimaIscrizione)
+
   // --- START OF FIX ---
   // Determine the end year for the history view
   // It should be the latest year between the current year and the most recent payment
   const latestPaymentYear = tesseramenti.value.reduce((max, t) => (t.anno > max ? t.anno : max), 0)
   const annoFinale = Math.max(annoCorrente, latestPaymentYear)
+
+  console.log('Latest payment year:', latestPaymentYear)
+  console.log('Anno finale calcolato:', annoFinale)
   // --- END OF FIX ---
 
   const chronology = []
@@ -321,6 +335,7 @@ const paymentChronology = computed(() => {
     })
   }
 
+  console.log('Final chronology:', chronology)
   return chronology.reverse() // Mostra gli anni più recenti prima
 })
 

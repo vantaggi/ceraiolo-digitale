@@ -737,7 +737,7 @@ export async function downloadSocioExport(socioId) {
 /**
  * Adds a new payment record for a member
  * @param {object} paymentData - The payment data to insert
- * @param {number} paymentData.id_socio - ID of the member
+ * @param {number|string} paymentData.id_socio - ID of the member
  * @param {number} paymentData.anno - Year of the payment
  * @param {number} paymentData.quota_pagata - Amount paid
  * @param {string} paymentData.data_pagamento - Date of payment (YYYY-MM-DD)
@@ -749,9 +749,19 @@ export async function addTesseramento(paymentData) {
   try {
     const id_tesseramento = crypto.randomUUID()
 
+    // Convert id_socio to number if it's a string
+    const numericIdSocio =
+      typeof paymentData.id_socio === 'string'
+        ? parseInt(paymentData.id_socio, 10)
+        : paymentData.id_socio
+
+    if (isNaN(numericIdSocio)) {
+      throw new Error('Invalid id_socio: must be a valid number')
+    }
+
     const paymentRecord = {
       id_tesseramento,
-      id_socio: paymentData.id_socio,
+      id_socio: numericIdSocio,
       anno: paymentData.anno,
       quota_pagata: paymentData.quota_pagata,
       data_pagamento: paymentData.data_pagamento,
@@ -824,10 +834,14 @@ export async function addSocio(socioData) {
 // Get arretrati (anni non pagati) for a socio
 export async function getArretrati(socioId) {
   try {
+    // Convert socioId to number if it's a string
+    const numericId = typeof socioId === 'string' ? parseInt(socioId, 10) : socioId
+    if (isNaN(numericId)) return []
+
     const currentYear = new Date().getFullYear()
 
     // Get all tesseramenti for this socio
-    const tesseramenti = await db.tesseramenti.where('id_socio').equals(socioId).toArray()
+    const tesseramenti = await db.tesseramenti.where('id_socio').equals(numericId).toArray()
 
     // Find paid years
     const paidYears = new Set(tesseramenti.map((t) => t.anno))
@@ -859,13 +873,17 @@ export async function getArretrati(socioId) {
 
 /**
  * Checks if one or more payments already exist for a specific member in given years.
- * @param {string} socioId The ID of the member.
+ * @param {number|string} socioId The ID of the member.
  * @param {Array<number>} years An array of years to check.
  * @returns {Promise<number|null>} Returns the first year found that already has a payment, or null if none exist.
  */
 export async function findExistingPaymentYear(socioId, years) {
+  // Convert socioId to number if it's a string
+  const numericId = typeof socioId === 'string' ? parseInt(socioId, 10) : socioId
+  if (isNaN(numericId)) return null
+
   for (const year of years) {
-    const count = await db.tesseramenti.where({ id_socio: socioId, anno: year }).count()
+    const count = await db.tesseramenti.where({ id_socio: numericId, anno: year }).count()
     if (count > 0) {
       return year // Return the first year that already exists
     }
