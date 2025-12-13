@@ -76,13 +76,25 @@ def process_file(csv_path):
     """Legge un file CSV e popola il database"""
     print(f"\n--- Elaborazione file: {csv_path} ---")
     try:
-        # Prova a leggere con UTF-8 standard, fallback a latin-1 per file più vecchi
-        try:
-            df = pd.read_csv(csv_path, dtype=str, keep_default_na=False)
-        except UnicodeDecodeError:
-            print("Decodifica UTF-8 fallita, provo con codifica 'latin-1'...")
-            df = pd.read_csv(csv_path, dtype=str, encoding='latin-1', keep_default_na=False)
+        # TENTATIVO 1: Formato Excel Italiano (separatore ';' e codifica Windows)
+        # Questo risolve il problema delle virgole nelle cifre (es. 10,00)
+        df = pd.read_csv(csv_path, sep=';', dtype=str, encoding='cp1252', keep_default_na=False)
+        
+        # Pulizia nomi colonne: rimuove spazi accidentali (es. " SOCIO" -> "SOCIO")
+        df.columns = df.columns.str.strip()
+        
+        # Rimuove colonne "senza nome" che sono vuote (comuni alla fine dei file Excel)
+        df = df.dropna(axis=1, how='all')
 
+    except Exception as e:
+        print(f"Errore lettura standard (cp1252): {e}")
+        try:
+            # Fallback: prova encoding latin-1 se il primo fallisce
+            df = pd.read_csv(csv_path, sep=';', dtype=str, encoding='latin-1', keep_default_na=False)
+            df.columns = df.columns.str.strip()
+        except Exception as e2:
+            print(f"ERRORE CRITICO: Impossibile leggere il file {csv_path}. Dettagli: {e2}")
+            return
     except FileNotFoundError:
         print(f"ERRORE: File non trovato in '{csv_path}'. Controlla il percorso.")
         return
@@ -104,7 +116,12 @@ def process_file(csv_path):
         notes = []
         
         # --- 1. Elabora Informazioni Socio ---
-        socio_id_raw = row.get('n°', '')
+        # Cerca la colonna ID in vari modi possibili per evitare errori
+        socio_id_raw = row.get('n°') or row.get('nÂ°') or row.get('n')
+        # Se ancora non trova nulla, prova la prima colonna assoluta
+        if not socio_id_raw and len(df.columns) > 0:
+            socio_id_raw = row.iloc[0]
+            
         if not str(socio_id_raw).strip():
             print(f"Salto riga {row_idx} per 'n°' mancante.")
             skipped_count += 1
