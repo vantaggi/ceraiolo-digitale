@@ -1,6 +1,5 @@
 import Dexie from 'dexie'
 import initSqlJs from 'sql.js'
-import { v4 as uuidv4 } from 'uuid'
 
 // Create a new Dexie database instance
 export const db = new Dexie('CeraioloDigitaleDB')
@@ -296,13 +295,13 @@ export async function exportAllTesseramenti() {
  * @param {string} key - The setting key
  * @returns {Promise<any>} The setting value or null if not found
  */
-export async function getSetting(key) {
+export async function getSetting(key, defaultValue = null) {
   try {
     const setting = await db.settings.get(key)
-    return setting ? setting.value : null
+    return setting ? setting.value : defaultValue
   } catch (error) {
     console.error('Error getting setting:', error)
-    return null
+    return defaultValue
   }
 }
 

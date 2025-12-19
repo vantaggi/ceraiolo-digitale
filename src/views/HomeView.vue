@@ -8,6 +8,22 @@
         </router-link>
       </div>
 
+      <!-- Stats Cards -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <span class="stat-label">Totale Soci</span>
+          <span class="stat-value">{{ stats.totalSoci }}</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Rinnovi {{ currentYear }}</span>
+          <span class="stat-value">{{ stats.renewalsCurrent }}</span>
+        </div>
+        <div class="stat-card highlight">
+          <span class="stat-label">Rinnovi {{ currentYear + 1 }}</span>
+          <span class="stat-value">{{ stats.renewalsNext }}</span>
+        </div>
+      </div>
+
       <!-- Passa i filtri come props E ascolta le modifiche -->
       <FilterPanel :initial-filters="filters" @filters-changed="onFiltersChanged" />
 
@@ -61,7 +77,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { useToast } from 'vue-toastification'
 import {
   db,
@@ -80,6 +96,13 @@ const searchResults = ref([])
 const isSearching = ref(false)
 const showDebug = ref(false) // Cambia a true per vedere i dettagli
 const isExporting = ref(false) // Stato per l'export PDF
+const currentYear = new Date().getFullYear()
+
+const stats = reactive({
+  totalSoci: 0,
+  renewalsCurrent: 0,
+  renewalsNext: 0
+})
 
 // Toast notifications
 const toast = useToast()
@@ -99,6 +122,20 @@ const hasSearchCriteria = computed(() => {
   return (
     filters.searchTerm.trim() !== '' || filters.ageCategory !== 'tutti' || filters.group !== 'Tutti'
   )
+})
+
+const loadStats = async () => {
+    try {
+      stats.totalSoci = await db.soci.count()
+      stats.renewalsCurrent = await db.tesseramenti.where('anno').equals(currentYear).count()
+      stats.renewalsNext = await db.tesseramenti.where('anno').equals(currentYear + 1).count()
+    } catch (e) {
+      console.error("Error loading stats", e)
+    }
+}
+
+onMounted(() => {
+  loadStats()
 })
 
 /**
@@ -295,6 +332,43 @@ const generateSingleCard = async (socio) => {
   margin-bottom: 2rem;
   padding-bottom: 1.5rem;
   border-bottom: 3px solid var(--color-accent);
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.stat-card {
+  background: var(--color-surface);
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border: 1px solid var(--color-border);
+}
+
+.stat-card.highlight {
+  border-color: var(--color-accent);
+  background: linear-gradient(to bottom right, var(--color-surface), rgba(183, 28, 28, 0.05));
+}
+
+.stat-label {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.5rem;
+}
+
+.stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--color-primary);
 }
 
 .add-socio-button {

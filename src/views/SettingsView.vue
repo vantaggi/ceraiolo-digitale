@@ -183,10 +183,69 @@
         </div>
       </section>
 
-      <!-- Sezione Altre Impostazioni (placeholder per future espansioni) -->
+      <!-- Sezione Configurazione Applicazione -->
       <section class="settings-section">
-        <h2>🔧 Altre Impostazioni</h2>
-        <p>Ulteriori configurazioni saranno disponibili nelle prossime versioni</p>
+        <h2>🔧 Configurazione Applicazione</h2>
+        <p>Parametri globali per il funzionamento dell'applicazione</p>
+
+        <div class="config-grid">
+          <div class="control-group">
+            <label for="receipts-per-block">Ricevute per Blocchetto:</label>
+            <input
+              id="receipts-per-block"
+              v-model.number="appConfig.receiptsPerBlock"
+              type="number"
+              min="1"
+              max="100"
+              class="form-input"
+            />
+            <small class="help-text">
+              Numero di ricevute contenute in ogni blocchetto cartaceo (default: 10).
+              Usato per calcolare automaticamente il numero di ricevuta.
+            </small>
+          </div>
+
+          <div class="control-group">
+            <label for="default-quota">Quota Rinnovo Default (€):</label>
+            <input
+              id="default-quota"
+              v-model.number="appConfig.defaultQuota"
+              type="number"
+              min="0"
+              step="0.5"
+              class="form-input"
+            />
+            <small class="help-text">
+              Importo standard per il rinnovo annuale (default: 10.00).
+            </small>
+          </div>
+
+          <div class="control-group">
+            <label for="new-member-quota">Quota Nuovi Soci Default (€):</label>
+            <input
+              id="new-member-quota"
+              v-model.number="appConfig.newMemberQuota"
+              type="number"
+              min="0"
+              step="0.5"
+              class="form-input"
+            />
+            <small class="help-text">
+              Importo per la prima iscrizione di un nuovo socio (default: 25.00).
+            </small>
+          </div>
+
+          <div class="action-buttons">
+             <button
+                @click="saveAppConfig"
+                :disabled="isSavingConfig"
+                class="save-button"
+              >
+                <span v-if="isSavingConfig" class="loading-spinner">⏳</span>
+                {{ isSavingConfig ? 'Salvataggio...' : '💾 Salva Configurazione' }}
+              </button>
+          </div>
+        </div>
       </section>
     </div>
   </div>
@@ -210,6 +269,13 @@ const hasPdfTemplate = ref(false)
 const isSaving = ref(false)
 const isExporting = ref(false)
 const isSavingBackup = ref(false)
+const isSavingConfig = ref(false)
+
+const appConfig = ref({
+  receiptsPerBlock: 10,
+  defaultQuota: 10.0,
+  newMemberQuota: 25.0
+})
 
 // Auto-backup settings
 const autoBackupSettings = ref({
@@ -241,6 +307,15 @@ onMounted(async () => {
   } catch (error) {
     console.error('Errore caricamento template:', error)
     toast.error('Errore nel caricamento del template attuale')
+  }
+
+  // Carica configurazioni app
+  try {
+    appConfig.value.receiptsPerBlock = await getSetting('receiptsPerBlock', 10)
+    appConfig.value.defaultQuota = await getSetting('defaultQuota', 10.0)
+    appConfig.value.newMemberQuota = await getSetting('newMemberQuota', 25.0)
+  } catch (error) {
+    console.error('Errore caricamento config:', error)
   }
 })
 
@@ -524,6 +599,24 @@ const createManualBackup = async () => {
  */
 const viewBackupHistory = () => {
   toast.info('Funzionalità cronologia backup in sviluppo')
+}
+
+/**
+ * Salva la configurazione dell'applicazione
+ */
+const saveAppConfig = async () => {
+  try {
+    isSavingConfig.value = true
+    await updateSetting('receiptsPerBlock', appConfig.value.receiptsPerBlock)
+    await updateSetting('defaultQuota', appConfig.value.defaultQuota)
+    await updateSetting('newMemberQuota', appConfig.value.newMemberQuota)
+    toast.success('Configurazione salvata con successo!')
+  } catch (error) {
+    console.error('Errore salvataggio configurazione:', error)
+    toast.error('Errore nel salvataggio della configurazione')
+  } finally {
+    isSavingConfig.value = false
+  }
 }
 </script>
 

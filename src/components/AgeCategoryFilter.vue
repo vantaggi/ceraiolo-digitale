@@ -9,7 +9,7 @@
     >
       <option value="tutti">Tutti</option>
       <option value="maggiorenni">Maggiorenni (18+)</option>
-      <option value="minorenni">Minorenni (<18)</option>
+      <option value="minorenni">Minorenni (&lt;18)</option>
     </select>
   </div>
 </template>
