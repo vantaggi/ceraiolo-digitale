@@ -830,6 +830,33 @@ export async function addSocio(socioData) {
   }
 }
 
+/**
+ * Calculates the age of a member in a specific year
+ * @param {string} birthDateString - Date of birth (YYYY-MM-DD)
+ * @param {number} year - The year to calculate age for
+ * @returns {number} Age in that year
+ */
+export function calculateAgeInYear(birthDateString, year) {
+  if (!birthDateString) return 99 // Assume adult if no birthdate
+  const birthDate = new Date(birthDateString)
+  if (isNaN(birthDate.getTime())) return 99
+
+  return year - birthDate.getFullYear()
+}
+
+/**
+ * Checks if a member is exempt from payment for a specific year (e.g. minors)
+ * @param {object} socio - The member object
+ * @param {number} year - The year to check
+ * @returns {boolean} True if exempt
+ */
+export function isExemptFromPayment(socio, year) {
+  const age = calculateAgeInYear(socio.data_nascita, year)
+  // Minors (< 18) are exempt from payment/arrears after their first registration
+  // "negli anni successivi risultano sempre iscritti fino al 18 anno"
+  return age < 18
+}
+
 // Get arretrati (anni non pagati) for a socio
 export async function getArretrati(socioId) {
   try {
@@ -858,7 +885,10 @@ export async function getArretrati(socioId) {
     // Check each year from first registration to current year
     for (let year = firstYear; year < currentYear; year++) {
       if (!paidYears.has(year)) {
-        arretrati.push(year)
+        // If not paid, check if exempt (minor)
+        if (!isExemptFromPayment(socio, year)) {
+          arretrati.push(year)
+        }
       }
     }
 
@@ -1082,8 +1112,11 @@ export async function getMembersByGroup(
 
       for (let year = firstYear; year <= currentYear; year++) {
         if (!paidYears.has(year)) {
-          isInRegola = false
-          break
+            // Check exemption
+            if (!isExemptFromPayment(socio, year)) {
+                isInRegola = false
+                break
+            }
         }
       }
 

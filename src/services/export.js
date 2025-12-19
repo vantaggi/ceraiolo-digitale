@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf'
 import { PDFDocument, rgb } from 'pdf-lib'
 import * as XLSX from 'xlsx'
-import { getSetting, exportAllSoci, exportAllTesseramenti } from './db'
+import { getSetting, exportAllSoci, exportAllTesseramenti, isExemptFromPayment } from './db'
 
 /**
  * Crea un documento PDF con configurazione base
@@ -282,7 +282,10 @@ export async function generateSociPDF(sociList, renewalYear) {
         if (annoPrimaIscrizione) {
           for (let anno = annoPrimaIscrizione; anno < renewalYear; anno++) {
             if (!anniPagati.includes(anno)) {
-              anniArretrati.push(anno)
+              // Check if exempt (minor)
+              if (!isExemptFromPayment(socio, anno)) {
+                anniArretrati.push(anno)
+              }
             }
           }
         }
@@ -392,7 +395,10 @@ export async function generateRenewalListPDF(soci, renewalYear) {
       if (annoPrimaIscrizione) {
         for (let anno = annoPrimaIscrizione; anno < renewalYear; anno++) {
           if (!anniPagati.includes(anno)) {
-            anniArretrati.push(anno)
+            // Check if exempt (minor)
+            if (!isExemptFromPayment(socio, anno)) {
+              anniArretrati.push(anno)
+            }
           }
         }
       }
@@ -1004,7 +1010,7 @@ export async function generateMembersByGroupPDF(members, gruppo, ageCategory, pa
 
     // === MODIFICA: AGGIUNTO IL COMANDO DI SALVATAGGIO ===
     // Questo forza il browser a scaricare il file
-    doc.save(filename) 
+    doc.save(filename)
     // ====================================================
 
     return {

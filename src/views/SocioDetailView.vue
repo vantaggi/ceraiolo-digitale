@@ -122,12 +122,17 @@
               <div class="year-info">
                 <span class="year-number">{{ item.anno }}</span>
                 <span class="year-status" :class="item.stato">
-                  {{ item.isPagato ? '✓ Pagato' : '✗ Non Pagato' }}
+                  <span v-if="item.isPagato">✓ Pagato</span>
+                  <span v-else-if="item.isEsente">✓ Minorenne</span>
+                  <span v-else>✗ Non Pagato</span>
                 </span>
               </div>
               <div class="year-actions">
-                <button v-if="!item.isPagato" @click="payYear(item.anno)" class="pay-button accent">
+                <button v-if="!item.isPagato && !item.isEsente" @click="payYear(item.anno)" class="pay-button accent">
                   💳 Paga Ora
+                </button>
+                <button v-if="!item.isPagato && item.isEsente" @click="payYear(item.anno)" class="pay-button secondary">
+                  💳 Paga (Opzionale)
                 </button>
                 <button
                   v-if="item.isPagato"
@@ -196,6 +201,7 @@ import {
   getTesseramentiBySocioId,
   addTesseramento,
   deleteSocio,
+  isExemptFromPayment,
 } from '@/services/db'
 import AddPaymentModal from '@/components/AddPaymentModal.vue'
 import ConfirmDeleteModal from '@/components/ConfirmDeleteModal.vue'
@@ -325,13 +331,19 @@ const paymentChronology = computed(() => {
   // Genera la cronologia completa dall'anno di prima iscrizione all'anno finale
   for (let anno = annoPrimaIscrizione; anno <= annoFinale; anno++) {
     const isPagato = anniPagati.includes(anno)
+    const isEsente = !isPagato && isExemptFromPayment(socio.value, anno)
     const tesseramento = tesseramenti.value.find((t) => t.anno === anno)
+
+    let stato = 'non-pagato'
+    if (isPagato) stato = 'pagato'
+    else if (isEsente) stato = 'esente'
 
     chronology.push({
       anno,
       isPagato,
+      isEsente,
       tesseramento,
-      stato: isPagato ? 'pagato' : 'non-pagato',
+      stato,
     })
   }
 
@@ -894,6 +906,11 @@ onBeforeUnmount(() => {
   background-color: rgba(244, 67, 54, 0.05);
 }
 
+.year-item.esente {
+  border-color: #ffa726;
+  background-color: rgba(255, 167, 38, 0.05);
+}
+
 .year-heading {
   display: flex;
   justify-content: space-between;
@@ -938,6 +955,11 @@ onBeforeUnmount(() => {
   color: white;
 }
 
+.year-status.esente {
+  background-color: #ffa726;
+  color: white;
+}
+
 .year-actions {
   display: flex;
   gap: 0.75rem;
@@ -959,6 +981,15 @@ onBeforeUnmount(() => {
   background-color: #a22a2a;
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(183, 28, 28, 0.3);
+}
+
+.pay-button.secondary {
+  background-color: #757575;
+}
+
+.pay-button.secondary:hover {
+  background-color: #616161;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .delete-btn {
