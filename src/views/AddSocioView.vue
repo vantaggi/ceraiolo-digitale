@@ -158,8 +158,7 @@
 <script setup>
 import { ref, reactive, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { addSocio } from '@/services/db'
-import { getUniqueGroups } from '@/services/db'
+import { addSocio, getUniqueGroups, getSetting } from '@/services/db'
 
 const router = useRouter()
 const availableGroups = ref([])
@@ -177,6 +176,18 @@ const formData = reactive({
   gruppo_appartenenza: '',
   data_prima_iscrizione: '',
   note: ''
+})
+
+// Carica i dati settings all'avvio
+onMounted(async () => {
+    try {
+        const defaultCity = await getSetting('defaultCity', 'Gubbio')
+        if (defaultCity) {
+            formData.luogo_nascita = defaultCity
+        }
+    } catch (e) {
+        console.warn("Could not load default city", e)
+    }
 })
 
 // Carica i gruppi disponibili

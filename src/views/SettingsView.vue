@@ -1,252 +1,268 @@
 <template>
   <div class="settings-view">
-    <div class="container">
-      <h1>⚙️ Impostazioni Applicazione</h1>
-      <p>Configura l'aspetto e le preferenze dell'applicazione</p>
+    <div class="container settings-layout">
+      <!-- Sidebar Navigation -->
+      <aside class="settings-sidebar">
+        <h1 class="sidebar-title">⚙️ Impostazioni</h1>
+        <nav class="settings-nav">
+          <button
+            @click="currentTab = 'generale'"
+            :class="{ active: currentTab === 'generale' }"
+            class="nav-item"
+          >
+            🔧 Generale
+          </button>
+          <button
+            @click="currentTab = 'template'"
+            :class="{ active: currentTab === 'template' }"
+            class="nav-item"
+          >
+            🎫 Template Tessera
+          </button>
+          <button
+            @click="currentTab = 'dati'"
+            :class="{ active: currentTab === 'dati' }"
+            class="nav-item"
+          >
+            💾 Dati & Backup
+          </button>
+        </nav>
+      </aside>
 
-      <!-- Sezione Template Tessera -->
-      <section class="settings-section">
-        <h2>🎫 Template Tessera</h2>
-        <p>Personalizza l'aspetto delle tessere di iscrizione</p>
+      <!-- Main Content Area -->
+      <main class="settings-content">
 
-        <div class="template-section">
-          <!-- Anteprima Tessera -->
-          <div class="preview-section">
-            <h3>Anteprima Tessera</h3>
-            <div class="card-preview">
-              <TesseraTemplate
-                nome-cognome="Mario Rossi"
-                data-nascita="1980-05-15"
-                :anno="currentYear + 1"
-                :background-image="previewBackground"
-                :has-pdf-template="hasPdfTemplate"
+        <!-- Tab: Generale -->
+        <section v-if="currentTab === 'generale'" class="settings-section">
+          <h2>🔧 Configurazione Applicazione</h2>
+          <p>Parametri globali per il funzionamento dell'applicazione</p>
+
+          <div class="config-grid">
+            <!-- Nuovi Parametri -->
+            <div class="control-group">
+              <label for="default-city">Città di Default (Nuovi Soci):</label>
+              <input
+                id="default-city"
+                v-model="appConfig.defaultCity"
+                type="text"
+                class="form-input"
+                placeholder="Es. Gubbio"
               />
+              <small class="help-text">Città precompilata quando aggiungi un nuovo socio.</small>
             </div>
-          </div>
-
-          <!-- Controlli Template -->
-          <div class="controls-section">
-            <h3>Impostazioni Template</h3>
 
             <div class="control-group">
-              <label for="background-upload">Template PDF Tessera:</label>
-              <input
-                id="background-upload"
-                type="file"
-                accept=".pdf"
-                @change="handlePDFUpload"
-                :disabled="isSaving"
-              />
-              <small class="help-text">
-                Carica un file PDF che contiene solo lo sfondo della tessera.<br />
-                Il PDF deve avere una singola pagina con le dimensioni esatte della tessera.<br />
-                Formato supportato: PDF. Dimensione massima: 5MB.
-              </small>
+               <label for="minors-year">Anno Riferimento Minorenni:</label>
+               <input
+                 id="minors-year"
+                 v-model.number="appConfig.minorsReferenceYear"
+                 type="number"
+                 class="form-input"
+               />
+               <small class="help-text">Anno usato per calcolare se un socio è minorenne nei report.</small>
             </div>
 
-            <div class="control-group" v-if="selectedPDF">
-              <label>PDF selezionato:</label>
-              <div class="pdf-info">
-                <span class="pdf-name">{{ selectedPDF.name }}</span>
-                <span class="pdf-size">({{ formatFileSize(selectedPDF.size) }})</span>
-              </div>
+            <div class="control-group">
+              <label for="receipts-per-block">Ricevute per Blocchetto:</label>
+              <input
+                id="receipts-per-block"
+                v-model.number="appConfig.receiptsPerBlock"
+                type="number"
+                min="1"
+                max="100"
+                class="form-input"
+              />
+            </div>
+
+            <div class="control-group">
+              <label for="default-quota">Quota Rinnovo Default (€):</label>
+              <input
+                id="default-quota"
+                v-model.number="appConfig.defaultQuota"
+                type="number"
+                min="0"
+                step="0.5"
+                class="form-input"
+              />
+            </div>
+
+            <div class="control-group">
+              <label for="new-member-quota">Quota Nuovi Soci Default (€):</label>
+              <input
+                id="new-member-quota"
+                v-model.number="appConfig.newMemberQuota"
+                type="number"
+                min="0"
+                step="0.5"
+                class="form-input"
+              />
             </div>
 
             <div class="action-buttons">
-              <button
-                @click="saveTemplate"
-                :disabled="(!selectedPDF && !selectedImage) || isSaving"
-                class="save-button"
-              >
-                <span v-if="isSaving" class="loading-spinner">⏳</span>
-                {{ isSaving ? 'Salvataggio...' : '💾 Salva Template' }}
-              </button>
-
-              <button @click="resetTemplate" :disabled="isSaving" class="reset-button">
-                🔄 Ripristina Default
-              </button>
+               <button
+                  @click="saveAppConfig"
+                  :disabled="isSavingConfig"
+                  class="save-button"
+                >
+                  <span v-if="isSavingConfig" class="loading-spinner">⏳</span>
+                  {{ isSavingConfig ? 'Salvataggio...' : '💾 Salva Configurazione' }}
+                </button>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <!-- Sezione Gestione Dati -->
-      <section class="settings-section">
-        <h2>💾 Gestione Dati</h2>
-        <p>Esporta i dati dell'applicazione in diversi formati</p>
+        <!-- Tab: Template -->
+        <section v-if="currentTab === 'template'" class="settings-section">
+          <h2>🎫 Template Tessera</h2>
+          <p>Personalizza l'aspetto delle tessere di iscrizione</p>
 
-        <div class="data-section">
-          <div class="export-options">
-            <div class="export-option">
-              <h3>📦 Database di Backup</h3>
-              <p>Esporta tutto il database in formato SQLite per backup e ripristino</p>
-              <button @click="exportDatabase" :disabled="isExporting" class="export-button">
-                <span v-if="isExporting" class="loading-spinner">⏳</span>
-                {{ isExporting ? 'Esportazione...' : '📥 Esporta Database' }}
-              </button>
-            </div>
-
-            <div class="export-option">
-              <h3>📊 Esporta in Excel</h3>
-              <p>Esporta tutti i dati in formato Excel con fogli separati per categorie</p>
-              <button @click="exportExcel" :disabled="isExporting" class="export-button">
-                <span v-if="isExporting" class="loading-spinner">⏳</span>
-                {{ isExporting ? 'Esportazione...' : '📊 Esporta Excel' }}
-              </button>
-            </div>
-          </div>
-
-          <div class="export-info">
-            <h4>💡 Informazioni sui formati:</h4>
-            <ul>
-              <li><strong>SQLite:</strong> Database completo per backup e migrazione</li>
-              <li>
-                <strong>Excel:</strong> 4 fogli (Maggiorenni, Minorenni, Nuovi Maggiorenni, Nuovi
-                Minorenni)
-              </li>
-            </ul>
-          </div>
-        </div>
-      </section>
-
-      <!-- Sezione Backup Automatico -->
-      <section class="settings-section">
-        <h2>🔄 Backup Automatico</h2>
-        <p>Configura il salvataggio automatico del database per proteggere i tuoi dati</p>
-
-        <div class="backup-section">
-          <div class="backup-options">
-            <div class="backup-option">
-              <h3>⏰ Backup Periodico</h3>
-              <p>Salva automaticamente il database ogni X minuti di inattività</p>
-              <div class="backup-controls">
-                <label for="auto-backup-interval">Intervallo (minuti):</label>
-                <input
-                  id="auto-backup-interval"
-                  v-model.number="autoBackupSettings.intervalMinutes"
-                  type="number"
-                  min="5"
-                  max="480"
-                  step="5"
-                  class="form-input"
+          <div class="template-section">
+            <!-- Anteprima Tessera -->
+            <div class="preview-section">
+              <h3>Anteprima Tessera</h3>
+              <div class="card-preview">
+                <TesseraTemplate
+                  nome-cognome="Mario Rossi"
+                  data-nascita="1980-05-15"
+                  :anno="currentYear + 1"
+                  :background-image="previewBackground"
+                  :has-pdf-template="hasPdfTemplate"
                 />
-                <button
-                  @click="toggleAutoBackup"
-                  :disabled="isSavingBackup"
-                  class="backup-toggle-button"
-                  :class="{ active: autoBackupSettings.enabled }"
-                >
-                  {{ autoBackupSettings.enabled ? '✅ Attivo' : '⭕ Disattivo' }}
-                </button>
               </div>
             </div>
 
-            <div class="backup-option">
-              <h3>🚪 Backup alla Chiusura</h3>
-              <p>Salva automaticamente il database quando chiudi l'applicazione</p>
-              <div class="backup-controls">
+            <!-- Controlli Template -->
+            <div class="controls-section">
+              <h3>Impostazioni Template</h3>
+
+              <div class="control-group">
+                <label for="background-upload">Template PDF Tessera:</label>
+                <input
+                  id="background-upload"
+                  type="file"
+                  accept=".pdf"
+                  @change="handlePDFUpload"
+                  :disabled="isSaving"
+                />
+                <small class="help-text">
+                  Carica un file PDF (singola pagina, dimensioni tessera). Max 5MB.
+                </small>
+              </div>
+
+              <div class="control-group" v-if="selectedPDF">
+                <label>PDF selezionato:</label>
+                <div class="pdf-info">
+                  <span class="pdf-name">{{ selectedPDF.name }}</span>
+                  <span class="pdf-size">({{ formatFileSize(selectedPDF.size) }})</span>
+                </div>
+              </div>
+
+              <div class="action-buttons">
                 <button
-                  @click="toggleExitBackup"
-                  :disabled="isSavingBackup"
-                  class="backup-toggle-button"
-                  :class="{ active: exitBackupSettings.enabled }"
+                  @click="saveTemplate"
+                  :disabled="(!selectedPDF && !selectedImage) || isSaving"
+                  class="save-button"
                 >
-                  {{ exitBackupSettings.enabled ? '✅ Attivo' : '⭕ Disattivo' }}
+                  <span v-if="isSaving" class="loading-spinner">⏳</span>
+                  {{ isSaving ? 'Salvataggio...' : '💾 Salva Template' }}
+                </button>
+
+                <button @click="resetTemplate" :disabled="isSaving" class="reset-button">
+                  🔄 Ripristina Default
                 </button>
               </div>
             </div>
           </div>
+        </section>
 
-          <div class="backup-info">
-            <h4>💡 Informazioni sui Backup:</h4>
-            <ul>
-              <li><strong>Backup Periodico:</strong> Si attiva solo dopo minuti di inattività</li>
-              <li>
-                <strong>Backup alla Chiusura:</strong> Garantisce che i dati siano sempre salvati
-              </li>
-              <li><strong>Posizione:</strong> I backup vengono salvati nella cartella Downloads</li>
-              <li><strong>Formato:</strong> File SQLite con timestamp nel nome</li>
-            </ul>
+        <!-- Tab: Dati (Backup & Export) -->
+        <section v-if="currentTab === 'dati'" class="settings-section">
+          <h2>💾 Gestione Dati & Backup</h2>
+
+          <!-- Sezione Backup Automatico -->
+          <div class="subsection">
+            <h3>🔄 Backup Automatico su PC</h3>
+            <div class="backup-grid">
+               <div class="backup-card">
+                  <h4>📁 Cartella di Backup</h4>
+                  <p class="path-text">{{ backupStore.backupPath }}</p>
+                  <button
+                    @click="selectBackupFolder"
+                    class="action-button small"
+                    :class="{ 'btn-success': backupStore.isAuthorized }"
+                  >
+                    {{ backupStore.isAuthorized ? '✅ Cambia Cartella' : '📁 Seleziona Cartella' }}
+                  </button>
+               </div>
+
+               <div class="backup-card">
+                  <h4>⚡ Auto-Salvataggio</h4>
+                  <p>Salva automaticamente ad ogni modifica.</p>
+                  <button
+                    @click="toggleAutoBackup"
+                    :disabled="!backupStore.isAuthorized"
+                    class="backup-toggle-button"
+                    :class="{ active: backupStore.autoBackupEnabled }"
+                  >
+                    {{ backupStore.autoBackupEnabled ? '✅ Attivo' : '⭕ Disattivato' }}
+                  </button>
+               </div>
+
+               <div class="backup-card highlight">
+                  <h4>💾 Backup Manuale</h4>
+                  <p>Crea subito una copia.</p>
+                  <button
+                    @click="forceBackup"
+                    :disabled="isSavingBackup"
+                    class="manual-backup-button"
+                  >
+                    <span v-if="isSavingBackup" class="loading-spinner">⏳</span>
+                    {{ isSavingBackup ? 'In corso...' : (backupStore.isAuthorized ? '💾 Esegui Backup Ora' : '📥 Scarica Backup') }}
+                  </button>
+               </div>
+            </div>
           </div>
 
-          <div class="backup-actions">
-            <button
-              @click="createManualBackup"
-              :disabled="isSavingBackup"
-              class="manual-backup-button"
-            >
-              <span v-if="isSavingBackup" class="loading-spinner">⏳</span>
-              {{ isSavingBackup ? 'Creazione Backup...' : '💾 Backup Manuale' }}
-            </button>
-            <button @click="viewBackupHistory" class="history-button">📋 Cronologia Backup</button>
-          </div>
-        </div>
-      </section>
+          <hr class="divider"/>
 
-      <!-- Sezione Configurazione Applicazione -->
-      <section class="settings-section">
-        <h2>🔧 Configurazione Applicazione</h2>
-        <p>Parametri globali per il funzionamento dell'applicazione</p>
+          <!-- Sezione Export/Import -->
+          <div class="subsection">
+             <h3>📦 Esportazione & Ripristino</h3>
+             <div class="data-section">
+                <div class="export-options">
+                  <div class="export-option">
+                    <h4>📥 Esporta Database Completo</h4>
+                    <p>File .sqlite per migrazione o backup manuale.</p>
+                    <button @click="exportDatabase" :disabled="isExporting" class="export-button">
+                      {{ isExporting ? 'Esportazione...' : 'Scarica SQLite' }}
+                    </button>
+                  </div>
 
-        <div class="config-grid">
-          <div class="control-group">
-            <label for="receipts-per-block">Ricevute per Blocchetto:</label>
-            <input
-              id="receipts-per-block"
-              v-model.number="appConfig.receiptsPerBlock"
-              type="number"
-              min="1"
-              max="100"
-              class="form-input"
-            />
-            <small class="help-text">
-              Numero di ricevute contenute in ogni blocchetto cartaceo (default: 10).
-              Usato per calcolare automaticamente il numero di ricevuta.
-            </small>
-          </div>
+                  <div class="export-option">
+                    <h4>📊 Esporta Excel</h4>
+                    <p>Tabelle per Maggiorenni e Minorenni.</p>
+                    <button @click="exportExcel" :disabled="isExporting" class="export-button">
+                      {{ isExporting ? 'Esportazione...' : 'Scarica Excel' }}
+                    </button>
+                  </div>
 
-          <div class="control-group">
-            <label for="default-quota">Quota Rinnovo Default (€):</label>
-            <input
-              id="default-quota"
-              v-model.number="appConfig.defaultQuota"
-              type="number"
-              min="0"
-              step="0.5"
-              class="form-input"
-            />
-            <small class="help-text">
-              Importo standard per il rinnovo annuale (default: 10.00).
-            </small>
+                  <div class="export-option danger">
+                    <h4>♻️ Ripristina Database</h4>
+                    <p>Carica un backup .sqlite (Sovrascrive tutto!).</p>
+                    <input
+                      type="file"
+                      accept=".sqlite,.db"
+                      @change="handleRestoreDatabase"
+                      :disabled="isExporting"
+                      class="file-input-compact"
+                    />
+                  </div>
+                </div>
+             </div>
           </div>
+        </section>
 
-          <div class="control-group">
-            <label for="new-member-quota">Quota Nuovi Soci Default (€):</label>
-            <input
-              id="new-member-quota"
-              v-model.number="appConfig.newMemberQuota"
-              type="number"
-              min="0"
-              step="0.5"
-              class="form-input"
-            />
-            <small class="help-text">
-              Importo per la prima iscrizione di un nuovo socio (default: 25.00).
-            </small>
-          </div>
-
-          <div class="action-buttons">
-             <button
-                @click="saveAppConfig"
-                :disabled="isSavingConfig"
-                class="save-button"
-              >
-                <span v-if="isSavingConfig" class="loading-spinner">⏳</span>
-                {{ isSavingConfig ? 'Salvataggio...' : '💾 Salva Configurazione' }}
-              </button>
-          </div>
-        </div>
-      </section>
+      </main>
     </div>
   </div>
 </template>
@@ -254,8 +270,10 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useToast } from 'vue-toastification'
-import { getSetting, updateSetting, downloadDatabaseExport } from '@/services/db'
+import { getSetting, updateSetting, downloadDatabaseExport, importDatabaseFromSqlite } from '@/services/db'
 import { exportDataToExcel } from '@/services/export'
+import { useBackupStore } from '@/stores/backupStore'
+import { backupService } from '@/services/backupService'
 import TesseraTemplate from '@/components/TesseraTemplate.vue'
 
 const toast = useToast()
@@ -270,25 +288,23 @@ const isSaving = ref(false)
 const isExporting = ref(false)
 const isSavingBackup = ref(false)
 const isSavingConfig = ref(false)
+const currentTab = ref('generale')
 
 const appConfig = ref({
   receiptsPerBlock: 10,
   defaultQuota: 10.0,
-  newMemberQuota: 25.0
+  newMemberQuota: 25.0,
+  defaultCity: '',
+  minorsReferenceYear: new Date().getFullYear()
 })
 
-// Auto-backup settings
-const autoBackupSettings = ref({
-  enabled: false,
-  intervalMinutes: 60,
-})
-
-const exitBackupSettings = ref({
-  enabled: true,
-})
+const backupStore = useBackupStore()
 
 // Carica il template attuale al mount
 onMounted(async () => {
+  // Init backup service (checks if we have permission from previous session)
+  await backupService.initialize()
+
   try {
     const savedBackground = await getSetting('cardBackground')
     const savedPdfTemplate = await getSetting('cardTemplatePDF')
@@ -314,10 +330,100 @@ onMounted(async () => {
     appConfig.value.receiptsPerBlock = await getSetting('receiptsPerBlock', 10)
     appConfig.value.defaultQuota = await getSetting('defaultQuota', 10.0)
     appConfig.value.newMemberQuota = await getSetting('newMemberQuota', 25.0)
+    appConfig.value.defaultCity = await getSetting('defaultCity', '')
+    appConfig.value.minorsReferenceYear = await getSetting('minorsReferenceYear', currentYear)
   } catch (error) {
     console.error('Errore caricamento config:', error)
   }
 })
+
+/**
+ * Gestisce selezione cartella backup
+ */
+const selectBackupFolder = async () => {
+  const success = await backupService.selectBackupDirectory()
+  if (success) {
+    toast.success('Cartella di backup configurata!')
+  }
+}
+
+/**
+ * Toggle auto backup
+ */
+const toggleAutoBackup = () => {
+  if (!backupStore.isAuthorized) {
+    toast.error('Devi prima selezionare una cartella!')
+    return
+  }
+  const newState = !backupStore.autoBackupEnabled
+  backupStore.toggleAutoBackup(newState)
+  if (newState) {
+    // Try a backup immediately to confirm it works
+    backupService.performBackup(false)
+  }
+}
+
+/**
+ * Force manual backup to local folder
+ */
+const forceBackup = async () => {
+  try {
+    isSavingBackup.value = true
+    // If authorized, try FS API. If fails or not auth, it returns false (or we handle it).
+    // Actually performBackup(true) in backupService handles FS API.
+    // We want to force download if FS API is not available/authorized.
+    if (backupStore.isAuthorized) {
+        await backupService.performBackup(true)
+    } else {
+        // Fallback to standard download
+        await downloadDatabaseExport()
+        toast.success("Backup scaricato con successo (Download)")
+    }
+  } catch (e) {
+      console.error(e)
+      toast.error("Errore backup: " + e.message)
+  } finally {
+    isSavingBackup.value = false
+  }
+}
+
+/**
+ * Handle Restore Database
+ */
+const handleRestoreDatabase = async (event) => {
+  const file = event.target.files[0]
+  if (!file) return
+
+  if (!confirm('ATTENZIONE: Questa operazione SOVRASCRIVERÀ tutti i dati attuali con quelli del backup. Continuare?')) {
+    event.target.value = '' // Reset input
+    return
+  }
+
+  try {
+    isExporting.value = true // reusing export spinner path
+    toast.info('Ripristino in corso...')
+
+    const result = await importDatabaseFromSqlite(file)
+    if (result.success) {
+      toast.success('Database ripristinato con successo! Ricarica della pagina...')
+      setTimeout(() => {
+        window.location.reload()
+      }, 1500)
+    } else {
+      toast.error('Errore ripristino: ' + result.error)
+    }
+  } catch (error) {
+    console.error('Restore failed:', error)
+    toast.error('Errore durante il ripristino')
+  } finally {
+    isExporting.value = false
+    event.target.value = ''
+  }
+}
+
+/**
+ * Gestisce l'upload del PDF template
+ */
 
 /**
  * Gestisce l'upload del PDF template
@@ -528,78 +634,6 @@ const exportExcel = async () => {
   }
 }
 
-/**
- * Attiva/disattiva il backup automatico periodico
- */
-const toggleAutoBackup = async () => {
-  try {
-    isSavingBackup.value = true
-    const newEnabled = !autoBackupSettings.value.enabled
-
-    await updateSetting('autoBackupEnabled', newEnabled)
-    await updateSetting('autoBackupInterval', autoBackupSettings.value.intervalMinutes)
-
-    autoBackupSettings.value.enabled = newEnabled
-
-    toast.success(
-      newEnabled
-        ? `Backup automatico attivato (${autoBackupSettings.value.intervalMinutes} minuti)`
-        : 'Backup automatico disattivato',
-    )
-  } catch (error) {
-    console.error('Errore toggle backup automatico:', error)
-    toast.error('Errore nel salvataggio delle impostazioni backup')
-  } finally {
-    isSavingBackup.value = false
-  }
-}
-
-/**
- * Attiva/disattiva il backup alla chiusura dell'applicazione
- */
-const toggleExitBackup = async () => {
-  try {
-    isSavingBackup.value = true
-    const newEnabled = !exitBackupSettings.value.enabled
-
-    await updateSetting('exitBackupEnabled', newEnabled)
-
-    exitBackupSettings.value.enabled = newEnabled
-
-    toast.success(newEnabled ? 'Backup alla chiusura attivato' : 'Backup alla chiusura disattivato')
-  } catch (error) {
-    console.error('Errore toggle backup chiusura:', error)
-    toast.error('Errore nel salvataggio delle impostazioni backup')
-  } finally {
-    isSavingBackup.value = false
-  }
-}
-
-/**
- * Crea un backup manuale
- */
-const createManualBackup = async () => {
-  try {
-    isSavingBackup.value = true
-    toast.info('Creazione backup manuale...')
-
-    await downloadDatabaseExport()
-
-    toast.success('Backup manuale creato con successo!')
-  } catch (error) {
-    console.error('Errore backup manuale:', error)
-    toast.error('Errore nella creazione del backup manuale')
-  } finally {
-    isSavingBackup.value = false
-  }
-}
-
-/**
- * Visualizza la cronologia dei backup (placeholder per future implementazioni)
- */
-const viewBackupHistory = () => {
-  toast.info('Funzionalità cronologia backup in sviluppo')
-}
 
 /**
  * Salva la configurazione dell'applicazione
@@ -610,6 +644,8 @@ const saveAppConfig = async () => {
     await updateSetting('receiptsPerBlock', appConfig.value.receiptsPerBlock)
     await updateSetting('defaultQuota', appConfig.value.defaultQuota)
     await updateSetting('newMemberQuota', appConfig.value.newMemberQuota)
+    await updateSetting('defaultCity', appConfig.value.defaultCity)
+    await updateSetting('minorsReferenceYear', appConfig.value.minorsReferenceYear)
     toast.success('Configurazione salvata con successo!')
   } catch (error) {
     console.error('Errore salvataggio configurazione:', error)
@@ -625,6 +661,131 @@ const saveAppConfig = async () => {
   min-height: 100vh;
   background-color: var(--color-background);
   padding: 2rem 0;
+}
+
+
+.settings-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 2rem;
+  min-height: calc(100vh - 100px);
+}
+
+.settings-sidebar {
+  padding-right: 1.5rem;
+  border-right: 1px solid var(--color-border);
+}
+
+.settings-sidebar .sidebar-title {
+  font-size: 1.1rem;
+  color: var(--color-primary);
+  margin-bottom: 2rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.settings-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.nav-item {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+.nav-item:hover {
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+}
+
+.nav-item.active {
+  background-color: var(--color-accent);
+  color: white;
+}
+
+.settings-content {
+  padding-bottom: 3rem;
+}
+
+/* Card Styles */
+.backup-grid, .config-grid {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.backup-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.backup-card h4 {
+  color: var(--color-primary);
+  margin-bottom: 0.5rem;
+}
+
+.path-text {
+  font-family: monospace;
+  background: var(--color-background);
+  padding: 0.5rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  overflow-x: auto;
+  margin-bottom: 1rem;
+}
+
+.divider {
+  border: 0;
+  border-top: 1px solid var(--color-border);
+  margin: 3rem 0;
+}
+
+.action-button.small {
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+}
+
+/* Responsive Sidebar */
+@media (max-width: 768px) {
+  .settings-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-sidebar {
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .settings-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    padding-bottom: 5px;
+  }
+
+  .nav-item {
+    white-space: nowrap;
+  }
 }
 
 .container {
@@ -775,21 +936,84 @@ const saveAppConfig = async () => {
 }
 
 .save-button {
-  background-color: #4caf50;
+  background-color: var(--color-success);
   color: white;
 }
 
 .save-button:hover:not(:disabled) {
-  background-color: #388e3c;
+  filter: brightness(1.1);
 }
 
 .reset-button {
-  background-color: #ff9800;
+  background-color: var(--color-warning);
   color: white;
 }
 
 .reset-button:hover:not(:disabled) {
-  background-color: #f57c00;
+  filter: brightness(1.1);
+}
+
+.export-button {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background-color: var(--color-info);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.export-button:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.backup-toggle-button:hover:not(:disabled) {
+  background-color: var(--color-surface-hover);
+  transform: scale(1.02);
+}
+
+.backup-toggle-button.active {
+  background-color: var(--color-success);
+}
+
+.backup-toggle-button.active:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.manual-backup-button {
+  padding: 0.75rem 1.5rem;
+  background-color: var(--color-accent);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.manual-backup-button:hover:not(:disabled) {
+  background-color: var(--color-accent-hover);
+  transform: scale(1.05);
+}
+
+.history-button {
+  padding: 0.75rem 1.5rem;
+  background-color: #9c27b0; /* Keep purple or define new var? Let's leave for now or map to info */
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s;
 }
 
 .save-button:disabled,
@@ -834,7 +1058,7 @@ const saveAppConfig = async () => {
 .export-button {
   width: 100%;
   padding: 0.75rem 1rem;
-  background-color: #2196f3;
+  background-color: var(--color-info);
   color: white;
   border: none;
   border-radius: 6px;
@@ -848,7 +1072,7 @@ const saveAppConfig = async () => {
 }
 
 .export-button:hover:not(:disabled) {
-  background-color: #1976d2;
+  filter: brightness(1.1);
 }
 
 .export-button:disabled {
@@ -959,16 +1183,16 @@ const saveAppConfig = async () => {
 }
 
 .backup-toggle-button:hover:not(:disabled) {
-  background-color: #666;
+  background-color: var(--color-surface-hover);
   transform: scale(1.02);
 }
 
 .backup-toggle-button.active {
-  background-color: #4caf50;
+  background-color: var(--color-success);
 }
 
 .backup-toggle-button.active:hover:not(:disabled) {
-  background-color: #388e3c;
+  filter: brightness(1.1);
 }
 
 .backup-toggle-button:disabled {
@@ -1025,7 +1249,7 @@ const saveAppConfig = async () => {
 }
 
 .manual-backup-button:hover:not(:disabled) {
-  background-color: #a22a2a;
+  background-color: var(--color-accent-hover);
   transform: scale(1.05);
 }
 

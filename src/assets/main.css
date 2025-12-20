@@ -1,21 +1,53 @@
 /* Global Styles for Ceraiolo Digitale */
-@import url('https://fonts.googleapis.com/css2?family=Merriweather:wght@700&family=Inter:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Merriweather:wght@700&family=Inter:wght@400;500;600;700&display=swap');
 
-/* Official Color Palette: Black, Red, White */
+/* Official Color Palette & Variables */
 :root {
-  --color-primary: #1a1a1a; /* Rich Black for text and primary elements */
-  --color-accent: #b71c1c; /* Strong Red for actions and highlights */
-  --color-background: #f4f5f7; /* Light grey for background */
-  --color-surface: #ffffff; /* White for cards and surfaces */
+  /* Light Theme (Default) */
+  --color-primary: #1a1a1a; /* Text Main */
+  --color-primary-light: #333333; /* Text Light / Hover */
+  --color-accent: #b71c1c; /* Red Brand */
+  --color-accent-hover: #c62828;
+  --color-background: #f4f5f7; /* App Background */
+  --color-surface: #ffffff; /* Card/Panel Background */
+  --color-surface-hover: #f9fafb;
   --color-text-primary: #1a1a1a;
   --color-text-secondary: #5c6266;
+  --color-text-inverse: #ffffff;
   --color-border: #e1e4e8;
+  --color-input-bg: #ffffff;
+  --color-success: #2e7d32;
+  --color-warning: #ed6c02;
+  --color-info: #0288d1;
 
   --font-family-heading: 'Merriweather', serif;
   --font-family-body: 'Inter', sans-serif;
 
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* Dark Theme Overrides */
+[data-theme='dark'] {
+  --color-primary: #e0e0e0; /* Text Main (Inverted) */
+  --color-primary-light: #b0b0b0;
+  --color-accent: #e53935; /* Brighter Red for Dark Mode */
+  --color-accent-hover: #ef5350;
+  --color-background: #121212; /* Dark Background */
+  --color-surface: #1e1e1e; /* Dark Surface */
+  --color-surface-hover: #2c2c2c;
+  --color-text-primary: #e0e0e0;
+  --color-text-secondary: #a0a0a0;
+  --color-text-inverse: #121212;
+  --color-border: #333333;
+  --color-input-bg: #2c2c2c;
+  --color-success: #66bb6a;
+  --color-warning: #ffa726;
+  --color-info: #29b6f6;
+
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.5);
 }
 
 *,
@@ -31,66 +63,107 @@ body {
   background-color: var(--color-background);
   color: var(--color-text-primary);
   line-height: 1.6;
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease;
 }
 
 h1,
 h2,
-h3 {
+h3,
+h4,
+h5,
+h6 {
   font-family: var(--font-family-heading);
-  color: var(--color-primary);
+  color: var(--color-text-primary);
   margin-bottom: 1rem;
 }
 
+/* Consistent Input Styles */
 input[type='text'],
-input[type='search'] {
+input[type='search'],
+input[type='number'],
+input[type='date'],
+input[type='email'],
+select,
+textarea {
   width: 100%;
   padding: 0.8rem 1rem;
-  font-size: 1.1rem;
+  font-size: 1rem;
+  font-family: var(--font-family-body);
   border-radius: 8px;
   border: 1px solid var(--color-border);
-  background-color: var(--color-surface);
+  background-color: var(--color-input-bg);
   color: var(--color-text-primary);
   box-shadow: var(--shadow-sm);
   transition:
     border-color 0.2s,
-    box-shadow 0.2s;
+    box-shadow 0.2s,
+    background-color 0.3s;
 }
 
-input[type='text']:focus,
-input[type='search']:focus {
+input:focus,
+select:focus,
+textarea:focus {
   outline: none;
   border-color: var(--color-accent);
   box-shadow: 0 0 0 3px rgba(183, 28, 28, 0.2);
 }
 
+/* Generic Button Reset & Base Style */
 button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  white-space: nowrap;
   padding: 0.75rem 1.5rem;
   font-family: var(--font-family-body);
-  font-weight: 500;
+  font-weight: 600;
   font-size: 1rem;
-  background-color: var(--color-primary);
-  color: white;
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  transition:
-    background-color 0.2s,
-    transform 0.1s;
-  box-shadow: var(--shadow-md);
-}
-
-button:hover {
-  background-color: #333333; /* Slightly lighter black */
-}
-
-button.accent {
-  background-color: var(--color-accent);
-}
-
-button.accent:hover {
-  background-color: #c62828; /* Slightly darker red */
+  transition: all 0.2s ease;
+  box-shadow: var(--shadow-sm);
 }
 
 button:active {
   transform: scale(0.98);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Common Utility Classes */
+.text-primary {
+  color: var(--color-text-primary);
+}
+.text-secondary {
+  color: var(--color-text-secondary);
+}
+.text-accent {
+  color: var(--color-accent);
+}
+
+.bg-surface {
+  background-color: var(--color-surface);
+}
+.bg-background {
+  background-color: var(--color-background);
+}
+
+/* Link Styles */
+a {
+  color: var(--color-accent);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+a:hover {
+  color: var(--color-accent-hover);
+  text-decoration: underline;
 }

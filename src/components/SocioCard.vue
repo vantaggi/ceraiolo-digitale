@@ -69,7 +69,7 @@ defineProps({
 }
 
 .details-button:hover {
-  background-color: #c62828;
+  background-color: var(--color-accent-hover);
 }
 
 .card-button {
@@ -78,7 +78,7 @@ defineProps({
   font-family: var(--font-family-body);
   font-weight: 500;
   font-size: 1rem;
-  background-color: #4caf50;
+  background-color: var(--color-success);
   color: white;
   border: none;
   border-radius: 8px;
@@ -92,6 +92,6 @@ defineProps({
 }
 
 .card-button:hover {
-  background-color: #388e3c;
+  background-color: #1b5e20; /* Darker green or create a var for success-hover */
 }
 </style>

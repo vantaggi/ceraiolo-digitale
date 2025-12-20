@@ -48,6 +48,22 @@ db.version(2).stores({
   `,
 })
 
+// Hooks for Auto-Backup
+// We use dynamic import to avoid circular dependencies with backupService
+const triggerBackup = () => {
+  import('./backupService').then(({ backupService }) => {
+    backupService.notifyChange()
+  }).catch(err => console.error('Failed to trigger backup:', err))
+}
+
+db.soci.hook('creating', triggerBackup)
+db.soci.hook('updating', triggerBackup)
+db.soci.hook('deleting', triggerBackup)
+
+db.tesseramenti.hook('creating', triggerBackup)
+db.tesseramenti.hook('updating', triggerBackup)
+db.tesseramenti.hook('deleting', triggerBackup)
+
 // A utility function to check if the database is empty.
 // We'll use this to decide whether to show the import screen.
 export async function isDatabaseEmpty() {
@@ -1183,5 +1199,79 @@ export async function setMinorsReferenceYear(year) {
     throw new Error(
       `Errore nel salvataggio dell'anno di riferimento per i minorenni: ${error.message}`,
     )
+  }
+}
+
+/**
+ * Import database from SQLite file, replacing current data
+ * @param {File} file - The SQLite file to import
+ * @returns {Promise<Object>} Result of import
+ */
+export async function importDatabaseFromSqlite(file) {
+  try {
+    const arrayBuffer = await file.arrayBuffer()
+    const SQL = await initSqlJs({
+       locateFile: (file) => `/${file}`,
+    })
+
+    // Load DB from file
+    const uInt8Array = new Uint8Array(arrayBuffer)
+    const sqliteDb = new SQL.Database(uInt8Array)
+
+    // Verify tables exist
+    // Simple check
+    try {
+      sqliteDb.exec("SELECT count(*) FROM Soci")
+    } catch {
+      throw new Error("Il file non sembra essere un database valido o manca la tabella Soci.")
+    }
+
+    // Clear current Dexie DB
+    await db.transaction('rw', db.soci, db.tesseramenti, db.local_changes, async () => {
+      await db.soci.clear()
+      await db.tesseramenti.clear()
+      await db.local_changes.clear()
+
+      // Import Soci
+      const sociResult = sqliteDb.exec("SELECT * FROM Soci")
+      if (sociResult.length > 0) {
+        const columns = sociResult[0].columns
+        const values = sociResult[0].values
+
+        const sociObjects = values.map(row => {
+          const obj = {}
+          columns.forEach((col, i) => {
+            obj[col] = row[i]
+          })
+          return obj
+        })
+
+        await db.soci.bulkAdd(sociObjects)
+      }
+
+      // Import Tesseramenti
+      const tessResult = sqliteDb.exec("SELECT * FROM Tesseramenti")
+      if (tessResult.length > 0) {
+        const columns = tessResult[0].columns
+        const values = tessResult[0].values
+
+        const tessObjects = values.map(row => {
+          const obj = {}
+          columns.forEach((col, i) => {
+            obj[col] = row[i]
+          })
+          return obj
+        })
+
+        await db.tesseramenti.bulkAdd(tessObjects)
+      }
+    })
+
+    sqliteDb.close()
+
+    return { success: true }
+  } catch (error) {
+    console.error('Import failed:', error)
+    return { success: false, error: error.message }
   }
 }
