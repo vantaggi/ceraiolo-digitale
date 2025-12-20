@@ -1,6 +1,5 @@
 <template>
   <div class="age-category-filter">
-    <label :for="id" class="filter-label">{{ label }}</label>
     <select
       :id="id"
       :value="modelValue"

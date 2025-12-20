@@ -121,13 +121,19 @@ export async function applyFiltersAndSearch(filters) {
         groupMatch = socio.gruppo_appartenenza === group
       }
 
-      // 3. Search Term Filter
+      // 3. Search Term Filter (Multi-term AND logic)
       let searchTermMatch = true
       if (searchTerm && searchTerm.trim() !== '') {
-        const lowerCaseSearchTerm = searchTerm.toLowerCase()
-        searchTermMatch =
-          (socio.cognome && socio.cognome.toLowerCase().includes(lowerCaseSearchTerm)) ||
-          (socio.nome && socio.nome.toLowerCase().includes(lowerCaseSearchTerm))
+        const terms = searchTerm.toLowerCase().trim().split(/\s+/) // Split by whitespace
+
+        // Check if ALL terms match at least one field
+        searchTermMatch = terms.every(term => {
+             const inNome = socio.nome && socio.nome.toLowerCase().includes(term)
+             const inCognome = socio.cognome && socio.cognome.toLowerCase().includes(term)
+             const inNote = socio.note && socio.note.toLowerCase().includes(term)
+             // We can also search in ID if useful, but usually names are enough
+             return inNome || inCognome || inNote
+        })
       }
 
       return ageMatch && groupMatch && searchTermMatch
@@ -147,16 +153,19 @@ export async function searchSoci(searchTerm) {
     return []
   }
 
-  const lowerCaseSearchTerm = searchTerm.toLowerCase().trim()
+  const terms = searchTerm.toLowerCase().trim().split(/\s+/)
 
   try {
     const results = await db.soci
       .filter((socio) => {
-        const cognomeMatch =
-          socio.cognome && socio.cognome.toLowerCase().includes(lowerCaseSearchTerm)
-        const nomeMatch = socio.nome && socio.nome.toLowerCase().includes(lowerCaseSearchTerm)
-
-        return cognomeMatch || nomeMatch
+        // Check if ALL terms match at least one field
+        return terms.every(term => {
+             const inNome = socio.nome && socio.nome.toLowerCase().includes(term)
+             const inCognome = socio.cognome && socio.cognome.toLowerCase().includes(term)
+             return inNome || inCognome
+             // Note: Here we don't search in notes for quick add/search, but we could if needed.
+             // Keeping it consistent with "finding a person" usually relies on name/surname.
+        })
       })
       .toArray()
 
