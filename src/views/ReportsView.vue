@@ -192,7 +192,7 @@
                         <li>Lista Pagamenti</li>
                         <li>Soci per Gruppo</li>
                     </ul>
-                    <button @click="generateAllReports" :disabled="loading" class="primary-button large">
+                    <button @click="generateAllReports" :disabled="loading" class="action-button wide">
                       {{ loading ? '⏳ Generazione in corso...' : '📦 SCARICA TUTTI I REPORT' }}
                     </button>
                 </div>
@@ -773,13 +773,15 @@ const generateCards = async () => {
     align-items: flex-start;
 }
 
+
 .preview-container {
-    transform: scale(0.65);
-    transform-origin: top left;
-    border: 1px dashed var(--color-border);
-    padding: 1rem;
-    width: 320px; /*approx*/
-    height: 200px; /*approx*/
+    background: white;
+    border-radius: 8px;
+    padding: 2rem;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    justify-content: center;
+    border: 1px solid var(--color-border);
 }
 
 .preview-inputs {

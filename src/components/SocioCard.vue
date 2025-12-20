@@ -6,7 +6,14 @@
       <p>Gruppo: {{ socio.gruppo_appartenenza }}</p>
     </div>
     <div class="socio-actions">
-      <!-- Use RouterLink to navigate to the detail page with the correct ID -->
+      <button
+        v-if="!isRenewed"
+        @click="$emit('quick-renew', socio)"
+        class="renew-button"
+        title="Rinnova Velocemente"
+      >
+        ⚡
+      </button>
       <RouterLink :to="{ name: 'socio-detail', params: { id: socio.id } }" class="details-button">
         Vedi Dettagli
       </RouterLink>
@@ -17,13 +24,32 @@
 
 <script setup>
 import { RouterLink } from 'vue-router'
+import { ref, onMounted, watch } from 'vue'
+import { getTesseramentiBySocioId } from '@/services/db'
 
-defineProps({
+const props = defineProps({
   socio: {
     type: Object,
     required: true,
   },
 })
+
+defineEmits(['generate-card', 'quick-renew'])
+
+const isRenewed = ref(false)
+const currentYear = new Date().getFullYear()
+
+const checkRenewal = async () => {
+    try {
+        const tesseramenti = await getTesseramentiBySocioId(props.socio.id)
+        isRenewed.value = tesseramenti.some(t => t.anno === currentYear)
+    } catch (e) {
+        console.error("Error checking renewal", e)
+    }
+}
+
+onMounted(checkRenewal)
+watch(() => props.socio, checkRenewal)
 </script>
 
 <style scoped>
@@ -93,5 +119,25 @@ defineProps({
 
 .card-button:hover {
   background-color: #1b5e20; /* Darker green or create a var for success-hover */
+}
+
+.renew-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1rem;
+  font-size: 1.2rem;
+  background-color: #ffeb3b;
+  color: #000;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-right: 0.5rem;
+  transition: transform 0.2s;
+}
+
+.renew-button:hover {
+    transform: scale(1.1);
+    background-color: #fdd835;
 }
 </style>

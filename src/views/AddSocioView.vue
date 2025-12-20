@@ -18,6 +18,7 @@
             </label>
             <input
               id="nome"
+              ref="nomeInput"
               v-model="formData.nome"
               type="text"
               required
@@ -164,6 +165,7 @@ const router = useRouter()
 const availableGroups = ref([])
 const newGroupName = ref('')
 const isSubmitting = ref(false)
+const nomeInput = ref(null) // Ref per autofocus
 
 const today = new Date().toISOString().split('T')[0]
 const currentYear = new Date().getFullYear()
@@ -188,7 +190,28 @@ onMounted(async () => {
     } catch (e) {
         console.warn("Could not load default city", e)
     }
+
+    await loadGroups()
+
+    // Smart Focus
+    if (nomeInput.value) {
+        nomeInput.value.focus()
+    }
+
+    window.addEventListener('keydown', handleKeydown)
 })
+
+import { onUnmounted } from 'vue'
+onUnmounted(() => {
+    window.removeEventListener('keydown', handleKeydown)
+})
+
+const handleKeydown = (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault()
+        submitSocio()
+    }
+}
 
 // Carica i gruppi disponibili
 const loadGroups = async () => {
