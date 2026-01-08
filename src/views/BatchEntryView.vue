@@ -317,7 +317,7 @@ const searchInput = ref(null)
 
 // Dati di sessione
 const sessionData = reactive({
-  annoRiferimento: new Date().getFullYear() + 1,
+  annoRiferimento: new Date().getFullYear(),
   numeroBlocchetto: 1,
   dataPagamento: new Date().toISOString().split('T')[0],
 })

@@ -368,7 +368,7 @@ const generateSingleCard = async (socio) => {
   if (!socio) return
 
   try {
-    const renewalYear = new Date().getFullYear() + 1
+    const renewalYear = new Date().getFullYear()
     toast.info('Generazione tessera in corso...')
     await generateSingleCardPDF(socio, renewalYear)
     toast.success('Tessera generata con successo! Controlla i download del browser.')

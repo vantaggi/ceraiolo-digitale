@@ -356,7 +356,7 @@ export function downloadSociPDF(result) {
  * @returns {Promise<boolean>} Success status
  */
 export async function generateAndDownloadSociPDF(sociList) {
-  const renewalYear = new Date().getFullYear() + 1
+  const renewalYear = new Date().getFullYear()
   const result = await generateSociPDF(sociList, renewalYear)
 
   if (result.success) {
@@ -849,6 +849,8 @@ export async function generateNewMembersPDF(newMembers, year, ageCategory = 'tut
     // Genera filename e output
     const filename = generatePDFFilename('nuovi_soci', { year, ageCategory })
 
+    doc.save(filename)
+
     return {
       success: true,
       blob: doc.output('blob'),
@@ -922,6 +924,8 @@ export async function generateCompletePaymentListPDF(payments, ageCategory = 'tu
 
     // Genera filename e output
     const filename = generatePDFFilename('lista_completa_pagamenti', { ageCategory })
+
+    doc.save(filename)
 
     return {
       success: true,

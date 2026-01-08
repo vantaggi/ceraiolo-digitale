@@ -234,7 +234,7 @@ import AgeCategoryFilter from '@/components/AgeCategoryFilter.vue'
 
 // Stato del componente
 const currentTab = ref('rinnovi')
-const renewalYear = ref(new Date().getFullYear() + 1)
+const renewalYear = ref(new Date().getFullYear())
 const loading = ref(false)
 const loadingMessage = ref('')
 const cardProgress = ref(0)
