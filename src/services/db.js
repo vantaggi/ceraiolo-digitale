@@ -1199,10 +1199,41 @@ export async function getGroupCountsForYear(year) {
 
     const counts = {}
 
+    // 4. Ciclo su tutti i soci
     allSoci.forEach((socio) => {
+      let isEnrolled = false
+      const numericYear = Number(year)
+
+      // 1. Ha pagato/rinnovato fisicamente quest'anno?
       if (paidMemberIds.has(socio.id)) {
+        isEnrolled = true
+      }
+      else {
+        // 2. Controllo Esenzione Minorenni
+        // Se minorenne E iscritto (data_prima_iscrizione <= anno corrente o non definita ma assunto attivo)
+        // Assumiamo che se è nel DB ed è minore, vada contato se la sua iscrizione non è FUTURA
+
+        // Verifica se è esente (minorenne)
+        const isMinor = isExemptFromPayment(socio, numericYear)
+
+        if (isMinor) {
+           // Verifica data inizio validità
+           // Se data_prima_iscrizione c'è, deve essere <= numericYear
+           // Se NON c'è, per sicurezza lo contiamo (magari importato senza data)
+           let isValidStart = true
+           if (socio.data_prima_iscrizione) {
+             isValidStart = socio.data_prima_iscrizione <= numericYear
+           }
+
+           if (isValidStart) {
+             isEnrolled = true
+           }
+        }
+      }
+
+      if (isEnrolled) {
         let group = socio.gruppo_appartenenza || 'Non Assegnato'
-        // Normalize: trim and uppercase to merge "Ontano", "ONTANO", "Ontano "
+        // Normalize: trim and uppercase
         group = group.trim().toUpperCase()
         counts[group] = (counts[group] || 0) + 1
       }

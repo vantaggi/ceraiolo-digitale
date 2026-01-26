@@ -100,12 +100,13 @@ function createPDFTable(doc, headers, rows, startY, rowHeight = 10) {
   doc.setLineWidth(0.5)
   doc.rect(startX, currentY, tableWidth, rowHeight)
 
-  // Testo intestazione
-  headers.forEach((header, index) => {
-    doc.text(header.text, colPositions[index] + 2, currentY + 7)
-  })
+    // Testo intestazione
+    headers.forEach((header, index) => {
+      // Centratura verticale approssimativa: altezza riga / 2 + 1/3 font size
+      doc.text(header.text, colPositions[index] + 2, currentY + rowHeight / 2 + 1.5)
+    })
 
-  currentY += rowHeight
+    currentY += rowHeight
 
   // Righe dati
   doc.setTextColor(0) // Nero
@@ -141,17 +142,19 @@ function createPDFTable(doc, headers, rows, startY, rowHeight = 10) {
     row.forEach((cellValue, cellIndex) => {
       const cellText = String(cellValue || '')
       const maxWidth = headers[cellIndex].width - 4
+      const textY = currentY + rowHeight / 2 + 1.5 // Centratura dinamica
 
       if (cellText.length > 15 && maxWidth < 50) {
         // Testo lungo, tronca
-        doc.text(cellText.substring(0, 12) + '...', colPositions[cellIndex] + 2, currentY + 7)
+        doc.text(cellText.substring(0, 12) + '...', colPositions[cellIndex] + 2, textY)
       } else if (cellText.includes('\n') || cellText.length > 20) {
         // Testo multi-riga
         const lines = doc.splitTextToSize(cellText, maxWidth)
-        doc.text(lines, colPositions[cellIndex] + 2, currentY + 5)
+        // Per multi-riga partiamo un po' più in alto
+        doc.text(lines, colPositions[cellIndex] + 2, currentY + rowHeight / 2 - 1)
       } else {
         // Testo normale
-        doc.text(cellText, colPositions[cellIndex] + 2, currentY + 7)
+        doc.text(cellText, colPositions[cellIndex] + 2, textY)
       }
     })
 
@@ -1058,26 +1061,59 @@ export async function generateGroupCountsPDF(countsData, year) {
       `Totale complessivo: ${totalMembers}`,
     )
 
-    // Prepara i dati per la tabella
-    const tableData = countsData.map((item) => [
-      item.group,
-      item.count.toString(),
-    ])
+    // Configurazione tabella multi-colonna per risparmiare spazio verticale
+    // Dividiamo i dati in 3 colonne
+    const itemsPerColumn = Math.ceil(countsData.length / 3)
+    const col1Data = countsData.slice(0, itemsPerColumn)
+    const col2Data = countsData.slice(itemsPerColumn, itemsPerColumn * 2)
+    const col3Data = countsData.slice(itemsPerColumn * 2)
 
-    // Aggiungi riga totale
-    tableData.push(['TOTALE', totalMembers.toString()])
+    // Normalizziamo le righe per avere la stessa lunghezza
+    const rows = []
+    for (let i = 0; i < itemsPerColumn; i++) {
+        const row = []
 
-    // Configurazione tabella
+        // Colonna 1
+        if (col1Data[i]) {
+            row.push(col1Data[i].group)
+            row.push(col1Data[i].count.toString())
+        } else {
+            row.push('')
+            row.push('')
+        }
+
+        // Colonna 2
+        if (col2Data[i]) {
+            row.push(col2Data[i].group)
+            row.push(col2Data[i].count.toString())
+        } else {
+            row.push('')
+            row.push('')
+        }
+
+        // Colonna 3
+        if (col3Data[i]) {
+            row.push(col3Data[i].group)
+            row.push(col3Data[i].count.toString())
+        } else {
+            row.push('')
+            row.push('')
+        }
+
+        rows.push(row)
+    }
+
     const headers = [
-      { text: 'Gruppo', width: 100 },
-      { text: 'Numero Iscritti', width: 50 },
+      { text: 'Gruppo', width: 65 },
+      { text: 'N.', width: 15 },
+      { text: 'Gruppo', width: 65 },
+      { text: 'N.', width: 15 },
+      { text: 'Gruppo', width: 65 },
+      { text: 'N.', width: 15 },
     ]
 
-    // Crea tabella (centrata)
-    // createPDFTable uses fixed startX=20.
-    // We can center it by adjusting startX logic inside createPDFTable or just stick to left align.
-    // The utility creates it at x=20.
-    createPDFTable(doc, headers, tableData, headerY + 10, 10)
+    // Crea tabella compatta
+    createPDFTable(doc, headers, rows, headerY + 10, 7) // 7mm row height for compactness
 
     // Footer
     addPDFFooter(doc)
