@@ -85,12 +85,21 @@
         <p>Risultati trovati: {{ searchResults.length }}</p>
       </div>
 
-      <!-- Pulsante utility per sviluppo -->
-      <button @click="clearDatabase" class="dev-button">🗑️ Clear Database (DEV)</button>
-
-      <!-- Pulsante per esportare il database -->
-      <button @click="exportDatabase" class="export-button">📥 Export Database</button>
-      <button @click="exportChangeLogData" class="export-button">📊 Export Changelog</button>
+      <!-- Utility Footer -->
+      <footer class="dashboard-footer">
+        <div class="footer-actions">
+           <button @click="exportDatabase" class="utility-button secondary">
+              📥 Export DB
+           </button>
+           <button @click="exportChangeLogData" class="utility-button secondary">
+              📊 Export Changelog
+           </button>
+           <button @click="clearDatabase" class="utility-button danger">
+              🗑️ Clear DB (DEV)
+           </button>
+        </div>
+        <p class="footer-note">Sistema Gestionale Ceraiolo Digitale - v1.0</p>
+      </footer>
     </main>
   </div>
 </template>
@@ -603,32 +612,53 @@ const quickRenew = async (socio) => {
   max-height: 300px;
 }
 
-.dev-button {
-  position: fixed;
-  bottom: 20px;
-  left: 20px;
-  background-color: #ff4444;
-  opacity: 0.7;
+.dashboard-footer {
+  margin-top: 4rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--color-border);
+  text-align: center;
+}
+
+.footer-actions {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.footer-note {
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+}
+
+.utility-button {
+  padding: 0.6rem 1.2rem;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  border-radius: 6px;
   font-size: 0.9rem;
-  z-index: 1000;
+  transition: all 0.2s;
 }
 
-.dev-button:hover {
-  opacity: 1;
+.utility-button:hover {
+  background-color: var(--color-surface-hover);
+  color: var(--color-primary);
+  border-color: var(--color-primary-light);
 }
 
-.export-button {
-  position: fixed;
-  bottom: 60px;
-  left: 20px;
-  background-color: #4caf50;
-  opacity: 0.7;
-  font-size: 0.9rem;
-  z-index: 1000;
+.utility-button.secondary {
+  color: var(--color-primary);
 }
 
-.export-button:hover {
-  opacity: 1;
+.utility-button.danger {
+  color: #C62828;
+  border-color: #ffcdd2;
+}
+
+.utility-button.danger:hover {
+  background-color: #fffbee;
+  border-color: #C62828;
 }
 
 /* Loading spinner */
