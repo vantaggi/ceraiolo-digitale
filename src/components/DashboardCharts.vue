@@ -154,10 +154,35 @@ const displayedData = computed(() => {
     const data = fullHistoryData.value
     if (data.length === 0) return []
 
-    if (selectedRange.value === 'all') return data
+    let result = []
+    if (selectedRange.value === 'all') {
+        result = [...data]
+    } else {
+        const count = selectedRange.value === '5y' ? 5 : 10
+        result = data.slice(-count)
+    }
 
-    const count = selectedRange.value === '5y' ? 5 : 10
-    return data.slice(-count)
+    // Fix: If the first year in the displayed result corresponds to the absolute start of data,
+    // suppress the "New Members" bar if it's overwhelming (i.e. if newMembers ~= total).
+    // This makes the scale more usable for subsequent years.
+    if (result.length > 0) {
+        // Create a deep copy to avoid mutating the source
+        result = result.map(x => ({ ...x }))
+
+        const firstItem = result[0]
+        // Check if this is truly the start of recorded history or just the start of the view
+        // Actually, if it's the start of history, newMembers == total.
+        // Even if it's just the start of the view, showing a huge bar if it looks like the start might be distracting.
+        // But user specifically said "il primo anno tutti gli iscritti siano nuovi".
+        // Let's check if newMembers is disproportionately high (e.g. > 80% of total) and it's the first data point.
+
+        // Use fullHistoryData[0] reference to be sure it's the absolute start
+        if (fullHistoryData.value.length > 0 && firstItem.year === fullHistoryData.value[0].year) {
+             firstItem.newMembers = 0 // Suppress for display
+        }
+    }
+
+    return result
 })
 
 const getTrendClass = (val) => val >= 0 ? 'trend-up' : 'trend-down'
@@ -199,6 +224,13 @@ const chartData = computed(() => {
 const chartOptions = {
   responsive: true,
   maintainAspectRatio: false,
+  layout: {
+      padding: {
+          bottom: 20,
+          left: 10,
+          right: 10
+      }
+  },
   interaction: {
     mode: 'index',
     intersect: false,
