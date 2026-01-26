@@ -24,6 +24,9 @@
         </div>
       </div>
 
+      <!-- Dashboard Charts -->
+      <DashboardCharts />
+
       <!-- Passa i filtri come props E ascolta le modifiche -->
       <FilterPanel :initial-filters="filters" @filters-changed="onFiltersChanged" />
 
@@ -107,6 +110,7 @@ import { applyFiltersAndSearch } from '@/services/db'
 import { generateAndDownloadSociPDF, generateSingleCardPDF } from '@/services/export'
 import SocioCard from '@/components/SocioCard.vue'
 import FilterPanel from '@/components/FilterPanel.vue'
+import DashboardCharts from '@/components/DashboardCharts.vue'
 
 // Stato dell'applicazione
 const searchTerm = ref('')

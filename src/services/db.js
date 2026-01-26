@@ -1253,6 +1253,128 @@ export async function getGroupCountsForYear(year) {
 }
 
 /**
+ * Calcola le statistiche annuali per i grafici
+ * @param {number} startYear - Anno di inizio (opzionale, default: 5 anni fa)
+ * @param {number} endYear - Anno di fine (opzionale, default: anno corrente)
+ * @returns {Promise<Array>} Array di oggetti { year, total, newMembers, lostMembers }
+ */
+export async function getYearlyStats(startYear, endYear) {
+  try {
+    const currentYear = new Date().getFullYear()
+    const start = startYear || currentYear - 4
+    const end = endYear || currentYear
+
+    const allSoci = await db.soci.toArray()
+
+    // Cache di tutti i tesseramenti per evitare query multiple
+    const allTesseramenti = await db.tesseramenti.toArray()
+    // Mappa: socioId -> Set di anni pagati
+    const paymentsMap = new Map()
+
+    allTesseramenti.forEach(t => {
+      if (!paymentsMap.has(t.id_socio)) {
+        paymentsMap.set(t.id_socio, new Set())
+      }
+      paymentsMap.get(t.id_socio).add(t.anno)
+    })
+
+    const stats = []
+
+    // Helper per verificare l'iscrizione in un dato anno
+    const isEnrolledInYear = (socio, year) => {
+      // 1. Pagamento esplicito
+      if (paymentsMap.has(socio.id) && paymentsMap.get(socio.id).has(year)) {
+        return true
+      }
+      // 2. Esenzione Minori
+      // Se minorenne esente
+      const numericYear = Number(year)
+      if (isExemptFromPayment(socio, numericYear)) {
+         // Se ha una data di iscrizione, deve essere valida (non futura)
+         // IMPORTANTE: Se NON ha data_prima_iscrizione e NON ha pagato,
+         // tecnicamente non sappiamo quando si è iscritto, quindi NON dovremmo contarlo per evitare falsi positivi negli anni passati.
+         // Tuttavia, se vogliamo essere permissivi per i dati importati male, potremmo controllare se hanno pagamenti in ANNI SUCCESSIVI
+         // che confermerebbero l'iscrizione passata? Per ora rimaniamo fedeli alla richiesta: "da dopo la prima iscrizione".
+         // Quindi la data DEVE esserci ed essere <= numericYear.
+
+         if (socio.data_prima_iscrizione && socio.data_prima_iscrizione <= numericYear) {
+            return true
+         }
+      }
+      return false
+    }
+
+    // Calcolo per ogni anno
+    for (let year = start; year <= end; year++) {
+      let total = 0
+      let newMembers = 0
+      let lostMembers = 0 // Iscritti l'anno prima ma non questo
+
+      // Set di ID iscritti quest'anno (per calcolo churn anno successivo o verifica)
+      const enrolledThisYear = new Set()
+
+      // 1. Calcola Totale e Nuovi
+      for (const socio of allSoci) {
+        if (isEnrolledInYear(socio, year)) {
+          total++
+          enrolledThisYear.add(socio.id)
+
+          // Verifica se è NUOVO
+          // È nuovo se:
+          // a) Sua data_prima_iscrizione è esattamente questo anno
+          // b) OPPURE non ha data_prima_iscrizione ma il suo PRIMO pagamento è questo anno
+          //    (e non era iscritto l'anno prima come minore - caso limite, semplifichiamo)
+
+          let isNew = false
+          if (socio.data_prima_iscrizione === year) {
+            isNew = true
+          } else if (!socio.data_prima_iscrizione) {
+             // Fallback: controlla se questo è il primo anno di pagamento assoluto
+             const years = paymentsMap.get(socio.id)
+             if (years) {
+               const minYear = Math.min(...Array.from(years))
+               if (minYear === year) isNew = true
+             }
+          }
+
+          if (isNew) newMembers++
+        }
+      }
+
+      // 2. Calcola Non Rinnovati (Churn)
+      // Solo se non siamo al primo anno del loop (o serve query anno precedente)
+      // Per semplicità, ricalcoliamo gli iscritti dell'anno precedente
+      if (year > start) {
+         // Recuperiamo chi era iscritto l'anno scorso
+         const prevYear = year - 1
+
+         for (const socio of allSoci) {
+            if (isEnrolledInYear(socio, prevYear)) {
+               // Se era iscritto l'anno scorso...
+               // ...e NON è iscritto quest'anno
+               if (!enrolledThisYear.has(socio.id)) {
+                 lostMembers++
+               }
+            }
+         }
+      }
+
+      stats.push({
+        year,
+        total,
+        newMembers,
+        lostMembers
+      })
+    }
+
+    return stats
+  } catch (error) {
+    console.error('Error calculating yearly stats:', error)
+    throw new Error('Errore nel calcolo delle statistiche annuali')
+  }
+}
+
+/**
  * Gets the reference year for minors list (configurable)
  * @returns {Promise<number>} The reference year for minors
  */
