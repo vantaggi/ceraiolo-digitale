@@ -80,7 +80,7 @@ defineEmits(['close'])
 }
 
 .accent:hover {
-  background-color: #a22a2a;
+  background-color: var(--color-accent-hover);
   transform: scale(1.02);
 }
 </style>

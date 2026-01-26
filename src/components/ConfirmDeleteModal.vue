@@ -102,12 +102,12 @@ const confirmDelete = () => {
   justify-content: space-between;
   align-items: center;
   padding: 1.5rem;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .modal-title {
   margin: 0;
-  color: #d32f2f;
+  color: var(--color-accent);
   font-size: 1.25rem;
   font-weight: 600;
 }
@@ -117,15 +117,15 @@ const confirmDelete = () => {
   border: none;
   font-size: 1.5rem;
   cursor: pointer;
-  color: #666;
+  color: var(--color-text-secondary);
   padding: 0.25rem;
   border-radius: 4px;
   transition: all 0.2s;
 }
 
 .close-button:hover {
-  background-color: #f5f5f5;
-  color: #333;
+  background-color: var(--color-background);
+  color: var(--color-primary);
 }
 
 .modal-body {
@@ -140,18 +140,18 @@ const confirmDelete = () => {
 
 .warning-message {
   font-size: 1.1rem;
-  color: #333;
+  color: var(--color-text-primary);
   margin-bottom: 1rem;
   line-height: 1.5;
 }
 
 .danger-message {
   font-size: 0.95rem;
-  color: #d32f2f;
-  background-color: #ffebee;
+  color: var(--color-accent);
+  background-color: #ffebee; /* Keep for specific warning look or adding variable later */
   padding: 1rem;
   border-radius: 8px;
-  border-left: 4px solid #d32f2f;
+  border-left: 4px solid var(--color-accent);
   line-height: 1.4;
 }
 
@@ -160,7 +160,7 @@ const confirmDelete = () => {
   justify-content: flex-end;
   gap: 1rem;
   padding: 1.5rem;
-  border-top: 1px solid #e0e0e0;
+  border-top: 1px solid var(--color-border);
 }
 
 .cancel-button,
@@ -177,22 +177,23 @@ const confirmDelete = () => {
 }
 
 .cancel-button {
-  background-color: #f5f5f5;
-  color: #666;
+  background-color: var(--color-background);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
 }
 
 .cancel-button:hover:not(:disabled) {
-  background-color: #e0e0e0;
-  color: #333;
+  background-color: var(--color-border);
+  color: var(--color-text-primary);
 }
 
 .delete-button {
-  background-color: #d32f2f;
+  background-color: var(--color-accent);
   color: white;
 }
 
 .delete-button:hover:not(:disabled) {
-  background-color: #b71c1c;
+  background-color: var(--color-accent-hover);
 }
 
 .cancel-button:disabled,

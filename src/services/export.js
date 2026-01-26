@@ -144,18 +144,23 @@ function createPDFTable(doc, headers, rows, startY, rowHeight = 10) {
       const maxWidth = headers[cellIndex].width - 4
       const textY = currentY + rowHeight / 2 + 1.5 // Centratura dinamica
 
-      if (cellText.length > 15 && maxWidth < 50) {
-        // Testo lungo, tronca
-        doc.text(cellText.substring(0, 12) + '...', colPositions[cellIndex] + 2, textY)
-      } else if (cellText.includes('\n') || cellText.length > 20) {
-        // Testo multi-riga
-        const lines = doc.splitTextToSize(cellText, maxWidth)
-        // Per multi-riga partiamo un po' più in alto
-        doc.text(lines, colPositions[cellIndex] + 2, currentY + rowHeight / 2 - 1)
+      // Logica migliorata: usa SEMPRE il wrapping per testi lunghi, evitando troncamenti
+      if (cellText.length > 20 || doc.getStringUnitWidth(cellText) * doc.internal.getFontSize() / doc.internal.scaleFactor > maxWidth) {
+         // Testo multi-riga (wrapping automatico)
+         const lines = doc.splitTextToSize(cellText, maxWidth)
+         // Centratura verticale approssimativa per multiriga:
+         // Se sono troppe righe, potrebbe uscire dalla cella, ma meglio che tagliare.
+         // Un calcolo più fine richiederebbe di sapere l'altezza del font
+         const lineHeight = 3.5 // approx per fontSize 9
+         const blockHeight = lines.length * lineHeight
+         const startY = currentY + (rowHeight - blockHeight) / 2 + 2.5
+
+         doc.text(lines, colPositions[cellIndex] + 2, startY)
       } else {
-        // Testo normale
+        // Testo normale (una riga)
         doc.text(cellText, colPositions[cellIndex] + 2, textY)
       }
+
     })
 
     currentY += rowHeight
@@ -303,10 +308,10 @@ export async function generateSociPDF(sociList, renewalYear) {
 
     // Configurazione tabella
     const headers = [
-      { text: 'Cognome e Nome', width: 60 },
+      { text: 'Cognome e Nome', width: 80 },
       { text: 'Gruppo', width: 40 },
-      { text: 'Arretrati', width: 80 },
-      { text: `Pagato ${renewalYear}`, width: 60 },
+      { text: 'Arretrati', width: 70 },
+      { text: `Pagato ${renewalYear}`, width: 50 },
     ]
 
     // Crea tabella
@@ -416,10 +421,10 @@ export async function generateRenewalListPDF(soci, renewalYear) {
 
   // Configurazione tabella
   const headers = [
-    { text: 'Cognome e Nome', width: 60 },
+    { text: 'Cognome e Nome', width: 80 },
     { text: 'Gruppo', width: 40 },
-    { text: 'Arretrati', width: 80 },
-    { text: `Pagato ${renewalYear}`, width: 60 },
+    { text: 'Arretrati', width: 70 },
+    { text: `Pagato ${renewalYear}`, width: 50 },
   ]
 
   // Crea tabella
@@ -901,7 +906,7 @@ export async function generateCompletePaymentListPDF(payments, ageCategory = 'tu
 
     // Prepara i dati per la tabella
     const tableData = payments.map((payment) => [
-      `${payment.socio.cognome} ${payment.socio.nome}`.substring(0, 25),
+      `${payment.socio.cognome} ${payment.socio.nome}`,
       payment.anno.toString(),
       payment.data_pagamento || '-',
       payment.quota_pagata ? `€ ${payment.quota_pagata.toFixed(2)}` : '-',
@@ -911,12 +916,12 @@ export async function generateCompletePaymentListPDF(payments, ageCategory = 'tu
 
     // Configurazione tabella
     const headers = [
-      { text: 'Socio', width: 50 },
+      { text: 'Socio', width: 70 },
       { text: 'Anno', width: 20 },
-      { text: 'Data Pagamento', width: 35 },
-      { text: 'Quota', width: 30 },
-      { text: 'Ricevuta', width: 25 },
-      { text: 'Blocchetto', width: 25 },
+      { text: 'Data', width: 30 }, // Shortened label
+      { text: 'Quota', width: 25 },
+      { text: 'Ric.', width: 20 }, // Shortened
+      { text: 'Bloc.', width: 20 }, // Shortened
     ]
 
     // Crea tabella
@@ -986,20 +991,21 @@ export async function generateMembersByGroupPDF(members, gruppo, ageCategory, pa
 
     // Prepara i dati per la tabella
     const tableData = members.map((member) => [
-      `${member.cognome} ${member.nome}`.substring(0, 25),
+      `${member.cognome} ${member.nome}`,
       member.gruppo_appartenenza || '-',
       member.data_nascita || '-',
-      member.anni_pagati?.join(', ') || '-',
+      // Show only last 5 years to save space
+      member.anni_pagati?.slice(-5).join(', ') || '-',
       member.in_regola ? 'In Regola' : 'Da Regolarizzare',
     ])
 
     // Configurazione tabella
     const headers = [
-      { text: 'Socio', width: 50 },
+      { text: 'Socio', width: 70 }, // Increased from 50
       { text: 'Gruppo', width: 30 },
-      { text: 'Data Nascita', width: 35 },
-      { text: 'Anni Pagati', width: 60 },
-      { text: 'Stato', width: 30 },
+      { text: 'Data Nascita', width: 30 }, // Reduced slightly
+      { text: 'Ultimi Pagamenti', width: 50 }, // Renamed and content limited
+      { text: 'Stato (Corrente)', width: 35 }, // Renamed for clarity
     ]
 
     // Crea tabella

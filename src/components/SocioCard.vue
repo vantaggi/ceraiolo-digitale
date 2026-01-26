@@ -76,8 +76,17 @@ watch(() => props.socio, checkRenewal)
   color: var(--color-text-secondary);
 }
 
+.socio-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap; /* Handle mobile */
+}
+
 .details-button {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 0.75rem 1.5rem;
   font-family: var(--font-family-body);
   font-weight: 500;
@@ -92,6 +101,7 @@ watch(() => props.socio, checkRenewal)
   transition:
     background-color 0.2s,
     transform 0.1s;
+  box-shadow: var(--shadow-sm); /* Match buttons */
 }
 
 .details-button:hover {
@@ -99,7 +109,9 @@ watch(() => props.socio, checkRenewal)
 }
 
 .card-button {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 0.75rem 1.5rem;
   font-family: var(--font-family-body);
   font-weight: 500;
@@ -114,11 +126,11 @@ watch(() => props.socio, checkRenewal)
   transition:
     background-color 0.2s,
     transform 0.1s;
-  margin-left: 0.5rem;
 }
 
 .card-button:hover {
-  background-color: #1b5e20; /* Darker green or create a var for success-hover */
+  background-color: #1b5e20; /* Keep or improve if needed, but let's align opacity/transform */
+  filter: brightness(0.9);
 }
 
 .renew-button {
@@ -127,17 +139,16 @@ watch(() => props.socio, checkRenewal)
   justify-content: center;
   padding: 0.75rem 1rem;
   font-size: 1.2rem;
-  background-color: #ffeb3b;
-  color: #000;
+  background-color: var(--color-warning); /* Use theme warning (orange) */
+  color: white; /* Contrast for orange */
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  margin-right: 0.5rem;
-  transition: transform 0.2s;
+  transition: transform 0.2s, background-color 0.2s;
 }
 
 .renew-button:hover {
     transform: scale(1.1);
-    background-color: #fdd835;
+    background-color: #e65100; /* Darker shade of warning #ed6c02 */
 }
 </style>

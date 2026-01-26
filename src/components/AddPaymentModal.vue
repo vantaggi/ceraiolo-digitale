@@ -424,7 +424,7 @@ const handleSubmit = () => {
 }
 
 .save-button:hover:not(:disabled) {
-  background-color: #a22a2a;
+  background-color: var(--color-accent-hover);
   transform: scale(1.02);
 }
 
@@ -476,7 +476,7 @@ const handleSubmit = () => {
 
 .year-option:hover {
   border-color: var(--color-accent);
-  background-color: rgba(183, 28, 28, 0.02);
+  background-color: var(--color-surface-hover);
 }
 
 .year-option input[type='checkbox'] {
