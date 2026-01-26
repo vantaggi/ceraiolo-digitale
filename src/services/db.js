@@ -1182,6 +1182,46 @@ export async function getMembersByGroup(
 }
 
 /**
+ * Calculates the number of enrolled members per group for a specific year
+ * @param {number} year - The year to calculate counts for
+ * @returns {Promise<Array>} Array of objects { group, count } sorted by count descending
+ */
+export async function getGroupCountsForYear(year) {
+  try {
+    // 1. Get all payments for the year
+    const payments = await db.tesseramenti.where('anno').equals(year).toArray()
+
+    // Use a Set to ensure unique members (though technically one payment per year should exist)
+    const paidMemberIds = new Set(payments.map((p) => p.id_socio))
+
+    // 2. Get all members to check their group
+    const allSoci = await db.soci.toArray()
+
+    const counts = {}
+
+    allSoci.forEach((socio) => {
+      if (paidMemberIds.has(socio.id)) {
+        let group = socio.gruppo_appartenenza || 'Non Assegnato'
+        // Normalize: trim and uppercase to merge "Ontano", "ONTANO", "Ontano "
+        group = group.trim().toUpperCase()
+        counts[group] = (counts[group] || 0) + 1
+      }
+    })
+
+    // Convert to array and sort by count descending
+    const result = Object.entries(counts)
+      .map(([group, count]) => ({ group, count }))
+      .sort((a, b) => b.count - a.count)
+
+    // Add total count logic if needed by the consumer, but returning the breakdown is enough
+    return result
+  } catch (error) {
+    console.error('Error getting group counts:', error)
+    throw new Error(`Errore nel calcolo dei totali per gruppo: ${error.message}`)
+  }
+}
+
+/**
  * Gets the reference year for minors list (configurable)
  * @returns {Promise<number>} The reference year for minors
  */

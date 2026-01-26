@@ -1033,6 +1033,77 @@ export async function generateMembersByGroupPDF(members, gruppo, ageCategory, pa
 }
 
 /**
+ * Generates a PDF with the count of members by group for a specific year
+ * @param {Array} countsData - Array of { group, count } objects
+ * @param {number} year - The year for the report
+ * @returns {Promise<Object>} Result object with success status and blob or error
+ */
+export async function generateGroupCountsPDF(countsData, year) {
+  try {
+    if (!countsData || countsData.length === 0) {
+      throw new Error('Nessun dato da esportare')
+    }
+
+    // Crea documento PDF
+    const doc = createPDFDocument('landscape')
+
+    // Calcola totale
+    const totalMembers = countsData.reduce((sum, item) => sum + item.count, 0)
+
+    // Header
+    const headerY = addPDFHeader(
+      doc,
+      `Riepilogo Iscritti per Gruppo`,
+      `Anno ${year}`,
+      `Totale complessivo: ${totalMembers}`,
+    )
+
+    // Prepara i dati per la tabella
+    const tableData = countsData.map((item) => [
+      item.group,
+      item.count.toString(),
+    ])
+
+    // Aggiungi riga totale
+    tableData.push(['TOTALE', totalMembers.toString()])
+
+    // Configurazione tabella
+    const headers = [
+      { text: 'Gruppo', width: 100 },
+      { text: 'Numero Iscritti', width: 50 },
+    ]
+
+    // Crea tabella (centrata)
+    // createPDFTable uses fixed startX=20.
+    // We can center it by adjusting startX logic inside createPDFTable or just stick to left align.
+    // The utility creates it at x=20.
+    createPDFTable(doc, headers, tableData, headerY + 10, 10)
+
+    // Footer
+    addPDFFooter(doc)
+
+    // Genera filename e output
+    const filename = generatePDFFilename('riepilogo_gruppi', { year })
+
+    doc.save(filename)
+
+    return {
+      success: true,
+      blob: doc.output('blob'),
+      filename,
+      totalGroups: countsData.length,
+    }
+  } catch (error) {
+    console.error('Errore nella generazione del PDF riepilogo gruppi:', error)
+    return {
+      success: false,
+      error: error.message,
+    }
+  }
+}
+
+
+/**
  * Export all data to Excel format with multiple worksheets
  * @returns {Promise<void>}
  */

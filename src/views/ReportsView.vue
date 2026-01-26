@@ -165,6 +165,30 @@
                 <button @click="generateMembersByGroup" :disabled="loading" class="action-button wide">
                   📄 Genera Report Gruppi
                 </button>
+
+             </section>
+
+             <!-- Riepilogo Numerico Gruppi -->
+             <section class="report-section">
+                <h3>🔢 Riepilogo Numerico Gruppi</h3>
+                <p>Genera un foglio unico con il conteggio degli iscritti per ogni gruppo.</p>
+                <div class="filters-inline">
+                    <label>Anno Riferimento:</label>
+                    <input
+                        v-model.number="groupCountsYear"
+                        type="number"
+                        :min="currentYear - 10"
+                        :max="currentYear + 5"
+                        class="small-input"
+                    />
+                </div>
+                <button
+                  @click="generateGroupCountsReport"
+                  :disabled="!groupCountsYear || loading"
+                  class="action-button wide"
+                >
+                  📊 Genera Riepilogo Numerico
+                </button>
              </section>
 
              <!-- Lista Pagamenti -->
@@ -191,6 +215,7 @@
                         <li>Nuovi Soci ({{ newMembersFilters.year }})</li>
                         <li>Lista Pagamenti</li>
                         <li>Soci per Gruppo</li>
+                        <li>Riepilogo Numerico Gruppi ({{ groupCountsYear }})</li>
                     </ul>
                     <button @click="generateAllReports" :disabled="loading" class="action-button wide">
                       {{ loading ? '⏳ Generazione in corso...' : '📦 SCARICA TUTTI I REPORT' }}
@@ -220,6 +245,7 @@ import {
   generateNewMembersPDF,
   generateCompletePaymentListPDF,
   generateMembersByGroupPDF,
+  generateGroupCountsPDF,
 } from '@/services/export'
 import {
   getAllSociWithTesseramenti,
@@ -227,6 +253,7 @@ import {
   getCompletePaymentList,
   getMembersByGroup,
   getUniqueGroups,
+  getGroupCountsForYear,
   getSetting,
 } from '@/services/db'
 import TesseraTemplate from '@/components/TesseraTemplate.vue'
@@ -274,6 +301,9 @@ const groupFilters = reactive({
   ageCategory: 'tutti',
   paymentStatus: 'tutti',
 })
+
+// Year for group counts report
+const groupCountsYear = ref(currentYear)
 
 onMounted(async () => {
   try {
@@ -435,6 +465,41 @@ const generateMembersByGroup = async () => {
 }
 
 /**
+ * Genera il report riepilogativo numerico per gruppi
+ */
+const generateGroupCountsReport = async () => {
+  if (!groupCountsYear.value) return
+
+  try {
+    loading.value = true
+    loadingMessage.value = 'Calcolo totali per gruppo...'
+    toast.info('Calcolo dati in corso...')
+
+    const counts = await getGroupCountsForYear(groupCountsYear.value)
+
+    if (counts.length === 0) {
+      toast.warning(`Nessun tesseramento trovato per l'anno ${groupCountsYear.value}`)
+      return
+    }
+
+    loadingMessage.value = 'Generazione PDF...'
+    const result = await generateGroupCountsPDF(counts, groupCountsYear.value)
+
+    if (result.success) {
+      toast.success(`Report generato con successo! (${result.totalGroups} gruppi censiti)`)
+    } else {
+      throw new Error(result.error)
+    }
+  } catch (error) {
+    console.error('Errore generazione riepilogo gruppi:', error)
+    toast.error('Errore: ' + error.message)
+  } finally {
+    loading.value = false
+    loadingMessage.value = ''
+  }
+}
+
+/**
  * Genera tutti i report in un'unica operazione
  */
 const generateAllReports = async () => {
@@ -490,6 +555,14 @@ const generateAllReports = async () => {
       groupFilters.paymentStatus,
     )
     if (membersResult.success) reports.push('Soci per Gruppo')
+
+    // 5. Riepilogo Gruppi
+    loadingMessage.value = 'Generazione riepilogo gruppi...'
+    const counts = await getGroupCountsForYear(groupCountsYear.value)
+    if (counts.length > 0) {
+       const countsResult = await generateGroupCountsPDF(counts, groupCountsYear.value)
+       if (countsResult.success) reports.push('Riepilogo Gruppi')
+    }
 
     toast.success(`Generati ${reports.length} report: ${reports.join(', ')}`)
   } catch (error) {
