@@ -6,7 +6,14 @@
       <p>Gruppo: {{ socio.gruppo_appartenenza }}</p>
     </div>
     <div class="socio-actions">
-      <!-- Use RouterLink to navigate to the detail page with the correct ID -->
+      <button
+        v-if="!isRenewed"
+        @click="$emit('quick-renew', socio)"
+        class="renew-button"
+        title="Rinnova Velocemente"
+      >
+        ⚡
+      </button>
       <RouterLink :to="{ name: 'socio-detail', params: { id: socio.id } }" class="details-button">
         Vedi Dettagli
       </RouterLink>
@@ -17,13 +24,32 @@
 
 <script setup>
 import { RouterLink } from 'vue-router'
+import { ref, onMounted, watch } from 'vue'
+import { getTesseramentiBySocioId } from '@/services/db'
 
-defineProps({
+const props = defineProps({
   socio: {
     type: Object,
     required: true,
   },
 })
+
+defineEmits(['generate-card', 'quick-renew'])
+
+const isRenewed = ref(false)
+const currentYear = new Date().getFullYear()
+
+const checkRenewal = async () => {
+    try {
+        const tesseramenti = await getTesseramentiBySocioId(props.socio.id)
+        isRenewed.value = tesseramenti.some(t => t.anno === currentYear)
+    } catch (e) {
+        console.error("Error checking renewal", e)
+    }
+}
+
+onMounted(checkRenewal)
+watch(() => props.socio, checkRenewal)
 </script>
 
 <style scoped>
@@ -50,8 +76,17 @@ defineProps({
   color: var(--color-text-secondary);
 }
 
+.socio-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap; /* Handle mobile */
+}
+
 .details-button {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 0.75rem 1.5rem;
   font-family: var(--font-family-body);
   font-weight: 500;
@@ -66,19 +101,22 @@ defineProps({
   transition:
     background-color 0.2s,
     transform 0.1s;
+  box-shadow: var(--shadow-sm); /* Match buttons */
 }
 
 .details-button:hover {
-  background-color: #c62828;
+  background-color: var(--color-accent-hover);
 }
 
 .card-button {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 0.75rem 1.5rem;
   font-family: var(--font-family-body);
   font-weight: 500;
   font-size: 1rem;
-  background-color: #4caf50;
+  background-color: var(--color-success);
   color: white;
   border: none;
   border-radius: 8px;
@@ -88,10 +126,29 @@ defineProps({
   transition:
     background-color 0.2s,
     transform 0.1s;
-  margin-left: 0.5rem;
 }
 
 .card-button:hover {
-  background-color: #388e3c;
+  background-color: #1b5e20; /* Keep or improve if needed, but let's align opacity/transform */
+  filter: brightness(0.9);
+}
+
+.renew-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1rem;
+  font-size: 1.2rem;
+  background-color: var(--color-warning); /* Use theme warning (orange) */
+  color: white; /* Contrast for orange */
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.2s, background-color 0.2s;
+}
+
+.renew-button:hover {
+    transform: scale(1.1);
+    background-color: #e65100; /* Darker shade of warning #ed6c02 */
 }
 </style>

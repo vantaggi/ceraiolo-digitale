@@ -111,7 +111,7 @@
 
 <script setup>
 import { ref, reactive, watch } from 'vue'
-import { getTesseramentiBySocioId } from '@/services/db'
+import { getTesseramentiBySocioId, getSetting } from '@/services/db'
 
 const emit = defineEmits(['close', 'payments-saved'])
 
@@ -145,7 +145,7 @@ const props = defineProps({
 const isSubmitting = ref(false)
 
 const paymentDetails = reactive({
-  quota_pagata: 10.0, // Default quota set to 10
+  quota_pagata: 10.0, // Will be updated from settings
   data_pagamento: new Date().toISOString().split('T')[0],
   numero_ricevuta: null,
   numero_blocchetto: null,
@@ -233,7 +233,10 @@ watch(
 )
 
 const resetForm = async () => {
-  paymentDetails.quota_pagata = 10.0
+  // Load default quota from settings
+  const defaultQuota = await getSetting('defaultQuota', 10.0)
+  paymentDetails.quota_pagata = defaultQuota
+
   paymentDetails.data_pagamento = new Date().toISOString().split('T')[0]
   paymentDetails.numero_blocchetto = props.numeroBlocchetto
   paymentDetails.numero_ricevuta = props.numeroRicevuta
@@ -421,7 +424,7 @@ const handleSubmit = () => {
 }
 
 .save-button:hover:not(:disabled) {
-  background-color: #a22a2a;
+  background-color: var(--color-accent-hover);
   transform: scale(1.02);
 }
 
@@ -473,7 +476,7 @@ const handleSubmit = () => {
 
 .year-option:hover {
   border-color: var(--color-accent);
-  background-color: rgba(183, 28, 28, 0.02);
+  background-color: var(--color-surface-hover);
 }
 
 .year-option input[type='checkbox'] {

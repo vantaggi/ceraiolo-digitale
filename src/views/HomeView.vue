@@ -8,16 +8,50 @@
         </router-link>
       </div>
 
+      <!-- Stats Cards -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <span class="stat-label">Totale Soci</span>
+          <span class="stat-value">{{ stats.totalSoci }}</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Rinnovi {{ currentYear }}</span>
+          <span class="stat-value">{{ stats.renewalsCurrent }}</span>
+        </div>
+        <div class="stat-card highlight">
+          <span class="stat-label">Rinnovi {{ currentYear + 1 }}</span>
+          <span class="stat-value">{{ stats.renewalsNext }}</span>
+        </div>
+      </div>
+
+      <!-- Dashboard Charts -->
+      <DashboardCharts />
+
       <!-- Passa i filtri come props E ascolta le modifiche -->
       <FilterPanel :initial-filters="filters" @filters-changed="onFiltersChanged" />
 
       <div class="search-bar">
         <input
+          ref="searchInput"
           v-model="searchTerm"
           @input="onSearch"
           type="text"
-          placeholder="Scrivi un nome o cognome..."
+          placeholder="Scrivi un nome o cognome... (Ctrl+K)"
         />
+      </div>
+
+      <!-- Recent Members Section (Only when not searching) -->
+      <div v-if="!hasSearchCriteria && recentMembers.length > 0" class="recent-section">
+          <h3>🕒 Ultimi Soci Visitati</h3>
+          <div class="results-list">
+              <SocioCard
+                v-for="socio in recentMembers"
+                :key="socio.id"
+                :socio="socio"
+                @generate-card="generateSingleCard"
+                @quick-renew="quickRenew"
+              />
+          </div>
       </div>
 
       <div class="results-container">
@@ -37,6 +71,7 @@
             :key="socio.id"
             :socio="socio"
             @generate-card="generateSingleCard"
+            @quick-renew="quickRenew"
           />
         </div>
         <p v-else-if="hasSearchCriteria && !isSearching">Nessun risultato trovato.</p>
@@ -50,36 +85,58 @@
         <p>Risultati trovati: {{ searchResults.length }}</p>
       </div>
 
-      <!-- Pulsante utility per sviluppo -->
-      <button @click="clearDatabase" class="dev-button">🗑️ Clear Database (DEV)</button>
-
-      <!-- Pulsante per esportare il database -->
-      <button @click="exportDatabase" class="export-button">📥 Export Database</button>
-      <button @click="exportChangeLogData" class="export-button">📊 Export Changelog</button>
+      <!-- Utility Footer -->
+      <footer class="dashboard-footer">
+        <div class="footer-actions">
+           <button @click="exportDatabase" class="utility-button secondary">
+              📥 Export DB
+           </button>
+           <button @click="exportChangeLogData" class="utility-button secondary">
+              📊 Export Changelog
+           </button>
+           <button @click="clearDatabase" class="utility-button danger">
+              🗑️ Clear DB (DEV)
+           </button>
+        </div>
+        <p class="footer-note">Sistema Gestionale Ceraiolo Digitale - v1.0</p>
+      </footer>
     </main>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { useToast } from 'vue-toastification'
 import {
   db,
   downloadDatabaseExport,
   exportChangeLog,
   getAllSociWithTesseramenti,
+  addTesseramento,
+  getSetting,
 } from '@/services/db'
 import { applyFiltersAndSearch } from '@/services/db'
 import { generateAndDownloadSociPDF, generateSingleCardPDF } from '@/services/export'
 import SocioCard from '@/components/SocioCard.vue'
 import FilterPanel from '@/components/FilterPanel.vue'
+import DashboardCharts from '@/components/DashboardCharts.vue'
 
 // Stato dell'applicazione
 const searchTerm = ref('')
+const searchInput = ref(null) // Ref per l'input di ricerca
 const searchResults = ref([])
 const isSearching = ref(false)
 const showDebug = ref(false) // Cambia a true per vedere i dettagli
 const isExporting = ref(false) // Stato per l'export PDF
+const currentYear = new Date().getFullYear()
+
+const stats = reactive({
+  totalSoci: 0,
+  renewalsCurrent: 0,
+  renewalsNext: 0
+})
+
+const recentMembers = ref([]) // Lista soci recenti
 
 // Toast notifications
 const toast = useToast()
@@ -100,6 +157,60 @@ const hasSearchCriteria = computed(() => {
     filters.searchTerm.trim() !== '' || filters.ageCategory !== 'tutti' || filters.group !== 'Tutti'
   )
 })
+
+const loadStats = async () => {
+    try {
+      stats.totalSoci = await db.soci.count()
+      stats.renewalsCurrent = await db.tesseramenti.where('anno').equals(currentYear).count()
+      stats.renewalsNext = await db.tesseramenti.where('anno').equals(currentYear + 1).count()
+    } catch (e) {
+      console.error("Error loading stats", e)
+    }
+}
+
+/**
+ * Carica i soci recenti dal localStorage
+ */
+const loadRecentMembers = async () => {
+    try {
+        const recentIds = JSON.parse(localStorage.getItem('recent_members') || '[]')
+        if (recentIds.length > 0) {
+            // Fetch soci data
+            const soci = await db.soci.where('id').anyOf(recentIds).toArray()
+            // Ordina in base all'ordine degli ID salvati (più recenti prima)
+            recentMembers.value = recentIds
+                .map(id => soci.find(s => s.id === id))
+                .filter(s => s) // Rimuove eventuali null (soci cancellati)
+        }
+    } catch (e) {
+        console.error("Error loading recent members", e)
+    }
+}
+
+onMounted(() => {
+  loadStats()
+  loadRecentMembers()
+
+  // Smart Focus: Focus search bar on load
+  if (searchInput.value) {
+      searchInput.value.focus()
+  }
+
+  // Keyboard Shortcut: Ctrl/Cmd + K to focus search
+  window.addEventListener('keydown', handleKeydown)
+})
+
+import { onUnmounted } from 'vue'
+onUnmounted(() => {
+    window.removeEventListener('keydown', handleKeydown)
+})
+
+const handleKeydown = (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault()
+        if (searchInput.value) searchInput.value.focus()
+    }
+}
 
 /**
  * Handler per il cambio dei filtri dal pannello
@@ -270,7 +381,7 @@ const generateSingleCard = async (socio) => {
   if (!socio) return
 
   try {
-    const renewalYear = new Date().getFullYear() + 1
+    const renewalYear = new Date().getFullYear()
     toast.info('Generazione tessera in corso...')
     await generateSingleCardPDF(socio, renewalYear)
     toast.success('Tessera generata con successo! Controlla i download del browser.')
@@ -278,6 +389,53 @@ const generateSingleCard = async (socio) => {
     console.error('Single card generation failed:', error)
     toast.error('Errore durante la generazione della tessera: ' + error.message)
   }
+}
+
+/**
+ * Rinnovo veloce dalla dashboard
+ */
+const quickRenew = async (socio) => {
+    if(!confirm(`Confermi il rinnovo standard per ${socio.nome} ${socio.cognome}?`)) return
+
+    try {
+        const defaultQuota = await getSetting('defaultQuota', 10.0)
+
+        await addTesseramento({
+             id_socio: socio.id,
+             anno: currentYear,
+             data_pagamento: new Date().toISOString().split('T')[0],
+             quota_pagata: defaultQuota,
+             numero_ricevuta: 0,
+             numero_blocchetto: 0
+        })
+
+        toast.success(`Rinnovo completato per ${socio.nome} ${socio.cognome}`)
+
+        // Aggiorna contatori
+        loadStats()
+
+        // Aggiorna liste parzialmente
+        if (recentMembers.value.length > 0) {
+           loadRecentMembers()
+        }
+
+        // Triggera la ricerca per aggiornare lo stato (poiché SocioCard reagisce ai dati)
+        // Tuttavia, SocioCard fetch i dati autonomamente, quindi un semplice re-render o update della prop "socio" è sufficiente
+        // Ma per sicurezza, ricarichiamo i risultati
+        if (hasSearchCriteria.value) {
+             // onSearch() triggera il watch, ma qui vogliamo forzare l'esecuzione
+             // Invochiamo performSearch direttamente se esistesse, ma è dentro un watch.
+             // Trucco: riassegnare searchTerm? No.
+             // Invochiamo semplicemente applyFiltersAndSearch
+             const results = await applyFiltersAndSearch(filters)
+             searchResults.value = results
+        }
+
+    } catch(e) {
+        console.error(e)
+        // Check if error is due to existing payment
+        toast.error("Errore rinnovo: " + e.message)
+    }
 }
 </script>
 
@@ -295,6 +453,43 @@ const generateSingleCard = async (socio) => {
   margin-bottom: 2rem;
   padding-bottom: 1.5rem;
   border-bottom: 3px solid var(--color-accent);
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.stat-card {
+  background: var(--color-surface);
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border: 1px solid var(--color-border);
+}
+
+.stat-card.highlight {
+  border-color: var(--color-accent);
+  background: linear-gradient(to bottom right, var(--color-surface), rgba(183, 28, 28, 0.05));
+}
+
+.stat-label {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.5rem;
+}
+
+.stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--color-primary);
 }
 
 .add-socio-button {
@@ -417,32 +612,53 @@ const generateSingleCard = async (socio) => {
   max-height: 300px;
 }
 
-.dev-button {
-  position: fixed;
-  bottom: 20px;
-  left: 20px;
-  background-color: #ff4444;
-  opacity: 0.7;
+.dashboard-footer {
+  margin-top: 4rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--color-border);
+  text-align: center;
+}
+
+.footer-actions {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.footer-note {
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+}
+
+.utility-button {
+  padding: 0.6rem 1.2rem;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  border-radius: 6px;
   font-size: 0.9rem;
-  z-index: 1000;
+  transition: all 0.2s;
 }
 
-.dev-button:hover {
-  opacity: 1;
+.utility-button:hover {
+  background-color: var(--color-surface-hover);
+  color: var(--color-primary);
+  border-color: var(--color-primary-light);
 }
 
-.export-button {
-  position: fixed;
-  bottom: 60px;
-  left: 20px;
-  background-color: #4caf50;
-  opacity: 0.7;
-  font-size: 0.9rem;
-  z-index: 1000;
+.utility-button.secondary {
+  color: var(--color-primary);
 }
 
-.export-button:hover {
-  opacity: 1;
+.utility-button.danger {
+  color: #C62828;
+  border-color: #ffcdd2;
+}
+
+.utility-button.danger:hover {
+  background-color: #fffbee;
+  border-color: #C62828;
 }
 
 /* Loading spinner */
@@ -493,5 +709,16 @@ const generateSingleCard = async (socio) => {
     font-size: 0.7rem;
     max-width: 250px;
   }
+}
+
+.recent-section {
+    margin-bottom: 2rem;
+}
+.recent-section h3 {
+    margin-bottom: 1rem;
+    color: var(--color-text-secondary);
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }
 </style>

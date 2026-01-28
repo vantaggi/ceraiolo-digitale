@@ -1,6 +1,5 @@
 import Dexie from 'dexie'
 import initSqlJs from 'sql.js'
-import { v4 as uuidv4 } from 'uuid'
 
 // Create a new Dexie database instance
 export const db = new Dexie('CeraioloDigitaleDB')
@@ -48,6 +47,22 @@ db.version(2).stores({
     updated_at
   `,
 })
+
+// Hooks for Auto-Backup
+// We use dynamic import to avoid circular dependencies with backupService
+const triggerBackup = () => {
+  import('./backupService').then(({ backupService }) => {
+    backupService.notifyChange()
+  }).catch(err => console.error('Failed to trigger backup:', err))
+}
+
+db.soci.hook('creating', triggerBackup)
+db.soci.hook('updating', triggerBackup)
+db.soci.hook('deleting', triggerBackup)
+
+db.tesseramenti.hook('creating', triggerBackup)
+db.tesseramenti.hook('updating', triggerBackup)
+db.tesseramenti.hook('deleting', triggerBackup)
 
 // A utility function to check if the database is empty.
 // We'll use this to decide whether to show the import screen.
@@ -106,13 +121,19 @@ export async function applyFiltersAndSearch(filters) {
         groupMatch = socio.gruppo_appartenenza === group
       }
 
-      // 3. Search Term Filter
+      // 3. Search Term Filter (Multi-term AND logic)
       let searchTermMatch = true
       if (searchTerm && searchTerm.trim() !== '') {
-        const lowerCaseSearchTerm = searchTerm.toLowerCase()
-        searchTermMatch =
-          (socio.cognome && socio.cognome.toLowerCase().includes(lowerCaseSearchTerm)) ||
-          (socio.nome && socio.nome.toLowerCase().includes(lowerCaseSearchTerm))
+        const terms = searchTerm.toLowerCase().trim().split(/\s+/) // Split by whitespace
+
+        // Check if ALL terms match at least one field
+        searchTermMatch = terms.every(term => {
+             const inNome = socio.nome && socio.nome.toLowerCase().includes(term)
+             const inCognome = socio.cognome && socio.cognome.toLowerCase().includes(term)
+             const inNote = socio.note && socio.note.toLowerCase().includes(term)
+             // We can also search in ID if useful, but usually names are enough
+             return inNome || inCognome || inNote
+        })
       }
 
       return ageMatch && groupMatch && searchTermMatch
@@ -132,16 +153,19 @@ export async function searchSoci(searchTerm) {
     return []
   }
 
-  const lowerCaseSearchTerm = searchTerm.toLowerCase().trim()
+  const terms = searchTerm.toLowerCase().trim().split(/\s+/)
 
   try {
     const results = await db.soci
       .filter((socio) => {
-        const cognomeMatch =
-          socio.cognome && socio.cognome.toLowerCase().includes(lowerCaseSearchTerm)
-        const nomeMatch = socio.nome && socio.nome.toLowerCase().includes(lowerCaseSearchTerm)
-
-        return cognomeMatch || nomeMatch
+        // Check if ALL terms match at least one field
+        return terms.every(term => {
+             const inNome = socio.nome && socio.nome.toLowerCase().includes(term)
+             const inCognome = socio.cognome && socio.cognome.toLowerCase().includes(term)
+             return inNome || inCognome
+             // Note: Here we don't search in notes for quick add/search, but we could if needed.
+             // Keeping it consistent with "finding a person" usually relies on name/surname.
+        })
       })
       .toArray()
 
@@ -296,13 +320,13 @@ export async function exportAllTesseramenti() {
  * @param {string} key - The setting key
  * @returns {Promise<any>} The setting value or null if not found
  */
-export async function getSetting(key) {
+export async function getSetting(key, defaultValue = null) {
   try {
     const setting = await db.settings.get(key)
-    return setting ? setting.value : null
+    return setting ? setting.value : defaultValue
   } catch (error) {
     console.error('Error getting setting:', error)
-    return null
+    return defaultValue
   }
 }
 
@@ -831,6 +855,33 @@ export async function addSocio(socioData) {
   }
 }
 
+/**
+ * Calculates the age of a member in a specific year
+ * @param {string} birthDateString - Date of birth (YYYY-MM-DD)
+ * @param {number} year - The year to calculate age for
+ * @returns {number} Age in that year
+ */
+export function calculateAgeInYear(birthDateString, year) {
+  if (!birthDateString) return 99 // Assume adult if no birthdate
+  const birthDate = new Date(birthDateString)
+  if (isNaN(birthDate.getTime())) return 99
+
+  return year - birthDate.getFullYear()
+}
+
+/**
+ * Checks if a member is exempt from payment for a specific year (e.g. minors)
+ * @param {object} socio - The member object
+ * @param {number} year - The year to check
+ * @returns {boolean} True if exempt
+ */
+export function isExemptFromPayment(socio, year) {
+  const age = calculateAgeInYear(socio.data_nascita, year)
+  // Minors (< 18) are exempt from payment/arrears after their first registration
+  // "negli anni successivi risultano sempre iscritti fino al 18 anno"
+  return age < 18
+}
+
 // Get arretrati (anni non pagati) for a socio
 export async function getArretrati(socioId) {
   try {
@@ -859,7 +910,10 @@ export async function getArretrati(socioId) {
     // Check each year from first registration to current year
     for (let year = firstYear; year < currentYear; year++) {
       if (!paidYears.has(year)) {
-        arretrati.push(year)
+        // If not paid, check if exempt (minor)
+        if (!isExemptFromPayment(socio, year)) {
+          arretrati.push(year)
+        }
       }
     }
 
@@ -1083,8 +1137,11 @@ export async function getMembersByGroup(
 
       for (let year = firstYear; year <= currentYear; year++) {
         if (!paidYears.has(year)) {
-          isInRegola = false
-          break
+            // Check exemption
+            if (!isExemptFromPayment(socio, year)) {
+                isInRegola = false
+                break
+            }
         }
       }
 
@@ -1125,6 +1182,199 @@ export async function getMembersByGroup(
 }
 
 /**
+ * Calculates the number of enrolled members per group for a specific year
+ * @param {number} year - The year to calculate counts for
+ * @returns {Promise<Array>} Array of objects { group, count } sorted by count descending
+ */
+export async function getGroupCountsForYear(year) {
+  try {
+    // 1. Get all payments for the year
+    const payments = await db.tesseramenti.where('anno').equals(year).toArray()
+
+    // Use a Set to ensure unique members (though technically one payment per year should exist)
+    const paidMemberIds = new Set(payments.map((p) => p.id_socio))
+
+    // 2. Get all members to check their group
+    const allSoci = await db.soci.toArray()
+
+    const counts = {}
+
+    // 4. Ciclo su tutti i soci
+    allSoci.forEach((socio) => {
+      let isEnrolled = false
+      const numericYear = Number(year)
+
+      // 1. Ha pagato/rinnovato fisicamente quest'anno?
+      if (paidMemberIds.has(socio.id)) {
+        isEnrolled = true
+      }
+      else {
+        // 2. Controllo Esenzione Minorenni
+        // Se minorenne E iscritto (data_prima_iscrizione <= anno corrente o non definita ma assunto attivo)
+        // Assumiamo che se è nel DB ed è minore, vada contato se la sua iscrizione non è FUTURA
+
+        // Verifica se è esente (minorenne)
+        const isMinor = isExemptFromPayment(socio, numericYear)
+
+        if (isMinor) {
+           // Verifica data inizio validità
+           // Se data_prima_iscrizione c'è, deve essere <= numericYear
+           // Se NON c'è, per sicurezza lo contiamo (magari importato senza data)
+           let isValidStart = true
+           if (socio.data_prima_iscrizione) {
+             isValidStart = socio.data_prima_iscrizione <= numericYear
+           }
+
+           if (isValidStart) {
+             isEnrolled = true
+           }
+        }
+      }
+
+      if (isEnrolled) {
+        let group = socio.gruppo_appartenenza || 'Non Assegnato'
+        // Normalize: trim and uppercase
+        group = group.trim().toUpperCase()
+        counts[group] = (counts[group] || 0) + 1
+      }
+    })
+
+    // Convert to array and sort by count descending
+    const result = Object.entries(counts)
+      .map(([group, count]) => ({ group, count }))
+      .sort((a, b) => b.count - a.count)
+
+    // Add total count logic if needed by the consumer, but returning the breakdown is enough
+    return result
+  } catch (error) {
+    console.error('Error getting group counts:', error)
+    throw new Error(`Errore nel calcolo dei totali per gruppo: ${error.message}`)
+  }
+}
+
+/**
+ * Calcola le statistiche annuali per i grafici
+ * @param {number} startYear - Anno di inizio (opzionale, default: 5 anni fa)
+ * @param {number} endYear - Anno di fine (opzionale, default: anno corrente)
+ * @returns {Promise<Array>} Array di oggetti { year, total, newMembers, lostMembers }
+ */
+export async function getYearlyStats(startYear, endYear) {
+  try {
+    const currentYear = new Date().getFullYear()
+    const start = startYear || currentYear - 4
+    const end = endYear || currentYear
+
+    const allSoci = await db.soci.toArray()
+
+    // Cache di tutti i tesseramenti per evitare query multiple
+    const allTesseramenti = await db.tesseramenti.toArray()
+    // Mappa: socioId -> Set di anni pagati
+    const paymentsMap = new Map()
+
+    allTesseramenti.forEach(t => {
+      if (!paymentsMap.has(t.id_socio)) {
+        paymentsMap.set(t.id_socio, new Set())
+      }
+      paymentsMap.get(t.id_socio).add(t.anno)
+    })
+
+    const stats = []
+
+    // Helper per verificare l'iscrizione in un dato anno
+    const isEnrolledInYear = (socio, year) => {
+      // 1. Pagamento esplicito
+      if (paymentsMap.has(socio.id) && paymentsMap.get(socio.id).has(year)) {
+        return true
+      }
+      // 2. Esenzione Minori
+      // Se minorenne esente
+      const numericYear = Number(year)
+      if (isExemptFromPayment(socio, numericYear)) {
+         // Se ha una data di iscrizione, deve essere valida (non futura)
+         // IMPORTANTE: Se NON ha data_prima_iscrizione e NON ha pagato,
+         // tecnicamente non sappiamo quando si è iscritto, quindi NON dovremmo contarlo per evitare falsi positivi negli anni passati.
+         // Tuttavia, se vogliamo essere permissivi per i dati importati male, potremmo controllare se hanno pagamenti in ANNI SUCCESSIVI
+         // che confermerebbero l'iscrizione passata? Per ora rimaniamo fedeli alla richiesta: "da dopo la prima iscrizione".
+         // Quindi la data DEVE esserci ed essere <= numericYear.
+
+         if (socio.data_prima_iscrizione && socio.data_prima_iscrizione <= numericYear) {
+            return true
+         }
+      }
+      return false
+    }
+
+    // Calcolo per ogni anno
+    for (let year = start; year <= end; year++) {
+      let total = 0
+      let newMembers = 0
+      let lostMembers = 0 // Iscritti l'anno prima ma non questo
+
+      // Set di ID iscritti quest'anno (per calcolo churn anno successivo o verifica)
+      const enrolledThisYear = new Set()
+
+      // 1. Calcola Totale e Nuovi
+      for (const socio of allSoci) {
+        if (isEnrolledInYear(socio, year)) {
+          total++
+          enrolledThisYear.add(socio.id)
+
+          // Verifica se è NUOVO
+          // È nuovo se:
+          // a) Sua data_prima_iscrizione è esattamente questo anno
+          // b) OPPURE non ha data_prima_iscrizione ma il suo PRIMO pagamento è questo anno
+          //    (e non era iscritto l'anno prima come minore - caso limite, semplifichiamo)
+
+          let isNew = false
+          if (socio.data_prima_iscrizione === year) {
+            isNew = true
+          } else if (!socio.data_prima_iscrizione) {
+             // Fallback: controlla se questo è il primo anno di pagamento assoluto
+             const years = paymentsMap.get(socio.id)
+             if (years) {
+               const minYear = Math.min(...Array.from(years))
+               if (minYear === year) isNew = true
+             }
+          }
+
+          if (isNew) newMembers++
+        }
+      }
+
+      // 2. Calcola Non Rinnovati (Churn)
+      // Solo se non siamo al primo anno del loop (o serve query anno precedente)
+      // Per semplicità, ricalcoliamo gli iscritti dell'anno precedente
+      if (year > start) {
+         // Recuperiamo chi era iscritto l'anno scorso
+         const prevYear = year - 1
+
+         for (const socio of allSoci) {
+            if (isEnrolledInYear(socio, prevYear)) {
+               // Se era iscritto l'anno scorso...
+               // ...e NON è iscritto quest'anno
+               if (!enrolledThisYear.has(socio.id)) {
+                 lostMembers++
+               }
+            }
+         }
+      }
+
+      stats.push({
+        year,
+        total,
+        newMembers,
+        lostMembers
+      })
+    }
+
+    return stats
+  } catch (error) {
+    console.error('Error calculating yearly stats:', error)
+    throw new Error('Errore nel calcolo delle statistiche annuali')
+  }
+}
+
+/**
  * Gets the reference year for minors list (configurable)
  * @returns {Promise<number>} The reference year for minors
  */
@@ -1151,5 +1401,79 @@ export async function setMinorsReferenceYear(year) {
     throw new Error(
       `Errore nel salvataggio dell'anno di riferimento per i minorenni: ${error.message}`,
     )
+  }
+}
+
+/**
+ * Import database from SQLite file, replacing current data
+ * @param {File} file - The SQLite file to import
+ * @returns {Promise<Object>} Result of import
+ */
+export async function importDatabaseFromSqlite(file) {
+  try {
+    const arrayBuffer = await file.arrayBuffer()
+    const SQL = await initSqlJs({
+       locateFile: (file) => `/${file}`,
+    })
+
+    // Load DB from file
+    const uInt8Array = new Uint8Array(arrayBuffer)
+    const sqliteDb = new SQL.Database(uInt8Array)
+
+    // Verify tables exist
+    // Simple check
+    try {
+      sqliteDb.exec("SELECT count(*) FROM Soci")
+    } catch {
+      throw new Error("Il file non sembra essere un database valido o manca la tabella Soci.")
+    }
+
+    // Clear current Dexie DB
+    await db.transaction('rw', db.soci, db.tesseramenti, db.local_changes, async () => {
+      await db.soci.clear()
+      await db.tesseramenti.clear()
+      await db.local_changes.clear()
+
+      // Import Soci
+      const sociResult = sqliteDb.exec("SELECT * FROM Soci")
+      if (sociResult.length > 0) {
+        const columns = sociResult[0].columns
+        const values = sociResult[0].values
+
+        const sociObjects = values.map(row => {
+          const obj = {}
+          columns.forEach((col, i) => {
+            obj[col] = row[i]
+          })
+          return obj
+        })
+
+        await db.soci.bulkAdd(sociObjects)
+      }
+
+      // Import Tesseramenti
+      const tessResult = sqliteDb.exec("SELECT * FROM Tesseramenti")
+      if (tessResult.length > 0) {
+        const columns = tessResult[0].columns
+        const values = tessResult[0].values
+
+        const tessObjects = values.map(row => {
+          const obj = {}
+          columns.forEach((col, i) => {
+            obj[col] = row[i]
+          })
+          return obj
+        })
+
+        await db.tesseramenti.bulkAdd(tessObjects)
+      }
+    })
+
+    sqliteDb.close()
+
+    return { success: true }
+  } catch (error) {
+    console.error('Import failed:', error)
+    return { success: false, error: error.message }
   }
 }

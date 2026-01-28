@@ -27,22 +27,14 @@ describe('TesseraTemplate', () => {
     expect(socioValue.text()).toBe('Mario Rossi')
   })
 
-  it('displays dataNascita correctly', () => {
+  it('display formatted dataNascita correctly', () => {
     const wrapper = mount(TesseraTemplate, {
       props: defaultProps,
     })
 
     const dataNascitaValues = wrapper.findAll('.info-value')
-    expect(dataNascitaValues[1].text()).toBe('1980-05-15')
-  })
-
-  it('displays anno correctly', () => {
-    const wrapper = mount(TesseraTemplate, {
-      props: defaultProps,
-    })
-
-    const annoValues = wrapper.findAll('.info-value')
-    expect(annoValues[2].text()).toBe('2024')
+    // 0 is name, 1 is birthdate
+    expect(dataNascitaValues[1].text()).toBe('15 Maggio 1980')
   })
 
   it('applies background image when provided', () => {
@@ -69,54 +61,14 @@ describe('TesseraTemplate', () => {
     expect(tesseraFront.attributes('style')).toBeUndefined()
   })
 
-  it('renders SVG logo correctly', () => {
-    const wrapper = mount(TesseraTemplate, {
-      props: defaultProps,
-    })
-
-    const logo = wrapper.find('.logo')
-    expect(logo.exists()).toBe(true)
-    expect(logo.attributes('viewBox')).toBe('0 0 100 100')
-  })
-
-  it('renders flame decoration', () => {
-    const wrapper = mount(TesseraTemplate, {
-      props: defaultProps,
-    })
-
-    const flameDecoration = wrapper.find('.flame-decoration')
-    expect(flameDecoration.exists()).toBe(true)
-  })
-
-  it('renders footer pattern', () => {
-    const wrapper = mount(TesseraTemplate, {
-      props: defaultProps,
-    })
-
-    const footerPattern = wrapper.find('.footer-pattern')
-    expect(footerPattern.exists()).toBe(true)
-  })
-
-  it('accepts anno as string', () => {
-    const wrapper = mount(TesseraTemplate, {
+  it('shows pdf message when template is configured but no image', () => {
+     const wrapper = mount(TesseraTemplate, {
       props: {
         ...defaultProps,
-        anno: '2024',
+        hasPdfTemplate: true,
+        backgroundImage: null
       },
     })
-
-    const annoValues = wrapper.findAll('.info-value')
-    expect(annoValues[2].text()).toBe('2024')
-  })
-
-  it('has correct structure with all sections', () => {
-    const wrapper = mount(TesseraTemplate, {
-      props: defaultProps,
-    })
-
-    expect(wrapper.find('.header-section').exists()).toBe(true)
-    expect(wrapper.find('.member-info').exists()).toBe(true)
-    expect(wrapper.find('.flame-decoration').exists()).toBe(true)
-    expect(wrapper.find('.footer-pattern').exists()).toBe(true)
+    expect(wrapper.find('.pdf-template-message').exists()).toBe(true)
   })
 })

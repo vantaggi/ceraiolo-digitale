@@ -306,6 +306,7 @@ import {
   getUniqueGroups,
   getArretrati,
   findExistingPaymentYear,
+  getSetting,
   db,
 } from '@/services/db'
 import ErrorModal from '@/components/ErrorModal.vue'
@@ -316,7 +317,7 @@ const searchInput = ref(null)
 
 // Dati di sessione
 const sessionData = reactive({
-  annoRiferimento: new Date().getFullYear() + 1,
+  annoRiferimento: new Date().getFullYear(),
   numeroBlocchetto: 1,
   dataPagamento: new Date().toISOString().split('T')[0],
 })
@@ -370,6 +371,13 @@ const paymentData = reactive({
 // Error handling
 const errorMessage = ref('')
 
+// Configuration
+const config = ref({
+  receiptsPerBlock: 10,
+  defaultQuota: 10.0,
+  newMemberQuota: 25.0
+})
+
 // Utility
 const today = new Date().toISOString().split('T')[0]
 const currentYear = new Date().getFullYear()
@@ -411,6 +419,12 @@ onMounted(async () => {
   try {
     // Assicurati che il database sia aperto
     await db.open()
+
+    // Carica configurazioni
+    config.value.receiptsPerBlock = await getSetting('receiptsPerBlock', 10)
+    config.value.defaultQuota = await getSetting('defaultQuota', 10.0)
+    config.value.newMemberQuota = await getSetting('newMemberQuota', 25.0)
+
     await loadGroups()
     validateSessionData()
   } catch (error) {
@@ -426,7 +440,7 @@ watch(
   () => sessionData.numeroBlocchetto,
   (newVal) => {
     if (newVal > 0) {
-      const calculatedReceiptNumber = (newVal - 1) * 10 + 1
+      const calculatedReceiptNumber = (newVal - 1) * config.value.receiptsPerBlock + 1
       currentReceipt.numero = calculatedReceiptNumber
     }
   },
@@ -534,7 +548,7 @@ const performSearch = async () => {
 const selectSocio = (socio) => {
   selectedSocio.value = socio
   paymentData.selectedYears = [sessionData.annoRiferimento] // Default: anno di riferimento
-  paymentData.quota = 25.0 // Default quota
+  paymentData.quota = config.value.defaultQuota // Default quota da config
   showPaymentModal.value = true
 }
 
@@ -640,7 +654,7 @@ const saveNewSocio = async () => {
     await addTesseramento({
       id_socio: socioId,
       anno: sessionData.annoRiferimento,
-      quota_pagata: 25.0, // Quota standard
+      quota_pagata: config.value.newMemberQuota, // Quota maggiorata per nuovi soci
       data_pagamento: sessionData.dataPagamento,
       numero_ricevuta: currentReceipt.numero,
       numero_blocchetto: sessionData.numeroBlocchetto,

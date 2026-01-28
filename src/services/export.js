@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf'
 import { PDFDocument, rgb } from 'pdf-lib'
 import * as XLSX from 'xlsx'
-import { getSetting, exportAllSoci, exportAllTesseramenti } from './db'
+import { getSetting, exportAllSoci, exportAllTesseramenti, isExemptFromPayment } from './db'
 
 /**
  * Crea un documento PDF con configurazione base
@@ -100,12 +100,13 @@ function createPDFTable(doc, headers, rows, startY, rowHeight = 10) {
   doc.setLineWidth(0.5)
   doc.rect(startX, currentY, tableWidth, rowHeight)
 
-  // Testo intestazione
-  headers.forEach((header, index) => {
-    doc.text(header.text, colPositions[index] + 2, currentY + 7)
-  })
+    // Testo intestazione
+    headers.forEach((header, index) => {
+      // Centratura verticale approssimativa: altezza riga / 2 + 1/3 font size
+      doc.text(header.text, colPositions[index] + 2, currentY + rowHeight / 2 + 1.5)
+    })
 
-  currentY += rowHeight
+    currentY += rowHeight
 
   // Righe dati
   doc.setTextColor(0) // Nero
@@ -141,18 +142,25 @@ function createPDFTable(doc, headers, rows, startY, rowHeight = 10) {
     row.forEach((cellValue, cellIndex) => {
       const cellText = String(cellValue || '')
       const maxWidth = headers[cellIndex].width - 4
+      const textY = currentY + rowHeight / 2 + 1.5 // Centratura dinamica
 
-      if (cellText.length > 15 && maxWidth < 50) {
-        // Testo lungo, tronca
-        doc.text(cellText.substring(0, 12) + '...', colPositions[cellIndex] + 2, currentY + 7)
-      } else if (cellText.includes('\n') || cellText.length > 20) {
-        // Testo multi-riga
-        const lines = doc.splitTextToSize(cellText, maxWidth)
-        doc.text(lines, colPositions[cellIndex] + 2, currentY + 5)
+      // Logica migliorata: usa SEMPRE il wrapping per testi lunghi, evitando troncamenti
+      if (cellText.length > 20 || doc.getStringUnitWidth(cellText) * doc.internal.getFontSize() / doc.internal.scaleFactor > maxWidth) {
+         // Testo multi-riga (wrapping automatico)
+         const lines = doc.splitTextToSize(cellText, maxWidth)
+         // Centratura verticale approssimativa per multiriga:
+         // Se sono troppe righe, potrebbe uscire dalla cella, ma meglio che tagliare.
+         // Un calcolo più fine richiederebbe di sapere l'altezza del font
+         const lineHeight = 3.5 // approx per fontSize 9
+         const blockHeight = lines.length * lineHeight
+         const startY = currentY + (rowHeight - blockHeight) / 2 + 2.5
+
+         doc.text(lines, colPositions[cellIndex] + 2, startY)
       } else {
-        // Testo normale
-        doc.text(cellText, colPositions[cellIndex] + 2, currentY + 7)
+        // Testo normale (una riga)
+        doc.text(cellText, colPositions[cellIndex] + 2, textY)
       }
+
     })
 
     currentY += rowHeight
@@ -282,7 +290,10 @@ export async function generateSociPDF(sociList, renewalYear) {
         if (annoPrimaIscrizione) {
           for (let anno = annoPrimaIscrizione; anno < renewalYear; anno++) {
             if (!anniPagati.includes(anno)) {
-              anniArretrati.push(anno)
+              // Check if exempt (minor)
+              if (!isExemptFromPayment(socio, anno)) {
+                anniArretrati.push(anno)
+              }
             }
           }
         }
@@ -297,10 +308,10 @@ export async function generateSociPDF(sociList, renewalYear) {
 
     // Configurazione tabella
     const headers = [
-      { text: 'Cognome e Nome', width: 60 },
+      { text: 'Cognome e Nome', width: 80 },
       { text: 'Gruppo', width: 40 },
-      { text: 'Arretrati', width: 80 },
-      { text: `Pagato ${renewalYear}`, width: 60 },
+      { text: 'Arretrati', width: 70 },
+      { text: `Pagato ${renewalYear}`, width: 50 },
     ]
 
     // Crea tabella
@@ -353,7 +364,7 @@ export function downloadSociPDF(result) {
  * @returns {Promise<boolean>} Success status
  */
 export async function generateAndDownloadSociPDF(sociList) {
-  const renewalYear = new Date().getFullYear() + 1
+  const renewalYear = new Date().getFullYear()
   const result = await generateSociPDF(sociList, renewalYear)
 
   if (result.success) {
@@ -392,7 +403,10 @@ export async function generateRenewalListPDF(soci, renewalYear) {
       if (annoPrimaIscrizione) {
         for (let anno = annoPrimaIscrizione; anno < renewalYear; anno++) {
           if (!anniPagati.includes(anno)) {
-            anniArretrati.push(anno)
+            // Check if exempt (minor)
+            if (!isExemptFromPayment(socio, anno)) {
+              anniArretrati.push(anno)
+            }
           }
         }
       }
@@ -407,10 +421,10 @@ export async function generateRenewalListPDF(soci, renewalYear) {
 
   // Configurazione tabella
   const headers = [
-    { text: 'Cognome e Nome', width: 60 },
+    { text: 'Cognome e Nome', width: 80 },
     { text: 'Gruppo', width: 40 },
-    { text: 'Arretrati', width: 80 },
-    { text: `Pagato ${renewalYear}`, width: 60 },
+    { text: 'Arretrati', width: 70 },
+    { text: `Pagato ${renewalYear}`, width: 50 },
   ]
 
   // Crea tabella
@@ -843,6 +857,8 @@ export async function generateNewMembersPDF(newMembers, year, ageCategory = 'tut
     // Genera filename e output
     const filename = generatePDFFilename('nuovi_soci', { year, ageCategory })
 
+    doc.save(filename)
+
     return {
       success: true,
       blob: doc.output('blob'),
@@ -890,7 +906,7 @@ export async function generateCompletePaymentListPDF(payments, ageCategory = 'tu
 
     // Prepara i dati per la tabella
     const tableData = payments.map((payment) => [
-      `${payment.socio.cognome} ${payment.socio.nome}`.substring(0, 25),
+      `${payment.socio.cognome} ${payment.socio.nome}`,
       payment.anno.toString(),
       payment.data_pagamento || '-',
       payment.quota_pagata ? `€ ${payment.quota_pagata.toFixed(2)}` : '-',
@@ -900,12 +916,12 @@ export async function generateCompletePaymentListPDF(payments, ageCategory = 'tu
 
     // Configurazione tabella
     const headers = [
-      { text: 'Socio', width: 50 },
+      { text: 'Socio', width: 70 },
       { text: 'Anno', width: 20 },
-      { text: 'Data Pagamento', width: 35 },
-      { text: 'Quota', width: 30 },
-      { text: 'Ricevuta', width: 25 },
-      { text: 'Blocchetto', width: 25 },
+      { text: 'Data', width: 30 }, // Shortened label
+      { text: 'Quota', width: 25 },
+      { text: 'Ric.', width: 20 }, // Shortened
+      { text: 'Bloc.', width: 20 }, // Shortened
     ]
 
     // Crea tabella
@@ -916,6 +932,8 @@ export async function generateCompletePaymentListPDF(payments, ageCategory = 'tu
 
     // Genera filename e output
     const filename = generatePDFFilename('lista_completa_pagamenti', { ageCategory })
+
+    doc.save(filename)
 
     return {
       success: true,
@@ -973,20 +991,21 @@ export async function generateMembersByGroupPDF(members, gruppo, ageCategory, pa
 
     // Prepara i dati per la tabella
     const tableData = members.map((member) => [
-      `${member.cognome} ${member.nome}`.substring(0, 25),
+      `${member.cognome} ${member.nome}`,
       member.gruppo_appartenenza || '-',
       member.data_nascita || '-',
-      member.anni_pagati?.join(', ') || '-',
+      // Show only last 5 years to save space
+      member.anni_pagati?.slice(-5).join(', ') || '-',
       member.in_regola ? 'In Regola' : 'Da Regolarizzare',
     ])
 
     // Configurazione tabella
     const headers = [
-      { text: 'Socio', width: 50 },
+      { text: 'Socio', width: 70 }, // Increased from 50
       { text: 'Gruppo', width: 30 },
-      { text: 'Data Nascita', width: 35 },
-      { text: 'Anni Pagati', width: 60 },
-      { text: 'Stato', width: 30 },
+      { text: 'Data Nascita', width: 30 }, // Reduced slightly
+      { text: 'Ultimi Pagamenti', width: 50 }, // Renamed and content limited
+      { text: 'Stato (Corrente)', width: 35 }, // Renamed for clarity
     ]
 
     // Crea tabella
@@ -1004,7 +1023,7 @@ export async function generateMembersByGroupPDF(members, gruppo, ageCategory, pa
 
     // === MODIFICA: AGGIUNTO IL COMANDO DI SALVATAGGIO ===
     // Questo forza il browser a scaricare il file
-    doc.save(filename) 
+    doc.save(filename)
     // ====================================================
 
     return {
@@ -1021,6 +1040,110 @@ export async function generateMembersByGroupPDF(members, gruppo, ageCategory, pa
     }
   }
 }
+
+/**
+ * Generates a PDF with the count of members by group for a specific year
+ * @param {Array} countsData - Array of { group, count } objects
+ * @param {number} year - The year for the report
+ * @returns {Promise<Object>} Result object with success status and blob or error
+ */
+export async function generateGroupCountsPDF(countsData, year) {
+  try {
+    if (!countsData || countsData.length === 0) {
+      throw new Error('Nessun dato da esportare')
+    }
+
+    // Crea documento PDF
+    const doc = createPDFDocument('landscape')
+
+    // Calcola totale
+    const totalMembers = countsData.reduce((sum, item) => sum + item.count, 0)
+
+    // Header
+    const headerY = addPDFHeader(
+      doc,
+      `Riepilogo Iscritti per Gruppo`,
+      `Anno ${year}`,
+      `Totale complessivo: ${totalMembers}`,
+    )
+
+    // Configurazione tabella multi-colonna per risparmiare spazio verticale
+    // Dividiamo i dati in 3 colonne
+    const itemsPerColumn = Math.ceil(countsData.length / 3)
+    const col1Data = countsData.slice(0, itemsPerColumn)
+    const col2Data = countsData.slice(itemsPerColumn, itemsPerColumn * 2)
+    const col3Data = countsData.slice(itemsPerColumn * 2)
+
+    // Normalizziamo le righe per avere la stessa lunghezza
+    const rows = []
+    for (let i = 0; i < itemsPerColumn; i++) {
+        const row = []
+
+        // Colonna 1
+        if (col1Data[i]) {
+            row.push(col1Data[i].group)
+            row.push(col1Data[i].count.toString())
+        } else {
+            row.push('')
+            row.push('')
+        }
+
+        // Colonna 2
+        if (col2Data[i]) {
+            row.push(col2Data[i].group)
+            row.push(col2Data[i].count.toString())
+        } else {
+            row.push('')
+            row.push('')
+        }
+
+        // Colonna 3
+        if (col3Data[i]) {
+            row.push(col3Data[i].group)
+            row.push(col3Data[i].count.toString())
+        } else {
+            row.push('')
+            row.push('')
+        }
+
+        rows.push(row)
+    }
+
+    const headers = [
+      { text: 'Gruppo', width: 65 },
+      { text: 'N.', width: 15 },
+      { text: 'Gruppo', width: 65 },
+      { text: 'N.', width: 15 },
+      { text: 'Gruppo', width: 65 },
+      { text: 'N.', width: 15 },
+    ]
+
+    // Crea tabella compatta
+    createPDFTable(doc, headers, rows, headerY + 10, 7) // 7mm row height for compactness
+
+    // Footer
+    addPDFFooter(doc)
+
+    // Genera filename e output
+    const filename = generatePDFFilename('riepilogo_gruppi', { year })
+
+    doc.save(filename)
+
+    return {
+      success: true,
+      blob: doc.output('blob'),
+      filename,
+      totalGroups: countsData.length,
+    }
+  } catch (error) {
+    console.error('Errore nella generazione del PDF riepilogo gruppi:', error)
+    return {
+      success: false,
+      error: error.message,
+    }
+  }
+}
+
 
 /**
  * Export all data to Excel format with multiple worksheets

@@ -1,191 +1,237 @@
 <template>
   <div class="reports-view">
-    <div class="container">
-      <h1>📊 Centro Stampe e Report</h1>
-      <p>Genera documenti per la giornata dei rinnovi annuali</p>
+    <div class="container reports-layout">
+      <!-- Sidebar -->
+      <aside class="reports-sidebar">
+        <h1 class="sidebar-title">📊 Report</h1>
+        <nav class="reports-nav">
+          <button
+            @click="currentTab = 'rinnovi'"
+            :class="{ active: currentTab === 'rinnovi' }"
+            class="nav-item"
+          >
+            📅 Rinnovi & Tessere
+          </button>
+          <button
+            @click="currentTab = 'liste'"
+            :class="{ active: currentTab === 'liste' }"
+            class="nav-item"
+          >
+            📋 Elenchi Dati
+          </button>
+          <button
+            @click="currentTab = 'export'"
+            :class="{ active: currentTab === 'export' }"
+            class="nav-item"
+          >
+            📦 Export Batch
+          </button>
+        </nav>
+      </aside>
 
-      <!-- Campo Anno Rinnovo -->
-      <div class="year-selector">
-        <label for="renewalYear">Anno del Rinnovo:</label>
-        <input
-          id="renewalYear"
-          v-model.number="renewalYear"
-          type="number"
-          :min="currentYear"
-          :max="currentYear + 5"
-          placeholder="2026"
-        />
-      </div>
+      <!-- Content -->
+      <main class="reports-content">
 
-      <!-- Sezione Lista Rinnovi -->
-      <section class="report-section">
-        <h2>📋 Lista Rinnovi Annuali</h2>
-        <p>Genera una tabella PDF con tutti i soci e i loro arretrati</p>
+        <!-- TAB: RINNOVI & TESSERE -->
+        <div v-if="currentTab === 'rinnovi'">
+            <section class="report-section header-section">
+                <h2>📅 Gestione Rinnovi Annuali</h2>
+                <div class="year-selector-inline">
+                    <label for="renewalYear">Anno di Riferimento:</label>
+                    <input
+                      id="renewalYear"
+                      v-model.number="renewalYear"
+                      type="number"
+                      :min="currentYear"
+                      :max="currentYear + 5"
+                      class="year-input"
+                    />
+                </div>
+            </section>
 
-        <button
-          @click="generateRenewalList"
-          :disabled="!renewalYear || loading"
-          class="primary-button"
-        >
-          {{ loading ? '⏳ Generazione...' : '📄 Genera PDF Lista Rinnovi' }}
-        </button>
-      </section>
+            <div class="reports-grid">
+                <!-- Lista Rinnovi -->
+                <section class="report-card">
+                    <h3>📋 Lista Rinnovi</h3>
+                    <p>Tabella PDF con soci e arretrati.</p>
+                    <button
+                      @click="generateRenewalList"
+                      :disabled="!renewalYear || loading"
+                      class="action-button"
+                    >
+                      {{ loading ? '⏳ ...' : '📄 Genera Lista' }}
+                    </button>
+                </section>
 
-      <!-- Sezione Preview Tessera -->
-      <section class="report-section">
-        <h2>👁️ Preview Tessera</h2>
-        <p>Visualizza come apparirà la tessera prima di generare il PDF</p>
+                <!-- Tessere -->
+                <section class="report-card">
+                    <h3>🎫 Tessere Annuali</h3>
+                    <p>Stampa tessere per tutti i soci.</p>
 
-        <div class="preview-container">
-          <TesseraTemplate
-            :nome-cognome="previewData.nomeCognome"
-            :data-nascita="previewData.dataNascita"
-            :anno="renewalYear || currentYear + 1"
-            :background-image="cardBackground"
-          />
+                    <div class="filter-mini">
+                         <label class="checkbox-label">
+                            <input type="checkbox" v-model="excludeInactiveMembers" :disabled="loading" />
+                            <span class="checkmark"></span>
+                            Escludi inattivi (>5 anni)
+                          </label>
+                          <small v-if="excludeInactiveMembers" style="display:block; margin-top:5px; color: var(--color-text-secondary);">
+                             Attivi: {{ sociStats.active }} / {{ sociStats.total }}
+                          </small>
+                    </div>
+
+                    <div v-if="cardProgress > 0" class="progress-bar-mini">
+                      <div class="fill" :style="{ width: cardProgress + '%' }"></div>
+                    </div>
+
+                    <button @click="generateCards" :disabled="!renewalYear || loading" class="action-button">
+                      {{ loading ? '⏳ ...' : '🎫 Genera Tessere' }}
+                    </button>
+                </section>
+            </div>
+
+            <!-- Preview -->
+            <section class="report-section" style="margin-top: 2rem;">
+                <h3>👁️ Anteprima Tessera</h3>
+                <div class="preview-wrapper">
+                    <div class="preview-container">
+                      <TesseraTemplate
+                        :nome-cognome="previewData.nomeCognome"
+                        :data-nascita="previewData.dataNascita"
+                        :anno="renewalYear || currentYear + 1"
+                        :background-image="cardBackground"
+                      />
+                    </div>
+                    <div class="preview-inputs">
+                        <label>Nome:</label>
+                        <input v-model="previewData.nomeCognome" class="small-input" />
+                        <label>Data:</label>
+                        <input v-model="previewData.dataNascita" type="date" class="small-input" />
+                    </div>
+                </div>
+            </section>
         </div>
 
-        <div class="preview-controls">
-          <div class="control-group">
-            <label>Nome e Cognome:</label>
-            <input v-model="previewData.nomeCognome" type="text" placeholder="Mario Rossi" />
-          </div>
+        <!-- TAB: LISTE DATI -->
+        <div v-if="currentTab === 'liste'">
+             <h2>📋 Elenchi e Statistiche</h2>
 
-          <div class="control-group">
-            <label>Data di nascita:</label>
-            <input v-model="previewData.dataNascita" type="date" placeholder="1980-05-15" />
-          </div>
-        </div>
-      </section>
+             <!-- Nuovi Soci -->
+             <section class="report-section">
+                <h3>🆕 Nuovi Soci</h3>
+                <div class="filters-inline">
+                    <label>Anno:</label>
+                    <input
+                        v-model.number="newMembersFilters.year"
+                        type="number"
+                        :min="currentYear - 10"
+                        :max="currentYear"
+                        class="small-input"
+                    />
+                    <AgeCategoryFilter v-model="newMembersFilters.ageCategory" />
+                </div>
+                <button
+                  @click="generateNewMembersList"
+                  :disabled="!newMembersFilters.year || loading"
+                  class="action-button wide"
+                >
+                  📄 Genera Report Nuovi Soci
+                </button>
+             </section>
 
-      <!-- Sezione Tessere -->
-      <section class="report-section">
-        <h2>🎫 Tessere Annuali</h2>
-        <p>Genera tessere pre-stampate per tutti i soci</p>
+             <!-- Soci per Gruppo -->
+             <section class="report-section">
+                <h3>👥 Soci per Gruppo</h3>
+                <div class="filters-grid-compact">
+                    <div class="f-group">
+                        <label>Gruppo:</label>
+                        <select v-model="groupFilters.gruppo" class="small-input">
+                          <option value="">Tutti</option>
+                          <option v-for="group in availableGroups" :key="group" :value="group">{{ group }}</option>
+                        </select>
+                    </div>
+                    <div class="f-group">
+                         <label>Età:</label>
+                         <AgeCategoryFilter v-model="groupFilters.ageCategory" />
+                    </div>
+                    <div class="f-group">
+                        <label>Stato:</label>
+                        <select v-model="groupFilters.paymentStatus" class="small-input">
+                          <option value="tutti">Tutti</option>
+                          <option value="in_regola">In Regola</option>
+                          <option value="non_in_regola">Non in Regola</option>
+                        </select>
+                    </div>
+                </div>
+                <button @click="generateMembersByGroup" :disabled="loading" class="action-button wide">
+                  📄 Genera Report Gruppi
+                </button>
 
-        <!-- Filtro soci inattivi -->
-        <div class="filter-section">
-          <label class="checkbox-label">
-            <input type="checkbox" v-model="excludeInactiveMembers" :disabled="loading" />
-            <span class="checkmark"></span>
-            Escludi soci inattivi (senza rinnovo da 5+ anni)
-          </label>
-          <div v-if="excludeInactiveMembers && sociStats.total > 0" class="filter-info">
-            <small>
-              Soci attivi: {{ sociStats.active }} su {{ sociStats.total }} (esclusi:
-              {{ sociStats.inactive }})
-            </small>
-          </div>
-        </div>
+             </section>
 
-        <div v-if="cardProgress > 0" class="progress-bar">
-          <div class="progress-fill" :style="{ width: cardProgress + '%' }"></div>
-          <span class="progress-text">{{ Math.round(cardProgress) }}% completato</span>
-        </div>
+             <!-- Riepilogo Numerico Gruppi -->
+             <section class="report-section">
+                <h3>🔢 Riepilogo Numerico Gruppi</h3>
+                <p>Genera un foglio unico con il conteggio degli iscritti per ogni gruppo.</p>
+                <div class="filters-inline">
+                    <label>Anno Riferimento:</label>
+                    <input
+                        v-model.number="groupCountsYear"
+                        type="number"
+                        :min="currentYear - 10"
+                        :max="currentYear + 5"
+                        class="small-input"
+                    />
+                </div>
+                <button
+                  @click="generateGroupCountsReport"
+                  :disabled="!groupCountsYear || loading"
+                  class="action-button wide"
+                >
+                  📊 Genera Riepilogo Numerico
+                </button>
+             </section>
 
-        <button @click="generateCards" :disabled="!renewalYear || loading" class="primary-button">
-          {{ loading ? '⏳ Generazione...' : '🎫 Genera PDF Tessere' }}
-        </button>
-      </section>
-
-      <!-- Sezione Nuovi Soci -->
-      <section class="report-section">
-        <h2>🆕 Lista Nuovi Soci</h2>
-        <p>Genera lista dei soci iscritti per la prima volta in un anno specifico</p>
-
-        <div class="filters-grid">
-          <div class="filter-group">
-            <label for="newMembersYear">Anno:</label>
-            <input
-              id="newMembersYear"
-              v-model.number="newMembersFilters.year"
-              type="number"
-              :min="currentYear - 10"
-              :max="currentYear"
-              class="form-input"
-            />
-          </div>
-
-          <AgeCategoryFilter id="newMembersAge" v-model="newMembersFilters.ageCategory" />
-        </div>
-
-        <button
-          @click="generateNewMembersList"
-          :disabled="!newMembersFilters.year || loading"
-          class="primary-button"
-        >
-          {{ loading ? '⏳ Generazione...' : '📄 Genera PDF Nuovi Soci' }}
-        </button>
-      </section>
-
-      <!-- Sezione Lista Completa Pagamenti -->
-      <section class="report-section">
-        <h2>💰 Lista Completa Pagamenti</h2>
-        <p>Genera lista di tutti i pagamenti registrati con dettagli completi</p>
-
-        <div class="filters-grid">
-          <AgeCategoryFilter id="paymentsAge" v-model="paymentsFilters.ageCategory" />
-        </div>
-
-        <button @click="generateCompletePaymentsList" :disabled="loading" class="primary-button">
-          {{ loading ? '⏳ Generazione...' : '📄 Genera PDF Lista Pagamenti' }}
-        </button>
-      </section>
-
-      <!-- Sezione Soci per Gruppo -->
-      <section class="report-section">
-        <h2>👥 Soci per Gruppo</h2>
-        <p>Genera lista dei soci raggruppati per appartenenza con filtri avanzati</p>
-
-        <div class="filters-grid">
-          <div class="filter-group">
-            <label for="groupFilter">Gruppo:</label>
-            <select id="groupFilter" v-model="groupFilters.gruppo" class="form-input">
-              <option value="">Tutti i gruppi</option>
-              <option v-for="group in availableGroups" :key="group" :value="group">
-                {{ group }}
-              </option>
-            </select>
-          </div>
-
-          <AgeCategoryFilter id="groupAge" v-model="groupFilters.ageCategory" />
-
-          <div class="filter-group">
-            <label for="paymentStatus">Stato Pagamento:</label>
-            <select id="paymentStatus" v-model="groupFilters.paymentStatus" class="form-input">
-              <option value="tutti">Tutti</option>
-              <option value="in_regola">In Regola</option>
-              <option value="non_in_regola">Non in Regola</option>
-            </select>
-          </div>
+             <!-- Lista Pagamenti -->
+             <section class="report-section">
+                <h3>💰 Cronologia Pagamenti</h3>
+                <div class="filters-inline">
+                     <AgeCategoryFilter v-model="paymentsFilters.ageCategory" />
+                </div>
+                <button @click="generateCompletePaymentsList" :disabled="loading" class="action-button wide">
+                  📄 Genera Report Completo Pagamenti
+                </button>
+             </section>
         </div>
 
-        <button @click="generateMembersByGroup" :disabled="loading" class="primary-button">
-          {{ loading ? '⏳ Generazione...' : '📄 Genera PDF Soci per Gruppo' }}
-        </button>
-      </section>
+        <!-- TAB: EXPORT -->
+        <div v-if="currentTab === 'export'">
+            <section class="report-section">
+                <h2>📦 Esportazione Complessiva</h2>
+                <p>Genera e scarica tutti i report configurati in un'unica operazione.</p>
 
-      <!-- Sezione Esportazione Multipla -->
-      <section class="report-section">
-        <h2>📦 Esportazione Multipla</h2>
-        <p>Genera tutti i report in un'unica operazione</p>
-
-        <div class="batch-export-options">
-          <div class="export-option">
-            <h3>🎯 Report Selezionati</h3>
-            <p>Genera tutti i PDF configurati sopra in un'unica cartella</p>
-            <button @click="generateAllReports" :disabled="loading" class="primary-button">
-              {{ loading ? '⏳ Generazione...' : '📦 Genera Tutti i Report' }}
-            </button>
-          </div>
+                <div class="batch-box">
+                    <ul>
+                        <li>Lista Rinnovi ({{ renewalYear }})</li>
+                        <li>Nuovi Soci ({{ newMembersFilters.year }})</li>
+                        <li>Lista Pagamenti</li>
+                        <li>Soci per Gruppo</li>
+                        <li>Riepilogo Numerico Gruppi ({{ groupCountsYear }})</li>
+                    </ul>
+                    <button @click="generateAllReports" :disabled="loading" class="action-button wide">
+                      {{ loading ? '⏳ Generazione in corso...' : '📦 SCARICA TUTTI I REPORT' }}
+                    </button>
+                </div>
+            </section>
         </div>
-      </section>
 
-      <!-- Stato Caricamento -->
+      </main>
+
+      <!-- Loading Overlay -->
       <div v-if="loading" class="loading-overlay">
         <div class="spinner"></div>
         <p>{{ loadingMessage }}</p>
       </div>
+
     </div>
   </div>
 </template>
@@ -199,6 +245,7 @@ import {
   generateNewMembersPDF,
   generateCompletePaymentListPDF,
   generateMembersByGroupPDF,
+  generateGroupCountsPDF,
 } from '@/services/export'
 import {
   getAllSociWithTesseramenti,
@@ -206,13 +253,15 @@ import {
   getCompletePaymentList,
   getMembersByGroup,
   getUniqueGroups,
+  getGroupCountsForYear,
   getSetting,
 } from '@/services/db'
 import TesseraTemplate from '@/components/TesseraTemplate.vue'
 import AgeCategoryFilter from '@/components/AgeCategoryFilter.vue'
 
 // Stato del componente
-const renewalYear = ref(new Date().getFullYear() + 1)
+const currentTab = ref('rinnovi')
+const renewalYear = ref(new Date().getFullYear())
 const loading = ref(false)
 const loadingMessage = ref('')
 const cardProgress = ref(0)
@@ -252,6 +301,9 @@ const groupFilters = reactive({
   ageCategory: 'tutti',
   paymentStatus: 'tutti',
 })
+
+// Year for group counts report
+const groupCountsYear = ref(currentYear)
 
 onMounted(async () => {
   try {
@@ -413,6 +465,41 @@ const generateMembersByGroup = async () => {
 }
 
 /**
+ * Genera il report riepilogativo numerico per gruppi
+ */
+const generateGroupCountsReport = async () => {
+  if (!groupCountsYear.value) return
+
+  try {
+    loading.value = true
+    loadingMessage.value = 'Calcolo totali per gruppo...'
+    toast.info('Calcolo dati in corso...')
+
+    const counts = await getGroupCountsForYear(groupCountsYear.value)
+
+    if (counts.length === 0) {
+      toast.warning(`Nessun tesseramento trovato per l'anno ${groupCountsYear.value}`)
+      return
+    }
+
+    loadingMessage.value = 'Generazione PDF...'
+    const result = await generateGroupCountsPDF(counts, groupCountsYear.value)
+
+    if (result.success) {
+      toast.success(`Report generato con successo! (${result.totalGroups} gruppi censiti)`)
+    } else {
+      throw new Error(result.error)
+    }
+  } catch (error) {
+    console.error('Errore generazione riepilogo gruppi:', error)
+    toast.error('Errore: ' + error.message)
+  } finally {
+    loading.value = false
+    loadingMessage.value = ''
+  }
+}
+
+/**
  * Genera tutti i report in un'unica operazione
  */
 const generateAllReports = async () => {
@@ -468,6 +555,14 @@ const generateAllReports = async () => {
       groupFilters.paymentStatus,
     )
     if (membersResult.success) reports.push('Soci per Gruppo')
+
+    // 5. Riepilogo Gruppi
+    loadingMessage.value = 'Generazione riepilogo gruppi...'
+    const counts = await getGroupCountsForYear(groupCountsYear.value)
+    if (counts.length > 0) {
+       const countsResult = await generateGroupCountsPDF(counts, groupCountsYear.value)
+       if (countsResult.success) reports.push('Riepilogo Gruppi')
+    }
 
     toast.success(`Generati ${reports.length} report: ${reports.join(', ')}`)
   } catch (error) {
@@ -572,66 +667,155 @@ const generateCards = async () => {
   padding: 2rem 0;
 }
 
-.container {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 0 2rem;
+.reports-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 2rem;
+  min-height: calc(100vh - 100px);
 }
 
-h1 {
+.reports-sidebar {
+  padding-right: 1.5rem;
+  border-right: 1px solid var(--color-border);
+}
+
+.reports-sidebar .sidebar-title {
+  font-size: 1.1rem;
   color: var(--color-primary);
-  text-align: center;
-  margin-bottom: 0.5rem;
+  margin-bottom: 2rem;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.container > p {
-  text-align: center;
+.reports-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.nav-item {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  border: none;
+  background: transparent;
   color: var(--color-text-secondary);
-  margin-bottom: 2rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
 }
 
-.year-selector {
+.nav-item:hover {
   background-color: var(--color-surface);
-  padding: 2rem;
-  border-radius: 12px;
-  margin-bottom: 2rem;
-  box-shadow: var(--shadow-md);
-  text-align: center;
-}
-
-.year-selector label {
-  display: block;
-  margin-bottom: 1rem;
-  font-weight: 600;
   color: var(--color-text-primary);
 }
 
-.year-selector input {
-  padding: 0.75rem 1rem;
-  border: 2px solid var(--color-border);
-  border-radius: 8px;
-  font-size: 1.1rem;
-  text-align: center;
-  width: 120px;
+.nav-item.active {
+  background-color: var(--color-accent);
+  color: white;
 }
 
+.reports-content {
+  padding-bottom: 3rem;
+}
+
+/* Sections */
 .report-section {
   background-color: var(--color-surface);
-  padding: 2rem;
+  padding: 1.5rem;
   border-radius: 12px;
   margin-bottom: 2rem;
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-border);
 }
 
-.report-section h2 {
-  color: var(--color-primary);
-  margin-top: 0;
-  margin-bottom: 0.5rem;
+.header-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--color-surface);
+    padding: 1.5rem;
 }
 
-.report-section p {
-  color: var(--color-text-secondary);
-  margin-bottom: 1.5rem;
+.header-section h2 {
+    margin: 0;
+    color: var(--color-primary);
+}
+
+/* Grid for Cards */
+.reports-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+}
+
+.report-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    padding: 1.5rem;
+    box-shadow: var(--shadow-sm);
+}
+
+.report-card h3 {
+    margin-top: 0;
+    color: var(--color-text-primary);
+    font-size: 1.1rem;
+}
+
+.report-card p {
+    color: var(--color-text-secondary);
+    font-size: 0.9rem;
+    margin-bottom: 1.5rem;
+    min-height: 40px;
+}
+
+/* Inputs & Buttons */
+.year-selector-inline {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.year-input {
+    padding: 0.5rem;
+    width: 100px;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    font-weight: bold;
+}
+
+.action-button {
+  background-color: var(--color-accent);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  width: 100%;
+  transition: all 0.2s;
+}
+
+.action-button:hover:not(:disabled) {
+    background-color: #a22a2a;
+    transform: translateY(-1px);
+}
+
+.action-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.action-button.wide {
+    width: auto;
+    min-width: 200px;
 }
 
 .primary-button {
@@ -651,42 +835,114 @@ h1 {
 }
 
 .primary-button:hover:not(:disabled) {
-  background-color: #c62828;
-  transform: translateY(-1px);
+    background-color: #a22a2a;
+    transform: translateY(-1px);
 }
 
-.primary-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
+/* Preview Area */
+.preview-wrapper {
+    display: flex;
+    gap: 2rem;
+    align-items: flex-start;
 }
 
-.progress-bar {
-  width: 100%;
-  height: 40px;
-  background-color: var(--color-border);
-  border-radius: 20px;
-  margin-bottom: 1rem;
-  overflow: hidden;
-  position: relative;
+
+.preview-container {
+    background: white;
+    border-radius: 8px;
+    padding: 2rem;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    justify-content: center;
+    border: 1px solid var(--color-border);
 }
 
-.progress-fill {
-  height: 100%;
-  background-color: var(--color-accent);
-  transition: width 0.3s ease;
+.preview-inputs {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    flex: 1;
 }
 
-.progress-text {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: white;
-  font-weight: 600;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+.small-input {
+    padding: 0.5rem;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    width: 100%;
 }
 
+/* Filters */
+.filters-inline {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.filters-grid-compact {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.f-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.f-group label {
+    font-size: 0.8rem;
+    color: var(--color-text-secondary);
+    font-weight: 600;
+}
+
+/* Progress Bar Mini */
+.progress-bar-mini {
+    height: 6px;
+    background: var(--color-border);
+    border-radius: 3px;
+    margin: 1rem 0;
+    overflow: hidden;
+}
+.fill {
+    height: 100%;
+    background: var(--color-success);
+    transition: width 0.3s;
+}
+
+/* Batch Box */
+.batch-box {
+    background: var(--color-background);
+    padding: 2rem;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.batch-box ul {
+    list-style: none;
+    padding: 0;
+    margin-bottom: 2rem;
+}
+
+.batch-box li {
+    display: inline-block;
+    background: var(--color-surface);
+    padding: 0.3rem 0.8rem;
+    margin: 0.3rem;
+    border-radius: 20px;
+    border: 1px solid var(--color-border);
+    font-size: 0.9rem;
+}
+
+.primary-button.large {
+    font-size: 1.1rem;
+    padding: 1rem 3rem;
+}
+
+/* Loading Overlay */
 .loading-overlay {
   position: fixed;
   top: 0;
@@ -699,196 +955,71 @@ h1 {
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  color: white;
 }
 
 .spinner {
-  width: 50px;
-  height: 50px;
-  border: 4px solid var(--color-border);
-  border-top-color: var(--color-accent);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 1rem;
+   width: 40px;
+   height: 40px;
+   border: 3px solid rgba(255,255,255,0.3);
+   border-top-color: white;
+   border-radius: 50%;
+   animation: spin 1s infinite linear;
+   margin-bottom: 1rem;
 }
 
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
+@keyframes spin { to { transform: rotate(360deg); } }
 
-.loading-overlay p {
-  color: white;
-  font-size: 1.1rem;
-  font-weight: 600;
-}
-
-/* Preview Tessera */
-.preview-container {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 2rem;
-  padding: 2rem;
-  background-color: #f8f8f8;
-  border-radius: 8px;
-  border: 2px dashed var(--color-border);
-}
-
-.preview-controls {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 1rem;
-  margin-top: 1rem;
-}
-
-.control-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.control-group label {
-  font-weight: 600;
-  color: var(--color-text-primary);
-  font-size: 0.9rem;
-}
-
-.control-group input {
-  padding: 0.75rem;
-  border: 2px solid var(--color-border);
-  border-radius: 6px;
-  font-size: 1rem;
-  transition: border-color 0.2s;
-}
-
-.control-group input:focus {
-  outline: none;
-  border-color: var(--color-accent);
-}
-
-/* Filters */
-.filters-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
-  margin-bottom: 2rem;
-}
-
-.filter-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.filter-group label {
-  font-weight: 600;
-  color: var(--color-text-primary);
-  font-size: 0.9rem;
-}
-
-.form-input {
-  padding: 0.75rem;
-  border: 2px solid var(--color-border);
-  border-radius: 8px;
-  font-size: 1rem;
-  font-family: var(--font-family-body);
-  transition: border-color 0.2s;
-  background-color: var(--color-background);
-  color: var(--color-text-primary);
-}
-
-.form-input:focus {
-  outline: none;
-  border-color: var(--color-accent);
-}
-
-.form-input:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-/* Batch Export */
-.batch-export-options {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.export-option {
-  background: var(--color-background);
-  padding: 1.5rem;
-  border-radius: 8px;
-  border: 1px solid var(--color-border);
-}
-
-.export-option h3 {
-  margin: 0 0 0.5rem 0;
-  color: var(--color-primary);
-  font-size: 1.1rem;
-}
-
-.export-option p {
-  margin: 0;
-  color: var(--color-text-secondary);
-  font-size: 0.9rem;
-  line-height: 1.4;
-}
-
-/* Filter Section */
-.filter-section {
-  margin-bottom: 1.5rem;
-}
-
+/* Checkbox */
 .checkbox-label {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
   cursor: pointer;
-  font-size: 1rem;
-  color: var(--color-text-primary);
   user-select: none;
 }
-
-.checkbox-label input[type='checkbox'] {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--color-accent);
-  cursor: pointer;
-}
-
 .checkmark {
-  display: inline-block;
   width: 18px;
   height: 18px;
   border: 2px solid var(--color-border);
-  border-radius: 4px;
-  background-color: var(--color-background);
-  position: relative;
-  transition: all 0.2s;
+  background: var(--color-background);
+  display: inline-block;
+}
+input:checked + .checkmark {
+  background: var(--color-success);
+  border-color: var(--color-success);
 }
 
-.checkbox-label input[type='checkbox']:checked + .checkmark {
-  background-color: var(--color-accent);
-  border-color: var(--color-accent);
+/* Responsive */
+@media (max-width: 900px) {
+  .reports-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .reports-sidebar {
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: 1rem;
+  }
+  .reports-nav {
+      flex-direction: row;
+      overflow-x: auto;
+  }
+  .reports-grid, .filters-grid-compact {
+      grid-template-columns: 1fr;
+  }
+  .preview-wrapper {
+      flex-direction: column;
+  }
+  .preview-container {
+      transform: scale(1);
+      width: 100%;
+  }
 }
 
-.checkbox-label input[type='checkbox']:checked + .checkmark::after {
-  content: '✓';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: white;
-  font-size: 12px;
-  font-weight: bold;
-}
-
-.filter-info {
-  margin-top: 0.75rem;
-  padding: 0.75rem;
-  background-color: var(--color-background);
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  color: var(--color-text-secondary);
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 2rem;
 }
 </style>

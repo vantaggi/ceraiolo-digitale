@@ -1,6 +1,5 @@
 <template>
   <div class="age-category-filter">
-    <label :for="id" class="filter-label">{{ label }}</label>
     <select
       :id="id"
       :value="modelValue"
@@ -9,7 +8,7 @@
     >
       <option value="tutti">Tutti</option>
       <option value="maggiorenni">Maggiorenni (18+)</option>
-      <option value="minorenni">Minorenni (<18)</option>
+      <option value="minorenni">Minorenni (&lt;18)</option>
     </select>
   </div>
 </template>

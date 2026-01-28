@@ -135,8 +135,8 @@ const cardStyle = computed(() => ({
 
 /* PDF Template Styles */
 .pdf-template {
-  background-color: #f5f5f5;
-  border: 2px dashed #ccc;
+  background-color: var(--color-background);
+  border: 2px dashed var(--color-border);
 }
 
 .pdf-template-message {
