@@ -2,6 +2,29 @@ import jsPDF from 'jspdf'
 import { PDFDocument, rgb } from 'pdf-lib'
 import * as XLSX from 'xlsx'
 import { getSetting, exportAllSoci, exportAllTesseramenti, isExemptFromPayment } from './db'
+import logoUrl from '@/assets/logo_santantoniari.jpg'
+
+/**
+ * Carica un'immagine da URL e la converte in Base64
+ * @param {string} url - URL dell'immagine
+ * @returns {Promise<string>} Base64 Data URL
+ */
+const loadImage = (url) => {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.crossOrigin = 'Anonymous'
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = img.width
+      canvas.height = img.height
+      const ctx = canvas.getContext('2d')
+      ctx.drawImage(img, 0, 0)
+      resolve(canvas.toDataURL('image/jpeg'))
+    }
+    img.onerror = reject
+    img.src = url
+  })
+}
 
 /**
  * Crea un documento PDF con configurazione base
@@ -23,14 +46,27 @@ function createPDFDocument(orientation = 'landscape', format = 'a4') {
  * @param {string} title - Titolo principale
  * @param {string} subtitle - Sottotitolo (opzionale)
  * @param {string} summary - Testo riassuntivo (opzionale)
+ * @param {string} logoData - Dati Base64 del logo (opzionale)
  * @returns {number} Posizione Y dopo l'header
  */
-function addPDFHeader(doc, title, subtitle = '', summary = '') {
+function addPDFHeader(doc, title, subtitle = '', summary = '', logoData = null) {
   let currentY = 20
+
+  // Aggiungi Logo se presente
+  if (logoData) {
+    try {
+      // x=10, y=10, w=25, h=auto (mantieni aspect ratio se possibile, altrimenti quadrato)
+      // assumiamo logo quadrato per semplicità o fisso
+      doc.addImage(logoData, 'JPEG', 10, 10, 25, 25)
+    } catch (e) {
+      console.error('Errore aggiunta logo al PDF', e)
+    }
+  }
 
   // Titolo principale
   doc.setFontSize(20)
   doc.setFont('helvetica', 'bold')
+  // Centra il titolo. Se c'è il logo, il centro è comunque 148 (A4 landscape width 297 / 2)
   doc.text(title, 148, currentY, { align: 'center' })
   currentY += 10
 
@@ -100,13 +136,13 @@ function createPDFTable(doc, headers, rows, startY, rowHeight = 10) {
   doc.setLineWidth(0.5)
   doc.rect(startX, currentY, tableWidth, rowHeight)
 
-    // Testo intestazione
-    headers.forEach((header, index) => {
-      // Centratura verticale approssimativa: altezza riga / 2 + 1/3 font size
-      doc.text(header.text, colPositions[index] + 2, currentY + rowHeight / 2 + 1.5)
-    })
+  // Testo intestazione
+  headers.forEach((header, index) => {
+    // Centratura verticale approssimativa: altezza riga / 2 + 1/3 font size
+    doc.text(header.text, colPositions[index] + 2, currentY + rowHeight / 2 + 1.5)
+  })
 
-    currentY += rowHeight
+  currentY += rowHeight
 
   // Righe dati
   doc.setTextColor(0) // Nero
@@ -145,22 +181,25 @@ function createPDFTable(doc, headers, rows, startY, rowHeight = 10) {
       const textY = currentY + rowHeight / 2 + 1.5 // Centratura dinamica
 
       // Logica migliorata: usa SEMPRE il wrapping per testi lunghi, evitando troncamenti
-      if (cellText.length > 20 || doc.getStringUnitWidth(cellText) * doc.internal.getFontSize() / doc.internal.scaleFactor > maxWidth) {
-         // Testo multi-riga (wrapping automatico)
-         const lines = doc.splitTextToSize(cellText, maxWidth)
-         // Centratura verticale approssimativa per multiriga:
-         // Se sono troppe righe, potrebbe uscire dalla cella, ma meglio che tagliare.
-         // Un calcolo più fine richiederebbe di sapere l'altezza del font
-         const lineHeight = 3.5 // approx per fontSize 9
-         const blockHeight = lines.length * lineHeight
-         const startY = currentY + (rowHeight - blockHeight) / 2 + 2.5
+      if (
+        cellText.length > 20 ||
+        (doc.getStringUnitWidth(cellText) * doc.internal.getFontSize()) / doc.internal.scaleFactor >
+          maxWidth
+      ) {
+        // Testo multi-riga (wrapping automatico)
+        const lines = doc.splitTextToSize(cellText, maxWidth)
+        // Centratura verticale approssimativa per multiriga:
+        // Se sono troppe righe, potrebbe uscire dalla cella, ma meglio che tagliare.
+        // Un calcolo più fine richiederebbe di sapere l'altezza del font
+        const lineHeight = 3.5 // approx per fontSize 9
+        const blockHeight = lines.length * lineHeight
+        const startY = currentY + (rowHeight - blockHeight) / 2 + 2.5
 
-         doc.text(lines, colPositions[cellIndex] + 2, startY)
+        doc.text(lines, colPositions[cellIndex] + 2, startY)
       } else {
         // Testo normale (una riga)
         doc.text(cellText, colPositions[cellIndex] + 2, textY)
       }
-
     })
 
     currentY += rowHeight
@@ -265,6 +304,14 @@ export async function generateSociPDF(sociList, renewalYear) {
     // Crea documento PDF
     const doc = createPDFDocument()
 
+    // Carica Logo
+    let logoData = null
+    try {
+      logoData = await loadImage(logoUrl)
+    } catch (e) {
+      console.warn('Impossibile caricare il logo per il PDF', e)
+    }
+
     // Header
     const gruppoNome = sociList[0]?.gruppo_appartenenza || 'Tutti'
     const headerY = addPDFHeader(
@@ -272,6 +319,7 @@ export async function generateSociPDF(sociList, renewalYear) {
       `Elenco ${gruppoNome}`,
       `Anno ${renewalYear}`,
       `Totale soci: ${sociList.length}`,
+      logoData,
     )
 
     // Prepara i dati per la tabella
@@ -384,8 +432,16 @@ export async function generateRenewalListPDF(soci, renewalYear) {
   // Crea documento PDF
   const doc = createPDFDocument()
 
+  // Carica Logo
+  let logoData = null
+  try {
+    logoData = await loadImage(logoUrl)
+  } catch (e) {
+    console.warn('Impossibile caricare il logo per il PDF', e)
+  }
+
   // Header
-  const headerY = addPDFHeader(doc, 'Lista Rinnovi Annuali', `Anno ${renewalYear}`)
+  const headerY = addPDFHeader(doc, 'Lista Rinnovi Annuali', `Anno ${renewalYear}`, '', logoData)
 
   // Prepara i dati per la tabella
   const tableData = soci
@@ -786,13 +842,14 @@ export async function generateAllCardsPDF(soci, renewalYear, onProgress = () => 
     )
 
     // Ritorna un array con un solo elemento (per compatibilità)
-    return [{
-      letter: 'ALL', // Identificativo generico
-      filename: fileName,
-      blob: blob,
-      count: totaleSoci,
-    }]
-
+    return [
+      {
+        letter: 'ALL', // Identificativo generico
+        filename: fileName,
+        blob: blob,
+        count: totaleSoci,
+      },
+    ]
   } catch (error) {
     console.error('Errore nella generazione del PDF delle tessere:', error)
     throw error
@@ -1077,36 +1134,36 @@ export async function generateGroupCountsPDF(countsData, year) {
     // Normalizziamo le righe per avere la stessa lunghezza
     const rows = []
     for (let i = 0; i < itemsPerColumn; i++) {
-        const row = []
+      const row = []
 
-        // Colonna 1
-        if (col1Data[i]) {
-            row.push(col1Data[i].group)
-            row.push(col1Data[i].count.toString())
-        } else {
-            row.push('')
-            row.push('')
-        }
+      // Colonna 1
+      if (col1Data[i]) {
+        row.push(col1Data[i].group)
+        row.push(col1Data[i].count.toString())
+      } else {
+        row.push('')
+        row.push('')
+      }
 
-        // Colonna 2
-        if (col2Data[i]) {
-            row.push(col2Data[i].group)
-            row.push(col2Data[i].count.toString())
-        } else {
-            row.push('')
-            row.push('')
-        }
+      // Colonna 2
+      if (col2Data[i]) {
+        row.push(col2Data[i].group)
+        row.push(col2Data[i].count.toString())
+      } else {
+        row.push('')
+        row.push('')
+      }
 
-        // Colonna 3
-        if (col3Data[i]) {
-            row.push(col3Data[i].group)
-            row.push(col3Data[i].count.toString())
-        } else {
-            row.push('')
-            row.push('')
-        }
+      // Colonna 3
+      if (col3Data[i]) {
+        row.push(col3Data[i].group)
+        row.push(col3Data[i].count.toString())
+      } else {
+        row.push('')
+        row.push('')
+      }
 
-        rows.push(row)
+      rows.push(row)
     }
 
     const headers = [
@@ -1143,7 +1200,6 @@ export async function generateGroupCountsPDF(countsData, year) {
     }
   }
 }
-
 
 /**
  * Export all data to Excel format with multiple worksheets

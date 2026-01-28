@@ -1,7 +1,6 @@
 <template>
   <div class="batch-entry">
     <div class="batch-header">
-      <router-link to="/" class="back-link">← Torna alla ricerca</router-link>
       <h1>🔄 Registrazione Seriale Pagamenti</h1>
       <p class="batch-subtitle">Flusso ottimizzato per blocchetti cartacei</p>
     </div>
@@ -291,8 +290,6 @@
       @close="closePaymentModal"
       @payments-saved="handleSavePayments"
     />
-
-    <!-- Vecchio Modal Pagamento (rimosso - ora usa AddPaymentModal) -->
   </div>
 </template>
 
@@ -375,7 +372,7 @@ const errorMessage = ref('')
 const config = ref({
   receiptsPerBlock: 10,
   defaultQuota: 10.0,
-  newMemberQuota: 25.0
+  newMemberQuota: 25.0,
 })
 
 // Utility
@@ -727,23 +724,6 @@ const formatDate = (dateString) => {
   margin: 0;
 }
 
-.back-link {
-  position: absolute;
-  top: 2rem;
-  left: 2rem;
-  color: var(--color-text-secondary);
-  text-decoration: none;
-  font-weight: 500;
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
-  transition: all 0.2s;
-}
-
-.back-link:hover {
-  background-color: var(--color-surface);
-  color: var(--color-accent);
-}
-
 /* Session Data */
 .session-data {
   background-color: var(--color-surface);
@@ -930,22 +910,29 @@ const formatDate = (dateString) => {
 
 .clear-search-btn {
   position: absolute;
-  right: 10px;
+  right: 12px;
   top: 50%;
   transform: translateY(-50%);
-  background: none;
-  border: none;
+  background-color: var(--color-background);
+  border: 1px solid var(--color-border);
   color: var(--color-text-secondary);
   cursor: pointer;
-  font-size: 1.2rem;
-  padding: 0.25rem;
+  font-size: 0.9rem;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transition: all 0.2s;
+  z-index: 2;
 }
 
 .clear-search-btn:hover {
-  background-color: var(--color-border);
-  color: var(--color-text-primary);
+  background-color: var(--color-surface-hover);
+  color: #dc3545; /* Red color on hover */
+  border-color: #dc3545;
 }
 
 /* Search Results */

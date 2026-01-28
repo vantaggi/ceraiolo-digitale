@@ -1,41 +1,20 @@
 <script setup>
-import { computed } from 'vue'
-import { RouterView, RouterLink } from 'vue-router'
 import { useThemeStore } from './stores/theme'
+import logoSantantoniari from '@/assets/logo_santantoniari.jpg'
 
 const themeStore = useThemeStore()
-
-// Colors for SVG that need to adapt to theme (computed to be reactive if needed,
-// though for SVG simple binding might not catch CSS var changes instantly without a re-render or using CSS classes.
-// Best approach for SVG icons in this setup is to use 'currentColor' or CSS classes, but let's stick to simple binding for now
-// and assume the user refreshes or we rely on the store state).
-// Actually, let's use the store state to toggle these.
-const primaryColor = computed(() => themeStore.currentTheme === 'dark' ? '#e0e0e0' : '#1a1a1a')
-const accentColor = computed(() => themeStore.currentTheme === 'dark' ? '#ef5350' : '#B71C1C')
 </script>
 
 <template>
   <div id="app-layout">
     <header class="app-header">
       <div class="logo-container">
-        <svg class="logo" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M50 0 L95 25 L95 75 L50 100 L5 75 L5 25 Z" :fill="primaryColor" />
-          <path
-            d="M50 10 L85 30 L85 70 L50 90 L15 70 L15 30 Z"
-            stroke-width="3"
-            :stroke="accentColor"
-          />
-          <text
-            x="50"
-            y="58"
-            :fill="accentColor"
-            font-size="24"
-            text-anchor="middle"
-            font-weight="bold"
-          >
-            S
-          </text>
-        </svg>
+        <img
+          :src="logoSantantoniari"
+          alt="Logo Santantoniari"
+          class="logo app-logo"
+          :class="{ 'logo-dark': themeStore.currentTheme === 'dark' }"
+        />
         <h1 class="app-title">Ceraiolo Digitale</h1>
       </div>
       <nav>
@@ -46,7 +25,7 @@ const accentColor = computed(() => themeStore.currentTheme === 'dark' ? '#ef5350
         <RouterLink to="/reports" class="nav-link">📊 Report</RouterLink>
         <RouterLink to="/settings" class="nav-link">⚙️ Impostazioni</RouterLink>
         <button @click="themeStore.toggleTheme" class="theme-toggle" title="Cambia Tema">
-          {{ themeStore.currentTheme === 'dark' ? '☀️' : '🌙' }}
+          {{ themeStore.currentTheme === 'dark' ? '🔥' : '🕯️' }}
         </button>
       </nav>
     </header>
@@ -72,7 +51,9 @@ const accentColor = computed(() => themeStore.currentTheme === 'dark' ? '#ef5350
   background-color: var(--color-surface);
   box-shadow: var(--shadow-md);
   border-bottom: 3px solid var(--color-accent);
-  transition: background-color 0.3s, border-color 0.3s;
+  transition:
+    background-color 0.3s,
+    border-color 0.3s;
 }
 .logo-container {
   display: flex;
@@ -80,9 +61,28 @@ const accentColor = computed(() => themeStore.currentTheme === 'dark' ? '#ef5350
   gap: 1rem;
 }
 .logo {
-  width: 40px;
-  height: 40px;
+  height: 50px;
+  width: auto;
+  /* Blend mode to make white background transparent */
+  mix-blend-mode: multiply;
+  border-radius: 4px;
 }
+
+.app-logo {
+  mix-blend-mode: multiply;
+  transition: all 0.3s ease;
+}
+
+/*
+  In Dark Mode:
+  1. Invert colors: Black logo -> White logo, White BG -> Black BG
+  2. Switch blend mode to SCREEN: Black BG becomes transparent, White logo remains visible
+*/
+.logo-dark {
+  filter: invert(1) grayscale(100%);
+  mix-blend-mode: screen;
+}
+
 .app-title {
   font-size: 1.5rem;
   margin-bottom: 0;
