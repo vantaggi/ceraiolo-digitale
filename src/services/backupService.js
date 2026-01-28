@@ -26,6 +26,15 @@ export const backupService = {
 
   async selectBackupDirectory() {
     const store = useBackupStore()
+    const toast = useToast()
+
+    if (typeof window.showDirectoryPicker !== 'function') {
+      toast.error(
+        'Il tuo browser non supporta la selezione cartelle (Richiede Chrome/Edge Desktop).',
+      )
+      return false
+    }
+
     try {
       const handle = await window.showDirectoryPicker()
       if (handle) {
@@ -46,20 +55,20 @@ export const backupService = {
     const toast = useToast()
 
     if (!store.isAuthorized) {
-        // Try to recover handle and check permission again
-        const handle = await store.getDirectoryHandle()
-        if (handle) {
-            const perm = await handle.requestPermission({ mode: 'readwrite' })
-            if (perm === 'granted') {
-                store.isAuthorized = true
-            } else {
-                if (manual) toast.error("Permesso di scrittura negato.")
-                return false
-            }
+      // Try to recover handle and check permission again
+      const handle = await store.getDirectoryHandle()
+      if (handle) {
+        const perm = await handle.requestPermission({ mode: 'readwrite' })
+        if (perm === 'granted') {
+          store.isAuthorized = true
         } else {
-            if (manual) toast.error("Nessuna cartella di backup configurata.")
-            return false
+          if (manual) toast.error('Permesso di scrittura negato.')
+          return false
         }
+      } else {
+        if (manual) toast.error('Nessuna cartella di backup configurata.')
+        return false
+      }
     }
 
     try {
@@ -95,7 +104,6 @@ export const backupService = {
         console.log('Auto-backup completed successfully to', folderName)
       }
       return true
-
     } catch (error) {
       console.error('Backup failed:', error)
       if (manual) toast.error(`Backup fallito: ${error.message}`)
@@ -118,5 +126,5 @@ export const backupService = {
     backupDebounceTimer = setTimeout(() => {
       this.performBackup(false)
     }, DEBOUNCE_MS)
-  }
+  },
 }

@@ -31,7 +31,6 @@
 
       <!-- Main Content Area -->
       <main class="settings-content">
-
         <!-- Tab: Generale -->
         <section v-if="currentTab === 'generale'" class="settings-section">
           <h2>🔧 Configurazione Applicazione</h2>
@@ -52,14 +51,16 @@
             </div>
 
             <div class="control-group">
-               <label for="minors-year">Anno Riferimento Minorenni:</label>
-               <input
-                 id="minors-year"
-                 v-model.number="appConfig.minorsReferenceYear"
-                 type="number"
-                 class="form-input"
-               />
-               <small class="help-text">Anno usato per calcolare se un socio è minorenne nei report.</small>
+              <label for="minors-year">Anno Riferimento Minorenni:</label>
+              <input
+                id="minors-year"
+                v-model.number="appConfig.minorsReferenceYear"
+                type="number"
+                class="form-input"
+              />
+              <small class="help-text"
+                >Anno usato per calcolare se un socio è minorenne nei report.</small
+              >
             </div>
 
             <div class="control-group">
@@ -99,14 +100,10 @@
             </div>
 
             <div class="action-buttons">
-               <button
-                  @click="saveAppConfig"
-                  :disabled="isSavingConfig"
-                  class="save-button"
-                >
-                  <span v-if="isSavingConfig" class="loading-spinner">⏳</span>
-                  {{ isSavingConfig ? 'Salvataggio...' : '💾 Salva Configurazione' }}
-                </button>
+              <button @click="saveAppConfig" :disabled="isSavingConfig" class="save-button">
+                <span v-if="isSavingConfig" class="loading-spinner">⏳</span>
+                {{ isSavingConfig ? 'Salvataggio...' : '💾 Salva Configurazione' }}
+              </button>
             </div>
           </div>
         </section>
@@ -183,85 +180,100 @@
           <div class="subsection">
             <h3>🔄 Backup Automatico su PC</h3>
             <div class="backup-grid">
-               <div class="backup-card">
-                  <h4>📁 Cartella di Backup</h4>
-                  <p class="path-text">{{ backupStore.backupPath }}</p>
-                  <button
-                    @click="selectBackupFolder"
-                    class="action-button small"
-                    :class="{ 'btn-success': backupStore.isAuthorized }"
-                  >
-                    {{ backupStore.isAuthorized ? '✅ Cambia Cartella' : '📁 Seleziona Cartella' }}
-                  </button>
-               </div>
+              <div class="backup-card">
+                <h4>📁 Cartella di Backup</h4>
+                <p class="path-text">{{ backupStore.backupPath }}</p>
+                <button
+                  @click="selectBackupFolder"
+                  class="action-button small"
+                  :class="{ 'btn-success': backupStore.isAuthorized }"
+                  :disabled="!isFileSystemSupported"
+                  :title="
+                    !isFileSystemSupported ? 'Il tuo browser non supporta questa funzionalità' : ''
+                  "
+                >
+                  {{
+                    !isFileSystemSupported
+                      ? '❌ Non Supportato'
+                      : backupStore.isAuthorized
+                        ? '✅ Cambia Cartella'
+                        : '📁 Seleziona Cartella'
+                  }}
+                </button>
+              </div>
 
-               <div class="backup-card">
-                  <h4>⚡ Auto-Salvataggio</h4>
-                  <p>Salva automaticamente ad ogni modifica.</p>
-                  <button
-                    @click="toggleAutoBackup"
-                    :disabled="!backupStore.isAuthorized"
-                    class="backup-toggle-button"
-                    :class="{ active: backupStore.autoBackupEnabled }"
-                  >
-                    {{ backupStore.autoBackupEnabled ? '✅ Attivo' : '⭕ Disattivato' }}
-                  </button>
-               </div>
+              <div class="backup-card">
+                <h4>⚡ Auto-Salvataggio</h4>
+                <p>Salva automaticamente ad ogni modifica.</p>
+                <button
+                  @click="toggleAutoBackup"
+                  :disabled="!backupStore.isAuthorized"
+                  class="backup-toggle-button"
+                  :class="{ active: backupStore.autoBackupEnabled }"
+                >
+                  {{ backupStore.autoBackupEnabled ? '✅ Attivo' : '⭕ Disattivato' }}
+                </button>
+              </div>
 
-               <div class="backup-card highlight">
-                  <h4>💾 Backup Manuale</h4>
-                  <p>Crea subito una copia.</p>
-                  <button
-                    @click="forceBackup"
-                    :disabled="isSavingBackup"
-                    class="manual-backup-button"
-                  >
-                    <span v-if="isSavingBackup" class="loading-spinner">⏳</span>
-                    {{ isSavingBackup ? 'In corso...' : (backupStore.isAuthorized ? '💾 Esegui Backup Ora' : '📥 Scarica Backup') }}
-                  </button>
-               </div>
+              <div class="backup-card highlight">
+                <h4>💾 Backup Manuale</h4>
+                <p>Crea subito una copia.</p>
+                <button
+                  @click="forceBackup"
+                  :disabled="isSavingBackup"
+                  class="manual-backup-button"
+                >
+                  <span v-if="isSavingBackup" class="loading-spinner">⏳</span>
+                  {{
+                    isSavingBackup
+                      ? 'In corso...'
+                      : backupStore.isAuthorized
+                        ? '💾 Esegui Backup Ora'
+                        : '📥 Scarica Backup'
+                  }}
+                </button>
+              </div>
             </div>
           </div>
 
-          <hr class="divider"/>
+          <hr class="divider" />
 
           <!-- Sezione Export/Import -->
           <div class="subsection">
-             <h3>📦 Esportazione & Ripristino</h3>
-             <div class="data-section">
-                <div class="export-options">
-                  <div class="export-option">
-                    <h4>📥 Esporta Database Completo</h4>
-                    <p>File .sqlite per migrazione o backup manuale.</p>
-                    <button @click="exportDatabase" :disabled="isExporting" class="export-button">
-                      {{ isExporting ? 'Esportazione...' : 'Scarica SQLite' }}
-                    </button>
-                  </div>
-
-                  <div class="export-option">
-                    <h4>📊 Esporta Excel</h4>
-                    <p>Tabelle per Maggiorenni e Minorenni.</p>
-                    <button @click="exportExcel" :disabled="isExporting" class="export-button">
-                      {{ isExporting ? 'Esportazione...' : 'Scarica Excel' }}
-                    </button>
-                  </div>
-
-                  <div class="export-option danger">
-                    <h4>♻️ Ripristina Database</h4>
-                    <p>Carica un backup .sqlite (Sovrascrive tutto!).</p>
-                    <input
-                      type="file"
-                      accept=".sqlite,.db"
-                      @change="handleRestoreDatabase"
-                      :disabled="isExporting"
-                      class="file-input-compact"
-                    />
-                  </div>
+            <h3>📦 Esportazione & Ripristino</h3>
+            <div class="data-section">
+              <div class="export-options">
+                <div class="export-option">
+                  <h4>📥 Esporta Database Completo</h4>
+                  <p>File .sqlite per migrazione o backup manuale.</p>
+                  <button @click="exportDatabase" :disabled="isExporting" class="export-button">
+                    {{ isExporting ? 'Esportazione...' : 'Scarica SQLite' }}
+                  </button>
                 </div>
-             </div>
+
+                <div class="export-option">
+                  <h4>📊 Esporta Excel</h4>
+                  <p>Tabelle per Maggiorenni e Minorenni.</p>
+                  <button @click="exportExcel" :disabled="isExporting" class="export-button">
+                    {{ isExporting ? 'Esportazione...' : 'Scarica Excel' }}
+                  </button>
+                </div>
+
+                <div class="export-option danger">
+                  <h4>♻️ Ripristina Database</h4>
+                  <p>Carica un backup .sqlite (Sovrascrive tutto!).</p>
+                  <input
+                    type="file"
+                    accept=".sqlite,.db"
+                    @change="handleRestoreDatabase"
+                    :disabled="isExporting"
+                    class="file-input-compact"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
         </section>
-
       </main>
     </div>
   </div>
@@ -270,7 +282,12 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useToast } from 'vue-toastification'
-import { getSetting, updateSetting, downloadDatabaseExport, importDatabaseFromSqlite } from '@/services/db'
+import {
+  getSetting,
+  updateSetting,
+  downloadDatabaseExport,
+  importDatabaseFromSqlite,
+} from '@/services/db'
 import { exportDataToExcel } from '@/services/export'
 import { useBackupStore } from '@/stores/backupStore'
 import { backupService } from '@/services/backupService'
@@ -287,15 +304,17 @@ const hasPdfTemplate = ref(false)
 const isSaving = ref(false)
 const isExporting = ref(false)
 const isSavingBackup = ref(false)
+
 const isSavingConfig = ref(false)
 const currentTab = ref('generale')
+const isFileSystemSupported = ref(typeof window.showDirectoryPicker === 'function')
 
 const appConfig = ref({
   receiptsPerBlock: 10,
   defaultQuota: 10.0,
   newMemberQuota: 25.0,
   defaultCity: '',
-  minorsReferenceYear: new Date().getFullYear()
+  minorsReferenceYear: new Date().getFullYear(),
 })
 
 const backupStore = useBackupStore()
@@ -373,15 +392,15 @@ const forceBackup = async () => {
     // Actually performBackup(true) in backupService handles FS API.
     // We want to force download if FS API is not available/authorized.
     if (backupStore.isAuthorized) {
-        await backupService.performBackup(true)
+      await backupService.performBackup(true)
     } else {
-        // Fallback to standard download
-        await downloadDatabaseExport()
-        toast.success("Backup scaricato con successo (Download)")
+      // Fallback to standard download
+      await downloadDatabaseExport()
+      toast.success('Backup scaricato con successo (Download)')
     }
   } catch (e) {
-      console.error(e)
-      toast.error("Errore backup: " + e.message)
+    console.error(e)
+    toast.error('Errore backup: ' + e.message)
   } finally {
     isSavingBackup.value = false
   }
@@ -394,7 +413,11 @@ const handleRestoreDatabase = async (event) => {
   const file = event.target.files[0]
   if (!file) return
 
-  if (!confirm('ATTENZIONE: Questa operazione SOVRASCRIVERÀ tutti i dati attuali con quelli del backup. Continuare?')) {
+  if (
+    !confirm(
+      'ATTENZIONE: Questa operazione SOVRASCRIVERÀ tutti i dati attuali con quelli del backup. Continuare?',
+    )
+  ) {
     event.target.value = '' // Reset input
     return
   }
@@ -634,7 +657,6 @@ const exportExcel = async () => {
   }
 }
 
-
 /**
  * Salva la configurazione dell'applicazione
  */
@@ -662,7 +684,6 @@ const saveAppConfig = async () => {
   background-color: var(--color-background);
   padding: 2rem 0;
 }
-
 
 .settings-layout {
   display: grid;
@@ -722,7 +743,8 @@ const saveAppConfig = async () => {
 }
 
 /* Card Styles */
-.backup-grid, .config-grid {
+.backup-grid,
+.config-grid {
   display: grid;
   gap: 1.5rem;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
