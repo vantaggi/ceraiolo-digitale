@@ -1511,10 +1511,21 @@ const confirmFactoryReset = async () => {
 }
 
 .health-indicator.warning {
-  background-color: #fff3cd;
-  color: #856404;
-  padding: 0.5rem;
+  /* Using theme variables for consistency */
+  border: 1px solid var(--color-warning);
+  color: var(--color-warning);
+  /* Slight background tint if possible, otherwise transparent to be safe across themes */
+  background-color: transparent;
+  padding: 1rem;
   border-radius: 6px;
+}
+
+/* Optional: Add a light tint locally if we really want it, handling themes */
+.health-indicator.warning {
+  background-color: rgba(237, 108, 2, 0.05); /* Very subtle orange tint */
+}
+[data-theme='dark'] .health-indicator.warning {
+  background-color: rgba(255, 167, 38, 0.05);
 }
 
 .health-text h3 {
@@ -1531,13 +1542,19 @@ const confirmFactoryReset = async () => {
 .danger-zone {
   margin-top: 3rem;
   padding: 2rem;
-  background-color: #fff5f5;
-  border: 1px solid #fc8181;
+  background-color: transparent; /* Was hardcoded #fff5f5 */
+  border: 1px solid var(--color-accent); /* Was hardcoded #fc8181 */
   border-radius: 8px;
+  /* Add subtle red tint */
+  background-color: rgba(183, 28, 28, 0.02);
+}
+
+[data-theme='dark'] .danger-zone {
+  background-color: rgba(229, 57, 53, 0.05);
 }
 
 .danger-zone h3 {
-  color: #c53030;
+  color: var(--color-accent); /* Was hardcoded #c53030 */
   margin-top: 0;
 }
 
@@ -1548,8 +1565,8 @@ const confirmFactoryReset = async () => {
 }
 
 .danger-button-large {
-  background-color: #c53030;
-  color: white;
+  background-color: var(--color-accent); /* Was hardcoded #c53030 */
+  color: var(--color-text-inverse); /* Was white */
   border: none;
   padding: 1rem;
   font-size: 1rem;
@@ -1562,7 +1579,7 @@ const confirmFactoryReset = async () => {
 }
 
 .danger-button-large:hover {
-  background-color: #9b2c2c;
+  background-color: var(--color-accent-hover); /* Was hardcoded #9b2c2c */
 }
 
 .button-group-small {
@@ -1571,15 +1588,42 @@ const confirmFactoryReset = async () => {
   margin-top: 0.5rem;
 }
 
-.clickable {
+.action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  font-family: var(--font-family-body);
+  font-weight: 600;
+  font-size: 0.9rem;
+  border: none;
+  border-radius: 8px;
   cursor: pointer;
-  display: inline-block;
-  text-align: center;
+  transition: all 0.2s ease;
+  background-color: var(--color-accent);
+  color: white;
+  box-shadow: var(--shadow-sm);
+  text-decoration: none;
+}
+
+.action-button:hover {
+  background-color: var(--color-accent-hover);
+  transform: translateY(-1px);
 }
 
 .action-button.secondary {
   background-color: transparent;
-  border: 1px solid var(--color-primary);
-  color: var(--color-primary);
+  border: 1px solid var(--color-accent);
+  color: var(--color-accent);
+  box-shadow: none;
+}
+
+.action-button.secondary:hover {
+  background-color: rgba(183, 28, 28, 0.05);
+}
+
+.clickable {
+  cursor: pointer;
 }
 </style>
