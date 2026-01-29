@@ -92,9 +92,29 @@ export async function getUniqueGroups() {
  * @param {string} filters.group - The membership group to filter by.
  * @returns {Promise<Array>} A promise that resolves to an array of matching members.
  */
+/**
+ * Applies multiple filters and a text search to find members.
+ * @param {object} filters - An object containing the filter criteria.
+ * @param {string} filters.searchTerm - The text to search for in name/surname.
+ * @param {string} filters.ageCategory - Can be 'tutti', 'maggiorenni', or 'minorenni'.
+ * @param {string} filters.group - The membership group to filter by.
+ * @param {number} [filters.renewalYear] - Optional year to filter by renewal status.
+ * @returns {Promise<Array>} A promise that resolves to an array of matching members.
+ */
 export async function applyFiltersAndSearch(filters) {
-  const { searchTerm, ageCategory, group } = filters
-  let collection = db.soci.toCollection()
+  const { searchTerm, ageCategory, group, renewalYear } = filters
+  let collection
+
+  // Pre-filter by renewal year if specified
+  if (renewalYear) {
+    const payments = await db.tesseramenti.where('anno').equals(renewalYear).toArray()
+    const socioIds = payments.map((p) => p.id_socio)
+    // Create collection from specific IDs
+    collection = db.soci.where('id').anyOf(socioIds)
+  } else {
+    // Start with complete collection
+    collection = db.soci.toCollection()
+  }
 
   // Apply filters sequentially. Dexie will optimize this.
   const finalResults = await collection
@@ -1442,6 +1462,245 @@ export async function setMinorsReferenceYear(year) {
 }
 
 /**
+ * Retrieves demographic statistics for a specific year
+ * @param {number} year - The reference year
+ * @returns {Promise<Object>} Stats object (ageGroups, places, total)
+ */
+export async function getDemographicStats(year) {
+  try {
+    const allSoci = await db.soci.toArray()
+    const allTesseramenti = await db.tesseramenti.toArray()
+
+    // Create quick lookup for payments
+    const paymentsMap = new Map()
+    allTesseramenti.forEach((t) => {
+      if (!paymentsMap.has(t.id_socio)) paymentsMap.set(t.id_socio, new Set())
+      paymentsMap.get(t.id_socio).add(t.anno)
+    })
+
+    const enrolledSoci = []
+
+    // Filter enrolled members
+    for (const socio of allSoci) {
+      let isEnrolled = false
+      if (paymentsMap.has(socio.id) && paymentsMap.get(socio.id).has(year)) {
+        isEnrolled = true
+      } else if (isExemptFromPayment(socio, year)) {
+        // Check valid registration
+        if (socio.data_prima_iscrizione && socio.data_prima_iscrizione <= year) {
+          isEnrolled = true
+        }
+      }
+
+      if (isEnrolled) enrolledSoci.push(socio)
+    }
+
+    // Calculate Stats
+    const stats = {
+      total: enrolledSoci.length,
+      ageGroups: {
+        'Under 18': 0,
+        '18-35': 0,
+        '36-50': 0,
+        '51-65': 0,
+        'Over 65': 0,
+        'N/D': 0,
+      },
+      places: {},
+    }
+
+    enrolledSoci.forEach((socio) => {
+      // Age Stats
+      const age = calculateAgeInYear(socio.data_nascita, year)
+      if (age >= 150) stats.ageGroups['N/D']++
+      else if (age < 18) stats.ageGroups['Under 18']++
+      else if (age <= 35) stats.ageGroups['18-35']++
+      else if (age <= 50) stats.ageGroups['36-50']++
+      else if (age <= 65) stats.ageGroups['51-65']++
+      else stats.ageGroups['Over 65']++
+
+      // Place Stats
+      let place = socio.luogo_nascita ? socio.luogo_nascita.trim().toUpperCase() : 'NON SPECIFICATO'
+      if (place === '') place = 'NON SPECIFICATO'
+      stats.places[place] = (stats.places[place] || 0) + 1
+    })
+
+    // Sort Places (Top 10)
+    const sortedPlaces = Object.entries(stats.places)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .reduce((obj, [key, val]) => {
+        obj[key] = val
+        return obj
+      }, {})
+
+    // Calculate "Altri"
+    const topPlacesCount = Object.values(sortedPlaces).reduce((a, b) => a + b, 0)
+    const otherCount = stats.total - topPlacesCount
+    if (otherCount > 0) sortedPlaces['ALTRI'] = otherCount
+
+    stats.places = sortedPlaces
+
+    return stats
+  } catch (error) {
+    console.error('Error calculating demographic stats:', error)
+    throw new Error('Errore calcolo statistiche demografiche')
+  }
+}
+
+/**
+ * Retrieves economic statistics for a specific year
+ * @param {number} year - The reference year
+ * @returns {Promise<Object>} Economic stats (totalRevenue, averageQuota, groupBreakdown)
+ */
+export async function getEconomicStats(year) {
+  try {
+    const tesseramenti = await db.tesseramenti.where({ anno: year }).toArray()
+    const allSoci = await db.soci.toArray()
+    const sociMap = new Map(allSoci.map((s) => [s.id, s]))
+
+    const stats = {
+      totalRevenue: 0,
+      totalPayments: tesseramenti.length,
+      averageQuota: 0,
+      groupBreakdown: {},
+    }
+
+    tesseramenti.forEach((t) => {
+      stats.totalRevenue += t.quota_pagata
+      const socio = sociMap.get(t.id_socio)
+      if (socio) {
+        const group = socio.gruppo_appartenenza || 'Non specificato'
+        stats.groupBreakdown[group] = (stats.groupBreakdown[group] || 0) + t.quota_pagata
+      }
+    })
+
+    stats.averageQuota =
+      stats.totalPayments > 0 ? (stats.totalRevenue / stats.totalPayments).toFixed(2) : 0
+
+    return stats
+  } catch (error) {
+    console.error('Error calculating economic stats:', error)
+    throw new Error('Errore calcolo statistiche economiche')
+  }
+}
+
+/**
+ * Returns a list of the most recent database activities
+ * @param {number} limit - Max number of items
+ * @returns {Promise<Array>} List of events {type, description, timestamp, socioName}
+ */
+export async function getRecentActivity(limit = 10) {
+  try {
+    // We'll look at the last N tesseramenti records as they represent "Success"
+    // Alternatively, query local_changes for more variety (create soci, etc)
+    const changes = await db.local_changes.orderBy('timestamp').reverse().limit(limit).toArray()
+
+    return changes.map((c) => {
+      let description = ''
+      switch (c.table_name) {
+        case 'soci':
+          description =
+            c.change_type === 'create'
+              ? `Registrato nuovo socio: ${c.new_data?.cognome} ${c.new_data?.nome}`
+              : `Modificata anagrafica: ${c.new_data?.cognome}`
+          break
+        case 'tesseramenti':
+          description =
+            c.change_type === 'create'
+              ? `Registrato pagamento ${c.new_data?.anno} per ${c.new_data?.id_socio}` // ID only if we don't have lookup
+              : `Cancellato pagamento`
+          break
+        default:
+          description = `${c.change_type} in ${c.table_name}`
+      }
+
+      return {
+        id: c.id,
+        type: c.change_type,
+        timestamp: c.timestamp,
+        description: description,
+        data: c.new_data,
+      }
+    })
+  } catch (error) {
+    console.error('Error fetching activity:', error)
+    return []
+  }
+}
+
+/**
+ * Performs a data quality audit on the database
+ * @returns {Promise<Object>} Audit results { summary, details }
+ */
+export async function getDataAuditStats() {
+  try {
+    const allSoci = await db.soci.toArray()
+    const problems = []
+    const summary = {
+      missing_dob: 0,
+      missing_pob: 0,
+      missing_reg_date: 0,
+      missing_group: 0,
+      future_reg: 0,
+      total_issues: 0,
+    }
+
+    const currentYear = new Date().getFullYear()
+
+    for (const socio of allSoci) {
+      const socioIssues = []
+
+      // Check DOB
+      if (!socio.data_nascita) {
+        socioIssues.push('Data Nascita mancante')
+        summary.missing_dob++
+      }
+
+      // Check POB
+      if (!socio.luogo_nascita || socio.luogo_nascita.trim() === '') {
+        socioIssues.push('Luogo Nascita mancante')
+        summary.missing_pob++
+      }
+
+      // Check Reg Date
+      if (!socio.data_prima_iscrizione) {
+        socioIssues.push('Data Iscrizione mancante')
+        summary.missing_reg_date++
+      } else if (socio.data_prima_iscrizione > currentYear) {
+        socioIssues.push(`Iscrizione nel futuro (${socio.data_prima_iscrizione})`)
+        summary.future_reg++
+      }
+
+      // Check Group
+      if (!socio.gruppo_appartenenza || socio.gruppo_appartenenza.trim() === '') {
+        socioIssues.push('Gruppo non assegnato')
+        summary.missing_group++
+      }
+
+      if (socioIssues.length > 0) {
+        problems.push({
+          id: socio.id,
+          nome: socio.nome,
+          cognome: socio.cognome,
+          issues: socioIssues,
+        })
+      }
+    }
+
+    summary.total_issues = problems.length
+
+    return {
+      summary,
+      details: problems.sort((a, b) => a.cognome.localeCompare(b.cognome)),
+    }
+  } catch (error) {
+    console.error('Audit failed:', error)
+    throw new Error('Errore durante il controllo qualità dati')
+  }
+}
+
+/**
  * Import database from SQLite file, replacing current data
  * @param {File} file - The SQLite file to import
  * @returns {Promise<Object>} Result of import
@@ -1513,4 +1772,22 @@ export async function importDatabaseFromSqlite(file) {
     console.error('Import failed:', error)
     return { success: false, error: error.message }
   }
+}
+
+/**
+ * Reports: Get Churn List (Paid last year, not this year)
+ */
+export async function getChurnList(year) {
+  const currentYear = parseInt(year)
+  const prevYear = currentYear - 1
+
+  const lastYearPayments = await db.tesseramenti.where('anno').equals(prevYear).toArray()
+  const lastYearIds = new Set(lastYearPayments.map((p) => p.id_socio))
+
+  const thisYearPayments = await db.tesseramenti.where('anno').equals(currentYear).toArray()
+  const thisYearIds = new Set(thisYearPayments.map((p) => p.id_socio))
+
+  const churnIds = [...lastYearIds].filter((id) => !thisYearIds.has(id))
+
+  return await db.soci.where('id').anyOf(churnIds).toArray()
 }

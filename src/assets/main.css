@@ -138,6 +138,23 @@ button:disabled {
   transform: none;
 }
 
+/* Focus Accessibility */
+button:focus-visible,
+a:focus-visible,
+[role='button']:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(183, 28, 28, 0.4);
+  border-radius: 4px; /* Ensure ring has radius */
+}
+
+/* Ensure inputs match the theme but maybe lighter ring */
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(183, 28, 28, 0.25);
+}
+
 /* Common Utility Classes */
 .text-primary {
   color: var(--color-text-primary);

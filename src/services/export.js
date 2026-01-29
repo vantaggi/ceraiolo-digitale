@@ -1300,3 +1300,139 @@ export async function exportDataToExcel() {
     throw new Error(`Errore durante l'esportazione Excel: ${error.message}`)
   }
 }
+/**
+ * Generates a PDF for the "Churn" list (Recupero Crediti)
+ * @param {Array} soci - Array of churned members
+ * @param {number} year - The current year (target of recovery)
+ * @returns {Promise<Object>} Result object
+ */
+export async function generateChurnPDF(soci, year) {
+  try {
+    if (!soci || soci.length === 0) {
+      throw new Error('Nessun socio da recuperare trovato.')
+    }
+
+    // Crea documento PDF
+    const doc = createPDFDocument()
+
+    // Carica Logo
+    let logoData = null
+    try {
+      logoData = await loadImage(logoUrl)
+    } catch (e) {
+      console.warn('Impossibile caricare il logo per il PDF', e)
+    }
+
+    // Header
+    const headerY = addPDFHeader(
+      doc,
+      'Lista Soci Da Recuperare',
+      `Non rinnovati nel ${year} (Attivi nel ${year - 1})`,
+      `Totale da contattare: ${soci.length}`,
+      logoData,
+    )
+
+    // Prepara i dati per la tabella
+    const tableData = soci.map((socio) => {
+      // Find last payment year for context
+      const lastPayment = Math.max(...(socio.tesseramenti.map((t) => t.anno) || [0]))
+      const lastPaymentStr = lastPayment > 0 ? String(lastPayment) : 'Esente'
+
+      return [
+        `${socio.cognome} ${socio.nome}`,
+        socio.gruppo_appartenenza || '-',
+        lastPaymentStr,
+        socio.telefono || '', // If phone exists in notes or structure? Standard schema has no phone.
+        // We can put blank or look at notes? Standard schema: 'note'.
+        '', // Checkbox / Notes manual
+      ]
+    })
+
+    // Configurazione tabella
+    const headers = [
+      { text: 'Cognome e Nome', width: 80 },
+      { text: 'Gruppo', width: 40 },
+      { text: 'Ultimo Pag.', width: 30 },
+      { text: 'Recapito (Note)', width: 50 },
+      { text: 'Esito', width: 40 },
+    ]
+
+    // Crea tabella
+    createPDFTable(doc, headers, tableData, headerY + 10)
+
+    // Footer
+    addPDFFooter(doc)
+
+    // Genera filename
+    const filename = generatePDFFilename('lista_recupero', { year })
+
+    return {
+      success: true,
+      blob: doc.output('blob'),
+      filename,
+      count: soci.length,
+    }
+  } catch (error) {
+    console.error('Errore generazione PDF Rec:', error)
+    return {
+      success: false,
+      error: error.message,
+    }
+  }
+}
+
+/**
+ * Generates a PDF report for data audit results
+ * @param {Object} auditData - The audit results object
+ * @returns {Promise<Object>} Result object
+ */
+export async function generateAuditPDF(auditData) {
+  try {
+    if (!auditData || auditData.details.length === 0) {
+      throw new Error('Nessuna anomalia da esportare.')
+    }
+
+    const doc = createPDFDocument('portrait') // Portrait is better for audit lists
+
+    // Carica Logo
+    let logoData = null
+    try {
+      logoData = await loadImage(logoUrl)
+    } catch (e) {
+      console.warn('Impossibile caricare il logo', e)
+    }
+
+    const headerY = addPDFHeader(
+      doc,
+      'Report Qualità Dati (Audit)',
+      'Analisi integrità anagrafiche soci',
+      `Totale anomalie riscontrate: ${auditData.summary.total_issues}`,
+      logoData,
+    )
+
+    // Prepara i dati per la tabella
+    const tableData = auditData.details.map((item) => {
+      return [`${item.cognome} ${item.nome}`, item.issues.join(', ')]
+    })
+
+    // Configurazione tabella
+    const headers = [
+      { text: 'Socio', width: 60 },
+      { text: 'Anomalie Rilevate', width: 120 },
+    ]
+
+    createPDFTable(doc, headers, tableData, headerY + 10)
+    addPDFFooter(doc)
+
+    const filename = generatePDFFilename('audit_report', {})
+
+    return {
+      success: true,
+      blob: doc.output('blob'),
+      filename,
+    }
+  } catch (error) {
+    console.error('Audit PDF Error:', error)
+    return { success: false, error: error.message }
+  }
+}

@@ -141,6 +141,16 @@
             <span class="toggle-icon">⚡</span>
             <span class="toggle-label">Turbo Mode</span>
           </label>
+
+          <label
+            class="turbo-toggle sound-toggle"
+            :class="{ active: soundEnabled }"
+            title="Attiva/Disattiva suoni di feedback"
+          >
+            <input type="checkbox" v-model="soundEnabled" />
+            <span class="toggle-icon">{{ soundEnabled ? '🔊' : '🔇' }}</span>
+            <span class="toggle-label">Suoni</span>
+          </label>
         </div>
         <div class="search-input-group">
           <input
@@ -1089,7 +1099,7 @@ const getSocioStatus = (socio) => {
 .status-badge.success {
   background-color: var(--color-success); /* Ensure you have this or use custom color */
   background-color: #e8f5e9;
-  color: #2e7d32;
+  color: var(--color-success);
   border: 1px solid #a5d6a7;
 }
 
@@ -1100,7 +1110,7 @@ const getSocioStatus = (socio) => {
 }
 
 .receipt-btn:hover:not(:disabled) {
-  background-color: #a22a2a;
+  background-color: var(--color-accent-hover);
   transform: scale(1.05);
 }
 
@@ -1231,7 +1241,7 @@ const getSocioStatus = (socio) => {
 .remove-btn {
   background: none;
   border: none;
-  color: #dc3545;
+  color: var(--color-danger);
   cursor: pointer;
   font-size: 1.2rem;
   padding: 0.25rem;
@@ -1240,7 +1250,7 @@ const getSocioStatus = (socio) => {
 }
 
 .remove-btn:hover {
-  background-color: #dc3545;
+  background-color: var(--color-danger);
   color: white;
 }
 
@@ -1307,7 +1317,7 @@ const getSocioStatus = (socio) => {
 
 .turbo-toggle.active {
   background-color: #fff3e0; /* Pale orange/yellow */
-  border-color: #ff9800;
+  border-color: var(--color-warning);
   color: #e65100;
 }
 
@@ -1367,8 +1377,8 @@ const getSocioStatus = (socio) => {
 
 .clear-search-btn:hover {
   background-color: var(--color-surface-hover);
-  color: #dc3545; /* Red color on hover */
-  border-color: #dc3545;
+  color: var(--color-danger); /* Red color on hover */
+  border-color: var(--color-danger);
 }
 
 /* Search Results */
@@ -1435,7 +1445,7 @@ const getSocioStatus = (socio) => {
 
 .pay-btn {
   padding: 0.5rem 1rem;
-  background-color: var(--color-success, #28a745);
+  background-color: var(--color-success);
   color: white;
   border: none;
   border-radius: 6px;

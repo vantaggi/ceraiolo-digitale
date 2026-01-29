@@ -16,23 +16,54 @@
     <!-- Main Content -->
     <div v-else-if="socio" class="detail-content">
       <!-- Header con nome e azioni -->
+      <!-- Header con nome e azioni -->
       <div class="detail-header">
-        <div>
-          <router-link to="/" class="back-link">← Torna alla ricerca</router-link>
+        <div class="header-left">
+          <div class="nav-row">
+            <router-link to="/" class="back-link">← Lista</router-link>
+            <div class="nav-buttons" v-if="prevSocioId || nextSocioId">
+              <router-link
+                v-if="prevSocioId"
+                :to="'/socio/' + prevSocioId"
+                class="nav-btn"
+                title="Precedente"
+                >← Prec</router-link
+              >
+              <router-link
+                v-if="nextSocioId"
+                :to="'/socio/' + nextSocioId"
+                class="nav-btn"
+                title="Successivo"
+                >Succ →</router-link
+              >
+            </div>
+          </div>
           <h1>{{ socio.cognome }} {{ socio.nome }}</h1>
         </div>
-        <button @click="exportSocio" class="export-button">📥 Export Socio</button>
-        <button
-          @click="toggleEditMode"
-          :disabled="isSaving"
-          class="edit-button"
-          title="Modifica rapida in questa pagina"
-        >
-          {{ isSaving ? '💾 Salvando...' : editMode ? '✓ Salva' : '✏️ Modifica Rapida' }}
-        </button>
-        <button @click="showDeleteModal" class="delete-socio-button" :disabled="isDeleting">
-          {{ isDeleting ? '🗑️ Eliminando...' : '🗑️ Elimina Socio' }}
-        </button>
+
+        <div class="header-actions">
+          <!-- Quick Renew Button -->
+          <button
+            v-if="quickRenewTargetYear"
+            @click="payYear(quickRenewTargetYear)"
+            class="quick-renew-button"
+          >
+            💳 Paga {{ quickRenewTargetYear }}
+          </button>
+
+          <button @click="exportSocio" class="export-button">📥 Export</button>
+          <button
+            @click="toggleEditMode"
+            :disabled="isSaving"
+            class="edit-button"
+            title="Modifica rapida in questa pagina"
+          >
+            {{ isSaving ? '💾...' : editMode ? '✓ Salva' : '✏️ Modifica' }}
+          </button>
+          <button @click="showDeleteModal" class="delete-socio-button" :disabled="isDeleting">
+            🗑️
+          </button>
+        </div>
       </div>
 
       <!-- Sezione Dati Anagrafici -->
@@ -128,10 +159,18 @@
                 </span>
               </div>
               <div class="year-actions">
-                <button v-if="!item.isPagato && !item.isEsente" @click="payYear(item.anno)" class="pay-button accent">
+                <button
+                  v-if="!item.isPagato && !item.isEsente"
+                  @click="payYear(item.anno)"
+                  class="pay-button accent"
+                >
                   💳 Paga Ora
                 </button>
-                <button v-if="!item.isPagato && item.isEsente" @click="payYear(item.anno)" class="pay-button secondary">
+                <button
+                  v-if="!item.isPagato && item.isEsente"
+                  @click="payYear(item.anno)"
+                  class="pay-button secondary"
+                >
                   💳 Paga (Opzionale)
                 </button>
                 <button
@@ -228,7 +267,55 @@ const hasUnsavedChanges = ref(false)
 const toast = useToast()
 const router = useRouter()
 
-// const currentYear = new Date().getFullYear()
+// Navigation State
+const prevSocioId = ref(null)
+const nextSocioId = ref(null)
+
+// Quick Renew Logic
+const quickRenewTargetYear = computed(() => {
+  if (!tesseramenti.value) return null
+  const currentYear = new Date().getFullYear()
+
+  const paidCurrent = tesseramenti.value.some((t) => t.anno === currentYear)
+  if (!paidCurrent) return currentYear
+
+  const paidNext = tesseramenti.value.some((t) => t.anno === currentYear + 1)
+  if (!paidNext) return currentYear + 1
+
+  return null
+})
+
+/**
+ * Calcola ID precedente/successivo basandosi sulla lista in localStorage
+ */
+const calculateNavigation = () => {
+  try {
+    const stored = localStorage.getItem('search_context_ids')
+    if (stored) {
+      const ids = JSON.parse(stored)
+      const currentId = parseInt(route.params.id)
+      const idx = ids.indexOf(currentId)
+
+      if (idx !== -1) {
+        prevSocioId.value = idx > 0 ? ids[idx - 1] : null
+        nextSocioId.value = idx < ids.length - 1 ? ids[idx + 1] : null
+      } else {
+        prevSocioId.value = null
+        nextSocioId.value = null
+      }
+    }
+  } catch (e) {
+    console.error('Nav calc error', e)
+  }
+}
+
+// Watch per ricaricare i dati se cambia l'URL (navigazione next/prev)
+watch(
+  () => route.params.id,
+  (newId) => {
+    if (newId) loadSocioData()
+  },
+)
 
 /**
  * Calcola l'età del socio
@@ -389,6 +476,8 @@ const loadSocioData = async () => {
 
     // Carica tesseramenti
     tesseramenti.value = await getTesseramentiBySocioId(socioId)
+
+    calculateNavigation()
 
     console.log('Dati caricati:', { socio: socio.value, tesseramenti: tesseramenti.value })
   } catch (err) {
@@ -617,13 +706,46 @@ const handleBeforeUnload = (event) => {
   }
 }
 
+// Keyboard Navigation
+// Keyboard Navigation
+const handleKeydown = (e) => {
+  // Shortcuts working everywhere (Global context of this view)
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    e.preventDefault()
+    if (editMode.value) toggleEditMode() // Saves changes
+    return
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
+    e.preventDefault()
+    if (!editMode.value)
+      toggleEditMode() // Enters edit mode
+    // If already in edit mode, Ctrl+E could cancel? Or just do nothing. Let's toggle.
+    else toggleEditMode()
+    return
+  }
+
+  // Ignore navigation keys if typing in input/textarea
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+  // Ignore if modals are open
+  if (showAddPaymentModal.value || showDeleteConfirmModal.value) return
+
+  if (e.key === 'j' || e.key === 'ArrowRight') {
+    if (nextSocioId.value) router.push('/socio/' + nextSocioId.value)
+  }
+  if (e.key === 'k' || e.key === 'ArrowLeft') {
+    if (prevSocioId.value) router.push('/socio/' + prevSocioId.value)
+  }
+}
+
 // Add beforeunload listener
 onMounted(() => {
   window.addEventListener('beforeunload', handleBeforeUnload)
+  window.addEventListener('keydown', handleKeydown)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('beforeunload', handleBeforeUnload)
+  window.removeEventListener('keydown', handleKeydown)
 })
 </script>
 
@@ -679,15 +801,52 @@ onBeforeUnmount(() => {
   margin-bottom: 2rem;
   padding-bottom: 1rem;
   border-bottom: 3px solid var(--color-accent);
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.header-left {
+  display: flex;
+  flex-direction: column;
+}
+
+.nav-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.nav-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+.nav-btn {
+  text-decoration: none;
+  color: var(--color-text-secondary);
+  background: var(--color-surface);
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  transition: all 0.2s;
+  border: 1px solid var(--color-border);
+  font-weight: 600;
+}
+
+.nav-btn:hover {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
 }
 
 .back-link {
   display: inline-block;
   color: var(--color-text-secondary);
   text-decoration: none;
-  margin-bottom: 0.5rem;
   font-weight: 500;
   transition: color 0.2s;
+  font-size: 0.9rem;
 }
 
 .back-link:hover {
@@ -698,6 +857,51 @@ onBeforeUnmount(() => {
   margin: 0;
   font-size: 2rem;
   color: var(--color-primary);
+  line-height: 1.2;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.quick-renew-button {
+  padding: 0.75rem 1.5rem;
+  background-color: var(--color-success); /* Green */
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 700;
+  transition: all 0.2s;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  margin-right: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.quick-renew-button:hover {
+  background-color: var(--color-success-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+}
+
+.export-button {
+  padding: 0.75rem 1rem;
+  background-color: var(--color-secondary);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.export-button:hover {
+  background-color: var(--color-secondary-hover);
 }
 
 .edit-button {
@@ -717,7 +921,7 @@ onBeforeUnmount(() => {
 
 .edit-data-button {
   padding: 0.75rem 1.5rem;
-  background-color: #2196f3;
+  background-color: var(--color-info);
   color: white;
   text-decoration: none;
   border-radius: 8px;
@@ -729,14 +933,15 @@ onBeforeUnmount(() => {
 }
 
 .edit-data-button:hover {
-  background-color: #1976d2;
+  background-color: var(--color-info); /* Fallback or define hover */
+  filter: brightness(0.9);
   text-decoration: none;
   color: white;
 }
 
 .delete-socio-button {
   padding: 0.75rem 1.5rem;
-  background-color: #dc3545;
+  background-color: var(--color-danger);
   color: white;
   border: none;
   border-radius: 8px;
@@ -747,7 +952,7 @@ onBeforeUnmount(() => {
 }
 
 .delete-socio-button:hover:not(:disabled) {
-  background-color: #c82333;
+  background-color: var(--color-danger-hover);
 }
 
 .delete-socio-button:disabled {
@@ -802,7 +1007,7 @@ onBeforeUnmount(() => {
 .age-badge {
   display: inline-block;
   padding: 0.25rem 0.75rem;
-  background-color: #4caf50;
+  background-color: var(--color-success);
   color: white;
   border-radius: 12px;
   font-size: 0.85rem;
@@ -810,7 +1015,7 @@ onBeforeUnmount(() => {
 }
 
 .age-badge.minor {
-  background-color: #ffa726;
+  background-color: var(--color-warning);
 }
 
 .edit-input,
@@ -897,17 +1102,17 @@ onBeforeUnmount(() => {
 }
 
 .year-item.pagato {
-  border-color: #4caf50;
+  border-color: var(--color-success);
   background-color: rgba(76, 175, 80, 0.05);
 }
 
 .year-item.non-pagato {
-  border-color: #f44336;
+  border-color: var(--color-danger);
   background-color: rgba(244, 67, 54, 0.05);
 }
 
 .year-item.esente {
-  border-color: #ffa726;
+  border-color: var(--color-warning);
   background-color: rgba(255, 167, 38, 0.05);
 }
 
@@ -946,17 +1151,17 @@ onBeforeUnmount(() => {
 }
 
 .year-status.pagato {
-  background-color: #4caf50;
+  background-color: var(--color-success);
   color: white;
 }
 
 .year-status.non-pagato {
-  background-color: #f44336;
+  background-color: var(--color-danger);
   color: white;
 }
 
 .year-status.esente {
-  background-color: #ffa726;
+  background-color: var(--color-warning);
   color: white;
 }
 
@@ -978,33 +1183,33 @@ onBeforeUnmount(() => {
 }
 
 .pay-button:hover {
-  background-color: #a22a2a;
+  background-color: var(--color-accent-hover);
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(183, 28, 28, 0.3);
 }
 
 .pay-button.secondary {
-  background-color: #757575;
+  background-color: var(--color-text-secondary);
 }
 
 .pay-button.secondary:hover {
-  background-color: #616161;
+  background-color: var(--color-primary-light);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .delete-btn {
   padding: 0.5rem 0.75rem;
   background: none;
-  border: 2px solid #f44336;
+  border: 2px solid var(--color-danger);
   border-radius: 6px;
-  color: #f44336;
+  color: var(--color-danger);
   cursor: pointer;
   font-size: 1rem;
   transition: all 0.2s;
 }
 
 .delete-btn:hover {
-  background-color: #f44336;
+  background-color: var(--color-danger);
   color: white;
   transform: scale(1.1);
 }
