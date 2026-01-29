@@ -74,35 +74,71 @@ export const backupService = {
     try {
       const rootHandle = await store.getDirectoryHandle()
 
-      // 1. Get/Create Daily Folder (DD_MM_YYYY)
+      // 1. Get/Create Daily Folder (YYYY-MM-DD for better sorting)
       const now = new Date()
-      const day = String(now.getDate()).padStart(2, '0')
-      const month = String(now.getMonth() + 1).padStart(2, '0')
+      // Use YYYY-MM-DD for easier sorting
       const year = now.getFullYear()
-      const folderName = `${day}_${month}_${year}`
+      const month = String(now.getMonth() + 1).padStart(2, '0')
+      const day = String(now.getDate()).padStart(2, '0')
+      const folderName = `backup_${year}-${month}-${day}`
 
-      const dayFolder = await rootHandle.getDirectoryHandle(folderName, { create: true })
+      try {
+        const dayFolder = await rootHandle.getDirectoryHandle(folderName, { create: true })
 
-      // 2. Generate Export Blob
-      // We use the existing export logic which returns a blob
-      const exportResult = await exportDatabaseToSqlite()
-      if (!exportResult.success) throw new Error(exportResult.error)
+        // 2. Generate Export Blob
+        // We use the existing export logic which returns a blob
+        const exportResult = await exportDatabaseToSqlite()
+        if (!exportResult.success) throw new Error(exportResult.error)
 
-      // 3. Write File (database.sqlite) - Overwrite
-      const fileHandle = await dayFolder.getFileHandle('ceraiolo_backup.sqlite', { create: true })
-      const writable = await fileHandle.createWritable()
-      await writable.write(exportResult.blob)
-      await writable.close()
+        // 3. Write File (database.sqlite) - Overwrite
+        const fileHandle = await dayFolder.getFileHandle('ceraiolo_backup.sqlite', { create: true })
+        const writable = await fileHandle.createWritable()
+        await writable.write(exportResult.blob)
+        await writable.close()
 
-      // 4. Update Metadata
-      const timestamp = new Date().toLocaleString()
-      store.updateLastBackup(timestamp)
+        // 4. Update Metadata
+        const timestamp = new Date().toLocaleString()
+        store.updateLastBackup(timestamp)
 
-      if (manual) {
-        toast.success(`Backup completato in: ${folderName}/ceraiolo_backup.sqlite`)
-      } else {
-        console.log('Auto-backup completed successfully to', folderName)
+        if (manual) {
+          toast.success(`Backup completato in: ${folderName}/ceraiolo_backup.sqlite`)
+        } else {
+          console.log('Auto-backup completed successfully to', folderName)
+        }
+      } catch (err) {
+        throw new Error(`Impossibile scrivere nella cartella di backup: ${err.message}`)
       }
+
+      // 5. RETENTION POLICY: Keep last 3 folders
+      try {
+        const dirIterator = rootHandle.values()
+        const backupDirs = []
+        for await (const entry of dirIterator) {
+          if (entry.kind === 'directory' && entry.name.startsWith('backup_')) {
+            backupDirs.push(entry.name)
+          }
+        }
+
+        // Sort naturally (YYYY-MM-DD helps)
+        backupDirs.sort()
+
+        // If more than 3, delete the oldest
+        if (backupDirs.length > 3) {
+          const dirsToDelete = backupDirs.slice(0, backupDirs.length - 3)
+          for (const dirName of dirsToDelete) {
+            try {
+              await rootHandle.removeEntry(dirName, { recursive: true })
+              console.log('Cleaned up old backup:', dirName)
+            } catch (cleanupErr) {
+              console.warn('Failed to cleanup old backup:', dirName, cleanupErr)
+            }
+          }
+        }
+      } catch (retentionErr) {
+        console.warn('Retention policy execution failed:', retentionErr)
+        // Don't fail the main backup operation just because cleanup failed
+      }
+
       return true
     } catch (error) {
       console.error('Backup failed:', error)

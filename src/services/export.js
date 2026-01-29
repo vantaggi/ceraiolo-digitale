@@ -1,7 +1,14 @@
 import jsPDF from 'jspdf'
 import { PDFDocument, rgb } from 'pdf-lib'
 import * as XLSX from 'xlsx'
-import { getSetting, exportAllSoci, exportAllTesseramenti, isExemptFromPayment } from './db'
+import {
+  db,
+  getSetting,
+  updateSetting,
+  exportAllSoci,
+  exportAllTesseramenti,
+  isExemptFromPayment,
+} from './db'
 import logoUrl from '@/assets/logo_santantoniari.jpg'
 
 /**
@@ -1435,4 +1442,69 @@ export async function generateAuditPDF(auditData) {
     console.error('Audit PDF Error:', error)
     return { success: false, error: error.message }
   }
+}
+
+/**
+ * Export only settings to a JSON file
+ * @returns {Promise<boolean>} Success status
+ */
+export async function exportSettingsToJson() {
+  try {
+    const settings = await db.settings.toArray()
+    const settingsObj = {}
+    settings.forEach((s) => {
+      settingsObj[s.key] = s.value
+    })
+
+    const timestamp = new Date().toISOString().split('T')[0]
+    const filename = `ceraiolo_settings_${timestamp}.json`
+
+    const jsonStr = JSON.stringify(settingsObj, null, 2)
+    const blob = new Blob([jsonStr], { type: 'application/json' })
+
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+
+    return true
+  } catch (error) {
+    console.error('Error exporting settings:', error)
+    throw new Error('Errore durante esportazione configurazione')
+  }
+}
+
+/**
+ * Import settings from a JSON file object
+ * @param {File} file - The JSON file
+ * @returns {Promise<Object>} Result { success, count }
+ */
+export async function importSettingsFromJson(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = async (e) => {
+      try {
+        const json = JSON.parse(e.target.result)
+        const keys = Object.keys(json)
+
+        // Update settings in transaction
+        await db.transaction('rw', db.settings, async () => {
+          for (const key of keys) {
+            await updateSetting(key, json[key])
+          }
+        })
+
+        resolve({ success: true, count: keys.length })
+      } catch (error) {
+        console.error('Error importing settings:', error)
+        reject(new Error('File non valido o corrotto'))
+      }
+    }
+    reader.onerror = () => reject(new Error('Errore lettura file'))
+    reader.readAsText(file)
+  })
 }

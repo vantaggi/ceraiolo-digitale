@@ -409,6 +409,11 @@ async function createExportLog(exportData) {
  * @param {string} [customFilename] - Optional custom filename for the export
  * @returns {Promise<Object>} Export result with file data and metadata
  */
+/**
+ * Exports the entire database to SQLite format
+ * @param {string} [customFilename] - Optional custom filename for the export
+ * @returns {Promise<Object>} Export result with file data and metadata
+ */
 export async function exportDatabaseToSqlite(customFilename = null) {
   try {
     const timestamp = generateTimestamp()
@@ -422,7 +427,7 @@ export async function exportDatabaseToSqlite(customFilename = null) {
     // Create new SQLite database
     const sqliteDb = new SQL.Database()
 
-    // Create tables
+    // 1. Create Core Tables (Soci, Tesseramenti)
     sqliteDb.run(`
       CREATE TABLE Soci (
         id INTEGER PRIMARY KEY,
@@ -433,10 +438,7 @@ export async function exportDatabaseToSqlite(customFilename = null) {
         gruppo_appartenenza TEXT,
         data_prima_iscrizione INTEGER,
         note TEXT
-      )
-    `)
-
-    sqliteDb.run(`
+      );
       CREATE TABLE Tesseramenti (
         id_tesseramento TEXT PRIMARY KEY,
         id_socio INTEGER,
@@ -446,15 +448,35 @@ export async function exportDatabaseToSqlite(customFilename = null) {
         numero_ricevuta INTEGER,
         numero_blocchetto INTEGER,
         FOREIGN KEY (id_socio) REFERENCES Soci (id)
-      )
+      );
     `)
 
-    // Export Soci table
+    // 2. Create Advanced Tables (Settings, LocalChanges, Metadata)
+    sqliteDb.run(`
+      CREATE TABLE Settings (
+        key TEXT PRIMARY KEY,
+        value TEXT, -- JSON string
+        updated_at TEXT
+      );
+      CREATE TABLE LocalChanges (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        table_name TEXT,
+        change_type TEXT,
+        record_id TEXT,
+        timestamp TEXT,
+        new_data TEXT -- JSON string
+      );
+      CREATE TABLE Metadata (
+        key TEXT PRIMARY KEY,
+        value TEXT
+      );
+    `)
+
+    // --- EXPORT SOCI ---
     const sociData = await db.soci.toArray()
     const sociStmt = sqliteDb.prepare(
       'INSERT INTO Soci (id, cognome, nome, data_nascita, luogo_nascita, gruppo_appartenenza, data_prima_iscrizione, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
     )
-
     for (const socio of sociData) {
       sociStmt.run([
         socio.id,
@@ -469,12 +491,11 @@ export async function exportDatabaseToSqlite(customFilename = null) {
     }
     sociStmt.free()
 
-    // Export Tesseramenti table
+    // --- EXPORT TESSERAMENTI ---
     const tesseramentiData = await db.tesseramenti.toArray()
     const tessStmt = sqliteDb.prepare(
       'INSERT INTO Tesseramenti (id_tesseramento, id_socio, anno, data_pagamento, quota_pagata, numero_ricevuta, numero_blocchetto) VALUES (?, ?, ?, ?, ?, ?, ?)',
     )
-
     for (const tess of tesseramentiData) {
       tessStmt.run([
         tess.id_tesseramento,
@@ -488,6 +509,46 @@ export async function exportDatabaseToSqlite(customFilename = null) {
     }
     tessStmt.free()
 
+    // --- EXPORT SETTINGS ---
+    const settingsData = await db.settings.toArray()
+    const settingsStmt = sqliteDb.prepare(
+      'INSERT INTO Settings (key, value, updated_at) VALUES (?, ?, ?)',
+    )
+    for (const setting of settingsData) {
+      // Ensure value is JSON stringified if it's an object/array, though usually it might be stored directly
+      // In Dexie we store any type. In SQLite we use TEXT.
+      // Strategy: JSON.stringify everything to be safe
+      settingsStmt.run([
+        setting.key,
+        JSON.stringify(setting.value),
+        setting.updated_at || new Date().toISOString(),
+      ])
+    }
+    settingsStmt.free()
+
+    // --- EXPORT LOCAL CHANGES (HISTORY) ---
+    const historyData = await db.local_changes.toArray()
+    const historyStmt = sqliteDb.prepare(
+      'INSERT INTO LocalChanges (id, table_name, change_type, record_id, timestamp, new_data) VALUES (?, ?, ?, ?, ?, ?)',
+    )
+    for (const change of historyData) {
+      historyStmt.run([
+        change.id,
+        change.table_name || null,
+        change.change_type || null,
+        change.record_id ? String(change.record_id) : null,
+        change.timestamp || null,
+        JSON.stringify(change.new_data || {}),
+      ])
+    }
+    historyStmt.free()
+
+    // --- EXPORT METADATA ---
+    const metadataStmt = sqliteDb.prepare('INSERT INTO Metadata (key, value) VALUES (?, ?)')
+    metadataStmt.run(['schema_version', '2.0'])
+    metadataStmt.run(['export_timestamp', timestamp])
+    metadataStmt.free()
+
     // Get binary data and create blob
     const binaryArray = sqliteDb.export()
     const blob = new Blob([binaryArray], { type: 'application/octet-stream' })
@@ -497,8 +558,11 @@ export async function exportDatabaseToSqlite(customFilename = null) {
       filename,
       soci_count: sociData.length,
       tesseramenti_count: tesseramentiData.length,
+      settings_count: settingsData.length,
+      history_count: historyData.length,
       file_size: binaryArray.length,
       timestamp,
+      schema_version: '2.0',
     }
 
     sqliteDb.close()
@@ -1724,46 +1788,122 @@ export async function importDatabaseFromSqlite(file) {
       throw new Error('Il file non sembra essere un database valido o manca la tabella Soci.')
     }
 
+    // Check version if Metadata exists
+    try {
+      const res = sqliteDb.exec("SELECT value FROM Metadata WHERE key = 'schema_version'")
+      if (res.length > 0 && res[0].values.length > 0) {
+        console.log('Importing database schema version:', res[0].values[0][0])
+      }
+    } catch {
+      console.log('No metadata table found, assuming legacy backup')
+    }
+
     // Clear current Dexie DB
-    await db.transaction('rw', db.soci, db.tesseramenti, db.local_changes, async () => {
-      await db.soci.clear()
-      await db.tesseramenti.clear()
-      await db.local_changes.clear()
+    await db.transaction(
+      'rw',
+      db.soci,
+      db.tesseramenti,
+      db.local_changes,
+      db.settings,
+      async () => {
+        await db.soci.clear()
+        await db.tesseramenti.clear()
+        await db.local_changes.clear()
+        await db.settings.clear()
 
-      // Import Soci
-      const sociResult = sqliteDb.exec('SELECT * FROM Soci')
-      if (sociResult.length > 0) {
-        const columns = sociResult[0].columns
-        const values = sociResult[0].values
+        // --- IMPORT SOCI ---
+        const sociResult = sqliteDb.exec('SELECT * FROM Soci')
+        if (sociResult.length > 0) {
+          const columns = sociResult[0].columns
+          const values = sociResult[0].values
 
-        const sociObjects = values.map((row) => {
-          const obj = {}
-          columns.forEach((col, i) => {
-            obj[col] = row[i]
+          const sociObjects = values.map((row) => {
+            const obj = {}
+            columns.forEach((col, i) => {
+              obj[col] = row[i]
+            })
+            return obj
           })
-          return obj
-        })
 
-        await db.soci.bulkAdd(sociObjects)
-      }
+          await db.soci.bulkAdd(sociObjects)
+        }
 
-      // Import Tesseramenti
-      const tessResult = sqliteDb.exec('SELECT * FROM Tesseramenti')
-      if (tessResult.length > 0) {
-        const columns = tessResult[0].columns
-        const values = tessResult[0].values
+        // --- IMPORT TESSERAMENTI ---
+        const tessResult = sqliteDb.exec('SELECT * FROM Tesseramenti')
+        if (tessResult.length > 0) {
+          const columns = tessResult[0].columns
+          const values = tessResult[0].values
 
-        const tessObjects = values.map((row) => {
-          const obj = {}
-          columns.forEach((col, i) => {
-            obj[col] = row[i]
+          const tessObjects = values.map((row) => {
+            const obj = {}
+            columns.forEach((col, i) => {
+              obj[col] = row[i]
+            })
+            return obj
           })
-          return obj
-        })
 
-        await db.tesseramenti.bulkAdd(tessObjects)
-      }
-    })
+          await db.tesseramenti.bulkAdd(tessObjects)
+        }
+
+        // --- IMPORT SETTINGS ---
+        try {
+          const settingsResult = sqliteDb.exec('SELECT * FROM Settings')
+          if (settingsResult.length > 0) {
+            const columns = settingsResult[0].columns
+            const values = settingsResult[0].values
+
+            const settingsObjects = values.map((row) => {
+              const obj = {}
+              columns.forEach((col, i) => {
+                obj[col] = row[i]
+              })
+              // Parse JSON value
+              if (obj.value) {
+                try {
+                  obj.value = JSON.parse(obj.value)
+                } catch {
+                  // Keep as string if parse fails
+                }
+              }
+              return obj
+            })
+
+            await db.settings.bulkAdd(settingsObjects)
+          }
+        } catch {
+          console.warn('Settings table not found in backup (Legacy backup?)')
+        }
+
+        // --- IMPORT LOCAL CHANGES ---
+        try {
+          const historyResult = sqliteDb.exec('SELECT * FROM LocalChanges')
+          if (historyResult.length > 0) {
+            const columns = historyResult[0].columns
+            const values = historyResult[0].values
+
+            const historyObjects = values.map((row) => {
+              const obj = {}
+              columns.forEach((col, i) => {
+                obj[col] = row[i]
+              })
+              // Parse JSON new_data
+              if (obj.new_data) {
+                try {
+                  obj.new_data = JSON.parse(obj.new_data)
+                } catch {
+                  // Keep as string
+                }
+              }
+              return obj
+            })
+
+            await db.local_changes.bulkAdd(historyObjects)
+          }
+        } catch {
+          console.warn('LocalChanges table not found in backup (Legacy backup?)')
+        }
+      },
+    )
 
     sqliteDb.close()
 
@@ -1771,6 +1911,32 @@ export async function importDatabaseFromSqlite(file) {
   } catch (error) {
     console.error('Import failed:', error)
     return { success: false, error: error.message }
+  }
+}
+
+/**
+ * Wipes the entire database (Factory Reset)
+ * @returns {Promise<void>}
+ */
+export async function wipeDatabase() {
+  try {
+    await db.transaction(
+      'rw',
+      db.soci,
+      db.tesseramenti,
+      db.local_changes,
+      db.settings,
+      async () => {
+        await db.soci.clear()
+        await db.tesseramenti.clear()
+        await db.local_changes.clear()
+        await db.settings.clear()
+      },
+    )
+    console.log('Database wiped successfully')
+  } catch (error) {
+    console.error('Error wiping database:', error)
+    throw new Error('Errore durante il reset del database')
   }
 }
 
