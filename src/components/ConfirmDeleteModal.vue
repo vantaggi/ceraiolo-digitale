@@ -3,21 +3,28 @@
     <div v-if="isVisible" class="modal-overlay" @click="closeOnOverlay">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
-          <h3 class="modal-title">🗑️ Elimina Socio</h3>
+          <h3 class="modal-title">{{ title || '🗑️ Elimina Socio' }}</h3>
           <button class="close-button" @click="closeModal" aria-label="Chiudi">✕</button>
         </div>
 
         <div class="modal-body">
           <div class="warning-icon">⚠️</div>
-          <p class="warning-message">
-            Sei sicuro di voler eliminare il socio
-            <strong>{{ socioName }}</strong
-            >?
-          </p>
-          <p class="danger-message">
-            Questa operazione è <strong>irreversibile</strong> e eliminerà anche tutti i
-            tesseramenti associati a questo socio.
-          </p>
+
+          <div v-if="message" class="custom-message">
+            <p class="warning-message" style="white-space: pre-line">{{ message }}</p>
+          </div>
+
+          <template v-else>
+            <p class="warning-message">
+              Sei sicuro di voler eliminare il socio
+              <strong>{{ socioName }}</strong
+              >?
+            </p>
+            <p class="danger-message">
+              Questa operazione è <strong>irreversibile</strong> e eliminerà anche tutti i
+              tesseramenti associati a questo socio.
+            </p>
+          </template>
         </div>
 
         <div class="modal-footer">
@@ -41,6 +48,14 @@ defineProps({
     default: false,
   },
   socioName: {
+    type: String,
+    default: '',
+  },
+  title: {
+    type: String,
+    default: '',
+  },
+  message: {
     type: String,
     default: '',
   },
@@ -87,7 +102,7 @@ const confirmDelete = () => {
 }
 
 .modal-content {
-  background: white;
+  background: var(--color-surface);
   border-radius: 12px;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
   max-width: 500px;
@@ -95,6 +110,7 @@ const confirmDelete = () => {
   max-height: 90vh;
   overflow-y: auto;
   animation: slideIn 0.3s ease-out;
+  border: 1px solid var(--color-border);
 }
 
 .modal-header {
@@ -148,12 +164,16 @@ const confirmDelete = () => {
 .danger-message {
   font-size: 0.95rem;
   color: var(--color-accent);
-  background-color: #ffebee; /* Keep for specific warning look or adding variable later */
+  background-color: var(--color-surface-hover); /* Fallback or use surface-active */
   padding: 1rem;
   border-radius: 8px;
   border-left: 4px solid var(--color-accent);
   line-height: 1.4;
+  border: 1px solid var(--color-border);
 }
+
+/* Optional: Specific override if you have a defined danger background variable */
+/* background-color: rgba(var(--color-accent-rgb), 0.1); */
 
 .modal-footer {
   display: flex;

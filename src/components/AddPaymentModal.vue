@@ -21,6 +21,7 @@
             required
             class="form-input"
             placeholder="Es: 10.00"
+            ref="quotaInput"
           />
         </div>
 
@@ -100,7 +101,7 @@
           <button type="button" @click="closeModal" class="cancel-button" :disabled="isSubmitting">
             Annulla
           </button>
-          <button type="submit" class="save-button" :disabled="isSubmitting">
+          <button type="submit" class="save-button" :disabled="isSubmitting" ref="saveButton">
             {{ isSubmitting ? 'Salvando...' : `Salva Pagamenti (${selectedYears.length} anni)` }}
           </button>
         </div>
@@ -110,8 +111,8 @@
 </template>
 
 <script setup>
-import { ref, reactive, watch } from 'vue'
-import { getTesseramentiBySocioId, getSetting } from '@/services/db'
+import { ref, reactive, watch, nextTick } from 'vue'
+import { getTesseramentiBySocioId, getSetting, calculateAgeInYear } from '@/services/db'
 
 const emit = defineEmits(['close', 'payments-saved'])
 
@@ -143,6 +144,8 @@ const props = defineProps({
 })
 
 const isSubmitting = ref(false)
+const quotaInput = ref(null)
+const saveButton = ref(null)
 
 const paymentDetails = reactive({
   quota_pagata: 10.0, // Will be updated from settings
@@ -186,8 +189,24 @@ const loadAvailableYears = async () => {
 
     // Get last 5 years, but not earlier than first registration
     const currentYear = new Date().getFullYear()
-    const startYear = Math.max(currentYear - 4, firstRegistrationYear)
-    console.log('Start year calculation:', { currentYear, firstRegistrationYear, startYear })
+
+    // Check if socio is minor
+    const isMinor = calculateAgeInYear(socio.data_nascita, currentYear) < 18
+
+    // If minor, don't show "arrears" (past years), so start from current year
+    let startYear
+    if (isMinor) {
+      startYear = currentYear
+    } else {
+      startYear = Math.max(currentYear - 4, firstRegistrationYear)
+    }
+
+    console.log('Start year calculation:', {
+      currentYear,
+      firstRegistrationYear,
+      startYear,
+      isMinor,
+    })
 
     const availableYearsRange = []
     for (let year = startYear; year <= currentYear; year++) {
@@ -228,6 +247,10 @@ watch(
   (show) => {
     if (show) {
       resetForm()
+      nextTick(() => {
+        // Focus on Save button instead of quota input
+        saveButton.value?.focus()
+      })
     }
   },
 )

@@ -51,9 +51,11 @@ db.version(2).stores({
 // Hooks for Auto-Backup
 // We use dynamic import to avoid circular dependencies with backupService
 const triggerBackup = () => {
-  import('./backupService').then(({ backupService }) => {
-    backupService.notifyChange()
-  }).catch(err => console.error('Failed to trigger backup:', err))
+  import('./backupService')
+    .then(({ backupService }) => {
+      backupService.notifyChange()
+    })
+    .catch((err) => console.error('Failed to trigger backup:', err))
 }
 
 db.soci.hook('creating', triggerBackup)
@@ -127,12 +129,12 @@ export async function applyFiltersAndSearch(filters) {
         const terms = searchTerm.toLowerCase().trim().split(/\s+/) // Split by whitespace
 
         // Check if ALL terms match at least one field
-        searchTermMatch = terms.every(term => {
-             const inNome = socio.nome && socio.nome.toLowerCase().includes(term)
-             const inCognome = socio.cognome && socio.cognome.toLowerCase().includes(term)
-             const inNote = socio.note && socio.note.toLowerCase().includes(term)
-             // We can also search in ID if useful, but usually names are enough
-             return inNome || inCognome || inNote
+        searchTermMatch = terms.every((term) => {
+          const inNome = socio.nome && socio.nome.toLowerCase().includes(term)
+          const inCognome = socio.cognome && socio.cognome.toLowerCase().includes(term)
+          const inNote = socio.note && socio.note.toLowerCase().includes(term)
+          // We can also search in ID if useful, but usually names are enough
+          return inNome || inCognome || inNote
         })
       }
 
@@ -159,12 +161,12 @@ export async function searchSoci(searchTerm) {
     const results = await db.soci
       .filter((socio) => {
         // Check if ALL terms match at least one field
-        return terms.every(term => {
-             const inNome = socio.nome && socio.nome.toLowerCase().includes(term)
-             const inCognome = socio.cognome && socio.cognome.toLowerCase().includes(term)
-             return inNome || inCognome
-             // Note: Here we don't search in notes for quick add/search, but we could if needed.
-             // Keeping it consistent with "finding a person" usually relies on name/surname.
+        return terms.every((term) => {
+          const inNome = socio.nome && socio.nome.toLowerCase().includes(term)
+          const inCognome = socio.cognome && socio.cognome.toLowerCase().includes(term)
+          return inNome || inCognome
+          // Note: Here we don't search in notes for quick add/search, but we could if needed.
+          // Keeping it consistent with "finding a person" usually relies on name/surname.
         })
       })
       .toArray()
@@ -806,6 +808,42 @@ export async function addTesseramento(paymentData) {
 }
 
 /**
+ * Deletes payment records for a specific member, receipt, and years
+ * @param {number|string} socioId - ID of the member
+ * @param {number} numeroRicevuta - Receipt number
+ * @param {Array<number>} anni - Array of years to delete
+ * @returns {Promise<number>} Number of deleted records
+ */
+export async function deleteTesseramentiByReceipt(socioId, numeroRicevuta, anni) {
+  try {
+    const numericSocioId = typeof socioId === 'string' ? parseInt(socioId, 10) : socioId
+    if (isNaN(numericSocioId)) throw new Error('Invalid socioId')
+
+    const tesseramentiToDelete = await db.tesseramenti
+      .where('id_socio')
+      .equals(numericSocioId)
+      .and((t) => t.numero_ricevuta === numeroRicevuta && anni.includes(t.anno))
+      .toArray()
+
+    if (tesseramentiToDelete.length === 0) return 0
+
+    const idsToDelete = tesseramentiToDelete.map((t) => t.id_tesseramento)
+
+    await db.tesseramenti.bulkDelete(idsToDelete)
+
+    // Log deletion for each record
+    for (const tess of tesseramentiToDelete) {
+      await logLocalChange('tesseramenti', tess.id_tesseramento, 'delete', tess, null)
+    }
+
+    return idsToDelete.length
+  } catch (error) {
+    console.error('Error deleting tesseramenti by receipt:', error)
+    throw new Error(`Failed to delete payments: ${error.message}`)
+  }
+}
+
+/**
  * Adds a new member to the database
  * @param {object} socioData - The member data to insert
  * @param {string} socioData.cognome - Last name
@@ -1137,11 +1175,11 @@ export async function getMembersByGroup(
 
       for (let year = firstYear; year <= currentYear; year++) {
         if (!paidYears.has(year)) {
-            // Check exemption
-            if (!isExemptFromPayment(socio, year)) {
-                isInRegola = false
-                break
-            }
+          // Check exemption
+          if (!isExemptFromPayment(socio, year)) {
+            isInRegola = false
+            break
+          }
         }
       }
 
@@ -1207,8 +1245,7 @@ export async function getGroupCountsForYear(year) {
       // 1. Ha pagato/rinnovato fisicamente quest'anno?
       if (paidMemberIds.has(socio.id)) {
         isEnrolled = true
-      }
-      else {
+      } else {
         // 2. Controllo Esenzione Minorenni
         // Se minorenne E iscritto (data_prima_iscrizione <= anno corrente o non definita ma assunto attivo)
         // Assumiamo che se è nel DB ed è minore, vada contato se la sua iscrizione non è FUTURA
@@ -1217,17 +1254,17 @@ export async function getGroupCountsForYear(year) {
         const isMinor = isExemptFromPayment(socio, numericYear)
 
         if (isMinor) {
-           // Verifica data inizio validità
-           // Se data_prima_iscrizione c'è, deve essere <= numericYear
-           // Se NON c'è, per sicurezza lo contiamo (magari importato senza data)
-           let isValidStart = true
-           if (socio.data_prima_iscrizione) {
-             isValidStart = socio.data_prima_iscrizione <= numericYear
-           }
+          // Verifica data inizio validità
+          // Se data_prima_iscrizione c'è, deve essere <= numericYear
+          // Se NON c'è, per sicurezza lo contiamo (magari importato senza data)
+          let isValidStart = true
+          if (socio.data_prima_iscrizione) {
+            isValidStart = socio.data_prima_iscrizione <= numericYear
+          }
 
-           if (isValidStart) {
-             isEnrolled = true
-           }
+          if (isValidStart) {
+            isEnrolled = true
+          }
         }
       }
 
@@ -1271,7 +1308,7 @@ export async function getYearlyStats(startYear, endYear) {
     // Mappa: socioId -> Set di anni pagati
     const paymentsMap = new Map()
 
-    allTesseramenti.forEach(t => {
+    allTesseramenti.forEach((t) => {
       if (!paymentsMap.has(t.id_socio)) {
         paymentsMap.set(t.id_socio, new Set())
       }
@@ -1290,16 +1327,16 @@ export async function getYearlyStats(startYear, endYear) {
       // Se minorenne esente
       const numericYear = Number(year)
       if (isExemptFromPayment(socio, numericYear)) {
-         // Se ha una data di iscrizione, deve essere valida (non futura)
-         // IMPORTANTE: Se NON ha data_prima_iscrizione e NON ha pagato,
-         // tecnicamente non sappiamo quando si è iscritto, quindi NON dovremmo contarlo per evitare falsi positivi negli anni passati.
-         // Tuttavia, se vogliamo essere permissivi per i dati importati male, potremmo controllare se hanno pagamenti in ANNI SUCCESSIVI
-         // che confermerebbero l'iscrizione passata? Per ora rimaniamo fedeli alla richiesta: "da dopo la prima iscrizione".
-         // Quindi la data DEVE esserci ed essere <= numericYear.
+        // Se ha una data di iscrizione, deve essere valida (non futura)
+        // IMPORTANTE: Se NON ha data_prima_iscrizione e NON ha pagato,
+        // tecnicamente non sappiamo quando si è iscritto, quindi NON dovremmo contarlo per evitare falsi positivi negli anni passati.
+        // Tuttavia, se vogliamo essere permissivi per i dati importati male, potremmo controllare se hanno pagamenti in ANNI SUCCESSIVI
+        // che confermerebbero l'iscrizione passata? Per ora rimaniamo fedeli alla richiesta: "da dopo la prima iscrizione".
+        // Quindi la data DEVE esserci ed essere <= numericYear.
 
-         if (socio.data_prima_iscrizione && socio.data_prima_iscrizione <= numericYear) {
-            return true
-         }
+        if (socio.data_prima_iscrizione && socio.data_prima_iscrizione <= numericYear) {
+          return true
+        }
       }
       return false
     }
@@ -1329,12 +1366,12 @@ export async function getYearlyStats(startYear, endYear) {
           if (socio.data_prima_iscrizione === year) {
             isNew = true
           } else if (!socio.data_prima_iscrizione) {
-             // Fallback: controlla se questo è il primo anno di pagamento assoluto
-             const years = paymentsMap.get(socio.id)
-             if (years) {
-               const minYear = Math.min(...Array.from(years))
-               if (minYear === year) isNew = true
-             }
+            // Fallback: controlla se questo è il primo anno di pagamento assoluto
+            const years = paymentsMap.get(socio.id)
+            if (years) {
+              const minYear = Math.min(...Array.from(years))
+              if (minYear === year) isNew = true
+            }
           }
 
           if (isNew) newMembers++
@@ -1345,25 +1382,25 @@ export async function getYearlyStats(startYear, endYear) {
       // Solo se non siamo al primo anno del loop (o serve query anno precedente)
       // Per semplicità, ricalcoliamo gli iscritti dell'anno precedente
       if (year > start) {
-         // Recuperiamo chi era iscritto l'anno scorso
-         const prevYear = year - 1
+        // Recuperiamo chi era iscritto l'anno scorso
+        const prevYear = year - 1
 
-         for (const socio of allSoci) {
-            if (isEnrolledInYear(socio, prevYear)) {
-               // Se era iscritto l'anno scorso...
-               // ...e NON è iscritto quest'anno
-               if (!enrolledThisYear.has(socio.id)) {
-                 lostMembers++
-               }
+        for (const socio of allSoci) {
+          if (isEnrolledInYear(socio, prevYear)) {
+            // Se era iscritto l'anno scorso...
+            // ...e NON è iscritto quest'anno
+            if (!enrolledThisYear.has(socio.id)) {
+              lostMembers++
             }
-         }
+          }
+        }
       }
 
       stats.push({
         year,
         total,
         newMembers,
-        lostMembers
+        lostMembers,
       })
     }
 
@@ -1413,7 +1450,7 @@ export async function importDatabaseFromSqlite(file) {
   try {
     const arrayBuffer = await file.arrayBuffer()
     const SQL = await initSqlJs({
-       locateFile: (file) => `/${file}`,
+      locateFile: (file) => `/${file}`,
     })
 
     // Load DB from file
@@ -1423,9 +1460,9 @@ export async function importDatabaseFromSqlite(file) {
     // Verify tables exist
     // Simple check
     try {
-      sqliteDb.exec("SELECT count(*) FROM Soci")
+      sqliteDb.exec('SELECT count(*) FROM Soci')
     } catch {
-      throw new Error("Il file non sembra essere un database valido o manca la tabella Soci.")
+      throw new Error('Il file non sembra essere un database valido o manca la tabella Soci.')
     }
 
     // Clear current Dexie DB
@@ -1435,12 +1472,12 @@ export async function importDatabaseFromSqlite(file) {
       await db.local_changes.clear()
 
       // Import Soci
-      const sociResult = sqliteDb.exec("SELECT * FROM Soci")
+      const sociResult = sqliteDb.exec('SELECT * FROM Soci')
       if (sociResult.length > 0) {
         const columns = sociResult[0].columns
         const values = sociResult[0].values
 
-        const sociObjects = values.map(row => {
+        const sociObjects = values.map((row) => {
           const obj = {}
           columns.forEach((col, i) => {
             obj[col] = row[i]
@@ -1452,12 +1489,12 @@ export async function importDatabaseFromSqlite(file) {
       }
 
       // Import Tesseramenti
-      const tessResult = sqliteDb.exec("SELECT * FROM Tesseramenti")
+      const tessResult = sqliteDb.exec('SELECT * FROM Tesseramenti')
       if (tessResult.length > 0) {
         const columns = tessResult[0].columns
         const values = tessResult[0].values
 
-        const tessObjects = values.map(row => {
+        const tessObjects = values.map((row) => {
           const obj = {}
           columns.forEach((col, i) => {
             obj[col] = row[i]

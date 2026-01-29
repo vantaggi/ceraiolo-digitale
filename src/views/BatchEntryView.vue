@@ -102,7 +102,7 @@
           <p>🎯 Nessun socio aggiunto ancora</p>
           <small>Inizia cercando un socio esistente o registrane uno nuovo</small>
         </div>
-        <div v-else class="receipt-soci-list">
+        <TransitionGroup name="list" tag="div" class="receipt-soci-list">
           <div v-for="socio in currentReceipt.soci" :key="socio.id" class="receipt-socio-item">
             <span class="socio-name">{{ socio.cognome }} {{ socio.nome }}</span>
             <span class="socio-payment">{{ socio.anniPagati.join(', ') }}</span>
@@ -110,16 +110,38 @@
               ❌
             </button>
           </div>
-        </div>
+        </TransitionGroup>
       </div>
     </div>
 
     <!-- Area 3: L'Area di Lavoro -->
     <div class="work-area">
-      <h2>🔍 Area di Lavoro</h2>
+      <div class="work-area-header">
+        <h2>🔍 Area di Lavoro</h2>
+        <button
+          @click="openNewSocioForm"
+          class="add-socio-header-btn"
+          title="Registra Nuovo Socio"
+          :disabled="isProcessing"
+        >
+          <span class="icon">➕</span>
+          <span class="label">Nuovo Socio</span>
+        </button>
+      </div>
 
       <!-- Barra di Ricerca -->
       <div class="search-section">
+        <div class="search-controls">
+          <label
+            class="turbo-toggle"
+            :class="{ active: turboMode }"
+            title="Salta la conferma pagamento (Invio = Paga)"
+          >
+            <input type="checkbox" v-model="turboMode" />
+            <span class="toggle-icon">⚡</span>
+            <span class="toggle-label">Turbo Mode</span>
+          </label>
+        </div>
         <div class="search-input-group">
           <input
             v-model="searchQuery"
@@ -127,6 +149,8 @@
             class="search-input"
             placeholder="Cerca socio per cognome o nome..."
             @input="debouncedSearch"
+            @keydown="handleSearchKeydown"
+            @focus="$event.target.select()"
             :disabled="isProcessing"
             ref="searchInput"
           />
@@ -137,12 +161,14 @@
       <!-- Risultati Ricerca -->
       <div v-if="searchResults.length > 0" class="search-results">
         <h3>🔎 Risultati ({{ searchResults.length }})</h3>
-        <div class="results-list">
+        <div class="results-list" ref="resultsListRef">
           <div
-            v-for="socio in searchResults"
+            v-for="(socio, index) in searchResults"
             :key="socio.id"
             class="result-item"
+            :class="{ selected: index === selectedResultIndex }"
             @click="selectSocio(socio)"
+            @mouseenter="selectedResultIndex = index"
           >
             <div class="socio-info">
               <strong>{{ socio.cognome }} {{ socio.nome }}</strong>
@@ -150,10 +176,20 @@
               <small>Gruppo: {{ socio.gruppo_appartenenza }}</small>
             </div>
             <div class="socio-status">
-              <div v-if="socio.arretrati.length > 0" class="arretrati-badge">
-                ⚠️ Arretrati: {{ socio.arretrati.join(', ') }}
+              <div v-if="getSocioStatus(socio) === 'IN_RECEIPT'" class="status-badge success">
+                ✅ In Ricevuta
               </div>
-              <button class="pay-btn" :disabled="isProcessing">💰 Paga</button>
+              <div v-else-if="getSocioStatus(socio) === 'IN_ORDER'" class="status-badge success">
+                ✅ In Regola
+              </div>
+              <div v-else class="action-area">
+                <div v-if="socio.arretrati.length > 0 && !isMinor(socio)" class="arretrati-badge">
+                  ⚠️ Arretrati: {{ socio.arretrati.join(', ') }}
+                </div>
+                <button class="pay-btn" :disabled="isProcessing" @click.stop="selectSocio(socio)">
+                  💰 Paga
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -279,6 +315,16 @@
     <!-- Modal Errore -->
     <ErrorModal v-if="errorMessage" :message="errorMessage" @close="errorMessage = ''" />
 
+    <!-- Modal Conferma Cancellazione -->
+    <ConfirmDeleteModal
+      v-if="showDeleteConfirm"
+      :is-visible="showDeleteConfirm"
+      title="Conferma eliminazione pagamento"
+      :message="deleteConfirmMessage"
+      @close="cancelDelete"
+      @confirm="confirmRemoveFromReceipt"
+    />
+
     <!-- Modal Pagamento -->
     <AddPaymentModal
       :show="showPaymentModal"
@@ -303,10 +349,13 @@ import {
   getUniqueGroups,
   getArretrati,
   findExistingPaymentYear,
+  calculateAgeInYear,
+  deleteTesseramentiByReceipt,
   getSetting,
   db,
 } from '@/services/db'
 import ErrorModal from '@/components/ErrorModal.vue'
+import ConfirmDeleteModal from '@/components/ConfirmDeleteModal.vue'
 import AddPaymentModal from '@/components/AddPaymentModal.vue'
 
 const toast = useToast()
@@ -337,9 +386,11 @@ const receiptsCache = new Map()
 // Area di lavoro
 const searchQuery = ref('')
 const searchResults = ref([])
+const selectedResultIndex = ref(-1)
 const isSearching = ref(false)
 const showNewSocioForm = ref(false)
 const isProcessing = ref(false)
+const turboMode = ref(false)
 
 // Nuovo socio
 const newSocioData = reactive({
@@ -367,6 +418,15 @@ const paymentData = reactive({
 
 // Error handling
 const errorMessage = ref('')
+const showDeleteConfirm = ref(false)
+const socioToDelete = ref(null)
+
+const deleteConfirmMessage = computed(() => {
+  if (!socioToDelete.value) return ''
+  if (!socioToDelete.value) return ''
+  return `Sei sicuro di voler rimuovere ${socioToDelete.value.cognome} ${socioToDelete.value.nome} dalla ricevuta?
+Questa operazione annullerà il pagamento registrato per questa sessione.`
+})
 
 // Configuration
 const config = ref({
@@ -374,6 +434,57 @@ const config = ref({
   defaultQuota: 10.0,
   newMemberQuota: 25.0,
 })
+
+// Audio
+const soundEnabled = ref(true)
+
+const playSuccessSound = () => {
+  if (!soundEnabled.value) return
+  try {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+    const oscillator = audioCtx.createOscillator()
+    const gainNode = audioCtx.createGain()
+
+    oscillator.connect(gainNode)
+    gainNode.connect(audioCtx.destination)
+
+    oscillator.type = 'sine'
+    oscillator.frequency.setValueAtTime(523.25, audioCtx.currentTime) // C5
+    oscillator.frequency.exponentialRampToValueAtTime(1046.5, audioCtx.currentTime + 0.1) // C6
+
+    gainNode.gain.setValueAtTime(0.05, audioCtx.currentTime)
+    gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1)
+
+    oscillator.start()
+    oscillator.stop(audioCtx.currentTime + 0.15)
+  } catch (e) {
+    console.error('Audio play failed', e)
+  }
+}
+
+const playErrorSound = () => {
+  if (!soundEnabled.value) return
+  try {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+    const oscillator = audioCtx.createOscillator()
+    const gainNode = audioCtx.createGain()
+
+    oscillator.connect(gainNode)
+    gainNode.connect(audioCtx.destination)
+
+    oscillator.type = 'sawtooth'
+    oscillator.frequency.setValueAtTime(150, audioCtx.currentTime)
+    oscillator.frequency.linearRampToValueAtTime(100, audioCtx.currentTime + 0.2)
+
+    gainNode.gain.setValueAtTime(0.05, audioCtx.currentTime)
+    gainNode.gain.linearRampToValueAtTime(0.001, audioCtx.currentTime + 0.2)
+
+    oscillator.start()
+    oscillator.stop(audioCtx.currentTime + 0.25)
+  } catch (e) {
+    console.error(e)
+  }
+}
 
 // Utility
 const today = new Date().toISOString().split('T')[0]
@@ -499,6 +610,17 @@ const resetNewSocioForm = () => {
   })
 }
 
+const openNewSocioForm = () => {
+  searchQuery.value = ''
+  searchResults.value = []
+  showNewSocioForm.value = true
+  resetNewSocioForm()
+  // Optional: Focus first field if we had a ref to it
+  nextTick(() => {
+    document.getElementById('new-cognome')?.focus()
+  })
+}
+
 let searchTimeout = null
 const debouncedSearch = () => {
   clearTimeout(searchTimeout)
@@ -510,7 +632,49 @@ const debouncedSearch = () => {
 
   searchTimeout = setTimeout(async () => {
     await performSearch()
-  }, 300)
+  }, 150)
+}
+
+const handleSearchKeydown = (e) => {
+  if (searchResults.value.length === 0) return
+
+  switch (e.key) {
+    case 'ArrowDown':
+      e.preventDefault()
+      selectedResultIndex.value = Math.min(
+        selectedResultIndex.value + 1,
+        searchResults.value.length - 1,
+      )
+      scrollToSelected()
+      break
+    case 'ArrowUp':
+      e.preventDefault()
+      selectedResultIndex.value = Math.max(selectedResultIndex.value - 1, -1)
+      scrollToSelected()
+      break
+    case 'Enter':
+      e.preventDefault()
+      if (selectedResultIndex.value >= 0) {
+        selectSocio(searchResults.value[selectedResultIndex.value])
+      } else if (searchResults.value.length > 0) {
+        // Turbo mode: Enter without arrow keys selects first result
+        selectSocio(searchResults.value[0])
+      }
+      break
+  }
+}
+
+// Add ref for the results container
+const resultsListRef = ref(null)
+
+const scrollToSelected = () => {
+  nextTick(() => {
+    if (!resultsListRef.value || selectedResultIndex.value < 0) return
+    const selectedEl = resultsListRef.value.children[selectedResultIndex.value]
+    if (selectedEl) {
+      selectedEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    }
+  })
 }
 
 const performSearch = async () => {
@@ -524,7 +688,10 @@ const performSearch = async () => {
       results.map(async (socio) => {
         try {
           const arretrati = await getArretrati(socio.id)
-          return { ...socio, arretrati: arretrati || [] }
+          const paidCurrentYear = await findExistingPaymentYear(socio.id, [
+            sessionData.annoRiferimento,
+          ])
+          return { ...socio, arretrati: arretrati || [], paidCurrentYear: !!paidCurrentYear }
         } catch (error) {
           console.error('Errore caricamento arretrati per socio:', socio.id, error)
           return { ...socio, arretrati: [] }
@@ -533,6 +700,7 @@ const performSearch = async () => {
     )
     searchResults.value = resultsWithArretrati
     showNewSocioForm.value = false
+    selectedResultIndex.value = -1 // Reset selection
   } catch (error) {
     console.error('Errore ricerca:', error)
     toast.error('Errore durante la ricerca')
@@ -542,11 +710,45 @@ const performSearch = async () => {
   }
 }
 
-const selectSocio = (socio) => {
+const selectSocio = async (socio) => {
   selectedSocio.value = socio
-  paymentData.selectedYears = [sessionData.annoRiferimento] // Default: anno di riferimento
-  paymentData.quota = config.value.defaultQuota // Default quota da config
-  showPaymentModal.value = true
+
+  if (turboMode.value) {
+    // Turbo Mode: Direct save with defaults
+    if (isProcessing.value) return
+    isProcessing.value = true
+
+    try {
+      const defaultQuota = await getSetting('defaultQuota', 10.0)
+      await handleSavePayments({
+        details: {
+          quota_pagata: defaultQuota,
+          data_pagamento: sessionData.dataPagamento,
+          numero_ricevuta: currentReceipt.numero,
+          numero_blocchetto: sessionData.numeroBlocchetto,
+        },
+        years: [sessionData.annoRiferimento],
+        socioId: socio.id,
+      })
+
+      // Manual cleanup because closePaymentModal might skipped if isProcessing is true
+      // Actually, handleSavePayments logic assumes it can close.
+      // We will ensure cleanup here just in case.
+      selectedSocio.value = null
+      paymentData.selectedYears = []
+    } catch (e) {
+      console.error('Turbo mode error:', e)
+      toast.error('Errore Turbo Mode: ' + e.message)
+      playErrorSound()
+    } finally {
+      isProcessing.value = false
+    }
+  } else {
+    // Classic Mode: Open Modal
+    paymentData.selectedYears = [sessionData.annoRiferimento] // Default: anno di riferimento
+    paymentData.quota = config.value.defaultQuota // Default quota da config
+    showPaymentModal.value = true
+  }
 }
 
 const closePaymentModal = () => {
@@ -609,9 +811,16 @@ const handleSavePayments = async ({ details, years, socioId }) => {
       `Pagamenti registrati per ${selectedSocio.value.cognome} ${selectedSocio.value.nome} (${years.join(', ')})`,
     )
 
+    playSuccessSound()
+
     closePaymentModal()
     clearSearch()
-    nextTick(() => searchInput.value?.focus())
+    nextTick(() => {
+      if (searchInput.value) {
+        searchInput.value.focus()
+        searchInput.value.select() // Select text to type over immediately
+      }
+    })
   } catch (err) {
     console.error('Error saving payments:', err)
     errorMessage.value = `Si è verificato un errore durante il salvataggio: ${err.message}`
@@ -671,8 +880,14 @@ const saveNewSocio = async () => {
 
     showNewSocioForm.value = false
     resetNewSocioForm()
+    resetNewSocioForm()
     clearSearch()
-    nextTick(() => searchInput.value?.focus())
+    nextTick(() => {
+      if (searchInput.value) {
+        searchInput.value.focus()
+        searchInput.value.select()
+      }
+    })
   } catch (error) {
     console.error('Errore creazione socio:', error)
     toast.error('Errore durante la creazione del socio')
@@ -682,12 +897,51 @@ const saveNewSocio = async () => {
 }
 
 const removeFromReceipt = (socio) => {
-  const index = currentReceipt.soci.findIndex((s) => s.id === socio.id)
-  if (index > -1) {
-    currentReceipt.soci.splice(index, 1)
-    // Salva i dati aggiornati nella cache
-    saveCurrentReceiptToCache()
-    toast.info(`${socio.cognome} ${socio.nome} rimosso dalla ricevuta`)
+  socioToDelete.value = socio
+  showDeleteConfirm.value = true
+}
+
+const cancelDelete = () => {
+  showDeleteConfirm.value = false
+  socioToDelete.value = null
+}
+
+const confirmRemoveFromReceipt = async () => {
+  if (!socioToDelete.value) return
+
+  const socio = socioToDelete.value
+  isProcessing.value = true
+
+  try {
+    // Delete from DB
+    await deleteTesseramentiByReceipt(socio.id, currentReceipt.numero, socio.anniPagati)
+
+    // Remove from UI
+    const index = currentReceipt.soci.findIndex((s) => s.id === socio.id)
+    if (index > -1) {
+      currentReceipt.soci.splice(index, 1)
+      saveCurrentReceiptToCache()
+
+      // Clear socio from search/details cache inside DB service (workaround)
+      const socioKey = `socio_${socio.id}`
+      if (localStorage.getItem(socioKey)) {
+        localStorage.removeItem(socioKey)
+      }
+
+      toast.success(`${socio.cognome} ${socio.nome} rimosso e pagamenti eliminati`)
+    }
+  } catch (error) {
+    console.error('Error deleting payments:', error)
+    toast.error("Errore durante l'eliminazione dei pagamenti")
+  } finally {
+    isProcessing.value = false
+    showDeleteConfirm.value = false
+    socioToDelete.value = null
+
+    // Refresh search if active to update statuses
+    if (searchQuery.value) {
+      performSearch()
+    }
   }
 }
 
@@ -695,6 +949,29 @@ const formatDate = (dateString) => {
   if (!dateString) return ''
   const date = new Date(dateString)
   return date.toLocaleDateString('it-IT')
+}
+
+const isMinor = (socio) => {
+  return calculateAgeInYear(socio.data_nascita, currentYear) < 18
+}
+
+const getSocioStatus = (socio) => {
+  // 1. Check if already in current receipt
+  if (currentReceipt.soci.some((s) => s.id === socio.id)) {
+    return 'IN_RECEIPT'
+  }
+
+  // 2. Check if exempt or all paid
+  // If minor, they are in order if they paid current year (optional? usually voluntary) OR we just hide pay button if paid
+  // If adult, must have paid current year AND no arrears
+  const hasArrears = socio.arretrati.length > 0 && !isMinor(socio)
+
+  if (socio.paidCurrentYear && !hasArrears) {
+    return 'IN_ORDER'
+  }
+
+  // 3. Otherwise, needs action
+  return 'TO_PAY'
 }
 </script>
 
@@ -799,6 +1076,29 @@ const formatDate = (dateString) => {
   transition: all 0.2s;
 }
 
+.status-badge {
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-weight: bold;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.status-badge.success {
+  background-color: var(--color-success); /* Ensure you have this or use custom color */
+  background-color: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #a5d6a7;
+}
+
+.action-area {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
 .receipt-btn:hover:not(:disabled) {
   background-color: #a22a2a;
   transform: scale(1.05);
@@ -852,6 +1152,82 @@ const formatDate = (dateString) => {
   margin-right: 1rem;
 }
 
+.remove-btn:hover {
+  background-color: rgba(220, 53, 69, 0.1);
+}
+
+.add-socio-btn {
+  background: var(--color-surface);
+  border: 2px solid var(--color-accent);
+  color: var(--color-accent);
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 1.2rem;
+  transition: all 0.2s;
+  margin-left: 0.5rem;
+  flex-shrink: 0;
+}
+
+.add-socio-btn:hover:not(:disabled) {
+  background-color: var(--color-accent);
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.add-socio-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  border-color: var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+.work-area-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.work-area-header h2 {
+  margin: 0;
+}
+
+.add-socio-header-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background-color: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: var(--shadow-sm);
+}
+
+.add-socio-header-btn:hover:not(:disabled) {
+  background-color: var(
+    --color-primary-dark
+  ); /* Fallback if var not defined, usually just darken */
+  filter: brightness(1.1);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.add-socio-header-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
 .remove-btn {
   background: none;
   border: none;
@@ -884,8 +1260,68 @@ const formatDate = (dateString) => {
 }
 
 /* Search */
+.result-item.selected {
+  background-color: var(--color-surface-hover, #e0e0e0); /* Fallback to a visible gray */
+  border-left-color: var(--color-accent);
+  border-left-width: 4px; /* Ensure border is visible */
+  padding-left: calc(1rem - 3px); /* Adjust padding */
+  transform: translateX(4px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Ensure visibility in dark mode if vars aren't sufficient */
+@media (prefers-color-scheme: dark) {
+  .result-item.selected {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+}
+
 .search-section {
   margin-bottom: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.search-controls {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.turbo-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+  user-select: none;
+}
+
+.turbo-toggle:hover {
+  border-color: var(--color-accent);
+}
+
+.turbo-toggle.active {
+  background-color: #fff3e0; /* Pale orange/yellow */
+  border-color: #ff9800;
+  color: #e65100;
+}
+
+.turbo-toggle input {
+  display: none;
+}
+
+.toggle-icon {
+  font-size: 1.2rem;
+}
+
+.toggle-label {
+  font-weight: 600;
+  font-size: 0.9rem;
 }
 
 .search-input-group {
@@ -999,7 +1435,7 @@ const formatDate = (dateString) => {
 
 .pay-btn {
   padding: 0.5rem 1rem;
-  background-color: #28a745;
+  background-color: var(--color-success, #28a745);
   color: white;
   border: none;
   border-radius: 6px;
@@ -1009,7 +1445,7 @@ const formatDate = (dateString) => {
 }
 
 .pay-btn:hover:not(:disabled) {
-  background-color: #218838;
+  background-color: var(--color-success-hover, #218838);
   transform: scale(1.05);
 }
 
@@ -1393,5 +1829,33 @@ const formatDate = (dateString) => {
     width: 100%;
     text-align: center;
   }
+  .cancel-button,
+  .save-button {
+    width: 100%;
+    text-align: center;
+  }
+}
+
+/* List Transitions */
+.list-move, /* apply transition to moving elements */
+.list-enter-active,
+.list-leave-active {
+  transition: all 0.5s ease;
+}
+
+.list-enter-from {
+  opacity: 0;
+  transform: translateX(-30px);
+}
+
+.list-leave-to {
+  opacity: 0;
+  transform: translateX(30px);
+}
+
+/* ensure leaving items are taken out of layout flow so that moving
+   animations can be calculated correctly. */
+.list-leave-active {
+  position: absolute;
 }
 </style>
