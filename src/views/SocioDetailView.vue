@@ -214,8 +214,8 @@
         :show="showAddPaymentModal"
         :socio-id="socio?.id?.toString()"
         :years-to-pay="paymentYearToAdd ? [paymentYearToAdd] : []"
-        :year="paymentYearToAdd"
-        @payment-saved="handlePaymentSaved"
+        :anno-riferimento="paymentYearToAdd || new Date().getFullYear()"
+        @payments-saved="handlePaymentSaved"
         @close="closeAddPaymentModal"
       />
 
@@ -573,20 +573,35 @@ const exportSocio = async () => {
 }
 
 /**
+/**
  * Gestisce il salvataggio di un nuovo pagamento dal modal
  */
-const handlePaymentSaved = async (paymentData) => {
+const handlePaymentSaved = async ({ details, years, socioId }) => {
   try {
-    await addTesseramento(paymentData)
+    isSaving.value = true
+
+    // Save payments for all selected years
+    for (const year of years) {
+      const tesseramentoData = {
+        id_socio: socioId,
+        anno: year,
+        quota_pagata: details.quota_pagata,
+        data_pagamento: details.data_pagamento,
+        numero_ricevuta: details.numero_ricevuta,
+        numero_blocchetto: details.numero_blocchetto,
+      }
+
+      await addTesseramento(tesseramentoData)
+    }
+
     await loadSocioData() // Ricarica i dati del socio
-
-    // Chiudi il modal
     closeAddPaymentModal()
-
-    alert('Pagamento registrato con successo!')
+    toast.success('Pagamenti registrati con successo!')
   } catch (err) {
     console.error('Errore salvataggio pagamento:', err)
-    alert('Errore nel salvataggio: ' + err.message)
+    toast.error('Errore nel salvataggio: ' + err.message)
+  } finally {
+    isSaving.value = false
   }
 }
 

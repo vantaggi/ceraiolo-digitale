@@ -350,7 +350,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, nextTick, watch } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useToast } from 'vue-toastification'
 import {
   searchSoci,
@@ -534,6 +534,7 @@ const loadGroups = async () => {
 
 // Lifecycle
 onMounted(async () => {
+  window.addEventListener('keydown', handleGlobalKeydown)
   try {
     // Assicurati che il database sia aperto
     await db.open()
@@ -564,6 +565,41 @@ watch(
   },
 )
 watch(() => sessionData.dataPagamento, validateSessionData)
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleGlobalKeydown)
+})
+
+const handleGlobalKeydown = (e) => {
+  const activeElement = document.activeElement
+  const isInput = ['INPUT', 'TEXTAREA'].includes(activeElement.tagName)
+
+  // Special exception: Allow navigation from search input if it's empty
+  // This allows rapid skipping of receipts without leaving the search field
+  const isSearchInput = searchInput.value && activeElement === searchInput.value
+
+  if (isInput) {
+    // If we are in the search input and it's empty, we allow the navigation keys
+    if (isSearchInput && !searchQuery.value) {
+      // Allow execution
+    } else {
+      // Otherwise (other inputs, or search has text), we block to preserve cursor navigation/editing
+      return
+    }
+  }
+
+  // Ignore if modals are open
+  if (showPaymentModal.value || showDeleteConfirm.value || showNewSocioForm.value) return
+
+  switch (e.key) {
+    case 'ArrowLeft':
+      decrementReceipt()
+      break
+    case 'ArrowRight':
+      incrementReceipt()
+      break
+  }
+}
 
 // Funzioni per gestire la cache delle ricevute
 const saveCurrentReceiptToCache = () => {
