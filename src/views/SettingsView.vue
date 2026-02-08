@@ -26,6 +26,13 @@
           >
             💾 Dati & Backup
           </button>
+          <button
+            @click="currentTab = 'zone'"
+            :class="{ active: currentTab === 'zone' }"
+            class="nav-item"
+          >
+            🏘️ Gestione Zone
+          </button>
         </nav>
       </aside>
 
@@ -338,6 +345,69 @@
             </div>
           </div>
         </section>
+
+        <!-- Tab: Zone (Gestione Gruppi) -->
+        <section v-if="currentTab === 'zone'" class="settings-section">
+          <h2>🏘️ Gestione Zone (Gruppi)</h2>
+          <p>
+            Gestisci le zone di appartenenza. Puoi rinominare zone esistenti (aggiornando tutti i soci)
+            o aggiungerne di nuove per averle pronte nel menu a tendina.
+          </p>
+
+          <div class="zone-actions">
+            <div class="add-zone-form">
+              <input
+                v-model="newZoneName"
+                placeholder="Nome nuova zona..."
+                class="form-input"
+                @keyup.enter="addNewZone"
+              />
+              <button @click="addNewZone" :disabled="!newZoneName.trim()" class="save-button">
+                ➕ Aggiungi
+              </button>
+            </div>
+          </div>
+
+          <div class="zones-list-container">
+            <div v-if="isLoadingZones" class="loading-spinner-large">⏳ Caricamento...</div>
+            <div v-else-if="zones.length === 0" class="empty-state">Nessuna zona definita.</div>
+            <ul v-else class="zones-list">
+              <li v-for="zone in zones" :key="zone" class="zone-item">
+                <div class="zone-info">
+                  <span v-if="editingZone !== zone" class="zone-name">{{ zone }}</span>
+                  <input
+                    v-else
+                    v-model="editingZoneName"
+                    class="form-input edit-input"
+                    @keyup.enter="saveZoneRename(zone)"
+                    @keyup.esc="cancelRename"
+                    ref="editInput"
+                  />
+                </div>
+
+                <div class="zone-buttons">
+                  <template v-if="editingZone !== zone">
+                    <button @click="startRename(zone)" class="action-button small secondary" title="Rinomina">
+                      ✏️
+                    </button>
+                    <!-- Delete button just removes from defined list, doesn't delete users -->
+                    <button @click="deleteZone(zone)" class="action-button small danger" title="Rimuovi dalla lista (non cancella i soci)">
+                      🗑️
+                    </button>
+                  </template>
+                  <template v-else>
+                     <button @click="saveZoneRename(zone)" class="action-button small success" title="Salva">
+                      💾
+                    </button>
+                    <button @click="cancelRename" class="action-button small secondary" title="Annulla">
+                      ❌
+                    </button>
+                  </template>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </section>
       </main>
     </div>
   </div>
@@ -353,6 +423,10 @@ import {
   importDatabaseFromSqlite,
   wipeDatabase,
   getDataAuditStats,
+  getUniqueGroups,
+  addCustomGroup,
+  removeCustomGroup,
+  renameGroup,
 } from '@/services/db'
 import { exportDataToExcel, exportSettingsToJson, importSettingsFromJson } from '@/services/export'
 import { useBackupStore } from '@/stores/backupStore'
@@ -824,6 +898,86 @@ const confirmFactoryReset = async () => {
   } catch (e) {
     toast.error('Reset fallito: ' + e.message)
     isExporting.value = false
+  }
+}
+
+// --- Zone Management Logic ---
+const zones = ref([])
+const newZoneName = ref('')
+const isLoadingZones = ref(false)
+const editingZone = ref(null)
+const editingZoneName = ref('')
+
+const loadZones = async () => {
+  isLoadingZones.value = true
+  try {
+    zones.value = await getUniqueGroups()
+  } catch (e) {
+    console.error(e)
+    toast.error("Errore caricamento zone")
+  } finally {
+    isLoadingZones.value = false
+  }
+}
+
+import { watch } from 'vue'
+watch(currentTab, (newTab) => {
+  if (newTab === 'zone') {
+    loadZones()
+  }
+})
+
+const addNewZone = async () => {
+  if (!newZoneName.value.trim()) return
+  try {
+    await addCustomGroup(newZoneName.value)
+    newZoneName.value = ''
+    toast.success("Zona aggiunta!")
+    await loadZones()
+  } catch (e) {
+    toast.error(e.message)
+  }
+}
+
+const deleteZone = async (zoneName) => {
+  if(!confirm(`Vuoi rimuovere "${zoneName}" dalla lista delle zone definite?\nNota: I soci che appartengono a questa zona manterranno la loro assegnazione, ma la zona non apparirà più come suggerimento se non ci sono soci assegnati.`)) return
+
+  try {
+    await removeCustomGroup(zoneName)
+    toast.success("Zona rimossa dalle definizioni.")
+    await loadZones()
+  } catch (e) {
+    toast.error(e.message)
+  }
+}
+
+const startRename = (zoneName) => {
+  editingZone.value = zoneName
+  editingZoneName.value = zoneName
+}
+
+const cancelRename = () => {
+  editingZone.value = null
+  editingZoneName.value = ''
+}
+
+const saveZoneRename = async (oldName) => {
+  if (!editingZoneName.value.trim() || editingZoneName.value === oldName) {
+    cancelRename()
+    return
+  }
+
+  const newName = editingZoneName.value.trim()
+
+  if(!confirm(`Confermi di voler rinominare la zona "${oldName}" in "${newName}"?\nQuesta operazione aggiornerà tutti i soci appartenenti a questa zona.`)) return
+
+  try {
+    const count = await renameGroup(oldName, newName)
+    toast.success(`Zona rinominata! Aggiornati ${count} soci.`)
+    cancelRename()
+    await loadZones()
+  } catch (e) {
+    toast.error("Errore rinomina: " + e.message)
   }
 }
 </script>

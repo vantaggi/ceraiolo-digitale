@@ -315,6 +315,31 @@
             </button>
           </section>
 
+          <!-- Report Votazioni -->
+          <section class="report-section">
+            <h3>🗳️ Report Votazioni</h3>
+            <p>
+              Elenco soci aventi diritto al voto per l'anno <strong>{{ renewalYear }}</strong>.
+              <br>
+              <small>Requisiti: Maggiorenni nel {{ renewalYear }} (nati &lt;= {{ renewalYear - 18 }})
+              e in regola con il {{ renewalYear - 1 }}.</small>
+            </p>
+            <button @click="generateVotingReport" :disabled="loading" class="action-button wide">
+              📄 Genera Lista Votazioni
+            </button>
+          </section>
+
+          <!-- Report Soci Attivi 5 Anni -->
+          <section class="report-section">
+            <h3>👥 Report Soci Attivi (5 Anni)</h3>
+            <p>
+              Elenco soci con <strong>almeno 1 pagamento</strong> negli ultimi 5 anni (${{ renewalYear - 4 }} - {{ renewalYear }}).
+            </p>
+            <button @click="generateActiveMembersReport" :disabled="loading" class="action-button wide">
+              📄 Genera Lista Attivi
+            </button>
+          </section>
+
           <!-- Lista Pagamenti -->
           <section class="report-section">
             <h3>💰 Cronologia Pagamenti</h3>
@@ -441,6 +466,8 @@ import {
   generateGroupCountsPDF,
   generateChurnPDF,
   generateAuditPDF,
+  generateVotingListPDF,
+  generateActiveMembersPDF,
 } from '@/services/export'
 import {
   getAllSociWithTesseramenti,
@@ -453,6 +480,8 @@ import {
   getDemographicStats,
   getEconomicStats,
   getDataAuditStats,
+  getVotingEligibleMembers,
+  getActiveMembersLast5Years,
   getSetting,
 } from '@/services/db'
 import TesseraTemplate from '@/components/TesseraTemplate.vue'
@@ -829,6 +858,68 @@ const generateChurnReport = async () => {
     }
   } catch (error) {
     console.error('Errore generazione churn report:', error)
+    toast.error('Errore: ' + error.message)
+  } finally {
+    loading.value = false
+  }
+}
+
+/**
+ * Genera il report per le votazioni
+ */
+const generateVotingReport = async () => {
+  if (!renewalYear.value) return
+
+  try {
+    loading.value = true
+    loadingMessage.value = 'Ricerca aventi diritto...'
+    toast.info('Calcolo aventi diritto al voto...')
+
+    const eligibleMembers = await getVotingEligibleMembers(renewalYear.value)
+
+    if (eligibleMembers.length === 0) {
+      toast.warning(`Nessun socio avente diritto trovato per il ${renewalYear.value}`)
+      return
+    }
+
+    loadingMessage.value = 'Generazione PDF...'
+    await generateVotingListPDF(eligibleMembers, renewalYear.value)
+
+    toast.success(`Report Votazioni generato! (${eligibleMembers.length} aventi diritto)`)
+  } catch (error) {
+    console.error('Errore generazione report votazioni:', error)
+    toast.error('Errore: ' + error.message)
+  } finally {
+    loading.value = false
+    loadingMessage.value = ''
+  }
+}
+
+
+/**
+ * Genera il report dei soci attivi (almeno 1 pagamento negli ultimi 5 anni)
+ */
+const generateActiveMembersReport = async () => {
+  if (!renewalYear.value) return
+
+  try {
+    loading.value = true
+    loadingMessage.value = 'Ricerca soci attivi...'
+    toast.info('Calcolo soci attivi...')
+
+    const activeMembers = await getActiveMembersLast5Years(renewalYear.value)
+
+    if (activeMembers.length === 0) {
+      toast.warning(`Nessun socio attivo trovato negli ultimi 5 anni (fino al ${renewalYear.value})`)
+      return
+    }
+
+    loadingMessage.value = 'Generazione PDF...'
+    await generateActiveMembersPDF(activeMembers, renewalYear.value)
+
+    toast.success(`Report Attivi generato! (${activeMembers.length} soci)`)
+  } catch (error) {
+    console.error('Errore generazione report attivi:', error)
     toast.error('Errore: ' + error.message)
   } finally {
     loading.value = false

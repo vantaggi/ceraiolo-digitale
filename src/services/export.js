@@ -7,8 +7,8 @@ import {
   updateSetting,
   exportAllSoci,
   exportAllTesseramenti,
-  isExemptFromPayment,
 } from './db'
+import { calculatePaymentStatus } from '@/utils/payment'
 import logoUrl from '@/assets/logo_santantoniari.jpg'
 
 /**
@@ -117,8 +117,12 @@ function addPDFHeader(doc, title, subtitle = '', summary = '', logoData = null) 
  * @returns {number} Posizione Y dopo la tabella
  */
 function createPDFTable(doc, headers, rows, startY, rowHeight = 10) {
-  const tableWidth = 240
   const startX = 20
+
+  // Calcola larghezza totale tabella dai headers
+  // Se non specificato width nel header, fallback? Assumiamo ci sia.
+  let tableWidth = 0
+  headers.forEach(h => { tableWidth += h.width })
 
   // Calcola posizioni colonne
   const colPositions = [startX]
@@ -171,23 +175,40 @@ function createPDFTable(doc, headers, rows, startY, rowHeight = 10) {
     colPositions.forEach((x) => {
       doc.line(x, currentY, x, currentY + rowHeight)
     })
-    doc.line(
-      colPositions[colPositions.length - 1],
-      currentY,
-      colPositions[colPositions.length - 1],
-      currentY + rowHeight,
-    )
+    // Ultima linea verticale
+    // colPositions ha N+1 elementi (inizio col 1, inizio col 2, ..., fine col N)
+    // Non serve ridisegnarla se cicliamo colPositions, ma colPositions.length = headers.length + 1
+    // Il loop sopra disegna tutte le verticali incluse la finale.
 
     // Bordo orizzontale
     doc.rect(startX, currentY, tableWidth, rowHeight)
 
     // Testo celle
     row.forEach((cellValue, cellIndex) => {
-      const cellText = String(cellValue || '')
+      let cellText = ''
+      let cellColor = null // Default black
+
+      if (typeof cellValue === 'object' && cellValue !== null) {
+        cellText = String(cellValue.text || '')
+        if (cellValue.color) cellColor = cellValue.color
+      } else {
+        cellText = String(cellValue || '')
+      }
+
+      // Applicazione colore se specificato
+      if (cellColor) {
+        doc.setTextColor(cellColor[0], cellColor[1], cellColor[2])
+        // Opzionale: Bold se colorato?
+        // doc.setFont('helvetica', 'bold')
+      } else {
+        doc.setTextColor(0, 0, 0)
+        // doc.setFont('helvetica', 'normal')
+      }
+
       const maxWidth = headers[cellIndex].width - 4
       const textY = currentY + rowHeight / 2 + 1.5 // Centratura dinamica
 
-      // Logica migliorata: usa SEMPRE il wrapping per testi lunghi, evitando troncamenti
+      // Logica migliorata: usa SEMPRE il wrapping per testi lunghi
       if (
         cellText.length > 20 ||
         (doc.getStringUnitWidth(cellText) * doc.internal.getFontSize()) / doc.internal.scaleFactor >
@@ -195,9 +216,6 @@ function createPDFTable(doc, headers, rows, startY, rowHeight = 10) {
       ) {
         // Testo multi-riga (wrapping automatico)
         const lines = doc.splitTextToSize(cellText, maxWidth)
-        // Centratura verticale approssimativa per multiriga:
-        // Se sono troppe righe, potrebbe uscire dalla cella, ma meglio che tagliare.
-        // Un calcolo più fine richiederebbe di sapere l'altezza del font
         const lineHeight = 3.5 // approx per fontSize 9
         const blockHeight = lines.length * lineHeight
         const startY = currentY + (rowHeight - blockHeight) / 2 + 2.5
@@ -207,6 +225,9 @@ function createPDFTable(doc, headers, rows, startY, rowHeight = 10) {
         // Testo normale (una riga)
         doc.text(cellText, colPositions[cellIndex] + 2, textY)
       }
+
+      // Reset color to black for next cell just in case
+      doc.setTextColor(0, 0, 0)
     })
 
     currentY += rowHeight
@@ -335,23 +356,9 @@ export async function generateSociPDF(sociList, renewalYear) {
       .map((socio) => {
         // Calcola gli arretrati
         const anniPagati = socio.tesseramenti ? socio.tesseramenti.map((t) => t.anno) : []
-        const anniArretrati = []
-
-        let annoPrimaIscrizione = socio.data_prima_iscrizione
-        if (!annoPrimaIscrizione && anniPagati.length > 0) {
-          annoPrimaIscrizione = Math.min(...anniPagati)
-        }
-
-        if (annoPrimaIscrizione) {
-          for (let anno = annoPrimaIscrizione; anno < renewalYear; anno++) {
-            if (!anniPagati.includes(anno)) {
-              // Check if exempt (minor)
-              if (!isExemptFromPayment(socio, anno)) {
-                anniArretrati.push(anno)
-              }
-            }
-          }
-        }
+        // Calcola lo stato pagamenti usando la utility condivisa (con logica condono)
+        const status = calculatePaymentStatus(socio, anniPagati, renewalYear)
+        const anniArretrati = status.arretrati
 
         return [
           `${socio.cognome} ${socio.nome}`,
@@ -456,23 +463,9 @@ export async function generateRenewalListPDF(soci, renewalYear) {
     .map((socio) => {
       // Calcola gli arretrati
       const anniPagati = socio.tesseramenti.map((t) => t.anno)
-      const anniArretrati = []
-
-      let annoPrimaIscrizione = socio.data_prima_iscrizione
-      if (!annoPrimaIscrizione && anniPagati.length > 0) {
-        annoPrimaIscrizione = Math.min(...anniPagati)
-      }
-
-      if (annoPrimaIscrizione) {
-        for (let anno = annoPrimaIscrizione; anno < renewalYear; anno++) {
-          if (!anniPagati.includes(anno)) {
-            // Check if exempt (minor)
-            if (!isExemptFromPayment(socio, anno)) {
-              anniArretrati.push(anno)
-            }
-          }
-        }
-      }
+      // Calcola lo stato pagamenti usando la utility condivisa (con logica condono)
+      const status = calculatePaymentStatus(socio, anniPagati, renewalYear)
+      const anniArretrati = status.arretrati
 
       return [
         `${socio.cognome} ${socio.nome}`,
@@ -498,6 +491,186 @@ export async function generateRenewalListPDF(soci, renewalYear) {
 
   // Salva il PDF
   const filename = generatePDFFilename('lista_rinnovi', { renewalYear })
+  doc.save(filename)
+}
+
+/**
+ * Generates a PDF list of members eligible to vote
+ * @param {Array} soci - Array of eligible members
+ * @param {number} votingYear - The year of the vote (Target Year)
+ * @returns {Promise<void>}
+ */
+export async function generateVotingListPDF(soci, votingYear) {
+  // Crea documento PDF
+  const doc = createPDFDocument()
+
+  // Carica Logo
+  let logoData = null
+  try {
+    logoData = await loadImage(logoUrl)
+  } catch (e) {
+    console.warn('Impossibile caricare il logo per il PDF', e)
+  }
+
+  const previousYear = votingYear - 1
+
+  // Header
+  const headerY = addPDFHeader(
+    doc,
+    `Aventi Diritto al Voto - Anno ${votingYear}`,
+    `Requisiti: Maggiorenni nel ${votingYear} e in regola con il ${previousYear}`,
+    `Totale aventi diritto: ${soci.length}`,
+    logoData
+  )
+
+  // Prepara i dati per la tabella
+  const tableData = soci
+    .map((socio) => {
+      // Format Birth Date: YYYY-MM-DD -> DD/MM/YYYY
+      let birthDateStr = '-'
+      if (socio.data_nascita) {
+        const [y, m, d] = socio.data_nascita.split('-')
+        birthDateStr = `${d}/${m}/${y}`
+      }
+
+      const history = socio.paymentHistory || {}
+
+      // Helper for status cell
+      // Note: Standard PDF fonts do not support Unicode checkmarks (✔).
+      // We use "V" (Verificato/Visto) in Green and "X" in Red.
+      const getStatus = (year) => {
+        const isPaid = history[year]
+        if (isPaid) {
+          return { text: 'V', color: [0, 150, 0] } // Green "V"
+        } else {
+          return { text: 'X', color: [200, 50, 50] } // Red "X"
+        }
+      }
+
+      return [
+        `${socio.cognome} ${socio.nome}`,
+        socio.gruppo_appartenenza || '-',
+        birthDateStr,
+        getStatus(votingYear - 5),
+        getStatus(votingYear - 4),
+        getStatus(votingYear - 3),
+        getStatus(votingYear - 2),
+        getStatus(votingYear - 1),
+        getStatus(votingYear),
+        '  [   ]  ', // Checkbox column for voting
+      ]
+    })
+
+  // Configurazione tabella
+  const headers = [
+    { text: 'Cognome e Nome', width: 70 },
+    { text: 'Gruppo', width: 40 },
+    { text: 'Data Nascita', width: 25 },
+    { text: String(votingYear - 5), width: 12 },
+    { text: String(votingYear - 4), width: 12 },
+    { text: String(votingYear - 3), width: 12 },
+    { text: String(votingYear - 2), width: 12 },
+    { text: String(votingYear - 1), width: 12 },
+    { text: String(votingYear), width: 15 },
+    { text: 'Voto', width: 20 },
+  ]
+
+  // Crea tabella
+  createPDFTable(doc, headers, tableData, headerY + 10)
+
+  // Footer
+  addPDFFooter(doc)
+
+  // Salva il PDF
+  const filename = generatePDFFilename('lista_votazioni', { votingYear })
+  doc.save(filename)
+}
+
+/**
+ * Generates a PDF list of active members (last 5 years)
+ * @param {Array} soci - Array of active members
+ * @param {number} targetYear - The reference year
+ * @returns {Promise<void>}
+ */
+export async function generateActiveMembersPDF(soci, targetYear) {
+  // Crea documento PDF
+  const doc = createPDFDocument()
+
+  // Carica Logo
+  let logoData = null
+  try {
+    logoData = await loadImage(logoUrl)
+  } catch (e) {
+    console.warn('Impossibile caricare il logo per il PDF', e)
+  }
+
+  const startYear = targetYear - 4
+
+  // Header
+  const headerY = addPDFHeader(
+    doc,
+    `Soci Attivi (Ultimi 5 Anni)`,
+    `Periodo: ${startYear} - ${targetYear} (Almeno 1 pagamento)`,
+    `Totale soci attivi: ${soci.length}`,
+    logoData
+  )
+
+  // Prepara i dati per la tabella
+  const tableData = soci
+    .map((socio) => {
+      // Format Birth Date: YYYY-MM-DD -> DD/MM/YYYY
+      let birthDateStr = '-'
+      if (socio.data_nascita) {
+        const [y, m, d] = socio.data_nascita.split('-')
+        birthDateStr = `${d}/${m}/${y}`
+      }
+
+      const history = socio.paymentHistory || {}
+
+      // Helper for status cell
+      const getStatus = (year) => {
+        const isPaid = history[year]
+        if (isPaid) {
+          return { text: 'V', color: [0, 150, 0] } // Green "V"
+        } else {
+          return { text: 'X', color: [200, 50, 50] } // Red "X"
+        }
+      }
+
+      return [
+        `${socio.cognome} ${socio.nome}`,
+        socio.gruppo_appartenenza || '-',
+        birthDateStr,
+        getStatus(targetYear - 5),
+        getStatus(targetYear - 4),
+        getStatus(targetYear - 3),
+        getStatus(targetYear - 2),
+        getStatus(targetYear - 1),
+        getStatus(targetYear),
+      ]
+    })
+
+  // Configurazione tabella
+  const headers = [
+    { text: 'Cognome e Nome', width: 85 },
+    { text: 'Gruppo', width: 40 },
+    { text: 'Data Nascita', width: 25 },
+    { text: String(targetYear - 5), width: 15 },
+    { text: String(targetYear - 4), width: 15 },
+    { text: String(targetYear - 3), width: 15 },
+    { text: String(targetYear - 2), width: 15 },
+    { text: String(targetYear - 1), width: 15 },
+    { text: String(targetYear), width: 15 },
+  ]
+
+  // Crea tabella
+  createPDFTable(doc, headers, tableData, headerY + 10)
+
+  // Footer
+  addPDFFooter(doc)
+
+  // Salva il PDF
+  const filename = generatePDFFilename('lista_attivi_5anni', { targetYear })
   doc.save(filename)
 }
 

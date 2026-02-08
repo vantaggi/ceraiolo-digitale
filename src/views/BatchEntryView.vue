@@ -286,11 +286,13 @@
               v-model="newSocioData.gruppo_appartenenza"
               class="form-input"
               :disabled="isProcessing"
+              @change="handleGroupChange"
             >
               <option value="">Seleziona gruppo</option>
               <option v-for="group in availableGroups" :key="group" :value="group">
                 {{ group }}
               </option>
+              <option value="__NEW__">➕ Nuovo gruppo...</option>
             </select>
           </div>
 
@@ -357,6 +359,7 @@ import {
   addSocio,
   addTesseramento,
   getUniqueGroups,
+  addCustomGroup,
   getArretrati,
   findExistingPaymentYear,
   calculateAgeInYear,
@@ -529,6 +532,26 @@ const loadGroups = async () => {
     console.error('Errore caricamento gruppi:', error)
     availableGroups.value = []
     // Non mostrare toast per evitare spam all'avvio
+  }
+
+}
+
+const handleGroupChange = async () => {
+  if (newSocioData.gruppo_appartenenza === '__NEW__') {
+    const newGroup = prompt('Inserisci il nome del nuovo gruppo:')
+    if (newGroup && newGroup.trim()) {
+      try {
+        await addCustomGroup(newGroup)
+        await loadGroups()
+        newSocioData.gruppo_appartenenza = newGroup.trim()
+        toast.success(`Gruppo "${newGroup}" aggiunto!`)
+      } catch (e) {
+        toast.error("Errore aggiunta gruppo: " + e.message)
+        newSocioData.gruppo_appartenenza = ''
+      }
+    } else {
+      newSocioData.gruppo_appartenenza = ''
+    }
   }
 }
 

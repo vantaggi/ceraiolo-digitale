@@ -107,7 +107,8 @@ onMounted(async () => {
 
     // NOTE: Generating stats for 20 years might be slightly heavy but likely fine for client-side DB.
     // Let's go back 30 years to be safe for "Tutta la storia".
-    const stats = await getYearlyStats(currentYear - 30, currentYear)
+    // Updated: We now let getYearlyStats auto-detect the start year if we pass null/undefined
+    const stats = await getYearlyStats(null, currentYear)
 
     // Filter out only completely empty years from the start,
     // but keep gaps in the middle if they exist (though getYearlyStats fills them)
