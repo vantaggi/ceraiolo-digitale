@@ -34,6 +34,24 @@ const loadImage = (url) => {
 }
 
 /**
+ * Formats an ISO date string (YYYY-MM-DD) to DD/MM/YYYY
+ * @param {string} dateStr
+ * @returns {string} Formatted date or original string
+ */
+function formatDate(dateStr) {
+  if (!dateStr) return '-'
+  try {
+    const [y, m, d] = dateStr.split('-')
+    if (y && m && d && y.length === 4) {
+      return `${d}/${m}/${y}`
+    }
+    return dateStr
+  } catch {
+    return dateStr
+  }
+}
+
+/**
  * Crea un documento PDF con configurazione base
  * @param {string} orientation - 'portrait' o 'landscape'
  * @param {string} format - Formato pagina ('a4', ecc.)
@@ -1072,7 +1090,7 @@ export async function generateNewMembersPDF(newMembers, year, ageCategory = 'tut
       .sort((a, b) => a.cognome.localeCompare(b.cognome))
       .map((member) => [
         `${member.cognome} ${member.nome}`,
-        member.data_nascita || '-',
+        formatDate(member.data_nascita),
         member.gruppo_appartenenza || '-',
         member.primo_anno,
       ])
@@ -1145,7 +1163,7 @@ export async function generateCompletePaymentListPDF(payments, ageCategory = 'tu
     const tableData = payments.map((payment) => [
       `${payment.socio.cognome} ${payment.socio.nome}`,
       payment.anno.toString(),
-      payment.data_pagamento || '-',
+      formatDate(payment.data_pagamento),
       payment.quota_pagata ? `€ ${payment.quota_pagata.toFixed(2)}` : '-',
       payment.numero_ricevuta?.toString() || '-',
       payment.numero_blocchetto?.toString() || '-',
@@ -1227,14 +1245,21 @@ export async function generateMembersByGroupPDF(members, gruppo, ageCategory, pa
     )
 
     // Prepara i dati per la tabella
-    const tableData = members.map((member) => [
-      `${member.cognome} ${member.nome}`,
-      member.gruppo_appartenenza || '-',
-      member.data_nascita || '-',
-      // Show only last 5 years to save space
-      member.anni_pagati?.slice(-5).join(', ') || '-',
-      member.in_regola ? 'In Regola' : 'Da Regolarizzare',
-    ])
+    const tableData = members.map((member) => {
+      // Determine status cell
+      const statusCell = member.in_regola
+        ? { text: 'V', color: [0, 150, 0] } // Green
+        : { text: 'X', color: [200, 50, 50] } // Red
+
+      return [
+        `${member.cognome} ${member.nome}`,
+        member.gruppo_appartenenza || '-',
+        formatDate(member.data_nascita),
+        // Show only last 5 years to save space
+        member.anni_pagati?.slice(-5).join(', ') || '-',
+        statusCell,
+      ]
+    })
 
     // Configurazione tabella
     const headers = [
@@ -1242,7 +1267,7 @@ export async function generateMembersByGroupPDF(members, gruppo, ageCategory, pa
       { text: 'Gruppo', width: 30 },
       { text: 'Data Nascita', width: 30 }, // Reduced slightly
       { text: 'Ultimi Pagamenti', width: 50 }, // Renamed and content limited
-      { text: 'Stato (Corrente)', width: 35 }, // Renamed for clarity
+      { text: 'Stato', width: 25 }, // Renamed for clarity
     ]
 
     // Crea tabella
@@ -1515,8 +1540,9 @@ export async function generateChurnPDF(soci, year) {
     // Prepara i dati per la tabella
     const tableData = soci.map((socio) => {
       // Find last payment year for context
-      const lastPayment = Math.max(...(socio.tesseramenti.map((t) => t.anno) || [0]))
-      const lastPaymentStr = lastPayment > 0 ? String(lastPayment) : 'Esente'
+      const tesseramenti = socio.tesseramenti || []
+      const lastPayment = tesseramenti.length > 0 ? Math.max(...tesseramenti.map((t) => t.anno)) : 0
+      const lastPaymentStr = lastPayment > 0 ? String(lastPayment) : 'Mai'
 
       return [
         `${socio.cognome} ${socio.nome}`,
@@ -1545,6 +1571,9 @@ export async function generateChurnPDF(soci, year) {
 
     // Genera filename
     const filename = generatePDFFilename('lista_recupero', { year })
+
+    // === FIX: Force Download ===
+    doc.save(filename)
 
     return {
       success: true,
