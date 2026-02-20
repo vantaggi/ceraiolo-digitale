@@ -319,10 +319,13 @@
           <section class="report-section">
             <h3>🗳️ Report Votazioni</h3>
             <p>
-              Elenco soci aventi diritto al voto per l'anno <strong>{{ renewalYear }}</strong>.
-              <br>
-              <small>Requisiti: Maggiorenni nel {{ renewalYear }} (nati &lt;= {{ renewalYear - 18 }})
-              e in regola con il {{ renewalYear - 1 }}.</small>
+              Elenco soci aventi diritto al voto per l'anno <strong>{{ renewalYear }}</strong
+              >.
+              <br />
+              <small
+                >Requisiti: Maggiorenni nel {{ renewalYear }} (nati &lt;= {{ renewalYear - 18 }}) e
+                in regola con il {{ renewalYear - 1 }}.</small
+              >
             </p>
             <button @click="generateVotingReport" :disabled="loading" class="action-button wide">
               📄 Genera Lista Votazioni
@@ -333,9 +336,16 @@
           <section class="report-section">
             <h3>👥 Report Soci Attivi (5 Anni)</h3>
             <p>
-              Elenco soci con <strong>almeno 1 pagamento</strong> negli ultimi 5 anni (${{ renewalYear - 4 }} - {{ renewalYear }}).
+              Elenco soci con <strong>almeno 1 pagamento</strong> negli ultimi 5 anni (${{
+                renewalYear - 4
+              }}
+              - {{ renewalYear }}).
             </p>
-            <button @click="generateActiveMembersReport" :disabled="loading" class="action-button wide">
+            <button
+              @click="generateActiveMembersReport"
+              :disabled="loading"
+              class="action-button wide"
+            >
               📄 Genera Lista Attivi
             </button>
           </section>
@@ -664,6 +674,7 @@ const generateMembersByGroup = async () => {
       groupFilters.gruppo || null,
       groupFilters.ageCategory,
       groupFilters.paymentStatus,
+      renewalYear.value,
     )
 
     console.log('Members found for PDF generation:', members.length, members)
@@ -676,6 +687,7 @@ const generateMembersByGroup = async () => {
       groupFilters.gruppo,
       groupFilters.ageCategory,
       groupFilters.paymentStatus,
+      renewalYear.value,
     )
 
     if (result.success) {
@@ -772,12 +784,14 @@ const generateAllReports = async () => {
       groupFilters.gruppo || null,
       groupFilters.ageCategory,
       groupFilters.paymentStatus,
+      renewalYear.value,
     )
     const membersResult = await generateMembersByGroupPDF(
       members,
       groupFilters.gruppo,
       groupFilters.ageCategory,
       groupFilters.paymentStatus,
+      renewalYear.value,
     )
     if (membersResult.success) reports.push('Soci per Gruppo')
 
@@ -895,7 +909,6 @@ const generateVotingReport = async () => {
   }
 }
 
-
 /**
  * Genera il report dei soci attivi (almeno 1 pagamento negli ultimi 5 anni)
  */
@@ -910,7 +923,9 @@ const generateActiveMembersReport = async () => {
     const activeMembers = await getActiveMembersLast5Years(renewalYear.value)
 
     if (activeMembers.length === 0) {
-      toast.warning(`Nessun socio attivo trovato negli ultimi 5 anni (fino al ${renewalYear.value})`)
+      toast.warning(
+        `Nessun socio attivo trovato negli ultimi 5 anni (fino al ${renewalYear.value})`,
+      )
       return
     }
 

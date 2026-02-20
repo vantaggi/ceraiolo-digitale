@@ -149,16 +149,16 @@ export async function renameGroup(oldName, newName) {
     if (membersToUpdate.length > 0) {
       updatedCount = membersToUpdate.length
       await Promise.all(
-        membersToUpdate.map(member =>
-           db.soci.update(member.id, { gruppo_appartenenza: newName.trim() })
-        )
+        membersToUpdate.map((member) =>
+          db.soci.update(member.id, { gruppo_appartenenza: newName.trim() }),
+        ),
       )
     }
 
     // 2. Update custom definitions if present
     const definedGroups = await getSetting('defined_groups', [])
     if (Array.isArray(definedGroups) && definedGroups.includes(oldName)) {
-      const updatedGroups = definedGroups.map(g => g === oldName ? newName.trim() : g)
+      const updatedGroups = definedGroups.map((g) => (g === oldName ? newName.trim() : g))
       // Ensure specific uniqueness if newName already existed
       const uniqueGroups = [...new Set(updatedGroups)].sort()
       await updateSetting('defined_groups', uniqueGroups)
@@ -1107,7 +1107,6 @@ export async function getArretrati(socioId) {
     // Use shared utility for calculation
     const status = calculatePaymentStatus(socio, paidYears, currentYear)
     return status.arretrati
-
   } catch (error) {
     console.error('Error getting arretrati:', error)
     // Return empty array instead of throwing to prevent crashes
@@ -1270,15 +1269,23 @@ export async function getCompletePaymentList(ageCategory = 'tutti') {
  * @param {string} gruppo - The membership group to filter by (optional)
  * @param {string} ageCategory - Filter: 'tutti', 'maggiorenni', or 'minorenni'
  * @param {string} paymentStatus - Filter: 'tutti', 'in_regola', or 'non_in_regola'
+ * @param {number} [referenceYear] - The year to use for payment status calculation (defaults to current year)
  * @returns {Promise<Array>} Array of members by group
  */
 export async function getMembersByGroup(
   gruppo = null,
   ageCategory = 'tutti',
   paymentStatus = 'tutti',
+  referenceYear = null,
 ) {
   try {
-    console.log('getMembersByGroup called with:', { gruppo, ageCategory, paymentStatus })
+    const targetYear = referenceYear || new Date().getFullYear()
+    console.log('getMembersByGroup called with:', {
+      gruppo,
+      ageCategory,
+      paymentStatus,
+      targetYear,
+    })
 
     let sociQuery = db.soci.toCollection()
 
@@ -1290,7 +1297,6 @@ export async function getMembersByGroup(
     const soci = await sociQuery.toArray()
     console.log('Soci found after group filter:', soci.length)
 
-    const currentYear = new Date().getFullYear()
     const result = []
 
     for (const socio of soci) {
@@ -1321,8 +1327,8 @@ export async function getMembersByGroup(
       const payments = await getTesseramentiBySocioId(socio.id)
       const paidYears = payments.map((p) => p.anno)
 
-      // Calculate status using shared utility
-      const status = calculatePaymentStatus(socio, paidYears, currentYear)
+      // Calculate status using shared utility - uses the selected reference year
+      const status = calculatePaymentStatus(socio, paidYears, targetYear)
       const isInRegola = status.inRegola
 
       // Apply payment status filter
@@ -1343,7 +1349,7 @@ export async function getMembersByGroup(
           tesseramenti: payments,
           anni_pagati: paidYears.sort((a, b) => a - b),
           in_regola: isInRegola,
-          arretrati: status.arretrati
+          arretrati: status.arretrati,
         })
       }
     }
@@ -1456,13 +1462,13 @@ export async function getVotingEligibleMembers(targetYear) {
 
     // 1. Get all payments for PREVIOUS year (for filtering)
     const prevYearPayments = await db.tesseramenti.where('anno').equals(previousYear).toArray()
-    const paidMemberIds = new Set(prevYearPayments.map(p => p.id_socio))
+    const paidMemberIds = new Set(prevYearPayments.map((p) => p.id_socio))
 
     // 2. Get all payments (for history) - optimization: query all and group by socio in memory
     // or query per socio? Querying all is better for < 10k records.
     const allTesseramenti = await db.tesseramenti.toArray()
     const paymentsMap = new Map() // socioId -> Set(years)
-    allTesseramenti.forEach(t => {
+    allTesseramenti.forEach((t) => {
       if (!paymentsMap.has(t.id_socio)) paymentsMap.set(t.id_socio, new Set())
       paymentsMap.get(t.id_socio).add(t.anno)
     })
@@ -1471,7 +1477,7 @@ export async function getVotingEligibleMembers(targetYear) {
     const allSoci = await db.soci.toArray()
 
     const eligibleMembers = allSoci
-      .filter(socio => {
+      .filter((socio) => {
         // Must have paid previous year check
         if (!paidMemberIds.has(socio.id)) return false
 
@@ -1480,7 +1486,7 @@ export async function getVotingEligibleMembers(targetYear) {
         const birthYear = new Date(socio.data_nascita).getFullYear()
         return birthYear <= adultBirthLimit
       })
-      .map(socio => {
+      .map((socio) => {
         // Build History: Voting Year + 5 years back = 6 years total?
         // User asked: "payments of last 5 years AND if they paid the voting year"
         // Voting Year = T. Last 5 = T-1, T-2, T-3, T-4, T-5
@@ -1495,13 +1501,13 @@ export async function getVotingEligibleMembers(targetYear) {
 
         const paidYears = paymentsMap.get(socio.id) || new Set()
 
-        yearsToCheck.forEach(year => {
+        yearsToCheck.forEach((year) => {
           history[year] = paidYears.has(year)
         })
 
         return {
           ...socio,
-          paymentHistory: history
+          paymentHistory: history,
         }
       })
 
@@ -1529,7 +1535,7 @@ export async function getActiveMembersLast5Years(targetYear) {
     // 1. Get all payments (for history and filtering)
     const allTesseramenti = await db.tesseramenti.toArray()
     const paymentsMap = new Map() // socioId -> Set(years)
-    allTesseramenti.forEach(t => {
+    allTesseramenti.forEach((t) => {
       if (!paymentsMap.has(t.id_socio)) paymentsMap.set(t.id_socio, new Set())
       paymentsMap.get(t.id_socio).add(t.anno)
     })
@@ -1538,7 +1544,7 @@ export async function getActiveMembersLast5Years(targetYear) {
     const allSoci = await db.soci.toArray()
 
     const activeMembers = allSoci
-      .filter(socio => {
+      .filter((socio) => {
         const paidYears = paymentsMap.get(socio.id)
         if (!paidYears) return false
 
@@ -1548,7 +1554,7 @@ export async function getActiveMembersLast5Years(targetYear) {
         }
         return false
       })
-      .map(socio => {
+      .map((socio) => {
         // Build History similar to voting report
         const history = {}
         const yearsToCheck = []
@@ -1567,12 +1573,12 @@ export async function getActiveMembersLast5Years(targetYear) {
 
         // Loop T-5 to T
         for (let y = targetYear - 5; y <= targetYear; y++) {
-           history[y] = paidYears.has(y)
+          history[y] = paidYears.has(y)
         }
 
         return {
           ...socio,
-          paymentHistory: history
+          paymentHistory: history,
         }
       })
 
@@ -1605,7 +1611,7 @@ export async function getEarliestActivityYear() {
 
     // Check Soci data_prima_iscrizione
     const soci = await db.soci.toArray()
-    soci.forEach(s => {
+    soci.forEach((s) => {
       if (s.data_prima_iscrizione && s.data_prima_iscrizione > 1900) {
         if (s.data_prima_iscrizione < minYear) minYear = s.data_prima_iscrizione
       }
@@ -1613,7 +1619,7 @@ export async function getEarliestActivityYear() {
 
     // Check Tesseramenti anno
     const tesseramenti = await db.tesseramenti.toArray()
-    tesseramenti.forEach(t => {
+    tesseramenti.forEach((t) => {
       if (t.anno && t.anno > 1900) {
         if (t.anno < minYear) minYear = t.anno
       }
@@ -1636,7 +1642,7 @@ export async function getEarliestActivityYear() {
 export async function getYearlyStats(startYear, endYear) {
   try {
     const currentYear = new Date().getFullYear()
-    const start = startYear || await getEarliestActivityYear()
+    const start = startYear || (await getEarliestActivityYear())
     const end = endYear || currentYear
 
     const allSoci = await db.soci.toArray()
@@ -1655,7 +1661,7 @@ export async function getYearlyStats(startYear, endYear) {
 
     // 2. Pre-calculate "effective start year" for each socio
     const socioStartYears = new Map()
-    allSoci.forEach(socio => {
+    allSoci.forEach((socio) => {
       let start = null
       if (socio.data_prima_iscrizione) start = socio.data_prima_iscrizione
       if (!start) {
@@ -1681,12 +1687,12 @@ export async function getYearlyStats(startYear, endYear) {
       // 2. Minor Exemption logic
       const numericYear = Number(year)
       if (isExemptFromPayment(socio, numericYear)) {
-          // Additional safety: ensure they are born
-          if (socio.data_nascita) {
-            const birthYear = new Date(socio.data_nascita).getFullYear()
-            if (numericYear < birthYear) return false
-          }
-          return true
+        // Additional safety: ensure they are born
+        if (socio.data_nascita) {
+          const birthYear = new Date(socio.data_nascita).getFullYear()
+          if (numericYear < birthYear) return false
+        }
+        return true
       }
 
       return false
@@ -1956,7 +1962,7 @@ export async function getDataAuditStats() {
 
     // Load payments to check for implicit registration
     const allTesseramenti = await db.tesseramenti.toArray()
-    const activeMembers = new Set(allTesseramenti.map(t => t.id_socio))
+    const activeMembers = new Set(allTesseramenti.map((t) => t.id_socio))
 
     const problems = []
     const summary = {
@@ -1991,8 +1997,8 @@ export async function getDataAuditStats() {
       // Only flag if BOTH are missing.
       if (!socio.data_prima_iscrizione) {
         if (!activeMembers.has(socio.id)) {
-           socioIssues.push('Data Iscrizione mancante (e nessun pagamento)')
-           summary.missing_reg_date++
+          socioIssues.push('Data Iscrizione mancante (e nessun pagamento)')
+          summary.missing_reg_date++
         }
       } else if (socio.data_prima_iscrizione > currentYear) {
         socioIssues.push(`Iscrizione nel futuro (${socio.data_prima_iscrizione})`)

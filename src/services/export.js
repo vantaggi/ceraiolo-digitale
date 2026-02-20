@@ -1,13 +1,7 @@
 import jsPDF from 'jspdf'
 import { PDFDocument, rgb } from 'pdf-lib'
 import * as XLSX from 'xlsx'
-import {
-  db,
-  getSetting,
-  updateSetting,
-  exportAllSoci,
-  exportAllTesseramenti,
-} from './db'
+import { db, getSetting, updateSetting, exportAllSoci, exportAllTesseramenti } from './db'
 import { calculatePaymentStatus } from '@/utils/payment'
 import logoUrl from '@/assets/logo_santantoniari.jpg'
 
@@ -140,7 +134,9 @@ function createPDFTable(doc, headers, rows, startY, rowHeight = 10) {
   // Calcola larghezza totale tabella dai headers
   // Se non specificato width nel header, fallback? Assumiamo ci sia.
   let tableWidth = 0
-  headers.forEach(h => { tableWidth += h.width })
+  headers.forEach((h) => {
+    tableWidth += h.width
+  })
 
   // Calcola posizioni colonne
   const colPositions = [startX]
@@ -538,46 +534,45 @@ export async function generateVotingListPDF(soci, votingYear) {
     `Aventi Diritto al Voto - Anno ${votingYear}`,
     `Requisiti: Maggiorenni nel ${votingYear} e in regola con il ${previousYear}`,
     `Totale aventi diritto: ${soci.length}`,
-    logoData
+    logoData,
   )
 
   // Prepara i dati per la tabella
-  const tableData = soci
-    .map((socio) => {
-      // Format Birth Date: YYYY-MM-DD -> DD/MM/YYYY
-      let birthDateStr = '-'
-      if (socio.data_nascita) {
-        const [y, m, d] = socio.data_nascita.split('-')
-        birthDateStr = `${d}/${m}/${y}`
+  const tableData = soci.map((socio) => {
+    // Format Birth Date: YYYY-MM-DD -> DD/MM/YYYY
+    let birthDateStr = '-'
+    if (socio.data_nascita) {
+      const [y, m, d] = socio.data_nascita.split('-')
+      birthDateStr = `${d}/${m}/${y}`
+    }
+
+    const history = socio.paymentHistory || {}
+
+    // Helper for status cell
+    // Note: Standard PDF fonts do not support Unicode checkmarks (✔).
+    // We use "V" (Verificato/Visto) in Green and "X" in Red.
+    const getStatus = (year) => {
+      const isPaid = history[year]
+      if (isPaid) {
+        return { text: 'V', color: [0, 150, 0] } // Green "V"
+      } else {
+        return { text: 'X', color: [200, 50, 50] } // Red "X"
       }
+    }
 
-      const history = socio.paymentHistory || {}
-
-      // Helper for status cell
-      // Note: Standard PDF fonts do not support Unicode checkmarks (✔).
-      // We use "V" (Verificato/Visto) in Green and "X" in Red.
-      const getStatus = (year) => {
-        const isPaid = history[year]
-        if (isPaid) {
-          return { text: 'V', color: [0, 150, 0] } // Green "V"
-        } else {
-          return { text: 'X', color: [200, 50, 50] } // Red "X"
-        }
-      }
-
-      return [
-        `${socio.cognome} ${socio.nome}`,
-        socio.gruppo_appartenenza || '-',
-        birthDateStr,
-        getStatus(votingYear - 5),
-        getStatus(votingYear - 4),
-        getStatus(votingYear - 3),
-        getStatus(votingYear - 2),
-        getStatus(votingYear - 1),
-        getStatus(votingYear),
-        '  [   ]  ', // Checkbox column for voting
-      ]
-    })
+    return [
+      `${socio.cognome} ${socio.nome}`,
+      socio.gruppo_appartenenza || '-',
+      birthDateStr,
+      getStatus(votingYear - 5),
+      getStatus(votingYear - 4),
+      getStatus(votingYear - 3),
+      getStatus(votingYear - 2),
+      getStatus(votingYear - 1),
+      getStatus(votingYear),
+      '  [   ]  ', // Checkbox column for voting
+    ]
+  })
 
   // Configurazione tabella
   const headers = [
@@ -630,43 +625,42 @@ export async function generateActiveMembersPDF(soci, targetYear) {
     `Soci Attivi (Ultimi 5 Anni)`,
     `Periodo: ${startYear} - ${targetYear} (Almeno 1 pagamento)`,
     `Totale soci attivi: ${soci.length}`,
-    logoData
+    logoData,
   )
 
   // Prepara i dati per la tabella
-  const tableData = soci
-    .map((socio) => {
-      // Format Birth Date: YYYY-MM-DD -> DD/MM/YYYY
-      let birthDateStr = '-'
-      if (socio.data_nascita) {
-        const [y, m, d] = socio.data_nascita.split('-')
-        birthDateStr = `${d}/${m}/${y}`
+  const tableData = soci.map((socio) => {
+    // Format Birth Date: YYYY-MM-DD -> DD/MM/YYYY
+    let birthDateStr = '-'
+    if (socio.data_nascita) {
+      const [y, m, d] = socio.data_nascita.split('-')
+      birthDateStr = `${d}/${m}/${y}`
+    }
+
+    const history = socio.paymentHistory || {}
+
+    // Helper for status cell
+    const getStatus = (year) => {
+      const isPaid = history[year]
+      if (isPaid) {
+        return { text: 'V', color: [0, 150, 0] } // Green "V"
+      } else {
+        return { text: 'X', color: [200, 50, 50] } // Red "X"
       }
+    }
 
-      const history = socio.paymentHistory || {}
-
-      // Helper for status cell
-      const getStatus = (year) => {
-        const isPaid = history[year]
-        if (isPaid) {
-          return { text: 'V', color: [0, 150, 0] } // Green "V"
-        } else {
-          return { text: 'X', color: [200, 50, 50] } // Red "X"
-        }
-      }
-
-      return [
-        `${socio.cognome} ${socio.nome}`,
-        socio.gruppo_appartenenza || '-',
-        birthDateStr,
-        getStatus(targetYear - 5),
-        getStatus(targetYear - 4),
-        getStatus(targetYear - 3),
-        getStatus(targetYear - 2),
-        getStatus(targetYear - 1),
-        getStatus(targetYear),
-      ]
-    })
+    return [
+      `${socio.cognome} ${socio.nome}`,
+      socio.gruppo_appartenenza || '-',
+      birthDateStr,
+      getStatus(targetYear - 5),
+      getStatus(targetYear - 4),
+      getStatus(targetYear - 3),
+      getStatus(targetYear - 2),
+      getStatus(targetYear - 1),
+      getStatus(targetYear),
+    ]
+  })
 
   // Configurazione tabella
   const headers = [
@@ -1211,9 +1205,16 @@ export async function generateCompletePaymentListPDF(payments, ageCategory = 'tu
  * @param {string} gruppo - The group filter applied
  * @param {string} ageCategory - The age category filter applied
  * @param {string} paymentStatus - The payment status filter applied
+ * @param {number} [year] - The reference year for payment status
  * @returns {Promise<Object>} Result object with success status and blob or error
  */
-export async function generateMembersByGroupPDF(members, gruppo, ageCategory, paymentStatus) {
+export async function generateMembersByGroupPDF(
+  members,
+  gruppo,
+  ageCategory,
+  paymentStatus,
+  year = null,
+) {
   try {
     if (!members || members.length === 0) {
       throw new Error('Nessun socio da esportare')
@@ -1237,9 +1238,10 @@ export async function generateMembersByGroupPDF(members, gruppo, ageCategory, pa
         non_in_regola: 'Non in Regola',
       }[paymentStatus] || 'Tutti'
 
+    const yearText = year ? ` - Anno ${year}` : ''
     const headerY = addPDFHeader(
       doc,
-      `Soci per Gruppo: ${groupText}`,
+      `Soci per Gruppo: ${groupText}${yearText}`,
       `${ageText} - Stato Pagamento: ${statusText}`,
       `Totale soci: ${members.length}`,
     )
@@ -1281,6 +1283,7 @@ export async function generateMembersByGroupPDF(members, gruppo, ageCategory, pa
       gruppo: gruppo || 'tutti',
       ageCategory,
       paymentStatus,
+      year,
     })
 
     // === MODIFICA: AGGIUNTO IL COMANDO DI SALVATAGGIO ===
