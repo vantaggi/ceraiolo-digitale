@@ -1,8 +1,46 @@
 <script setup>
 import { useThemeStore } from './stores/theme'
 import logoSantantoniari from '@/assets/logo_santantoniari.jpg'
+import { useRouter } from 'vue-router'
+import { onMounted, onBeforeUnmount, ref } from 'vue'
+import KeyboardShortcutsModal from '@/components/KeyboardShortcutsModal.vue'
 
 const themeStore = useThemeStore()
+const router = useRouter()
+const showShortcutsModal = ref(false)
+
+const handleGlobalKeydown = (e) => {
+  // Ignore if typing in input/textarea (unless it involves modifiers checking context?)
+  // But ? is printable, so checks are needed.
+  const isTyping = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA'
+
+  // Ctrl+K -> Global Search (Go to Home)
+  if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+    e.preventDefault()
+    router.push({ path: '/', query: { action: 'search', t: Date.now() } })
+    return
+  }
+
+  // ? -> Toggle Help (Shift + /)
+  if (e.key === '?' && !isTyping) {
+    e.preventDefault()
+    showShortcutsModal.value = !showShortcutsModal.value
+    return
+  }
+
+  // Esc -> Close Modal if open
+  if (e.key === 'Escape' && showShortcutsModal.value) {
+    showShortcutsModal.value = false
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', handleGlobalKeydown)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleGlobalKeydown)
+})
 </script>
 
 <template>
@@ -32,6 +70,7 @@ const themeStore = useThemeStore()
     <main class="app-content">
       <RouterView />
     </main>
+    <KeyboardShortcutsModal :isVisible="showShortcutsModal" @close="showShortcutsModal = false" />
   </div>
 </template>
 

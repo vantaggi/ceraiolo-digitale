@@ -26,204 +26,433 @@
           >
             📦 Export Batch
           </button>
+          <button
+            @click="currentTab = 'stats'"
+            :class="{ active: currentTab === 'stats' }"
+            class="nav-item"
+          >
+            📈 Statistiche
+          </button>
         </nav>
       </aside>
 
       <!-- Content -->
       <main class="reports-content">
+        <!-- GLOBAL HEADER & CONTROLS -->
+        <section class="report-section header-section">
+          <div class="header-row">
+            <h2>📊 {{ getTabTitle(currentTab) }}</h2>
+            <div class="year-selector-inline">
+              <label for="renewalYear">Anno di Riferimento:</label>
+              <input
+                id="renewalYear"
+                v-model.number="renewalYear"
+                type="number"
+                :min="2000"
+                :max="currentYear + 5"
+                class="year-input"
+              />
+            </div>
+          </div>
+        </section>
 
         <!-- TAB: RINNOVI & TESSERE -->
         <div v-if="currentTab === 'rinnovi'">
-            <section class="report-section header-section">
-                <h2>📅 Gestione Rinnovi Annuali</h2>
-                <div class="year-selector-inline">
-                    <label for="renewalYear">Anno di Riferimento:</label>
-                    <input
-                      id="renewalYear"
-                      v-model.number="renewalYear"
-                      type="number"
-                      :min="currentYear"
-                      :max="currentYear + 5"
-                      class="year-input"
-                    />
-                </div>
+          <div class="reports-grid">
+            <!-- Lista Rinnovi -->
+            <section class="report-card">
+              <h3>📋 Lista Rinnovi {{ renewalYear }}</h3>
+              <p>Tabella PDF con soci e arretrati.</p>
+              <button
+                @click="generateRenewalList"
+                :disabled="!renewalYear || loading"
+                class="action-button"
+              >
+                {{ loading ? '⏳ ...' : '📄 Genera Lista' }}
+              </button>
             </section>
 
-            <div class="reports-grid">
-                <!-- Lista Rinnovi -->
-                <section class="report-card">
-                    <h3>📋 Lista Rinnovi</h3>
-                    <p>Tabella PDF con soci e arretrati.</p>
-                    <button
-                      @click="generateRenewalList"
-                      :disabled="!renewalYear || loading"
-                      class="action-button"
-                    >
-                      {{ loading ? '⏳ ...' : '📄 Genera Lista' }}
-                    </button>
-                </section>
+            <!-- Recupero Crediti (Churn) -->
+            <section class="report-card">
+              <h3>📉 Recupero Crediti</h3>
+              <p>Soci attivi nel {{ renewalYear - 1 }} ma NON nell'anno {{ renewalYear }}.</p>
+              <button
+                @click="generateChurnReport"
+                :disabled="!renewalYear || loading"
+                class="action-button"
+              >
+                📄 Genera Lista Recupero
+              </button>
+            </section>
 
-                <!-- Tessere -->
-                <section class="report-card">
-                    <h3>🎫 Tessere Annuali</h3>
-                    <p>Stampa tessere per tutti i soci.</p>
+            <!-- Tessere -->
+            <section class="report-card">
+              <h3>🎫 Tessere Annuali</h3>
+              <p>Stampa tessere per tutti i soci.</p>
 
-                    <div class="filter-mini">
-                         <label class="checkbox-label">
-                            <input type="checkbox" v-model="excludeInactiveMembers" :disabled="loading" />
-                            <span class="checkmark"></span>
-                            Escludi inattivi (>5 anni)
-                          </label>
-                          <small v-if="excludeInactiveMembers" style="display:block; margin-top:5px; color: var(--color-text-secondary);">
-                             Attivi: {{ sociStats.active }} / {{ sociStats.total }}
-                          </small>
+              <div class="filter-mini">
+                <label class="checkbox-label">
+                  <input type="checkbox" v-model="excludeInactiveMembers" :disabled="loading" />
+                  <span class="checkmark"></span>
+                  Escludi inattivi (>5 anni)
+                </label>
+                <small
+                  v-if="excludeInactiveMembers"
+                  style="display: block; margin-top: 5px; color: var(--color-text-secondary)"
+                >
+                  Attivi: {{ sociStats.active }} / {{ sociStats.total }}
+                </small>
+              </div>
+
+              <div v-if="cardProgress > 0" class="progress-bar-mini">
+                <div class="fill" :style="{ width: cardProgress + '%' }"></div>
+              </div>
+
+              <button
+                @click="generateCards"
+                :disabled="!renewalYear || loading"
+                class="action-button"
+              >
+                {{ loading ? '⏳ ...' : '🎫 Genera Tessere' }}
+              </button>
+            </section>
+          </div>
+
+          <!-- Preview -->
+          <section class="report-section" style="margin-top: 2rem">
+            <h3>👁️ Anteprima Tessera</h3>
+            <div class="preview-wrapper">
+              <div class="preview-container">
+                <TesseraTemplate
+                  :nome-cognome="previewData.nomeCognome"
+                  :data-nascita="previewData.dataNascita"
+                  :anno="renewalYear || currentYear + 1"
+                  :background-image="cardBackground"
+                />
+              </div>
+              <div class="preview-inputs">
+                <label>Nome:</label>
+                <input v-model="previewData.nomeCognome" class="small-input" />
+                <label>Data:</label>
+                <input v-model="previewData.dataNascita" type="date" class="small-input" />
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- TAB: STATISTICHE -->
+        <div v-if="currentTab === 'stats'">
+          <!-- Demografia -->
+          <section class="report-section">
+            <h2>📈 Demografia Soci {{ renewalYear }}</h2>
+            <div class="stats-summary" v-if="demographics">
+              <div class="stat-card total">
+                <h3>Totale Soci</h3>
+                <div class="big-number">{{ demographics.total }}</div>
+              </div>
+
+              <div class="stat-card">
+                <h3>Distribuzione Età</h3>
+                <div class="chart-container">
+                  <div
+                    v-for="(count, label) in demographics.ageGroups"
+                    :key="label"
+                    class="chart-row"
+                  >
+                    <span class="chart-label">{{ label }}</span>
+                    <div class="chart-bar-bg">
+                      <div
+                        class="chart-bar-fill"
+                        :style="{ width: (count / demographics.total) * 100 + '%' }"
+                      ></div>
                     </div>
+                    <span class="chart-value">{{ count }}</span>
+                  </div>
+                </div>
+              </div>
 
-                    <div v-if="cardProgress > 0" class="progress-bar-mini">
-                      <div class="fill" :style="{ width: cardProgress + '%' }"></div>
+              <div class="stat-card">
+                <h3>Luogo di Nascita (Top 10)</h3>
+                <div class="chart-container">
+                  <div v-for="(count, label) in demographics.places" :key="label" class="chart-row">
+                    <span class="chart-label">{{ label }}</span>
+                    <div class="chart-bar-bg">
+                      <div
+                        class="chart-bar-fill"
+                        :style="{ width: (count / demographics.total) * 100 + '%' }"
+                      ></div>
                     </div>
-
-                    <button @click="generateCards" :disabled="!renewalYear || loading" class="action-button">
-                      {{ loading ? '⏳ ...' : '🎫 Genera Tessere' }}
-                    </button>
-                </section>
+                    <span class="chart-value">{{ count }}</span>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <!-- Preview -->
-            <section class="report-section" style="margin-top: 2rem;">
-                <h3>👁️ Anteprima Tessera</h3>
-                <div class="preview-wrapper">
-                    <div class="preview-container">
-                      <TesseraTemplate
-                        :nome-cognome="previewData.nomeCognome"
-                        :data-nascita="previewData.dataNascita"
-                        :anno="renewalYear || currentYear + 1"
-                        :background-image="cardBackground"
-                      />
+            <div v-else class="no-data">
+              <p>Clicca "Analizza" per generare le statistiche.</p>
+              <button @click="loadStats" class="action-button">
+                📊 Analizza Dati {{ renewalYear }}
+              </button>
+            </div>
+          </section>
+
+          <!-- Andamento Economico -->
+          <section class="report-section" v-if="economicStats">
+            <h2>💰 Andamento Economico {{ renewalYear }}</h2>
+            <div class="stats-summary">
+              <div class="stat-card totalHighlight">
+                <h3>Entrate Totali</h3>
+                <div class="big-number">€ {{ economicStats.totalRevenue }}</div>
+                <small>{{ economicStats.totalPayments }} pagamenti registrati</small>
+              </div>
+
+              <div class="stat-card">
+                <h3>Quota Media</h3>
+                <div class="big-number">€ {{ economicStats.averageQuota }}</div>
+              </div>
+
+              <div class="stat-card">
+                <h3>Entrate per Gruppo</h3>
+                <div class="chart-container">
+                  <div
+                    v-for="(revenue, group) in economicStats.groupBreakdown"
+                    :key="group"
+                    class="chart-row"
+                  >
+                    <span class="chart-label">{{ group }}</span>
+                    <div class="chart-bar-bg">
+                      <div
+                        class="chart-bar-fill money"
+                        :style="{
+                          width: (revenue / economicStats.totalRevenue) * 100 + '%',
+                        }"
+                      ></div>
                     </div>
-                    <div class="preview-inputs">
-                        <label>Nome:</label>
-                        <input v-model="previewData.nomeCognome" class="small-input" />
-                        <label>Data:</label>
-                        <input v-model="previewData.dataNascita" type="date" class="small-input" />
-                    </div>
+                    <span class="chart-value">€ {{ revenue }}</span>
+                  </div>
                 </div>
-            </section>
+              </div>
+            </div>
+          </section>
         </div>
 
         <!-- TAB: LISTE DATI -->
         <div v-if="currentTab === 'liste'">
-             <h2>📋 Elenchi e Statistiche</h2>
+          <h2>📋 Elenchi e Statistiche</h2>
 
-             <!-- Nuovi Soci -->
-             <section class="report-section">
-                <h3>🆕 Nuovi Soci</h3>
-                <div class="filters-inline">
-                    <label>Anno:</label>
-                    <input
-                        v-model.number="newMembersFilters.year"
-                        type="number"
-                        :min="currentYear - 10"
-                        :max="currentYear"
-                        class="small-input"
-                    />
-                    <AgeCategoryFilter v-model="newMembersFilters.ageCategory" />
+          <!-- Nuovi Soci -->
+          <section class="report-section">
+            <h3>🆕 Nuovi Soci</h3>
+            <div class="filters-inline">
+              <label
+                >Anno: <strong>{{ renewalYear }}</strong></label
+              >
+              <AgeCategoryFilter v-model="newMembersFilters.ageCategory" />
+            </div>
+            <button @click="generateNewMembersList" :disabled="loading" class="action-button wide">
+              📄 Genera Report Nuovi Soci
+            </button>
+          </section>
+
+          <!-- Soci per Gruppo -->
+          <section class="report-section">
+            <h3>👥 Soci per Gruppo</h3>
+            <div class="filters-grid-compact">
+              <div class="f-group">
+                <label>Gruppo:</label>
+                <select v-model="groupFilters.gruppo" class="small-input">
+                  <option value="">Tutti</option>
+                  <option v-for="group in availableGroups" :key="group" :value="group">
+                    {{ group }}
+                  </option>
+                </select>
+              </div>
+              <div class="f-group">
+                <label>Età:</label>
+                <AgeCategoryFilter v-model="groupFilters.ageCategory" />
+              </div>
+              <div class="f-group">
+                <label>Stato ({{ renewalYear }}):</label>
+                <select v-model="groupFilters.paymentStatus" class="small-input">
+                  <option value="tutti">Tutti</option>
+                  <option value="in_regola">In Regola</option>
+                  <option value="non_in_regola">Non in Regola</option>
+                </select>
+              </div>
+            </div>
+            <button @click="generateMembersByGroup" :disabled="loading" class="action-button wide">
+              📄 Genera Report Gruppi
+            </button>
+          </section>
+
+          <!-- Riepilogo Numerico Gruppi -->
+          <section class="report-section">
+            <h3>🔢 Riepilogo Numerico Gruppi</h3>
+            <p>Genera un foglio unico con il conteggio degli iscritti per ogni gruppo.</p>
+            <div class="filters-inline">
+              <label
+                >Anno Riferimento: <strong>{{ renewalYear }}</strong></label
+              >
+            </div>
+            <button
+              @click="generateGroupCountsReport"
+              :disabled="loading"
+              class="action-button wide"
+            >
+              📊 Genera Riepilogo Numerico
+            </button>
+          </section>
+
+          <!-- Lista Recupero (Arretrati) -->
+          <section class="report-section">
+            <h3>📈 Lista Recupero (Churn)</h3>
+            <p>
+              Soci che hanno pagato l'anno scorso ({{ renewalYear - 1 }}) ma non ancora quest'anno
+              ({{ renewalYear }}).
+            </p>
+            <button @click="generateChurnReport" :disabled="loading" class="action-button wide">
+              📄 Genera Lista Recupero
+            </button>
+          </section>
+
+          <!-- Report Votazioni -->
+          <section class="report-section">
+            <h3>🗳️ Report Votazioni</h3>
+            <p>
+              Elenco soci aventi diritto al voto per l'anno <strong>{{ renewalYear }}</strong
+              >.
+              <br />
+              <small
+                >Requisiti: Maggiorenni nel {{ renewalYear }} (nati &lt;= {{ renewalYear - 18 }}) e
+                in regola con il {{ renewalYear - 1 }}.</small
+              >
+            </p>
+            <button @click="generateVotingReport" :disabled="loading" class="action-button wide">
+              📄 Genera Lista Votazioni
+            </button>
+          </section>
+
+          <!-- Report Soci Attivi 5 Anni -->
+          <section class="report-section">
+            <h3>👥 Report Soci Attivi (5 Anni)</h3>
+            <p>
+              Elenco soci con <strong>almeno 1 pagamento</strong> negli ultimi 5 anni (${{
+                renewalYear - 4
+              }}
+              - {{ renewalYear }}).
+            </p>
+            <button
+              @click="generateActiveMembersReport"
+              :disabled="loading"
+              class="action-button wide"
+            >
+              📄 Genera Lista Attivi
+            </button>
+          </section>
+
+          <!-- Lista Pagamenti -->
+          <section class="report-section">
+            <h3>💰 Cronologia Pagamenti</h3>
+            <div class="filters-inline">
+              <AgeCategoryFilter v-model="paymentsFilters.ageCategory" />
+            </div>
+            <button
+              @click="generateCompletePaymentsList"
+              :disabled="loading"
+              class="action-button wide"
+            >
+              📄 Genera Report Completo Pagamenti
+            </button>
+          </section>
+
+          <!-- Audit Dati -->
+          <section class="report-section">
+            <h3>�️ Audit Qualità Dati</h3>
+            <p>Verifica la completezza e coerenza dei dati anagrafici.</p>
+
+            <button @click="runDataAudit" class="action-button wide" :disabled="loading">
+              🔍 Esegui Controllo
+            </button>
+
+            <div v-if="auditResults" class="audit-box">
+              <div v-if="auditResults.summary.total_issues === 0" class="success-message">
+                ✅ Nessuna anomalia rilevata! Il database è perfetto.
+              </div>
+              <div v-else>
+                <div class="audit-stats">
+                  <span v-if="auditResults.summary.missing_dob" class="stat-tag"
+                    >⚠️ No Data Nascita: <b>{{ auditResults.summary.missing_dob }}</b></span
+                  >
+                  <span v-if="auditResults.summary.missing_pob" class="stat-tag"
+                    >⚠️ No Luogo Nascita: <b>{{ auditResults.summary.missing_pob }}</b></span
+                  >
+                  <span v-if="auditResults.summary.missing_reg_date" class="stat-tag"
+                    >⚠️ No Data Iscrizione: <b>{{ auditResults.summary.missing_reg_date }}</b></span
+                  >
+                  <span v-if="auditResults.summary.missing_group" class="stat-tag"
+                    >⚠️ No Gruppo: <b>{{ auditResults.summary.missing_group }}</b></span
+                  >
+                  <span v-if="auditResults.summary.future_reg" class="stat-tag"
+                    >⚠️ Date Future: <b>{{ auditResults.summary.future_reg }}</b></span
+                  >
                 </div>
+                <p class="audit-info">
+                  Trovate <b>{{ auditResults.summary.total_issues }}</b> anomalie totali.
+                </p>
+
+                <!-- Simple table preview -->
+                <div class="audit-preview">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Socio</th>
+                        <th>Problemi</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="item in auditResults.details.slice(0, 5)" :key="item.id">
+                        <td>{{ item.cognome }} {{ item.nome }}</td>
+                        <td>{{ item.issues.join(', ') }}</td>
+                      </tr>
+                      <tr v-if="auditResults.details.length > 5">
+                        <td colspan="2">...e altri {{ auditResults.details.length - 5 }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
                 <button
-                  @click="generateNewMembersList"
-                  :disabled="!newMembersFilters.year || loading"
-                  class="action-button wide"
+                  @click="generateAuditPDFReport"
+                  class="action-button wide secondary"
+                  style="margin-top: 1rem"
                 >
-                  📄 Genera Report Nuovi Soci
+                  📄 Scarica Report Anomalie PDF
                 </button>
-             </section>
-
-             <!-- Soci per Gruppo -->
-             <section class="report-section">
-                <h3>👥 Soci per Gruppo</h3>
-                <div class="filters-grid-compact">
-                    <div class="f-group">
-                        <label>Gruppo:</label>
-                        <select v-model="groupFilters.gruppo" class="small-input">
-                          <option value="">Tutti</option>
-                          <option v-for="group in availableGroups" :key="group" :value="group">{{ group }}</option>
-                        </select>
-                    </div>
-                    <div class="f-group">
-                         <label>Età:</label>
-                         <AgeCategoryFilter v-model="groupFilters.ageCategory" />
-                    </div>
-                    <div class="f-group">
-                        <label>Stato:</label>
-                        <select v-model="groupFilters.paymentStatus" class="small-input">
-                          <option value="tutti">Tutti</option>
-                          <option value="in_regola">In Regola</option>
-                          <option value="non_in_regola">Non in Regola</option>
-                        </select>
-                    </div>
-                </div>
-                <button @click="generateMembersByGroup" :disabled="loading" class="action-button wide">
-                  📄 Genera Report Gruppi
-                </button>
-
-             </section>
-
-             <!-- Riepilogo Numerico Gruppi -->
-             <section class="report-section">
-                <h3>🔢 Riepilogo Numerico Gruppi</h3>
-                <p>Genera un foglio unico con il conteggio degli iscritti per ogni gruppo.</p>
-                <div class="filters-inline">
-                    <label>Anno Riferimento:</label>
-                    <input
-                        v-model.number="groupCountsYear"
-                        type="number"
-                        :min="currentYear - 10"
-                        :max="currentYear + 5"
-                        class="small-input"
-                    />
-                </div>
-                <button
-                  @click="generateGroupCountsReport"
-                  :disabled="!groupCountsYear || loading"
-                  class="action-button wide"
-                >
-                  📊 Genera Riepilogo Numerico
-                </button>
-             </section>
-
-             <!-- Lista Pagamenti -->
-             <section class="report-section">
-                <h3>💰 Cronologia Pagamenti</h3>
-                <div class="filters-inline">
-                     <AgeCategoryFilter v-model="paymentsFilters.ageCategory" />
-                </div>
-                <button @click="generateCompletePaymentsList" :disabled="loading" class="action-button wide">
-                  📄 Genera Report Completo Pagamenti
-                </button>
-             </section>
+              </div>
+            </div>
+          </section>
         </div>
 
         <!-- TAB: EXPORT -->
         <div v-if="currentTab === 'export'">
-            <section class="report-section">
-                <h2>📦 Esportazione Complessiva</h2>
-                <p>Genera e scarica tutti i report configurati in un'unica operazione.</p>
+          <section class="report-section">
+            <h2>📦 Esportazione Complessiva</h2>
+            <p>Genera e scarica tutti i report configurati in un'unica operazione.</p>
 
-                <div class="batch-box">
-                    <ul>
-                        <li>Lista Rinnovi ({{ renewalYear }})</li>
-                        <li>Nuovi Soci ({{ newMembersFilters.year }})</li>
-                        <li>Lista Pagamenti</li>
-                        <li>Soci per Gruppo</li>
-                        <li>Riepilogo Numerico Gruppi ({{ groupCountsYear }})</li>
-                    </ul>
-                    <button @click="generateAllReports" :disabled="loading" class="action-button wide">
-                      {{ loading ? '⏳ Generazione in corso...' : '📦 SCARICA TUTTI I REPORT' }}
-                    </button>
-                </div>
-            </section>
+            <div class="batch-box">
+              <ul>
+                <li>Lista Rinnovi ({{ renewalYear }})</li>
+                <li>Nuovi Soci ({{ renewalYear }})</li>
+                <li>Lista Pagamenti</li>
+                <li>Soci per Gruppo ({{ renewalYear }})</li>
+                <li>Riepilogo Numerico Gruppi ({{ renewalYear }})</li>
+              </ul>
+              <button @click="generateAllReports" :disabled="loading" class="action-button wide">
+                {{ loading ? '⏳ Generazione in corso...' : '📦 SCARICA TUTTI I REPORT' }}
+              </button>
+            </div>
+          </section>
         </div>
-
       </main>
 
       <!-- Loading Overlay -->
@@ -231,13 +460,12 @@
         <div class="spinner"></div>
         <p>{{ loadingMessage }}</p>
       </div>
-
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { useToast } from 'vue-toastification'
 import {
   generateRenewalListPDF,
@@ -246,6 +474,10 @@ import {
   generateCompletePaymentListPDF,
   generateMembersByGroupPDF,
   generateGroupCountsPDF,
+  generateChurnPDF,
+  generateAuditPDF,
+  generateVotingListPDF,
+  generateActiveMembersPDF,
 } from '@/services/export'
 import {
   getAllSociWithTesseramenti,
@@ -254,6 +486,12 @@ import {
   getMembersByGroup,
   getUniqueGroups,
   getGroupCountsForYear,
+  getChurnList,
+  getDemographicStats,
+  getEconomicStats,
+  getDataAuditStats,
+  getVotingEligibleMembers,
+  getActiveMembersLast5Years,
   getSetting,
 } from '@/services/db'
 import TesseraTemplate from '@/components/TesseraTemplate.vue'
@@ -265,6 +503,9 @@ const renewalYear = ref(new Date().getFullYear())
 const loading = ref(false)
 const loadingMessage = ref('')
 const cardProgress = ref(0)
+const auditResults = ref(null)
+const demographics = ref(null)
+const economicStats = ref(null)
 const cardBackground = ref(null)
 const excludeInactiveMembers = ref(false)
 const sociStats = reactive({
@@ -303,7 +544,7 @@ const groupFilters = reactive({
 })
 
 // Year for group counts report
-const groupCountsYear = ref(currentYear)
+// REPLACED BY GLOBAL RENEWAL YEAR
 
 onMounted(async () => {
   try {
@@ -356,24 +597,21 @@ const updateSociStats = async () => {
  * Genera la lista nuovi soci
  */
 const generateNewMembersList = async () => {
-  if (!newMembersFilters.year) return
+  if (!renewalYear.value) return
 
   try {
     loading.value = true
     loadingMessage.value = 'Caricamento dati nuovi soci...'
     toast.info('Caricamento dati nuovi soci...')
 
-    const newMembers = await getNewMembersByYear(
-      newMembersFilters.year,
-      newMembersFilters.ageCategory,
-    )
+    const newMembers = await getNewMembersByYear(renewalYear.value, newMembersFilters.ageCategory)
 
     loadingMessage.value = 'Generazione PDF...'
     toast.info('Generazione PDF nuovi soci...')
 
     const result = await generateNewMembersPDF(
       newMembers,
-      newMembersFilters.year,
+      renewalYear.value,
       newMembersFilters.ageCategory,
     )
 
@@ -436,6 +674,7 @@ const generateMembersByGroup = async () => {
       groupFilters.gruppo || null,
       groupFilters.ageCategory,
       groupFilters.paymentStatus,
+      renewalYear.value,
     )
 
     console.log('Members found for PDF generation:', members.length, members)
@@ -448,6 +687,7 @@ const generateMembersByGroup = async () => {
       groupFilters.gruppo,
       groupFilters.ageCategory,
       groupFilters.paymentStatus,
+      renewalYear.value,
     )
 
     if (result.success) {
@@ -468,22 +708,22 @@ const generateMembersByGroup = async () => {
  * Genera il report riepilogativo numerico per gruppi
  */
 const generateGroupCountsReport = async () => {
-  if (!groupCountsYear.value) return
+  if (!renewalYear.value) return
 
   try {
     loading.value = true
     loadingMessage.value = 'Calcolo totali per gruppo...'
     toast.info('Calcolo dati in corso...')
 
-    const counts = await getGroupCountsForYear(groupCountsYear.value)
+    const counts = await getGroupCountsForYear(renewalYear.value)
 
     if (counts.length === 0) {
-      toast.warning(`Nessun tesseramento trovato per l'anno ${groupCountsYear.value}`)
+      toast.warning(`Nessun tesseramento trovato per l'anno ${renewalYear.value}`)
       return
     }
 
     loadingMessage.value = 'Generazione PDF...'
-    const result = await generateGroupCountsPDF(counts, groupCountsYear.value)
+    const result = await generateGroupCountsPDF(counts, renewalYear.value)
 
     if (result.success) {
       toast.success(`Report generato con successo! (${result.totalGroups} gruppi censiti)`)
@@ -521,13 +761,10 @@ const generateAllReports = async () => {
 
     // 2. Nuovi Soci
     loadingMessage.value = 'Generazione nuovi soci...'
-    const newMembers = await getNewMembersByYear(
-      newMembersFilters.year,
-      newMembersFilters.ageCategory,
-    )
+    const newMembers = await getNewMembersByYear(renewalYear.value, newMembersFilters.ageCategory)
     const newMembersResult = await generateNewMembersPDF(
       newMembers,
-      newMembersFilters.year,
+      renewalYear.value,
       newMembersFilters.ageCategory,
     )
     if (newMembersResult.success) reports.push('Nuovi Soci')
@@ -547,21 +784,23 @@ const generateAllReports = async () => {
       groupFilters.gruppo || null,
       groupFilters.ageCategory,
       groupFilters.paymentStatus,
+      renewalYear.value,
     )
     const membersResult = await generateMembersByGroupPDF(
       members,
       groupFilters.gruppo,
       groupFilters.ageCategory,
       groupFilters.paymentStatus,
+      renewalYear.value,
     )
     if (membersResult.success) reports.push('Soci per Gruppo')
 
     // 5. Riepilogo Gruppi
     loadingMessage.value = 'Generazione riepilogo gruppi...'
-    const counts = await getGroupCountsForYear(groupCountsYear.value)
+    const counts = await getGroupCountsForYear(renewalYear.value)
     if (counts.length > 0) {
-       const countsResult = await generateGroupCountsPDF(counts, groupCountsYear.value)
-       if (countsResult.success) reports.push('Riepilogo Gruppi')
+      const countsResult = await generateGroupCountsPDF(counts, renewalYear.value)
+      if (countsResult.success) reports.push('Riepilogo Gruppi')
     }
 
     toast.success(`Generati ${reports.length} report: ${reports.join(', ')}`)
@@ -573,7 +812,6 @@ const generateAllReports = async () => {
     loadingMessage.value = ''
   }
 }
-
 // Gruppi disponibili
 const availableGroups = ref([])
 
@@ -598,6 +836,201 @@ const generateRenewalList = async () => {
   } catch (error) {
     console.error('Errore generazione lista rinnovi:', error)
     toast.error('Errore nella generazione del PDF: ' + error.message)
+  } finally {
+    loading.value = false
+    loadingMessage.value = ''
+  }
+}
+
+/**
+ * Genera il report Recupero Crediti (Churn)
+ */
+const generateChurnReport = async () => {
+  if (!renewalYear.value) return
+
+  try {
+    loading.value = true
+    loadingMessage.value = 'Analisi mancati rinnovi...'
+    toast.info('Calcolo lista recupero...')
+
+    const churnList = await getChurnList(renewalYear.value)
+
+    if (churnList.length === 0) {
+      toast.success(
+        `Nessun socio da recuperare per il ${renewalYear.value}! (Tutti hanno pagato o sono nuovi)`,
+      )
+      return
+    }
+
+    loadingMessage.value = 'Generazione PDF...'
+    const result = await generateChurnPDF(churnList, renewalYear.value)
+
+    if (result.success) {
+      toast.success(`Lista Recupero generata! (${result.count} soci da contattare)`)
+    } else {
+      throw new Error(result.error)
+    }
+  } catch (error) {
+    console.error('Errore generazione churn report:', error)
+    toast.error('Errore: ' + error.message)
+  } finally {
+    loading.value = false
+  }
+}
+
+/**
+ * Genera il report per le votazioni
+ */
+const generateVotingReport = async () => {
+  if (!renewalYear.value) return
+
+  try {
+    loading.value = true
+    loadingMessage.value = 'Ricerca aventi diritto...'
+    toast.info('Calcolo aventi diritto al voto...')
+
+    const eligibleMembers = await getVotingEligibleMembers(renewalYear.value)
+
+    if (eligibleMembers.length === 0) {
+      toast.warning(`Nessun socio avente diritto trovato per il ${renewalYear.value}`)
+      return
+    }
+
+    loadingMessage.value = 'Generazione PDF...'
+    await generateVotingListPDF(eligibleMembers, renewalYear.value)
+
+    toast.success(`Report Votazioni generato! (${eligibleMembers.length} aventi diritto)`)
+  } catch (error) {
+    console.error('Errore generazione report votazioni:', error)
+    toast.error('Errore: ' + error.message)
+  } finally {
+    loading.value = false
+    loadingMessage.value = ''
+  }
+}
+
+/**
+ * Genera il report dei soci attivi (almeno 1 pagamento negli ultimi 5 anni)
+ */
+const generateActiveMembersReport = async () => {
+  if (!renewalYear.value) return
+
+  try {
+    loading.value = true
+    loadingMessage.value = 'Ricerca soci attivi...'
+    toast.info('Calcolo soci attivi...')
+
+    const activeMembers = await getActiveMembersLast5Years(renewalYear.value)
+
+    if (activeMembers.length === 0) {
+      toast.warning(
+        `Nessun socio attivo trovato negli ultimi 5 anni (fino al ${renewalYear.value})`,
+      )
+      return
+    }
+
+    loadingMessage.value = 'Generazione PDF...'
+    await generateActiveMembersPDF(activeMembers, renewalYear.value)
+
+    toast.success(`Report Attivi generato! (${activeMembers.length} soci)`)
+  } catch (error) {
+    console.error('Errore generazione report attivi:', error)
+    toast.error('Errore: ' + error.message)
+  } finally {
+    loading.value = false
+    loadingMessage.value = ''
+  }
+}
+
+/**
+ * Carica le statistiche demografiche ed economiche per l'anno selezionato
+ */
+const loadStats = async () => {
+  if (!renewalYear.value) return
+
+  try {
+    loading.value = true
+    loadingMessage.value = 'Analisi dati in corso...'
+
+    // Esegui entrambi in parallelo
+    const [demoData, econData] = await Promise.all([
+      getDemographicStats(renewalYear.value),
+      getEconomicStats(renewalYear.value),
+    ])
+
+    demographics.value = demoData
+    economicStats.value = econData
+
+    toast.success('Statistiche aggiornate!')
+  } catch (error) {
+    console.error('Errore caricamento statistiche:', error)
+    toast.error('Errore nel calcolo delle statistiche')
+  } finally {
+    loading.value = false
+    loadingMessage.value = ''
+  }
+}
+
+// Watch per resettare stats se cambia anno
+watch(renewalYear, () => {
+  if (currentTab.value === 'stats') {
+    demographics.value = null
+    economicStats.value = null
+  }
+})
+
+const runDataAudit = async () => {
+  try {
+    loading.value = true
+    loadingMessage.value = 'Controllo qualità dati...'
+
+    // Simulate delay
+    await new Promise((r) => setTimeout(r, 500))
+
+    const results = await getDataAuditStats()
+    auditResults.value = results
+
+    if (results.summary.total_issues === 0) {
+      toast.success('Ottimo! Nessuna anomalia trovata.')
+    } else {
+      toast.warning(`Trovate ${results.summary.total_issues} anomalie nei dati.`)
+    }
+  } catch (error) {
+    console.error(error)
+    toast.error('Errore audit: ' + error.message)
+  } finally {
+    loading.value = false
+    loadingMessage.value = ''
+  }
+}
+
+const generateAuditPDFReport = async () => {
+  if (!auditResults.value) return
+
+  try {
+    loading.value = true
+    loadingMessage.value = 'Generazione PDF audit...'
+
+    const result = await generateAuditPDF(auditResults.value)
+
+    if (result.success) {
+      // Download
+      const url = URL.createObjectURL(result.blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = result.filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+
+      toast.success('Report Audit scaricato!')
+    } else {
+      throw new Error(result.error)
+    }
+  } catch (error) {
+    console.error('Errore generazione audit PDF:', error)
+    toast.error('Errore export audit: ' + error.message)
   } finally {
     loading.value = false
     loadingMessage.value = ''
@@ -658,6 +1091,24 @@ const generateCards = async () => {
     cardProgress.value = 0
   }
 }
+const getTabTitle = (tab) => {
+  switch (tab) {
+    case 'rinnovi':
+      return 'Gestione Rinnovi & Tessere'
+    case 'liste':
+      return 'Elenchi Dati & Statistiche'
+    case 'export':
+      return 'Export & Backup'
+    default:
+      return 'Report'
+  }
+}
+
+// Watchers
+watch(renewalYear, (newVal) => {
+  // Update preview data when year changes
+  previewData.value.anno = newVal
+})
 </script>
 
 <style scoped>
@@ -736,59 +1187,59 @@ const generateCards = async () => {
 }
 
 .header-section {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: var(--color-surface);
-    padding: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--color-surface);
+  padding: 1.5rem;
 }
 
 .header-section h2 {
-    margin: 0;
-    color: var(--color-primary);
+  margin: 0;
+  color: var(--color-primary);
 }
 
 /* Grid for Cards */
 .reports-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1.5rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
 }
 
 .report-card {
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: 10px;
-    padding: 1.5rem;
-    box-shadow: var(--shadow-sm);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 1.5rem;
+  box-shadow: var(--shadow-sm);
 }
 
 .report-card h3 {
-    margin-top: 0;
-    color: var(--color-text-primary);
-    font-size: 1.1rem;
+  margin-top: 0;
+  color: var(--color-text-primary);
+  font-size: 1.1rem;
 }
 
 .report-card p {
-    color: var(--color-text-secondary);
-    font-size: 0.9rem;
-    margin-bottom: 1.5rem;
-    min-height: 40px;
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+  margin-bottom: 1.5rem;
+  min-height: 40px;
 }
 
 /* Inputs & Buttons */
 .year-selector-inline {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 }
 
 .year-input {
-    padding: 0.5rem;
-    width: 100px;
-    border: 1px solid var(--color-border);
-    border-radius: 6px;
-    font-weight: bold;
+  padding: 0.5rem;
+  width: 100px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font-weight: bold;
 }
 
 .action-button {
@@ -804,18 +1255,18 @@ const generateCards = async () => {
 }
 
 .action-button:hover:not(:disabled) {
-    background-color: #a22a2a;
-    transform: translateY(-1px);
+  background-color: #a22a2a;
+  transform: translateY(-1px);
 }
 
 .action-button:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .action-button.wide {
-    width: auto;
-    min-width: 200px;
+  width: auto;
+  min-width: 200px;
 }
 
 .primary-button {
@@ -834,112 +1285,141 @@ const generateCards = async () => {
   margin: 0 auto;
 }
 
-.primary-button:hover:not(:disabled) {
-    background-color: #a22a2a;
-    transform: translateY(-1px);
+.primary-button:hover {
+  background-color: #a22a2a;
+  transform: translateY(-1px);
+}
+
+.header-section {
+  background: var(--color-surface);
+  margin-bottom: 2rem;
+  border-left: 5px solid var(--color-primary);
+}
+
+.header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.header-row h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: var(--color-primary);
+}
+
+.year-selector-inline {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: var(--color-background);
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
 }
 
 /* Preview Area */
 .preview-wrapper {
-    display: flex;
-    gap: 2rem;
-    align-items: flex-start;
+  display: flex;
+  gap: 2rem;
+  align-items: flex-start;
 }
 
-
 .preview-container {
-    background: white;
-    border-radius: 8px;
-    padding: 2rem;
-    box-shadow: var(--shadow-sm);
-    display: flex;
-    justify-content: center;
-    border: 1px solid var(--color-border);
+  background: white;
+  border-radius: 8px;
+  padding: 2rem;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  justify-content: center;
+  border: 1px solid var(--color-border);
 }
 
 .preview-inputs {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  flex: 1;
 }
 
 .small-input {
-    padding: 0.5rem;
-    border: 1px solid var(--color-border);
-    border-radius: 6px;
-    width: 100%;
+  padding: 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  width: 100%;
 }
 
 /* Filters */
 .filters-inline {
-    display: flex;
-    gap: 1rem;
-    align-items: center;
-    margin-bottom: 1.5rem;
-    flex-wrap: wrap;
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
 }
 
 .filters-grid-compact {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1rem;
-    margin-bottom: 1.5rem;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
 }
 
 .f-group {
-    display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
 }
 
 .f-group label {
-    font-size: 0.8rem;
-    color: var(--color-text-secondary);
-    font-weight: 600;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  font-weight: 600;
 }
 
 /* Progress Bar Mini */
 .progress-bar-mini {
-    height: 6px;
-    background: var(--color-border);
-    border-radius: 3px;
-    margin: 1rem 0;
-    overflow: hidden;
+  height: 6px;
+  background: var(--color-border);
+  border-radius: 3px;
+  margin: 1rem 0;
+  overflow: hidden;
 }
 .fill {
-    height: 100%;
-    background: var(--color-success);
-    transition: width 0.3s;
+  height: 100%;
+  background: var(--color-success);
+  transition: width 0.3s;
 }
 
 /* Batch Box */
 .batch-box {
-    background: var(--color-background);
-    padding: 2rem;
-    border-radius: 8px;
-    text-align: center;
+  background: var(--color-background);
+  padding: 2rem;
+  border-radius: 8px;
+  text-align: center;
 }
 
 .batch-box ul {
-    list-style: none;
-    padding: 0;
-    margin-bottom: 2rem;
+  list-style: none;
+  padding: 0;
+  margin-bottom: 2rem;
 }
 
 .batch-box li {
-    display: inline-block;
-    background: var(--color-surface);
-    padding: 0.3rem 0.8rem;
-    margin: 0.3rem;
-    border-radius: 20px;
-    border: 1px solid var(--color-border);
-    font-size: 0.9rem;
+  display: inline-block;
+  background: var(--color-surface);
+  padding: 0.3rem 0.8rem;
+  margin: 0.3rem;
+  border-radius: 20px;
+  border: 1px solid var(--color-border);
+  font-size: 0.9rem;
 }
 
 .primary-button.large {
-    font-size: 1.1rem;
-    padding: 1rem 3rem;
+  font-size: 1.1rem;
+  padding: 1rem 3rem;
 }
 
 /* Loading Overlay */
@@ -959,16 +1439,20 @@ const generateCards = async () => {
 }
 
 .spinner {
-   width: 40px;
-   height: 40px;
-   border: 3px solid rgba(255,255,255,0.3);
-   border-top-color: white;
-   border-radius: 50%;
-   animation: spin 1s infinite linear;
-   margin-bottom: 1rem;
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 1s infinite linear;
+  margin-bottom: 1rem;
 }
 
-@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 
 /* Checkbox */
 .checkbox-label {
@@ -1002,18 +1486,19 @@ input:checked + .checkmark {
     padding-bottom: 1rem;
   }
   .reports-nav {
-      flex-direction: row;
-      overflow-x: auto;
+    flex-direction: row;
+    overflow-x: auto;
   }
-  .reports-grid, .filters-grid-compact {
-      grid-template-columns: 1fr;
+  .reports-grid,
+  .filters-grid-compact {
+    grid-template-columns: 1fr;
   }
   .preview-wrapper {
-      flex-direction: column;
+    flex-direction: column;
   }
   .preview-container {
-      transform: scale(1);
-      width: 100%;
+    transform: scale(1);
+    width: 100%;
   }
 }
 

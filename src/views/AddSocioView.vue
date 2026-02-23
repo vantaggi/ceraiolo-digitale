@@ -159,7 +159,7 @@
 <script setup>
 import { ref, reactive, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { addSocio, getUniqueGroups, getSetting } from '@/services/db'
+import { addSocio, getUniqueGroups, getSetting, addCustomGroup } from '@/services/db'
 
 const router = useRouter()
 const availableGroups = ref([])
@@ -296,6 +296,16 @@ const submitSocio = async () => {
     // Aggiungi anno prima iscrizione se fornito
     if (formData.data_prima_iscrizione) {
       socioData.data_prima_iscrizione = parseInt(formData.data_prima_iscrizione)
+    }
+
+    // Se il gruppo non esisteva nella lista, salvalo come custom group
+    const groupName = socioData.gruppo_appartenenza
+    if (!availableGroups.value.includes(groupName)) {
+       try {
+         await addCustomGroup(groupName)
+       } catch (err) {
+         console.warn("Could not save new custom group definition", err)
+       }
     }
 
     // Salva il nuovo socio

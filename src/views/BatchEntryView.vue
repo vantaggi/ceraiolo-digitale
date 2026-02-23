@@ -141,6 +141,16 @@
             <span class="toggle-icon">⚡</span>
             <span class="toggle-label">Turbo Mode</span>
           </label>
+
+          <label
+            class="turbo-toggle sound-toggle"
+            :class="{ active: soundEnabled }"
+            title="Attiva/Disattiva suoni di feedback"
+          >
+            <input type="checkbox" v-model="soundEnabled" />
+            <span class="toggle-icon">{{ soundEnabled ? '🔊' : '🔇' }}</span>
+            <span class="toggle-label">Suoni</span>
+          </label>
         </div>
         <div class="search-input-group">
           <input
@@ -276,11 +286,13 @@
               v-model="newSocioData.gruppo_appartenenza"
               class="form-input"
               :disabled="isProcessing"
+              @change="handleGroupChange"
             >
               <option value="">Seleziona gruppo</option>
               <option v-for="group in availableGroups" :key="group" :value="group">
                 {{ group }}
               </option>
+              <option value="__NEW__">➕ Nuovo gruppo...</option>
             </select>
           </div>
 
@@ -340,13 +352,14 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, nextTick, watch } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useToast } from 'vue-toastification'
 import {
   searchSoci,
   addSocio,
   addTesseramento,
   getUniqueGroups,
+  addCustomGroup,
   getArretrati,
   findExistingPaymentYear,
   calculateAgeInYear,
@@ -520,10 +533,31 @@ const loadGroups = async () => {
     availableGroups.value = []
     // Non mostrare toast per evitare spam all'avvio
   }
+
+}
+
+const handleGroupChange = async () => {
+  if (newSocioData.gruppo_appartenenza === '__NEW__') {
+    const newGroup = prompt('Inserisci il nome del nuovo gruppo:')
+    if (newGroup && newGroup.trim()) {
+      try {
+        await addCustomGroup(newGroup)
+        await loadGroups()
+        newSocioData.gruppo_appartenenza = newGroup.trim()
+        toast.success(`Gruppo "${newGroup}" aggiunto!`)
+      } catch (e) {
+        toast.error("Errore aggiunta gruppo: " + e.message)
+        newSocioData.gruppo_appartenenza = ''
+      }
+    } else {
+      newSocioData.gruppo_appartenenza = ''
+    }
+  }
 }
 
 // Lifecycle
 onMounted(async () => {
+  window.addEventListener('keydown', handleGlobalKeydown)
   try {
     // Assicurati che il database sia aperto
     await db.open()
@@ -554,6 +588,41 @@ watch(
   },
 )
 watch(() => sessionData.dataPagamento, validateSessionData)
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleGlobalKeydown)
+})
+
+const handleGlobalKeydown = (e) => {
+  const activeElement = document.activeElement
+  const isInput = ['INPUT', 'TEXTAREA'].includes(activeElement.tagName)
+
+  // Special exception: Allow navigation from search input if it's empty
+  // This allows rapid skipping of receipts without leaving the search field
+  const isSearchInput = searchInput.value && activeElement === searchInput.value
+
+  if (isInput) {
+    // If we are in the search input and it's empty, we allow the navigation keys
+    if (isSearchInput && !searchQuery.value) {
+      // Allow execution
+    } else {
+      // Otherwise (other inputs, or search has text), we block to preserve cursor navigation/editing
+      return
+    }
+  }
+
+  // Ignore if modals are open
+  if (showPaymentModal.value || showDeleteConfirm.value || showNewSocioForm.value) return
+
+  switch (e.key) {
+    case 'ArrowLeft':
+      decrementReceipt()
+      break
+    case 'ArrowRight':
+      incrementReceipt()
+      break
+  }
+}
 
 // Funzioni per gestire la cache delle ricevute
 const saveCurrentReceiptToCache = () => {
@@ -1089,7 +1158,7 @@ const getSocioStatus = (socio) => {
 .status-badge.success {
   background-color: var(--color-success); /* Ensure you have this or use custom color */
   background-color: #e8f5e9;
-  color: #2e7d32;
+  color: var(--color-success);
   border: 1px solid #a5d6a7;
 }
 
@@ -1100,7 +1169,7 @@ const getSocioStatus = (socio) => {
 }
 
 .receipt-btn:hover:not(:disabled) {
-  background-color: #a22a2a;
+  background-color: var(--color-accent-hover);
   transform: scale(1.05);
 }
 
@@ -1231,7 +1300,7 @@ const getSocioStatus = (socio) => {
 .remove-btn {
   background: none;
   border: none;
-  color: #dc3545;
+  color: var(--color-danger);
   cursor: pointer;
   font-size: 1.2rem;
   padding: 0.25rem;
@@ -1240,7 +1309,7 @@ const getSocioStatus = (socio) => {
 }
 
 .remove-btn:hover {
-  background-color: #dc3545;
+  background-color: var(--color-danger);
   color: white;
 }
 
@@ -1307,7 +1376,7 @@ const getSocioStatus = (socio) => {
 
 .turbo-toggle.active {
   background-color: #fff3e0; /* Pale orange/yellow */
-  border-color: #ff9800;
+  border-color: var(--color-warning);
   color: #e65100;
 }
 
@@ -1367,8 +1436,8 @@ const getSocioStatus = (socio) => {
 
 .clear-search-btn:hover {
   background-color: var(--color-surface-hover);
-  color: #dc3545; /* Red color on hover */
-  border-color: #dc3545;
+  color: var(--color-danger); /* Red color on hover */
+  border-color: var(--color-danger);
 }
 
 /* Search Results */
@@ -1435,7 +1504,7 @@ const getSocioStatus = (socio) => {
 
 .pay-btn {
   padding: 0.5rem 1rem;
-  background-color: var(--color-success, #28a745);
+  background-color: var(--color-success);
   color: white;
   border: none;
   border-radius: 6px;

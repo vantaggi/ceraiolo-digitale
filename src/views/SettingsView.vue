@@ -26,6 +26,13 @@
           >
             💾 Dati & Backup
           </button>
+          <button
+            @click="currentTab = 'zone'"
+            :class="{ active: currentTab === 'zone' }"
+            class="nav-item"
+          >
+            🏘️ Gestione Zone
+          </button>
         </nav>
       </aside>
 
@@ -172,9 +179,31 @@
           </div>
         </section>
 
-        <!-- Tab: Dati (Backup & Export) -->
         <section v-if="currentTab === 'dati'" class="settings-section">
           <h2>💾 Gestione Dati & Backup</h2>
+
+          <!-- Health Status -->
+          <div class="data-health-banner" v-if="auditStats">
+            <div
+              class="health-indicator"
+              :class="{
+                good: auditStats.summary.total_issues === 0,
+                warning: auditStats.summary.total_issues > 0,
+              }"
+            >
+              <span class="health-icon">{{
+                auditStats.summary.total_issues === 0 ? '✅' : '⚠️'
+              }}</span>
+              <div class="health-text">
+                <h3>Stato Salute Dati</h3>
+                <p v-if="auditStats.summary.total_issues === 0">Tutti i dati sono corretti.</p>
+                <p v-else>
+                  Rilevati <strong>{{ auditStats.summary.total_issues }}</strong> problemi
+                  potenziali (dati mancanti).
+                </p>
+              </div>
+            </div>
+          </div>
 
           <!-- Sezione Backup Automatico -->
           <div class="subsection">
@@ -222,6 +251,7 @@
                   @click="forceBackup"
                   :disabled="isSavingBackup"
                   class="manual-backup-button"
+                  :class="{ 'btn-loading': isSavingBackup }"
                 >
                   <span v-if="isSavingBackup" class="loading-spinner">⏳</span>
                   {{
@@ -245,7 +275,7 @@
               <div class="export-options">
                 <div class="export-option">
                   <h4>📥 Esporta Database Completo</h4>
-                  <p>File .sqlite per migrazione o backup manuale.</p>
+                  <p>File .sqlite per migrazione o backup manuale (include Impostazioni).</p>
                   <button @click="exportDatabase" :disabled="isExporting" class="export-button">
                     {{ isExporting ? 'Esportazione...' : 'Scarica SQLite' }}
                   </button>
@@ -257,6 +287,26 @@
                   <button @click="exportExcel" :disabled="isExporting" class="export-button">
                     {{ isExporting ? 'Esportazione...' : 'Scarica Excel' }}
                   </button>
+                </div>
+
+                <div class="export-option">
+                  <h4>⚙️ Configurazione JSON</h4>
+                  <p>Export/Import solo impostazioni.</p>
+                  <div class="button-group-small">
+                    <button @click="exportSettings" :disabled="isExporting" class="action-button">
+                      Esporta JSON
+                    </button>
+                    <label class="action-button secondary clickable">
+                      Importa JSON
+                      <input
+                        type="file"
+                        accept=".json"
+                        @change="handleImportSettings"
+                        style="display: none"
+                        :disabled="isExporting"
+                      />
+                    </label>
+                  </div>
                 </div>
 
                 <div class="export-option danger">
@@ -273,6 +323,90 @@
               </div>
             </div>
           </div>
+
+          <hr class="divider" />
+
+          <!-- DANGER ZONE -->
+          <div class="subsection danger-zone">
+            <h3>⛔ Zona Pericolosa</h3>
+            <div class="danger-card">
+              <h4>🏭 Ripristino Impostazioni di Fabbrica</h4>
+              <p>
+                Cancella TUTTI i dati (Soci, Pagamenti, Impostazioni) e riporta l'applicazione allo
+                stato iniziale.
+              </p>
+              <button
+                @click="confirmFactoryReset"
+                :disabled="isExporting"
+                class="danger-button-large"
+              >
+                🗑️ CANCELLA TUTTO E RIPRISTINA
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Tab: Zone (Gestione Gruppi) -->
+        <section v-if="currentTab === 'zone'" class="settings-section">
+          <h2>🏘️ Gestione Zone (Gruppi)</h2>
+          <p>
+            Gestisci le zone di appartenenza. Puoi rinominare zone esistenti (aggiornando tutti i soci)
+            o aggiungerne di nuove per averle pronte nel menu a tendina.
+          </p>
+
+          <div class="zone-actions">
+            <div class="add-zone-form">
+              <input
+                v-model="newZoneName"
+                placeholder="Nome nuova zona..."
+                class="form-input"
+                @keyup.enter="addNewZone"
+              />
+              <button @click="addNewZone" :disabled="!newZoneName.trim()" class="save-button">
+                ➕ Aggiungi
+              </button>
+            </div>
+          </div>
+
+          <div class="zones-list-container">
+            <div v-if="isLoadingZones" class="loading-spinner-large">⏳ Caricamento...</div>
+            <div v-else-if="zones.length === 0" class="empty-state">Nessuna zona definita.</div>
+            <ul v-else class="zones-list">
+              <li v-for="zone in zones" :key="zone" class="zone-item">
+                <div class="zone-info">
+                  <span v-if="editingZone !== zone" class="zone-name">{{ zone }}</span>
+                  <input
+                    v-else
+                    v-model="editingZoneName"
+                    class="form-input edit-input"
+                    @keyup.enter="saveZoneRename(zone)"
+                    @keyup.esc="cancelRename"
+                    ref="editInput"
+                  />
+                </div>
+
+                <div class="zone-buttons">
+                  <template v-if="editingZone !== zone">
+                    <button @click="startRename(zone)" class="action-button small secondary" title="Rinomina">
+                      ✏️
+                    </button>
+                    <!-- Delete button just removes from defined list, doesn't delete users -->
+                    <button @click="deleteZone(zone)" class="action-button small danger" title="Rimuovi dalla lista (non cancella i soci)">
+                      🗑️
+                    </button>
+                  </template>
+                  <template v-else>
+                     <button @click="saveZoneRename(zone)" class="action-button small success" title="Salva">
+                      💾
+                    </button>
+                    <button @click="cancelRename" class="action-button small secondary" title="Annulla">
+                      ❌
+                    </button>
+                  </template>
+                </div>
+              </li>
+            </ul>
+          </div>
         </section>
       </main>
     </div>
@@ -287,8 +421,14 @@ import {
   updateSetting,
   downloadDatabaseExport,
   importDatabaseFromSqlite,
+  wipeDatabase,
+  getDataAuditStats,
+  getUniqueGroups,
+  addCustomGroup,
+  removeCustomGroup,
+  renameGroup,
 } from '@/services/db'
-import { exportDataToExcel } from '@/services/export'
+import { exportDataToExcel, exportSettingsToJson, importSettingsFromJson } from '@/services/export'
 import { useBackupStore } from '@/stores/backupStore'
 import { backupService } from '@/services/backupService'
 import TesseraTemplate from '@/components/TesseraTemplate.vue'
@@ -624,6 +764,20 @@ const resetTemplate = async () => {
  */
 const exportDatabase = async () => {
   try {
+    // 1. Health Check
+    const health = await getDataAuditStats()
+    auditStats.value = health
+
+    if (health.summary.total_issues > 0) {
+      if (
+        !confirm(
+          `ATTENZIONE: Sono stati rilevati ${health.summary.total_issues} problemi nei dati (es. date mancanti).\nConsigliamo di risolvere i problemi prima del backup, ma puoi procedere comunque.\n\nProcedere con l'export?`,
+        )
+      ) {
+        return
+      }
+    }
+
     isExporting.value = true
     toast.info('Preparazione export database...')
 
@@ -674,6 +828,156 @@ const saveAppConfig = async () => {
     toast.error('Errore nel salvataggio della configurazione')
   } finally {
     isSavingConfig.value = false
+  }
+}
+
+// --- NEW FEATURES ---
+
+const auditStats = ref(null)
+
+/**
+ * Esporta Configurazione JSON
+ */
+const exportSettings = async () => {
+  try {
+    isExporting.value = true
+    await exportSettingsToJson()
+    toast.success('Configurazione esportata!')
+  } catch (e) {
+    toast.error(e.message)
+  } finally {
+    isExporting.value = false
+  }
+}
+
+/**
+ * Importa Configurazione JSON
+ */
+const handleImportSettings = async (event) => {
+  const file = event.target.files[0]
+  if (!file) return
+
+  try {
+    isExporting.value = true // Reuse spinner
+    const result = await importSettingsFromJson(file)
+    if (result.success) {
+      toast.success(`Configurazione importata! (${result.count} impostazioni)`)
+      // Reload to apply settings
+      setTimeout(() => window.location.reload(), 1000)
+    }
+  } catch (e) {
+    toast.error('Errore importazione config: ' + e.message)
+  } finally {
+    isExporting.value = false
+    event.target.value = ''
+  }
+}
+
+/**
+ * Factory Reset
+ */
+const confirmFactoryReset = async () => {
+  if (
+    !confirm(
+      'ATTENZIONE: Stai per CANCELLARE TUTTI I DATI e ripristinare le impostazioni di fabbrica. Questa operazione è IRREVERSIBILE.\n\nIl sistema tenterà un backup automatico prima di procedere.\n\nSei sicuro di voler continuare?',
+    )
+  ) {
+    return
+  }
+
+  try {
+    isExporting.value = true
+    toast.info('Esecuzione backup di sicurezza...')
+    await backupService.performBackup(true) // Force backup
+
+    toast.info('Cancellazione dati in corso...')
+    await wipeDatabase()
+
+    toast.success('Reset completato. Riavvio applicazione...')
+    setTimeout(() => window.location.reload(), 2000)
+  } catch (e) {
+    toast.error('Reset fallito: ' + e.message)
+    isExporting.value = false
+  }
+}
+
+// --- Zone Management Logic ---
+const zones = ref([])
+const newZoneName = ref('')
+const isLoadingZones = ref(false)
+const editingZone = ref(null)
+const editingZoneName = ref('')
+
+const loadZones = async () => {
+  isLoadingZones.value = true
+  try {
+    zones.value = await getUniqueGroups()
+  } catch (e) {
+    console.error(e)
+    toast.error("Errore caricamento zone")
+  } finally {
+    isLoadingZones.value = false
+  }
+}
+
+import { watch } from 'vue'
+watch(currentTab, (newTab) => {
+  if (newTab === 'zone') {
+    loadZones()
+  }
+})
+
+const addNewZone = async () => {
+  if (!newZoneName.value.trim()) return
+  try {
+    await addCustomGroup(newZoneName.value)
+    newZoneName.value = ''
+    toast.success("Zona aggiunta!")
+    await loadZones()
+  } catch (e) {
+    toast.error(e.message)
+  }
+}
+
+const deleteZone = async (zoneName) => {
+  if(!confirm(`Vuoi rimuovere "${zoneName}" dalla lista delle zone definite?\nNota: I soci che appartengono a questa zona manterranno la loro assegnazione, ma la zona non apparirà più come suggerimento se non ci sono soci assegnati.`)) return
+
+  try {
+    await removeCustomGroup(zoneName)
+    toast.success("Zona rimossa dalle definizioni.")
+    await loadZones()
+  } catch (e) {
+    toast.error(e.message)
+  }
+}
+
+const startRename = (zoneName) => {
+  editingZone.value = zoneName
+  editingZoneName.value = zoneName
+}
+
+const cancelRename = () => {
+  editingZone.value = null
+  editingZoneName.value = ''
+}
+
+const saveZoneRename = async (oldName) => {
+  if (!editingZoneName.value.trim() || editingZoneName.value === oldName) {
+    cancelRename()
+    return
+  }
+
+  const newName = editingZoneName.value.trim()
+
+  if(!confirm(`Confermi di voler rinominare la zona "${oldName}" in "${newName}"?\nQuesta operazione aggiornerà tutti i soci appartenenti a questa zona.`)) return
+
+  try {
+    const count = await renameGroup(oldName, newName)
+    toast.success(`Zona rinominata! Aggiornati ${count} soci.`)
+    cancelRename()
+    await loadZones()
+  } catch (e) {
+    toast.error("Errore rinomina: " + e.message)
   }
 }
 </script>
@@ -1340,5 +1644,140 @@ const saveAppConfig = async () => {
     width: 100%;
     text-align: center;
   }
+}
+/* Health Banner */
+.data-health-banner {
+  margin-bottom: 2rem;
+  padding: 1rem;
+  border-radius: 8px;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+.health-indicator {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.health-indicator.good .health-icon {
+  font-size: 2rem;
+}
+
+.health-indicator.warning {
+  /* Using theme variables for consistency */
+  border: 1px solid var(--color-warning);
+  color: var(--color-warning);
+  /* Slight background tint if possible, otherwise transparent to be safe across themes */
+  background-color: transparent;
+  padding: 1rem;
+  border-radius: 6px;
+}
+
+/* Optional: Add a light tint locally if we really want it, handling themes */
+.health-indicator.warning {
+  background-color: rgba(237, 108, 2, 0.05); /* Very subtle orange tint */
+}
+[data-theme='dark'] .health-indicator.warning {
+  background-color: rgba(255, 167, 38, 0.05);
+}
+
+.health-text h3 {
+  margin: 0 0 0.25rem 0;
+  font-size: 1.1rem;
+}
+
+.health-text p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+/* Danger Zone */
+.danger-zone {
+  margin-top: 3rem;
+  padding: 2rem;
+  background-color: transparent; /* Was hardcoded #fff5f5 */
+  border: 1px solid var(--color-accent); /* Was hardcoded #fc8181 */
+  border-radius: 8px;
+  /* Add subtle red tint */
+  background-color: rgba(183, 28, 28, 0.02);
+}
+
+[data-theme='dark'] .danger-zone {
+  background-color: rgba(229, 57, 53, 0.05);
+}
+
+.danger-zone h3 {
+  color: var(--color-accent); /* Was hardcoded #c53030 */
+  margin-top: 0;
+}
+
+.danger-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.danger-button-large {
+  background-color: var(--color-accent); /* Was hardcoded #c53030 */
+  color: var(--color-text-inverse); /* Was white */
+  border: none;
+  padding: 1rem;
+  font-size: 1rem;
+  font-weight: bold;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  text-transform: uppercase;
+  margin-top: 1rem;
+}
+
+.danger-button-large:hover {
+  background-color: var(--color-accent-hover); /* Was hardcoded #9b2c2c */
+}
+
+.button-group-small {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  font-family: var(--font-family-body);
+  font-weight: 600;
+  font-size: 0.9rem;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background-color: var(--color-accent);
+  color: white;
+  box-shadow: var(--shadow-sm);
+  text-decoration: none;
+}
+
+.action-button:hover {
+  background-color: var(--color-accent-hover);
+  transform: translateY(-1px);
+}
+
+.action-button.secondary {
+  background-color: transparent;
+  border: 1px solid var(--color-accent);
+  color: var(--color-accent);
+  box-shadow: none;
+}
+
+.action-button.secondary:hover {
+  background-color: rgba(183, 28, 28, 0.05);
+}
+
+.clickable {
+  cursor: pointer;
 }
 </style>
