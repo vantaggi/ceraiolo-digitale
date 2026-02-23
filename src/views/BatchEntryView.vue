@@ -183,7 +183,7 @@
             <div class="socio-info">
               <strong>{{ socio.cognome }} {{ socio.nome }}</strong>
               <small>Nato il {{ formatDate(socio.data_nascita) }}</small>
-              <small>Gruppo: {{ socio.gruppo_appartenenza }}</small>
+              <small>Manicchia: {{ socio.gruppo_appartenenza }}</small>
             </div>
             <div class="socio-status">
               <div v-if="getSocioStatus(socio) === 'IN_RECEIPT'" class="status-badge success">
@@ -280,7 +280,7 @@
           </div>
 
           <div class="form-group">
-            <label for="new-gruppo">Gruppo</label>
+            <label for="new-gruppo">Manicchia</label>
             <select
               id="new-gruppo"
               v-model="newSocioData.gruppo_appartenenza"
@@ -288,11 +288,11 @@
               :disabled="isProcessing"
               @change="handleGroupChange"
             >
-              <option value="">Seleziona gruppo</option>
+              <option value="">Seleziona manicchia</option>
               <option v-for="group in availableGroups" :key="group" :value="group">
                 {{ group }}
               </option>
-              <option value="__NEW__">➕ Nuovo gruppo...</option>
+              <option value="__NEW__">➕ Nuova manicchia...</option>
             </select>
           </div>
 

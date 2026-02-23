@@ -98,7 +98,7 @@
           </div>
 
           <div class="info-item">
-            <span class="label">Gruppo di Appartenenza</span>
+            <span class="label">Manicchia di Appartenenza</span>
             <input
               v-if="editMode"
               v-model="socio.gruppo_appartenenza"

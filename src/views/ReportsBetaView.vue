@@ -93,7 +93,7 @@
 
           <hr style="border: 0; border-top: 1px solid var(--color-border); margin: 15px 0;" />
 
-          <h4>Filtri per Gruppo</h4>
+          <h4>Filtri per Manicchia</h4>
           <div class="filters-inline">
             <label v-for="group in availableGroups" :key="'filter-group-'+group" class="checkbox-label">
               <input type="checkbox" :value="group" v-model="reportState.filters.groups" />
@@ -102,7 +102,7 @@
             </label>
           </div>
           <div v-if="reportState.filters.groups.length === 0" style="color: var(--color-text-secondary); font-size: 0.9rem; margin-top: -10px; margin-bottom: 15px;">
-            Nessun gruppo selezionato = Mostra Tutti
+            Nessuna manicchia selezionata = Mostra Tutti
           </div>
 
           <hr style="border: 0; border-top: 1px solid var(--color-border); margin: 15px 0;" />
@@ -150,12 +150,17 @@
               <label class="checkbox-label">
                 <input type="checkbox" value="gruppo" v-model="reportState.display.baseColumns" />
                 <span class="checkmark"></span>
-                Gruppo
+                Manicchia
               </label>
               <label class="checkbox-label">
                 <input type="checkbox" value="dataNascita" v-model="reportState.display.baseColumns" />
                 <span class="checkmark"></span>
                 Data Nascita
+              </label>
+              <label class="checkbox-label" title="Mostra se il socio è Maggiorenne o Minorenne">
+                <input type="checkbox" value="eta" v-model="reportState.display.baseColumns" />
+                <span class="checkmark"></span>
+                Età (Mag/Min)
               </label>
               <label class="checkbox-label" title="Aggiunge una colonna vuota in cui gli utenti possono apporre una firma manuale">
                 <input type="checkbox" value="firma" v-model="reportState.display.baseColumns" />
@@ -203,7 +208,7 @@
             <label style="font-weight: 600; color: var(--color-text-secondary);">Ordina per:</label>
             <select v-model="reportState.sort.by" class="small-input" style="width: auto;">
               <option value="cognome">Cognome</option>
-              <option value="gruppo">Gruppo</option>
+              <option value="gruppo">Manicchia</option>
               <option value="anno_nascita">Anno di Nascita</option>
             </select>
             <label class="checkbox-label">
@@ -227,7 +232,7 @@
                 <thead style="position: sticky; top: 0; background: var(--color-surface); z-index: 1;">
                   <tr>
                     <th v-if="reportState.display.baseColumns.includes('cognomeNome')" style="padding: 12px; border-bottom: 2px solid var(--color-border); color: var(--color-text-secondary);">Socio</th>
-                    <th v-if="reportState.display.baseColumns.includes('gruppo')" style="padding: 12px; border-bottom: 2px solid var(--color-border); color: var(--color-text-secondary);">Gruppo</th>
+                    <th v-if="reportState.display.baseColumns.includes('gruppo')" style="padding: 12px; border-bottom: 2px solid var(--color-border); color: var(--color-text-secondary);">Manicchia</th>
                     <th v-if="reportState.display.baseColumns.includes('dataNascita')" style="padding: 12px; border-bottom: 2px solid var(--color-border); color: var(--color-text-secondary);">Nascita</th>
                     <th v-for="year in sortedYearColumns" :key="'th-'+year" style="padding: 12px; text-align: center; border-bottom: 2px solid var(--color-border); color: var(--color-text-secondary);">{{ year }}</th>
                   </tr>
@@ -347,7 +352,7 @@ const moveColumn = (index, direction) => {
 
 const colName = (val) => {
   if (val === 'cognomeNome') return 'Socio';
-  if (val === 'gruppo') return 'Gruppo';
+  if (val === 'gruppo') return 'Manicchia';
   if (val === 'dataNascita') return 'Data Nascita';
   return val;
 };
@@ -421,9 +426,9 @@ const activeFiltersSummary = computed(() => {
 
   // Groups
   if (reportState.value.filters.groups.length > 0) {
-    summary += `appartenenti ai gruppi: [${reportState.value.filters.groups.join(', ')}] `;
+    summary += `appartenenti alle manicchie: [${reportState.value.filters.groups.join(', ')}] `;
   } else {
-    summary += `di tutti i gruppi `;
+    summary += `di tutte le manicchie `;
   }
 
   // Payment Years
@@ -434,7 +439,7 @@ const activeFiltersSummary = computed(() => {
   }
 
   // Sort
-  const sortMap = { 'cognome': 'Cognome', 'gruppo': 'Gruppo', 'anno_nascita': 'Anno di Nascita' };
+  const sortMap = { 'cognome': 'Cognome', 'gruppo': 'Manicchia', 'anno_nascita': 'Anno di Nascita' };
   const sortDir = reportState.value.sort.descending ? 'decrescente' : 'crescente';
   summary += `- Ordinati per ${sortMap[reportState.value.sort.by]} (${sortDir}).`;
 
@@ -489,7 +494,7 @@ const processedData = computed(() => {
   if (reportState.value.filters.groups.length > 0) {
     result = result.filter(member => {
       // Handles unassigned members or specific group matches
-      return reportState.value.filters.groups.includes(member.gruppo_appartenenza || 'Nessun Gruppo');
+      return reportState.value.filters.groups.includes(member.gruppo_appartenenza || 'Nessuna Manicchia');
     });
   }
 

@@ -220,6 +220,23 @@ function formatDate(dateStr) {
   return dateStr;
 }
 
+function getAgeLabel(dateStr) {
+  if (!dateStr) return '-';
+  try {
+    const birthDate = new Date(dateStr);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age >= 18 ? 'Maggiorenne' : 'Minorenne';
+  } catch (e) {
+    console.warn('Age calculation error:', e);
+    return '-';
+  }
+}
+
 export async function generateBetaDynamicPDF(data, reportConfig, filtersSummaryText = '') {
   console.log('[Beta PDF Export] Initiating dynamic PDF generation...');
 
@@ -228,6 +245,7 @@ export async function generateBetaDynamicPDF(data, reportConfig, filtersSummaryT
   if (reportConfig.display.baseColumns.includes('cognomeNome')) reqWidth += 50;
   if (reportConfig.display.baseColumns.includes('gruppo')) reqWidth += 35;
   if (reportConfig.display.baseColumns.includes('dataNascita')) reqWidth += 22;
+  if (reportConfig.display.baseColumns.includes('eta')) reqWidth += 25;
   if (reportConfig.display.baseColumns.includes('firma')) reqWidth += 40;
   reqWidth += reportConfig.display.yearColumns.length * 6;
 
@@ -247,11 +265,11 @@ export async function generateBetaDynamicPDF(data, reportConfig, filtersSummaryT
 
   if (activeGroups.length > 0) {
     if (activeGroups.length === 1) {
-      reportTitle = `Report Gruppo ${activeGroups[0]}`;
+      reportTitle = `Report Manicchia ${activeGroups[0]}`;
       fileBaseName = `report_${activeGroups[0].toLowerCase()}`;
     } else {
-      reportTitle = `Report Gruppi Multipli`;
-      fileBaseName = `report_gruppi_multipli`;
+      reportTitle = `Report Manicchie Multiple`;
+      fileBaseName = `report_mute_multiple`;
     }
   }
 
@@ -260,8 +278,9 @@ export async function generateBetaDynamicPDF(data, reportConfig, filtersSummaryT
   // Dynamically assemble headers
   const headers = [];
   if (reportConfig.display.baseColumns.includes('cognomeNome')) headers.push({ text: 'Socio', width: 50 });
-  if (reportConfig.display.baseColumns.includes('gruppo')) headers.push({ text: 'Gruppo', width: 35 });
+  if (reportConfig.display.baseColumns.includes('gruppo')) headers.push({ text: 'Manicchia', width: 35 });
   if (reportConfig.display.baseColumns.includes('dataNascita')) headers.push({ text: 'Nascita', width: 22 });
+  if (reportConfig.display.baseColumns.includes('eta')) headers.push({ text: 'Età', width: 25 });
 
   const sortedYearColumns = [...reportConfig.display.yearColumns].sort((a, b) => a - b);
   sortedYearColumns.forEach(year => {
@@ -277,6 +296,7 @@ export async function generateBetaDynamicPDF(data, reportConfig, filtersSummaryT
     if (reportConfig.display.baseColumns.includes('cognomeNome')) row.push(`${member.cognome} ${member.nome}`);
     if (reportConfig.display.baseColumns.includes('gruppo')) row.push(member.gruppo_appartenenza || '-');
     if (reportConfig.display.baseColumns.includes('dataNascita')) row.push(formatDate(member.data_nascita));
+    if (reportConfig.display.baseColumns.includes('eta')) row.push(getAgeLabel(member.data_nascita));
 
     // Inject V/X with specific colors to match requested UI aesthetic
     const paidYears = member.tesseramenti?.map(t => t.anno) || [];

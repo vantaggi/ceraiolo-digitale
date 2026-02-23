@@ -346,7 +346,7 @@
           </div>
         </section>
 
-        <!-- Tab: Zone (Gestione Gruppi) -->
+        <!-- Tab: Zone (Gestione Manicchie) -->
         <section v-if="currentTab === 'zone'" class="settings-section">
           <h2>🏘️ Gestione Zone (Gruppi)</h2>
           <p>

@@ -220,7 +220,7 @@
               </div>
 
               <div class="stat-card">
-                <h3>Entrate per Gruppo</h3>
+                <h3>Entrate per Manicchia</h3>
                 <div class="chart-container">
                   <div
                     v-for="(revenue, group) in economicStats.groupBreakdown"
@@ -262,12 +262,12 @@
             </button>
           </section>
 
-          <!-- Soci per Gruppo -->
+          <!-- Soci per Manicchia -->
           <section class="report-section">
-            <h3>👥 Soci per Gruppo</h3>
+            <h3>👥 Soci per Manicchia</h3>
             <div class="filters-grid-compact">
               <div class="f-group">
-                <label>Gruppo:</label>
+                <label>Manicchia:</label>
                 <select v-model="groupFilters.gruppo" class="small-input">
                   <option value="">Tutti</option>
                   <option v-for="group in availableGroups" :key="group" :value="group">
@@ -289,14 +289,14 @@
               </div>
             </div>
             <button @click="generateMembersByGroup" :disabled="loading" class="action-button wide">
-              📄 Genera Report Gruppi
+              📄 Genera Report Manicchie
             </button>
           </section>
 
-          <!-- Riepilogo Numerico Gruppi -->
+          <!-- Riepilogo Numerico Manicchie -->
           <section class="report-section">
-            <h3>🔢 Riepilogo Numerico Gruppi</h3>
-            <p>Genera un foglio unico con il conteggio degli iscritti per ogni gruppo.</p>
+            <h3>🔢 Riepilogo Numerico Manicchie</h3>
+            <p>Genera un foglio unico con il conteggio degli iscritti per ogni manicchia.</p>
             <div class="filters-inline">
               <label
                 >Anno Riferimento: <strong>{{ renewalYear }}</strong></label
@@ -398,7 +398,7 @@
                     >⚠️ No Data Iscrizione: <b>{{ auditResults.summary.missing_reg_date }}</b></span
                   >
                   <span v-if="auditResults.summary.missing_group" class="stat-tag"
-                    >⚠️ No Gruppo: <b>{{ auditResults.summary.missing_group }}</b></span
+                    >⚠️ No Manicchia: <b>{{ auditResults.summary.missing_group }}</b></span
                   >
                   <span v-if="auditResults.summary.future_reg" class="stat-tag"
                     >⚠️ Date Future: <b>{{ auditResults.summary.future_reg }}</b></span
@@ -452,7 +452,7 @@
                 <li>Lista Rinnovi ({{ renewalYear }})</li>
                 <li>Nuovi Soci ({{ renewalYear }})</li>
                 <li>Lista Pagamenti</li>
-                <li>Soci per Gruppo ({{ renewalYear }})</li>
+                <li>Soci per Manicchia ({{ renewalYear }})</li>
                 <li>Riepilogo Numerico Gruppi ({{ renewalYear }})</li>
               </ul>
               <button @click="generateAllReports" :disabled="loading" class="action-button wide">
@@ -670,13 +670,13 @@ const generateCompletePaymentsList = async () => {
 }
 
 /**
- * Genera la lista soci per gruppo
+ * Genera la lista soci per manicchia
  */
 const generateMembersByGroup = async () => {
   try {
     loading.value = true
-    loadingMessage.value = 'Caricamento dati soci per gruppo...'
-    toast.info('Caricamento dati soci per gruppo...')
+    loadingMessage.value = 'Caricamento dati soci per manicchia...'
+    toast.info('Caricamento dati soci per manicchia...')
 
     const members = await getMembersByGroup(
       groupFilters.gruppo || null,
@@ -688,7 +688,7 @@ const generateMembersByGroup = async () => {
     console.log('Members found for PDF generation:', members.length, members)
 
     loadingMessage.value = 'Generazione PDF...'
-    toast.info('Generazione PDF soci per gruppo...')
+    toast.info('Generazione PDF soci per manicchia...')
 
     const result = await generateMembersByGroupPDF(
       members,
@@ -699,12 +699,12 @@ const generateMembersByGroup = async () => {
     )
 
     if (result.success) {
-      toast.success(`PDF Soci per Gruppo generato con successo! (${result.totalMembers} soci)`)
+      toast.success(`PDF Soci per Manicchia generato con successo! (${result.totalMembers} soci)`)
     } else {
       throw new Error(result.error)
     }
   } catch (error) {
-    console.error('Errore generazione soci per gruppo:', error)
+    console.error('Errore generazione soci per manicchia:', error)
     toast.error('Errore nella generazione del PDF: ' + error.message)
   } finally {
     loading.value = false
@@ -713,14 +713,14 @@ const generateMembersByGroup = async () => {
 }
 
 /**
- * Genera il report riepilogativo numerico per gruppi
+ * Genera il report riepilogativo numerico per manicchie
  */
 const generateGroupCountsReport = async () => {
   if (!renewalYear.value) return
 
   try {
     loading.value = true
-    loadingMessage.value = 'Calcolo totali per gruppo...'
+    loadingMessage.value = 'Calcolo totali per manicchia...'
     toast.info('Calcolo dati in corso...')
 
     const counts = await getGroupCountsForYear(renewalYear.value)
@@ -734,12 +734,12 @@ const generateGroupCountsReport = async () => {
     const result = await generateGroupCountsPDF(counts, renewalYear.value)
 
     if (result.success) {
-      toast.success(`Report generato con successo! (${result.totalGroups} gruppi censiti)`)
+      toast.success(`Report generato con successo! (${result.totalGroups} manicchie censite)`)
     } else {
       throw new Error(result.error)
     }
   } catch (error) {
-    console.error('Errore generazione riepilogo gruppi:', error)
+    console.error('Errore generazione riepilogo manicchie:', error)
     toast.error('Errore: ' + error.message)
   } finally {
     loading.value = false
@@ -786,8 +786,8 @@ const generateAllReports = async () => {
     )
     if (paymentsResult.success) reports.push('Lista Pagamenti')
 
-    // 4. Soci per Gruppo
-    loadingMessage.value = 'Generazione soci per gruppo...'
+    // 4. Soci per Manicchia
+    loadingMessage.value = 'Generazione soci per manicchia...'
     const members = await getMembersByGroup(
       groupFilters.gruppo || null,
       groupFilters.ageCategory,
@@ -801,14 +801,14 @@ const generateAllReports = async () => {
       groupFilters.paymentStatus,
       renewalYear.value,
     )
-    if (membersResult.success) reports.push('Soci per Gruppo')
+    if (membersResult.success) reports.push('Soci per Manicchia')
 
-    // 5. Riepilogo Gruppi
-    loadingMessage.value = 'Generazione riepilogo gruppi...'
+    // 5. Riepilogo Manicchie
+    loadingMessage.value = 'Generazione riepilogo manicchie...'
     const counts = await getGroupCountsForYear(renewalYear.value)
     if (counts.length > 0) {
       const countsResult = await generateGroupCountsPDF(counts, renewalYear.value)
-      if (countsResult.success) reports.push('Riepilogo Gruppi')
+      if (countsResult.success) reports.push('Riepilogo Manicchie')
     }
 
     toast.success(`Generati ${reports.length} report: ${reports.join(', ')}`)

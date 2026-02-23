@@ -3,7 +3,7 @@
     <div class="socio-info">
       <h3>{{ socio.cognome }} {{ socio.nome }}</h3>
       <p>Nato/a il: {{ socio.data_nascita }} a {{ socio.luogo_nascita }}</p>
-      <p>Gruppo: {{ socio.gruppo_appartenenza }}</p>
+      <p>Manicchia: {{ socio.gruppo_appartenenza }}</p>
     </div>
     <div class="socio-actions">
       <button

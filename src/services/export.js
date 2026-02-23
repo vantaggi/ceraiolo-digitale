@@ -391,7 +391,7 @@ export async function generateSociPDF(sociList, renewalYear) {
     // Configurazione tabella
     const headers = [
       { text: 'Cognome e Nome', width: 60 },
-      { text: 'Gruppo', width: 30 },
+      { text: 'Manicchia', width: 30 },
       { text: 'Arretrati', width: 60 },
       { text: `Pagato ${renewalYear}`, width: 30 },
     ]
@@ -498,7 +498,7 @@ export async function generateRenewalListPDF(soci, renewalYear) {
   // Configurazione tabella
   const headers = [
     { text: 'Cognome e Nome', width: 60 },
-    { text: 'Gruppo', width: 30 },
+    { text: 'Manicchia', width: 30 },
     { text: 'Arretrati', width: 60 },
     { text: `Pagato ${renewalYear}`, width: 30 },
   ]
@@ -583,7 +583,7 @@ export async function generateVotingListPDF(soci, votingYear) {
   // Configurazione tabella
   const headers = [
     { text: 'Cognome e Nome', width: 75 },
-    { text: 'Gruppo', width: 35 },
+    { text: 'Manicchia', width: 35 },
     { text: 'Nascita', width: 20 },
     { text: String(votingYear - 5), width: 6, orientation: 'vertical' },
     { text: String(votingYear - 4), width: 6, orientation: 'vertical' },
@@ -671,7 +671,7 @@ export async function generateActiveMembersPDF(soci, targetYear) {
   // Configurazione tabella
   const headers = [
     { text: 'Cognome', width: 85 },
-    { text: 'Gruppo', width: 37 },
+    { text: 'Manicchia', width: 37 },
     { text: 'Nascita', width: 20 },
     { text: String(targetYear - 5), width: 6, orientation: 'vertical' },
     { text: String(targetYear - 4), width: 6, orientation: 'vertical' },
@@ -1107,7 +1107,7 @@ export async function generateNewMembersPDF(newMembers, year, ageCategory = 'tut
     const headers = [
       { text: 'Cognome e Nome', width: 70 },
       { text: 'Data Nascita', width: 40 },
-      { text: 'Gruppo', width: 40 },
+      { text: 'Manicchia', width: 40 },
       { text: 'Anno', width: 30 },
     ]
 
@@ -1270,7 +1270,7 @@ export async function generateMembersByGroupPDF(
     const yearText = year ? ` - Anno ${year}` : ''
     const headerY = addPDFHeader(
       doc,
-      `Soci per Gruppo: ${groupText}${yearText}`,
+      `Soci per Manicchia: ${groupText}${yearText}`,
       `${ageText} - Stato Pagamento: ${statusText}`,
       `Totale soci: ${members.length}`,
       logoData,
@@ -1296,7 +1296,7 @@ export async function generateMembersByGroupPDF(
     // Configurazione tabella (adattata a portrait)
     const headers = [
       { text: 'Socio', width: 55 },
-      { text: 'Gruppo', width: 30 },
+      { text: 'Manicchia', width: 30 },
       { text: 'Data Nascita', width: 22 },
       { text: 'Ultimi Pagamenti', width: 50 },
       { text: 'Stato', width: 20 },
@@ -1364,7 +1364,7 @@ export async function generateGroupCountsPDF(countsData, year) {
     // Header
     const headerY = addPDFHeader(
       doc,
-      `Riepilogo Iscritti per Gruppo`,
+      `Riepilogo Iscritti per Manicchia`,
       `Anno ${year}`,
       `Totale complessivo: ${totalMembers}`,
       logoData,
@@ -1413,11 +1413,11 @@ export async function generateGroupCountsPDF(countsData, year) {
     }
 
     const headers = [
-      { text: 'Gruppo', width: 50 },
+      { text: 'Manicchia', width: 50 },
       { text: 'N.', width: 10 },
-      { text: 'Gruppo', width: 50 },
+      { text: 'Manicchia', width: 50 },
       { text: 'N.', width: 10 },
-      { text: 'Gruppo', width: 50 },
+      { text: 'Manicchia', width: 50 },
       { text: 'N.', width: 10 },
     ]
 
@@ -1502,7 +1502,7 @@ export async function exportDataToExcel() {
         'Data Nascita': socio.data_nascita || '',
         'Luogo Nascita': socio.luogo_nascita || '',
         Età: eta,
-        Gruppo: socio.gruppo_appartenenza || '',
+        Manicchia: socio.gruppo_appartenenza || '',
         'Primo Anno': primoAnno,
         'Anni Tesseramento': tessSocio
           .map((t) => t.anno)
@@ -1598,7 +1598,7 @@ export async function generateChurnPDF(soci, year) {
     // Configurazione tabella (compatta per portrait)
     const headers = [
       { text: 'Cognome e Nome', width: 60 },
-      { text: 'Gruppo', width: 35 },
+      { text: 'Manicchia', width: 35 },
       { text: 'Ultimo Pag.', width: 25 },
       { text: 'Recapito (Note)', width: 40 },
       { text: 'Esito', width: 20 },
