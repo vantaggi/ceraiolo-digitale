@@ -37,7 +37,7 @@ function formatDate(dateStr) {
   try {
     const [y, m, d] = dateStr.split('-')
     if (y && m && d && y.length === 4) {
-      return `${d}/${m}/${y}`
+      return `${d}-${m}-${y}`
     }
     return dateStr
   } catch {
@@ -147,32 +147,50 @@ function createPDFTable(doc, headers, rows, startY, rowHeight = 10) {
 
   let currentY = startY
 
-  // Intestazione
-  doc.setFillColor(183, 28, 28) // Rosso scuro
-  doc.setTextColor(255) // Bianco
-  doc.setFontSize(11)
-  doc.setFont('helvetica', 'bold')
-
-  // Sfondo intestazione
-  doc.rect(startX, currentY, tableWidth, rowHeight, 'F')
-
-  // Bordi intestazione
-  doc.setDrawColor(100, 100, 100)
-  doc.setLineWidth(0.5)
-  doc.rect(startX, currentY, tableWidth, rowHeight)
-
-  // Testo intestazione
-  headers.forEach((header, index) => {
-    // Centratura verticale approssimativa: altezza riga / 2 + 1/3 font size
-    doc.text(header.text, colPositions[index] + 2, currentY + rowHeight / 2 + 1.5)
+  // Calculate dynamic header row height
+  let headerRowHeight = rowHeight
+  doc.setFontSize(9)
+  headers.forEach((h) => {
+    if (h.orientation === 'vertical') {
+      const textW = (doc.getStringUnitWidth(h.text) * 9) / doc.internal.scaleFactor
+      if (textW + 4 > headerRowHeight) headerRowHeight = textW + 4
+    }
   })
 
-  currentY += rowHeight
+  const drawHeader = () => {
+    doc.setFillColor(183, 28, 28) // Rosso scuro
+    doc.setTextColor(255) // Bianco
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'bold')
+
+    // Sfondo intestazione
+    doc.rect(startX, currentY, tableWidth, headerRowHeight, 'F')
+
+    // Bordi intestazione
+    doc.setDrawColor(100, 100, 100)
+    doc.setLineWidth(0.3)
+    doc.rect(startX, currentY, tableWidth, headerRowHeight)
+
+    // Testo intestazione
+    headers.forEach((header, index) => {
+      let align = header.align || (header.width <= 25 ? 'center' : 'left')
+      let textX = colPositions[index] + (align === 'center' ? header.width / 2 : 2)
+
+      if (header.orientation === 'vertical') {
+        doc.text(header.text, textX + 1, currentY + headerRowHeight - 2, { angle: 90 })
+      } else {
+        doc.text(header.text, textX, currentY + headerRowHeight / 2 + 1.2, { align })
+      }
+    })
+    currentY += headerRowHeight
+  }
+
+  drawHeader()
 
   // Righe dati
   doc.setTextColor(0) // Nero
   doc.setFont('helvetica', 'normal')
-  doc.setFontSize(9)
+  doc.setFontSize(8)
 
   rows.forEach((row, rowIndex) => {
     // Alternanza colori
@@ -219,8 +237,11 @@ function createPDFTable(doc, headers, rows, startY, rowHeight = 10) {
         // doc.setFont('helvetica', 'normal')
       }
 
+      let align = headers[cellIndex].align || (headers[cellIndex].width <= 25 ? 'center' : 'left')
+      let textX = colPositions[cellIndex] + (align === 'center' ? headers[cellIndex].width / 2 : 2)
+
       const maxWidth = headers[cellIndex].width - 4
-      const textY = currentY + rowHeight / 2 + 1.5 // Centratura dinamica
+      const textY = currentY + rowHeight / 2 + 1.2 // Centratura dinamica
 
       // Logica migliorata: usa SEMPRE il wrapping per testi lunghi
       if (
@@ -228,7 +249,7 @@ function createPDFTable(doc, headers, rows, startY, rowHeight = 10) {
         (doc.getStringUnitWidth(cellText) * doc.internal.getFontSize()) / doc.internal.scaleFactor >
           maxWidth
       ) {
-        // Testo multi-riga (wrapping automatico)
+        // Testo multi-riga (wrapping automatico, lo lascio centrato o no?)
         const lines = doc.splitTextToSize(cellText, maxWidth)
         const lineHeight = 3.5 // approx per fontSize 9
         const blockHeight = lines.length * lineHeight
@@ -237,7 +258,7 @@ function createPDFTable(doc, headers, rows, startY, rowHeight = 10) {
         doc.text(lines, colPositions[cellIndex] + 2, startY)
       } else {
         // Testo normale (una riga)
-        doc.text(cellText, colPositions[cellIndex] + 2, textY)
+        doc.text(cellText, textX, textY, { align })
       }
 
       // Reset color to black for next cell just in case
@@ -247,29 +268,16 @@ function createPDFTable(doc, headers, rows, startY, rowHeight = 10) {
     currentY += rowHeight
 
     // Controllo paginazione (se vicino al fondo)
-    if (currentY > 170) {
-      // 180 - 10 per margine
+    const pageMaxHeight = doc.internal.pageSize.height - 35
+    if (currentY > pageMaxHeight) {
       doc.addPage()
       currentY = 20
 
-      // Ripeti intestazione su nuova pagina
-      doc.setFillColor(183, 28, 28)
-      doc.setTextColor(255)
-      doc.setFontSize(11)
-      doc.setFont('helvetica', 'bold')
-      doc.rect(startX, currentY, tableWidth, rowHeight, 'F')
-      doc.setDrawColor(100, 100, 100)
-      doc.setLineWidth(0.5)
-      doc.rect(startX, currentY, tableWidth, rowHeight)
+      drawHeader()
 
-      headers.forEach((header, index) => {
-        doc.text(header.text, colPositions[index] + 2, currentY + 7)
-      })
-
-      currentY += rowHeight
       doc.setTextColor(0)
       doc.setFont('helvetica', 'normal')
-      doc.setFontSize(9)
+      doc.setFontSize(8)
     }
   })
 
@@ -287,8 +295,6 @@ function addPDFFooter(doc) {
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i)
     doc.setFontSize(8)
-    doc.setFont('helvetica', 'italic')
-    doc.text('Sistema di gestione soci - Ceraiolo Digitale', 20, pageHeight - 20)
 
     doc.setFont('helvetica', 'normal')
     doc.text(`Pagina ${i} di ${pageCount}`, doc.internal.pageSize.width - 40, pageHeight - 20)
@@ -343,8 +349,8 @@ export async function generateSociPDF(sociList, renewalYear) {
       throw new Error('Nessun dato da esportare')
     }
 
-    // Crea documento PDF
-    const doc = createPDFDocument()
+    // Crea documento PDF proporzionalmente ai contenuti
+    const doc = createPDFDocument('portrait')
 
     // Carica Logo
     let logoData = null
@@ -384,10 +390,10 @@ export async function generateSociPDF(sociList, renewalYear) {
 
     // Configurazione tabella
     const headers = [
-      { text: 'Cognome e Nome', width: 80 },
-      { text: 'Gruppo', width: 40 },
-      { text: 'Arretrati', width: 70 },
-      { text: `Pagato ${renewalYear}`, width: 50 },
+      { text: 'Cognome e Nome', width: 60 },
+      { text: 'Gruppo', width: 30 },
+      { text: 'Arretrati', width: 60 },
+      { text: `Pagato ${renewalYear}`, width: 30 },
     ]
 
     // Crea tabella
@@ -458,7 +464,7 @@ export async function generateAndDownloadSociPDF(sociList) {
  */
 export async function generateRenewalListPDF(soci, renewalYear) {
   // Crea documento PDF
-  const doc = createPDFDocument()
+  const doc = createPDFDocument('portrait')
 
   // Carica Logo
   let logoData = null
@@ -491,10 +497,10 @@ export async function generateRenewalListPDF(soci, renewalYear) {
 
   // Configurazione tabella
   const headers = [
-    { text: 'Cognome e Nome', width: 80 },
-    { text: 'Gruppo', width: 40 },
-    { text: 'Arretrati', width: 70 },
-    { text: `Pagato ${renewalYear}`, width: 50 },
+    { text: 'Cognome e Nome', width: 60 },
+    { text: 'Gruppo', width: 30 },
+    { text: 'Arretrati', width: 60 },
+    { text: `Pagato ${renewalYear}`, width: 30 },
   ]
 
   // Crea tabella
@@ -515,8 +521,8 @@ export async function generateRenewalListPDF(soci, renewalYear) {
  * @returns {Promise<void>}
  */
 export async function generateVotingListPDF(soci, votingYear) {
-  // Crea documento PDF
-  const doc = createPDFDocument()
+  // Crea documento PDF per esportazione gruppo
+  const doc = createPDFDocument('portrait')
 
   // Carica Logo
   let logoData = null
@@ -576,16 +582,16 @@ export async function generateVotingListPDF(soci, votingYear) {
 
   // Configurazione tabella
   const headers = [
-    { text: 'Cognome e Nome', width: 70 },
-    { text: 'Gruppo', width: 40 },
-    { text: 'Data Nascita', width: 25 },
-    { text: String(votingYear - 5), width: 12 },
-    { text: String(votingYear - 4), width: 12 },
-    { text: String(votingYear - 3), width: 12 },
-    { text: String(votingYear - 2), width: 12 },
-    { text: String(votingYear - 1), width: 12 },
-    { text: String(votingYear), width: 15 },
-    { text: 'Voto', width: 20 },
+    { text: 'Cognome e Nome', width: 75 },
+    { text: 'Gruppo', width: 35 },
+    { text: 'Nascita', width: 20 },
+    { text: String(votingYear - 5), width: 6, orientation: 'vertical' },
+    { text: String(votingYear - 4), width: 6, orientation: 'vertical' },
+    { text: String(votingYear - 3), width: 6, orientation: 'vertical' },
+    { text: String(votingYear - 2), width: 6, orientation: 'vertical' },
+    { text: String(votingYear - 1), width: 6, orientation: 'vertical' },
+    { text: String(votingYear), width: 6, orientation: 'vertical' },
+    { text: 'Voto', width: 12 },
   ]
 
   // Crea tabella
@@ -606,8 +612,8 @@ export async function generateVotingListPDF(soci, votingYear) {
  * @returns {Promise<void>}
  */
 export async function generateActiveMembersPDF(soci, targetYear) {
-  // Crea documento PDF
-  const doc = createPDFDocument()
+  // Crea documento PDF per incassi
+  const doc = createPDFDocument('portrait')
 
   // Carica Logo
   let logoData = null
@@ -664,15 +670,15 @@ export async function generateActiveMembersPDF(soci, targetYear) {
 
   // Configurazione tabella
   const headers = [
-    { text: 'Cognome e Nome', width: 85 },
-    { text: 'Gruppo', width: 40 },
-    { text: 'Data Nascita', width: 25 },
-    { text: String(targetYear - 5), width: 15 },
-    { text: String(targetYear - 4), width: 15 },
-    { text: String(targetYear - 3), width: 15 },
-    { text: String(targetYear - 2), width: 15 },
-    { text: String(targetYear - 1), width: 15 },
-    { text: String(targetYear), width: 15 },
+    { text: 'Cognome', width: 85 },
+    { text: 'Gruppo', width: 37 },
+    { text: 'Nascita', width: 20 },
+    { text: String(targetYear - 5), width: 6, orientation: 'vertical' },
+    { text: String(targetYear - 4), width: 6, orientation: 'vertical' },
+    { text: String(targetYear - 3), width: 6, orientation: 'vertical' },
+    { text: String(targetYear - 2), width: 6, orientation: 'vertical' },
+    { text: String(targetYear - 1), width: 6, orientation: 'vertical' },
+    { text: String(targetYear), width: 6, orientation: 'vertical' },
   ]
 
   // Crea tabella
@@ -1062,7 +1068,14 @@ export async function generateNewMembersPDF(newMembers, year, ageCategory = 'tut
     }
 
     // Crea documento PDF
-    const doc = createPDFDocument()
+    const doc = createPDFDocument('portrait')
+
+    let logoData = null
+    try {
+      logoData = await loadImage(logoUrl)
+    } catch (e) {
+      console.warn('Impossibile caricare il logo', e)
+    }
 
     // Header
     const ageCategoryText =
@@ -1077,6 +1090,7 @@ export async function generateNewMembersPDF(newMembers, year, ageCategory = 'tut
       `Nuovi Soci ${year} - ${ageCategoryText}`,
       `Elenco dei nuovi iscritti per l'anno ${year}`,
       `Totale nuovi soci: ${newMembers.length}`,
+      logoData,
     )
 
     // Prepara i dati per la tabella
@@ -1136,7 +1150,14 @@ export async function generateCompletePaymentListPDF(payments, ageCategory = 'tu
     }
 
     // Crea documento PDF
-    const doc = createPDFDocument()
+    const doc = createPDFDocument('portrait')
+
+    let logoData = null
+    try {
+      logoData = await loadImage(logoUrl)
+    } catch (e) {
+      console.warn('Impossibile caricare il logo', e)
+    }
 
     // Header
     const ageCategoryText =
@@ -1151,6 +1172,7 @@ export async function generateCompletePaymentListPDF(payments, ageCategory = 'tu
       `Lista Completa Pagamenti - ${ageCategoryText}`,
       'Tutti i pagamenti registrati',
       `Totale pagamenti: ${payments.length}`,
+      logoData,
     )
 
     // Prepara i dati per la tabella
@@ -1163,18 +1185,18 @@ export async function generateCompletePaymentListPDF(payments, ageCategory = 'tu
       payment.numero_blocchetto?.toString() || '-',
     ])
 
-    // Configurazione tabella
+    // Configurazione tabella (compattata per portrait)
     const headers = [
-      { text: 'Socio', width: 70 },
+      { text: 'Socio', width: 60 },
       { text: 'Anno', width: 20 },
-      { text: 'Data', width: 30 }, // Shortened label
-      { text: 'Quota', width: 25 },
-      { text: 'Ric.', width: 20 }, // Shortened
-      { text: 'Bloc.', width: 20 }, // Shortened
+      { text: 'Data', width: 25 },
+      { text: 'Quota', width: 20 },
+      { text: 'Ric.', width: 15 },
+      { text: 'Bloc.', width: 15 },
     ]
 
     // Crea tabella
-    createPDFTable(doc, headers, tableData, headerY + 10, 8)
+    createPDFTable(doc, headers, tableData, headerY + 10, 7)
 
     // Footer
     addPDFFooter(doc)
@@ -1223,6 +1245,13 @@ export async function generateMembersByGroupPDF(
     // Crea documento PDF
     const doc = createPDFDocument()
 
+    let logoData = null
+    try {
+      logoData = await loadImage(logoUrl)
+    } catch (e) {
+      console.warn('Impossibile caricare il logo', e)
+    }
+
     // Header
     const groupText = gruppo && gruppo !== 'Tutti' ? gruppo : 'Tutti i Gruppi'
     const ageText =
@@ -1244,6 +1273,7 @@ export async function generateMembersByGroupPDF(
       `Soci per Gruppo: ${groupText}${yearText}`,
       `${ageText} - Stato Pagamento: ${statusText}`,
       `Totale soci: ${members.length}`,
+      logoData,
     )
 
     // Prepara i dati per la tabella
@@ -1263,17 +1293,17 @@ export async function generateMembersByGroupPDF(
       ]
     })
 
-    // Configurazione tabella
+    // Configurazione tabella (adattata a portrait)
     const headers = [
-      { text: 'Socio', width: 70 }, // Increased from 50
+      { text: 'Socio', width: 55 },
       { text: 'Gruppo', width: 30 },
-      { text: 'Data Nascita', width: 30 }, // Reduced slightly
-      { text: 'Ultimi Pagamenti', width: 50 }, // Renamed and content limited
-      { text: 'Stato', width: 25 }, // Renamed for clarity
+      { text: 'Data Nascita', width: 22 },
+      { text: 'Ultimi Pagamenti', width: 50 },
+      { text: 'Stato', width: 20 },
     ]
 
     // Crea tabella
-    createPDFTable(doc, headers, tableData, headerY + 10, 8)
+    createPDFTable(doc, headers, tableData, headerY + 10, 7)
 
     // Footer
     addPDFFooter(doc)
@@ -1321,6 +1351,13 @@ export async function generateGroupCountsPDF(countsData, year) {
     // Crea documento PDF
     const doc = createPDFDocument('landscape')
 
+    let logoData = null
+    try {
+      logoData = await loadImage(logoUrl)
+    } catch (e) {
+      console.warn('Impossibile caricare il logo', e)
+    }
+
     // Calcola totale
     const totalMembers = countsData.reduce((sum, item) => sum + item.count, 0)
 
@@ -1330,6 +1367,7 @@ export async function generateGroupCountsPDF(countsData, year) {
       `Riepilogo Iscritti per Gruppo`,
       `Anno ${year}`,
       `Totale complessivo: ${totalMembers}`,
+      logoData,
     )
 
     // Configurazione tabella multi-colonna per risparmiare spazio verticale
@@ -1375,12 +1413,12 @@ export async function generateGroupCountsPDF(countsData, year) {
     }
 
     const headers = [
-      { text: 'Gruppo', width: 65 },
-      { text: 'N.', width: 15 },
-      { text: 'Gruppo', width: 65 },
-      { text: 'N.', width: 15 },
-      { text: 'Gruppo', width: 65 },
-      { text: 'N.', width: 15 },
+      { text: 'Gruppo', width: 50 },
+      { text: 'N.', width: 10 },
+      { text: 'Gruppo', width: 50 },
+      { text: 'N.', width: 10 },
+      { text: 'Gruppo', width: 50 },
+      { text: 'N.', width: 10 },
     ]
 
     // Crea tabella compatta
@@ -1521,7 +1559,7 @@ export async function generateChurnPDF(soci, year) {
     }
 
     // Crea documento PDF
-    const doc = createPDFDocument()
+    const doc = createPDFDocument('portrait')
 
     // Carica Logo
     let logoData = null
@@ -1557,13 +1595,13 @@ export async function generateChurnPDF(soci, year) {
       ]
     })
 
-    // Configurazione tabella
+    // Configurazione tabella (compatta per portrait)
     const headers = [
-      { text: 'Cognome e Nome', width: 80 },
-      { text: 'Gruppo', width: 40 },
-      { text: 'Ultimo Pag.', width: 30 },
-      { text: 'Recapito (Note)', width: 50 },
-      { text: 'Esito', width: 40 },
+      { text: 'Cognome e Nome', width: 60 },
+      { text: 'Gruppo', width: 35 },
+      { text: 'Ultimo Pag.', width: 25 },
+      { text: 'Recapito (Note)', width: 40 },
+      { text: 'Esito', width: 20 },
     ]
 
     // Crea tabella

@@ -1017,7 +1017,11 @@ const confirmRemoveFromReceipt = async () => {
 const formatDate = (dateString) => {
   if (!dateString) return ''
   const date = new Date(dateString)
-  return date.toLocaleDateString('it-IT')
+  return date.toLocaleDateString('it-IT', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  }).replace(/\//g, '-')
 }
 
 const isMinor = (socio) => {

@@ -60,6 +60,14 @@ const router = createRouter({
       },
     },
     {
+      path: '/reports-beta',
+      name: 'reports-beta',
+      component: () => import('../views/ReportsBetaView.vue'),
+      meta: {
+        title: 'Report Builder Beta - Ceraiolo Digitale',
+      },
+    },
+    {
       path: '/settings',
       name: 'settings',
       component: SettingsView,

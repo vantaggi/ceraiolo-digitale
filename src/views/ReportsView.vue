@@ -33,6 +33,14 @@
           >
             📈 Statistiche
           </button>
+          <hr style="border: 0; border-top: 1px solid var(--color-border); margin: 10px 0;" />
+          <router-link
+            to="/reports-beta"
+            class="nav-item"
+            style="text-decoration: none; display: flex; align-items: center; gap: 8px;"
+          >
+            🛠️ Report Builder Beta
+          </router-link>
         </nav>
       </aside>
 
