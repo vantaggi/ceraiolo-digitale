@@ -1,4 +1,7 @@
+/* eslint-env node */
+// eslint-disable-next-line no-undef
 const fs = require('fs');
+// eslint-disable-next-line no-undef
 const path = require('path');
 
 function processDir(dir) {
@@ -27,9 +30,9 @@ function processDir(dir) {
         .replace(/Gruppo:/g, 'Manicchia:')
         .replace(/Gruppi:/g, 'Manicchie:')
         .replace(/'Gruppo'/g, "'Manicchia'")
-        .replace(/\"Gruppo\"/g, '"Manicchia"')
+        .replace(/"Gruppo"/g, '"Manicchia"')
         .replace(/'Gruppi'/g, "'Manicchie'")
-        .replace(/\"Gruppi\"/g, '"Manicchie"');
+        .replace(/"Gruppi"/g, '"Manicchie"');
 
       if (content !== newContent) {
         fs.writeFileSync(fullPath, newContent);
