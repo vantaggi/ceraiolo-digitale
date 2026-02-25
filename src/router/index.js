@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHashHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
 import ImportView from '../views/ImportView.vue'
 import SocioDetailView from '../views/SocioDetailView.vue'
@@ -9,7 +9,7 @@ import SettingsView from '../views/SettingsView.vue'
 import { isDatabaseEmpty } from '@/services/db'
 
 const router = createRouter({
-  history: createWebHistory(import.meta.env.BASE_URL),
+  history: createWebHashHistory(import.meta.env.BASE_URL),
   routes: [
     {
       path: '/',
