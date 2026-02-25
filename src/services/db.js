@@ -505,8 +505,8 @@ export async function exportDatabaseToSqlite(customFilename = null) {
 
     // Initialize sql.js
     const SQL = await initSqlJs({
-      // We use import.meta.env.BASE_URL to ensure the path is correct both in dev and production on GitHub Pages
-      locateFile: (file) => import.meta.env.BASE_URL + file,
+      // Resolve the wasm file relative to the current page. By using URL, we ensure it respects the correct GitHub Pages subfolder.
+      locateFile: (file) => new URL(import.meta.env.BASE_URL + file, window.location.href).href,
     })
 
     // Create new SQLite database

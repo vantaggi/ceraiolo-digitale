@@ -71,7 +71,8 @@ const importDatabase = async () => {
 
     // Initialize sql.js
     const SQL = await initSqlJs({
-      locateFile: (file) => import.meta.env.BASE_URL + file,
+      // Resolve the wasm file relative to the current page, preventing 404s on GitHub Pages subdirectories
+      locateFile: (file) => new URL(import.meta.env.BASE_URL + file, window.location.href).href,
     })
 
     const dbFile = new SQL.Database(new Uint8Array(fileBuffer))
