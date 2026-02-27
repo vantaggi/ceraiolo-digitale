@@ -40,12 +40,12 @@ const isRenewed = ref(false)
 const currentYear = new Date().getFullYear()
 
 const checkRenewal = async () => {
-    try {
-        const tesseramenti = await getTesseramentiBySocioId(props.socio.id)
-        isRenewed.value = tesseramenti.some(t => t.anno === currentYear)
-    } catch (e) {
-        console.error("Error checking renewal", e)
-    }
+  try {
+    const tesseramenti = await getTesseramentiBySocioId(props.socio.id)
+    isRenewed.value = tesseramenti.some((t) => t.anno === currentYear)
+  } catch (e) {
+    console.error('Error checking renewal', e)
+  }
 }
 
 onMounted(checkRenewal)
@@ -144,11 +144,34 @@ watch(() => props.socio, checkRenewal)
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  transition: transform 0.2s, background-color 0.2s;
+  transition:
+    transform 0.2s,
+    background-color 0.2s;
 }
 
 .renew-button:hover {
-    transform: scale(1.1);
-    background-color: #e65100; /* Darker shade of warning #ed6c02 */
+  transform: scale(1.1);
+  background-color: #e65100; /* Darker shade of warning #ed6c02 */
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .socio-card {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+  }
+
+  .socio-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .details-button,
+  .card-button,
+  .renew-button {
+    width: 100%;
+    margin-bottom: 0.5rem;
+  }
 }
 </style>

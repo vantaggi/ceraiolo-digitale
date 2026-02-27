@@ -184,3 +184,42 @@ a:hover {
   color: var(--color-accent-hover);
   text-decoration: underline;
 }
+
+/* 📱 Classi di Utilità Globali per Responsività Mobile */
+@media (max-width: 768px) {
+  html,
+  body {
+    overflow-x: hidden;
+  }
+
+  h1 {
+    font-size: 1.5rem !important;
+  }
+  h2 {
+    font-size: 1.25rem !important;
+  }
+  h3 {
+    font-size: 1.1rem !important;
+  }
+
+  /* Correzione modali traboccanti */
+  .modal-content {
+    width: 95% !important;
+    max-width: 100% !important;
+    padding: 1rem !important;
+    margin: auto 0;
+  }
+
+  .modal-header,
+  .payment-form,
+  .payment-socio-info {
+    padding: 1rem !important;
+  }
+
+  /* Correzioni per pulsanti in batteria */
+  button {
+    white-space: normal;
+    height: auto;
+    min-height: 48px;
+  }
+}

@@ -533,7 +533,6 @@ const loadGroups = async () => {
     availableGroups.value = []
     // Non mostrare toast per evitare spam all'avvio
   }
-
 }
 
 const handleGroupChange = async () => {
@@ -546,7 +545,7 @@ const handleGroupChange = async () => {
         newSocioData.gruppo_appartenenza = newGroup.trim()
         toast.success(`Gruppo "${newGroup}" aggiunto!`)
       } catch (e) {
-        toast.error("Errore aggiunta gruppo: " + e.message)
+        toast.error('Errore aggiunta gruppo: ' + e.message)
         newSocioData.gruppo_appartenenza = ''
       }
     } else {
@@ -1017,11 +1016,13 @@ const confirmRemoveFromReceipt = async () => {
 const formatDate = (dateString) => {
   if (!dateString) return ''
   const date = new Date(dateString)
-  return date.toLocaleDateString('it-IT', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
-  }).replace(/\//g, '-')
+  return date
+    .toLocaleDateString('it-IT', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    })
+    .replace(/\//g, '-')
 }
 
 const isMinor = (socio) => {
@@ -1887,12 +1888,23 @@ const getSocioStatus = (socio) => {
     gap: 0.5rem;
   }
 
-  .socio-payment {
-    margin-right: 0;
+  /* Nuove correzioni mobili */
+  .receipt-controls {
+    width: 100%;
+    margin-top: 1rem;
+    justify-content: space-between;
   }
 
-  .form-actions {
+  .search-controls {
     flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+
+  .turbo-toggle {
+    width: 100%;
+    justify-content: center;
+    padding: 0.75rem;
   }
 
   .cancel-btn,

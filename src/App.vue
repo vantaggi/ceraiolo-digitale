@@ -184,4 +184,35 @@ nav {
   border-color: var(--color-accent);
   transform: rotate(15deg);
 }
+
+/* 📱 Responsive Mobile */
+@media (max-width: 768px) {
+  .app-header {
+    flex-direction: column;
+    padding: 1rem;
+    gap: 1rem;
+  }
+
+  nav {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  .nav-link {
+    flex: 1 1 calc(50% - 1rem);
+    text-align: center;
+    padding: 0.5rem;
+    font-size: 0.9rem;
+  }
+
+  .theme-toggle {
+    margin-left: 0;
+  }
+
+  .app-content {
+    padding: 1rem;
+  }
+}
 </style>

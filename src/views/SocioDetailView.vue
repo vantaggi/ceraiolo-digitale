@@ -446,11 +446,13 @@ const formatDate = (dateString) => {
 
   try {
     const date = new Date(dateString)
-    return date.toLocaleDateString('it-IT', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    }).replace(/\//g, '-')
+    return date
+      .toLocaleDateString('it-IT', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      })
+      .replace(/\//g, '-')
   } catch {
     return dateString
   }
@@ -1276,6 +1278,23 @@ onBeforeUnmount(() => {
     gap: 1rem;
   }
 
+  .header-actions {
+    flex-direction: column;
+    width: 100%;
+    gap: 0.5rem;
+  }
+
+  .header-actions button,
+  .header-actions a {
+    width: 100%;
+    text-align: center;
+    justify-content: center;
+  }
+
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
+
   .table-header,
   .table-row {
     grid-template-columns: 1fr;
@@ -1288,6 +1307,9 @@ onBeforeUnmount(() => {
 
   .table-row {
     padding: 1rem;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    margin-bottom: 1rem;
   }
 
   .table-row > span::before {

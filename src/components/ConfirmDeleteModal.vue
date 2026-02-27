@@ -263,6 +263,12 @@ const confirmDelete = () => {
     margin: 1rem;
   }
 
+  .modal-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
   .modal-header,
   .modal-body,
   .modal-footer {
