@@ -93,6 +93,26 @@
 
           <hr style="border: 0; border-top: 1px solid var(--color-border); margin: 15px 0;" />
 
+          <h4>🗳️ Filtri Elezioni (Aventi Diritto)</h4>
+          <div class="filters-inline" style="margin-top: 10px; background: var(--color-background); padding: 10px; border-radius: 6px; border: 1px solid var(--color-border);">
+            <div class="f-group" style="margin-right: 20px;">
+              <label>Data di Riferimento Elezioni:</label>
+              <input type="date" v-model="reportState.filters.electionDate" class="small-input" style="width: auto;" />
+            </div>
+            <div class="f-group">
+              <label>Filtro Aventi Diritto:</label>
+              <select v-model="reportState.filters.electionEligibility" class="small-input" style="width: auto;">
+                <option value="all">Mostra Tutti</option>
+                <option value="aventi_diritto">Solo Aventi Diritto (Sì + Regolarizza)</option>
+                <option value="solo_si">Aventi Diritto (Solo 'Sì')</option>
+                <option value="solo_regolarizza">Da Regolarizzare (Solo 'Regolarizza')</option>
+                <option value="esclusi">Esclusi (Solo 'No')</option>
+              </select>
+            </div>
+          </div>
+
+          <hr style="border: 0; border-top: 1px solid var(--color-border); margin: 15px 0;" />
+
           <h4>Filtri per Manicchia</h4>
           <div class="filters-inline">
             <label v-for="group in availableGroups" :key="'filter-group-'+group" class="checkbox-label">
@@ -162,6 +182,16 @@
                 <span class="checkmark"></span>
                 Età (Mag/Min)
               </label>
+              <label class="checkbox-label" title="Mostra se il socio ha diritto di voto">
+                <input type="checkbox" value="dirittoVoto" v-model="reportState.display.baseColumns" />
+                <span class="checkmark"></span>
+                Avente Diritto
+              </label>
+              <label class="checkbox-label" title="Mostra il motivo per cui il voto è negato">
+                <input type="checkbox" value="motivoEsclusione" v-model="reportState.display.baseColumns" />
+                <span class="checkmark"></span>
+                Motivo Esclusione
+              </label>
               <label class="checkbox-label" title="Aggiunge una colonna vuota in cui gli utenti possono apporre una firma manuale">
                 <input type="checkbox" value="firma" v-model="reportState.display.baseColumns" />
                 <span class="checkmark"></span>
@@ -169,13 +199,13 @@
               </label>
             </div>
 
-            <div v-if="reportState.display.baseColumns.length > 1" style="margin-top: 15px; padding: 10px; background: var(--color-background); border-radius: 6px; border: 1px dashed var(--color-border);">
-              <h5 style="margin-top: 0; margin-bottom: 10px; color: var(--color-text-secondary); font-size: 0.85rem;">Ordina Colonne Base (come appariranno da sinistra a destra):</h5>
-              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                <div v-for="(col, index) in reportState.display.baseColumns" :key="col" style="background: white; border: 1px solid var(--color-border); padding: 4px 8px; border-radius: 4px; display: flex; align-items: center; gap: 5px; font-size: 0.9rem; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
-                  <button @click="moveColumn(index, -1)" :disabled="index === 0" style="background: none; border: none; cursor: pointer; padding: 0 4px; color: var(--color-primary);" :style="{ opacity: index === 0 ? '0.3' : '1' }" title="Sposta a sinistra">◀</button>
-                  <span style="font-weight: 500;">{{ colName(col) }}</span>
-                  <button @click="moveColumn(index, 1)" :disabled="index === reportState.display.baseColumns.length - 1" style="background: none; border: none; cursor: pointer; padding: 0 4px; color: var(--color-primary);" :style="{ opacity: index === reportState.display.baseColumns.length - 1 ? '0.3' : '1' }" title="Sposta a destra">▶</button>
+            <div v-if="reportState.display.baseColumns.length > 1" class="column-order-container">
+              <h5 style="margin-top: 0; margin-bottom: 12px; color: var(--color-text-secondary); font-size: 0.9rem;">Ordina Colonne Base (da sinistra a destra):</h5>
+              <div class="column-order-grid">
+                <div v-for="(col, index) in reportState.display.baseColumns" :key="col" class="column-order-item">
+                  <button @click="moveColumn(index, -1)" :disabled="index === 0" class="col-move-btn" title="Sposta a sinistra">◀</button>
+                  <span class="col-name">{{ colName(col) }}</span>
+                  <button @click="moveColumn(index, 1)" :disabled="index === reportState.display.baseColumns.length - 1" class="col-move-btn" title="Sposta a destra">▶</button>
                 </div>
               </div>
             </div>
@@ -226,24 +256,45 @@
           </button>
 
           <div v-if="processedData.length > 0">
-            <h4>Anteprima Dati Filtrati (Totale: {{ processedData.length }})</h4>
-            <div class="audit-preview" style="max-height: 400px; overflow-y: auto; border: 1px solid var(--color-border); border-radius: 8px;">
-              <table style="width: 100%; text-align: left; border-collapse: collapse; font-size: 0.9rem;">
-                <thead style="position: sticky; top: 0; background: var(--color-surface); z-index: 1;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 10px;">
+              <h4 style="margin: 0;">Anteprima Dati Filtrati (Totale: {{ processedData.length }})</h4>
+              <div style="font-size: 0.85rem; color: var(--color-text-secondary); display: flex; gap: 10px; align-items: center;">
+                <span style="font-weight: 600;">Legenda Anni:</span>
+                <div><span class="status-badge badge-success" style="padding: 2px 6px;">V</span> Pagato</div>
+                <div><span class="status-badge badge-error" style="padding: 2px 6px;">X</span> Non Pagato</div>
+                <div><span class="status-badge badge-warning" style="padding: 2px 6px;">O</span> Minorenne / Esente</div>
+                <div><span class="status-badge badge-blue" style="padding: 2px 6px;">-</span> Non Iscritto</div>
+              </div>
+            </div>
+            <div class="audit-preview">
+              <table class="preview-table">
+                <thead>
                   <tr>
-                    <th v-if="reportState.display.baseColumns.includes('cognomeNome')" style="padding: 12px; border-bottom: 2px solid var(--color-border); color: var(--color-text-secondary);">Socio</th>
-                    <th v-if="reportState.display.baseColumns.includes('gruppo')" style="padding: 12px; border-bottom: 2px solid var(--color-border); color: var(--color-text-secondary);">Manicchia</th>
-                    <th v-if="reportState.display.baseColumns.includes('dataNascita')" style="padding: 12px; border-bottom: 2px solid var(--color-border); color: var(--color-text-secondary);">Nascita</th>
-                    <th v-for="year in sortedYearColumns" :key="'th-'+year" style="padding: 12px; text-align: center; border-bottom: 2px solid var(--color-border); color: var(--color-text-secondary);">{{ year }}</th>
+                    <th v-if="reportState.display.baseColumns.includes('cognomeNome')">Socio</th>
+                    <th v-if="reportState.display.baseColumns.includes('gruppo')">Manicchia</th>
+                    <th v-if="reportState.display.baseColumns.includes('dataNascita')">Nascita</th>
+                    <th v-if="reportState.display.baseColumns.includes('dirittoVoto')" style="text-align: center;">Diritto al Voto</th>
+                    <th v-if="reportState.display.baseColumns.includes('motivoEsclusione')">Motivo</th>
+                    <th v-for="year in sortedYearColumns" :key="'th-'+year" style="text-align: center;">{{ year }}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="(member, index) in processedData.slice(0, 30)" :key="member.id" :style="{ backgroundColor: index % 2 === 0 ? 'var(--color-surface-variant, #f8f9fa)' : 'transparent' }">
-                    <td v-if="reportState.display.baseColumns.includes('cognomeNome')" style="padding: 12px; border-bottom: 1px solid var(--color-border);">{{ member.cognome }} {{ member.nome }}</td>
-                    <td v-if="reportState.display.baseColumns.includes('gruppo')" style="padding: 12px; border-bottom: 1px solid var(--color-border);">{{ member.gruppo_appartenenza || '-' }}</td>
-                    <td v-if="reportState.display.baseColumns.includes('dataNascita')" style="padding: 12px; border-bottom: 1px solid var(--color-border);">{{ formatDate(member.data_nascita) }}</td>
-                    <td v-for="year in sortedYearColumns" :key="'td-'+year" style="padding: 12px; text-align: center; font-weight: bold; border-bottom: 1px solid var(--color-border);" :style="{ color: hasPaidYear(member, year) ? 'var(--color-success)' : 'var(--color-error)' }">
-                      {{ hasPaidYear(member, year) ? 'V' : 'X' }}
+                  <tr v-for="member in processedData.slice(0, 30)" :key="member.id">
+                    <td v-if="reportState.display.baseColumns.includes('cognomeNome')" class="fw-500">{{ member.cognome }} {{ member.nome }}</td>
+                    <td v-if="reportState.display.baseColumns.includes('gruppo')">{{ member.gruppo_appartenenza || '-' }}</td>
+                    <td v-if="reportState.display.baseColumns.includes('dataNascita')">{{ formatDate(member.data_nascita) }}</td>
+                    <td v-if="reportState.display.baseColumns.includes('dirittoVoto')" style="text-align: center;">
+                      <span class="status-badge" :class="getEligibilityClass(member.aventeDiritto)">
+                        {{ member.dirittoLabel }}
+                      </span>
+                    </td>
+                    <td v-if="reportState.display.baseColumns.includes('motivoEsclusione')" class="text-secondary small-text">
+                      {{ member.motivoEsclusione }}
+                    </td>
+                    <td v-for="year in sortedYearColumns" :key="'td-'+year" style="text-align: center;">
+                      <span class="status-badge" :class="getYearBadgeClass(member, year)">
+                        {{ getYearBadgeText(member, year) }}
+                      </span>
                     </td>
                   </tr>
                 </tbody>
@@ -298,6 +349,8 @@ const reportState = ref({
     groups: [],
     ageGroup: 'all',
     paymentStatus: 'all',
+    electionDate: new Date().toISOString().split('T')[0],
+    electionEligibility: 'all',
     paymentYears: {
       list: [],
       logic: 'AND'
@@ -318,12 +371,47 @@ const hasPaidYear = (member, year) => {
   return paidYears.includes(year);
 };
 
+const isMinorInYear = (member, year) => {
+  if (!member.data_nascita) return false;
+  const birthYear = new Date(member.data_nascita).getFullYear();
+  return (year - birthYear < 18);
+};
+
+const getEnrollmentYear = (member) => {
+  if (member.data_iscrizione) {
+    return new Date(member.data_iscrizione).getFullYear();
+  }
+  const paidYears = member.tesseramenti?.map(t => t.anno) || [];
+  if (paidYears.length > 0) return Math.min(...paidYears);
+  return new Date().getFullYear(); // Fallback to current year if completely unknown
+};
+
+const isEnrolledInYear = (member, year) => {
+  return year >= getEnrollmentYear(member);
+};
+
+const getYearBadgeText = (member, year) => {
+  if (!isEnrolledInYear(member, year)) return '-';
+  if (hasPaidYear(member, year)) return 'V';
+  if (isMinorInYear(member, year)) return 'O';
+  return 'X';
+};
+
+const getYearBadgeClass = (member, year) => {
+  if (!isEnrolledInYear(member, year)) return 'badge-blue';
+  if (hasPaidYear(member, year)) return 'badge-success';
+  if (isMinorInYear(member, year)) return 'badge-warning';
+  return 'badge-error';
+};
+
 const resetFilters = () => {
   reportState.value.filters = {
     onlyActiveMembers: false,
     groups: [],
     ageGroup: 'all',
     paymentStatus: 'all',
+    electionDate: new Date().toISOString().split('T')[0],
+    electionEligibility: 'all',
     paymentYears: {
       list: [],
       logic: 'AND'
@@ -354,7 +442,17 @@ const colName = (val) => {
   if (val === 'cognomeNome') return 'Socio';
   if (val === 'gruppo') return 'Manicchia';
   if (val === 'dataNascita') return 'Data Nascita';
+  if (val === 'dirittoVoto') return 'Avente Diritto';
+  if (val === 'motivoEsclusione') return 'Motivo Esclusione';
+  if (val === 'eta') return 'Età';
+  if (val === 'firma') return 'Firma';
   return val;
+};
+
+const getEligibilityClass = (status) => {
+  if (status === 'si') return 'badge-success';
+  if (status === 'regolarizza') return 'badge-warning';
+  return 'badge-error';
 };
 
 const formatDate = (dateString) => {
@@ -431,6 +529,17 @@ const activeFiltersSummary = computed(() => {
     summary += `di tutte le manicchie `;
   }
 
+  // Election Filters
+  if (reportState.value.filters.electionEligibility === 'aventi_diritto') {
+    summary += `che hanno diritto al voto (Sì + Regolarizza) alla data ${formatDate(reportState.value.filters.electionDate)} `;
+  } else if (reportState.value.filters.electionEligibility === 'solo_si') {
+    summary += `che hanno PIENO diritto al voto ('Sì') alla data ${formatDate(reportState.value.filters.electionDate)} `;
+  } else if (reportState.value.filters.electionEligibility === 'solo_regolarizza') {
+    summary += `da REGOLARIZZARE alla data ${formatDate(reportState.value.filters.electionDate)} `;
+  } else if (reportState.value.filters.electionEligibility === 'esclusi') {
+    summary += `che NON hanno diritto al voto ('No') alla data ${formatDate(reportState.value.filters.electionDate)} `;
+  }
+
   // Payment Years
   if (reportState.value.filters.paymentYears.list.length > 0) {
     const years = [...reportState.value.filters.paymentYears.list].sort((a,b)=>b-a).join(', ');
@@ -453,6 +562,98 @@ const sortedYearColumns = computed(() => {
 const processedData = computed(() => {
   let result = [...allMembers.value];
 
+  // Avente Diritto Logic Evaluation (Attach it to each so it can be used for filters and table display)
+  const electionDateStr = reportState.value.filters.electionDate;
+  const targetDateObj = new Date(electionDateStr);
+  const targetYear = targetDateObj.getFullYear();
+
+  result.forEach(member => {
+    let aventeDiritto = true; // Temporary boolean logic to track overall eligibility
+    let electionStatus = '';  // 'si', 'regolarizza', 'no'
+    let dirittoLabel = '';
+    let motivoEsclusione = '';
+
+    // 1. Age Rule
+    if (!member.data_nascita) {
+      aventeDiritto = false;
+      motivoEsclusione = 'Data di nascita mancante';
+    } else {
+      const birthDateObj = new Date(member.data_nascita);
+      let ageAtTarget = targetYear - birthDateObj.getFullYear();
+      const m = targetDateObj.getMonth() - birthDateObj.getMonth();
+      if (m < 0 || (m === 0 && targetDateObj.getDate() < birthDateObj.getDate())) {
+        ageAtTarget--;
+      }
+      if (ageAtTarget < 18) {
+        aventeDiritto = false;
+        motivoEsclusione = 'Minorenne alla data elettorale';
+      }
+    }
+
+    // Payments processing
+    const paidYears = member.tesseramenti?.map(t => t.anno) || [];
+    const enrollmentYear = getEnrollmentYear(member);
+
+    // Logic evaluating "Sì", "Regolarizza", "No"
+    if (aventeDiritto) {
+      const windowStart = Math.max(targetYear - 3, enrollmentYear); // Only check from 3 years ago OR enrollment, whichever is later
+      const windowEnd = targetYear;
+      const recentWindow = [];
+      for (let y = windowStart; y <= windowEnd; y++) recentWindow.push(y);
+
+      let E = null;
+      for (let y of recentWindow) {
+        if (paidYears.includes(y) || isMinorInYear(member, y)) {
+          E = y;
+          break;
+        }
+      }
+
+      if (E === null) {
+        electionStatus = 'no';
+        dirittoLabel = 'No';
+        if (enrollmentYear > targetYear) {
+          motivoEsclusione = `Iscritto postumo (${enrollmentYear})`;
+        } else {
+          motivoEsclusione = `Nessun pagamento registrato o valido nel periodo ${windowStart} - ${windowEnd}`;
+        }
+      } else if (E === targetYear && !isMinorInYear(member, targetYear - 1)) {
+        // First active year is targetYear AND they weren't a minor the year before
+        electionStatus = 'no';
+        dirittoLabel = 'No';
+        if (enrollmentYear === targetYear) {
+           motivoEsclusione = `Nuovo iscritto nell'anno ${targetYear}`;
+        } else {
+           motivoEsclusione = `Socio rientrato nell'anno ${targetYear}`;
+        }
+      } else {
+        const missingYears = [];
+        for (let y = E; y <= targetYear; y++) {
+          if (!paidYears.includes(y) && !isMinorInYear(member, y)) {
+            missingYears.push(y);
+          }
+        }
+
+        if (missingYears.length === 0) {
+          electionStatus = 'si';
+          dirittoLabel = 'Sì';
+          motivoEsclusione = '';
+        } else {
+          electionStatus = 'regolarizza';
+          dirittoLabel = 'Regolarizza';
+          motivoEsclusione = `Mancano quote: ${missingYears.join(', ')}`;
+        }
+      }
+    } else {
+      electionStatus = 'no';
+      dirittoLabel = 'No';
+    }
+
+    member.aventeDiritto = electionStatus;
+    member.dirittoLabel = dirittoLabel;
+    member.motivoEsclusione = motivoEsclusione;
+  });
+
   // Active Members Filter
   if (reportState.value.filters.onlyActiveMembers) {
     result = result.filter(member => {
@@ -461,7 +662,7 @@ const processedData = computed(() => {
     });
   }
 
-  // Age Filter
+  // Age Filter (Dynamic to today, keeping it for general filter use independent of elections)
   if (reportState.value.filters.ageGroup !== 'all') {
     const today = new Date();
     result = result.filter(member => {
@@ -496,6 +697,17 @@ const processedData = computed(() => {
       // Handles unassigned members or specific group matches
       return reportState.value.filters.groups.includes(member.gruppo_appartenenza || 'Nessuna Manicchia');
     });
+  }
+
+  // Election Eligibility Filter
+  if (reportState.value.filters.electionEligibility === 'aventi_diritto') {
+    result = result.filter(member => member.aventeDiritto === 'si' || member.aventeDiritto === 'regolarizza');
+  } else if (reportState.value.filters.electionEligibility === 'solo_si') {
+    result = result.filter(member => member.aventeDiritto === 'si');
+  } else if (reportState.value.filters.electionEligibility === 'solo_regolarizza') {
+    result = result.filter(member => member.aventeDiritto === 'regolarizza');
+  } else if (reportState.value.filters.electionEligibility === 'esclusi') {
+    result = result.filter(member => member.aventeDiritto === 'no');
   }
 
   // Specific Years Filter (AND/OR)
@@ -845,6 +1057,152 @@ const handleExport = async () => {
   border-radius: 20px;
   border: 1px solid var(--color-border);
   font-size: 0.9rem;
+}
+
+/* UI readability enhancements */
+.column-order-container {
+  margin-top: 15px;
+  padding: 15px;
+  background: var(--color-background);
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+}
+
+.column-order-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.column-order-item {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  padding: 8px 12px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.95rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  transition: background-color 0.2s;
+}
+
+.column-order-item:hover {
+  background: var(--color-surface-variant, #f8f9fa);
+  border-color: var(--color-primary);
+}
+
+.col-move-btn {
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 4px 10px;
+  color: var(--color-primary);
+  font-size: 1rem;
+  transition: all 0.2s;
+}
+
+.col-move-btn:hover:not(:disabled) {
+  background: var(--color-primary);
+  color: white;
+}
+
+.col-move-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  background: none;
+  border-color: transparent;
+}
+
+.col-name {
+  font-weight: 600;
+  color: var(--color-text-primary);
+  flex: 1;
+}
+
+/* Enhanced Preview Table */
+.audit-preview {
+  max-height: 500px;
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+}
+
+.preview-table {
+  width: 100%;
+  text-align: left;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+.preview-table th {
+  padding: 14px 12px;
+  border-bottom: 2px solid var(--color-border);
+  background-color: var(--color-surface); /* Header background */
+  color: var(--color-text-primary);
+  font-weight: 700;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.preview-table td {
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+}
+
+.preview-table tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+.preview-table tbody tr:hover {
+  background-color: rgba(128, 128, 128, 0.08) !important; /* Gentle neutral highlight on hover, safe for any theme */
+}
+
+.fw-500 { font-weight: 500; }
+.text-secondary { color: var(--color-text-secondary); }
+.small-text { font-size: 0.85em; }
+
+/* Status Badges */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-weight: bold;
+  font-size: 0.85rem;
+  letter-spacing: 0.3px;
+  min-width: 30px;
+}
+
+.badge-success {
+  background-color: #dcfce7;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.badge-error {
+  background-color: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.badge-warning {
+  background-color: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.badge-blue {
+  background-color: #dbeafe;
+  color: #1e3a8a;
+  border: 1px solid #bfdbfe;
 }
 
 .primary-button.large {

@@ -111,7 +111,7 @@ function createPDFTable(doc, headers, rows, startY, rowHeight = 7) {
         // Rotated 90 degrees CCW (reads bottom-to-top)
         doc.text(header.text, textX + 1, currentY + headerRowHeight - 2, { angle: 90 });
       } else {
-        doc.text(header.text, textX, currentY + headerRowHeight / 2 + 1.2, { align });
+        doc.text(header.text, textX, currentY + headerRowHeight / 2, { align, baseline: 'middle' });
       }
     });
     currentY += headerRowHeight;
@@ -154,14 +154,14 @@ function createPDFTable(doc, headers, rows, startY, rowHeight = 7) {
       let textX = colPositions[cellIndex] + (align === 'center' ? headers[cellIndex].width / 2 : 2);
 
       const maxW = headers[cellIndex].width - 4;
-      if (cellText.length > 20 || (doc.getStringUnitWidth(cellText) * doc.internal.getFontSize()) / doc.internal.scaleFactor > maxW) {
+      if (cellText.length > 20 || (cellText.length > 1 && (doc.getStringUnitWidth(cellText) * doc.internal.getFontSize()) / doc.internal.scaleFactor > maxW)) {
         // Multi-line wrap (fallback to left if wrapping)
         const lines = doc.splitTextToSize(cellText, maxW);
         const blockH = lines.length * 3.5;
         doc.text(lines, colPositions[cellIndex] + 2, currentY + (rowHeight - blockH) / 2 + 2.5);
       } else {
         // Single line
-        doc.text(cellText, textX, currentY + rowHeight / 2 + 1.2, { align });
+        doc.text(cellText, textX, currentY + rowHeight / 2, { align, baseline: 'middle' });
       }
       doc.setTextColor(0, 0, 0);
     });
@@ -170,7 +170,7 @@ function createPDFTable(doc, headers, rows, startY, rowHeight = 7) {
 
     // Add page logic if bottom is reached
     const pageMaxHeight = doc.internal.pageSize.height - 35;
-    if (currentY > pageMaxHeight) {
+    if (currentY > pageMaxHeight && rowIndex < rows.length - 1) {
       doc.addPage();
       currentY = 20;
       drawHeader();
@@ -246,6 +246,8 @@ export async function generateBetaDynamicPDF(data, reportConfig, filtersSummaryT
   if (reportConfig.display.baseColumns.includes('gruppo')) reqWidth += 35;
   if (reportConfig.display.baseColumns.includes('dataNascita')) reqWidth += 22;
   if (reportConfig.display.baseColumns.includes('eta')) reqWidth += 25;
+  if (reportConfig.display.baseColumns.includes('dirittoVoto')) reqWidth += 30;
+  if (reportConfig.display.baseColumns.includes('motivoEsclusione')) reqWidth += 45;
   if (reportConfig.display.baseColumns.includes('firma')) reqWidth += 40;
   reqWidth += reportConfig.display.yearColumns.length * 6;
 
@@ -273,7 +275,47 @@ export async function generateBetaDynamicPDF(data, reportConfig, filtersSummaryT
     }
   }
 
-  const headerY = addPDFHeader(doc, reportTitle, filtersSummaryText, `Totale Risultati: ${data.length}`, logoData);
+  let startY = addPDFHeader(doc, reportTitle, filtersSummaryText, `Totale Risultati: ${data.length}`, logoData) + 6;
+
+  if (reportConfig.display.yearColumns.length > 0) {
+    let currentX = 14;
+    doc.setFontSize(8);
+    doc.setTextColor(100, 100, 100);
+    doc.text("Legenda Anni: ", currentX, startY);
+    currentX += doc.getTextWidth("Legenda Anni: ") + 2;
+
+    doc.setTextColor(0, 150, 0);
+    doc.text("V", currentX, startY);
+    currentX += doc.getTextWidth("V") + 1;
+    doc.setTextColor(100, 100, 100);
+    doc.text("= Pagato    ", currentX, startY);
+    currentX += doc.getTextWidth("= Pagato    ");
+
+    doc.setTextColor(200, 50, 50);
+    doc.text("X", currentX, startY);
+    currentX += doc.getTextWidth("X") + 1;
+    doc.setTextColor(100, 100, 100);
+    doc.text("= Non Pagato    ", currentX, startY);
+    currentX += doc.getTextWidth("= Non Pagato    ");
+
+    doc.setTextColor(217, 119, 6);
+    doc.text("O", currentX, startY);
+    currentX += doc.getTextWidth("O") + 1;
+    doc.setTextColor(100, 100, 100);
+    doc.text("= Minorenne (Esente)    ", currentX, startY);
+    currentX += doc.getTextWidth("= Minorenne (Esente)    ");
+
+    doc.setTextColor(0, 100, 200);
+    doc.text("-", currentX, startY);
+    currentX += doc.getTextWidth("-") + 1;
+    doc.setTextColor(100, 100, 100);
+    doc.text("= Non ancora iscritto", currentX, startY);
+
+    doc.setTextColor(0, 0, 0);
+    startY += 8;
+  } else {
+    startY += 4;
+  }
 
   // Dynamically assemble headers
   const headers = [];
@@ -281,6 +323,8 @@ export async function generateBetaDynamicPDF(data, reportConfig, filtersSummaryT
   if (reportConfig.display.baseColumns.includes('gruppo')) headers.push({ text: 'Manicchia', width: 35 });
   if (reportConfig.display.baseColumns.includes('dataNascita')) headers.push({ text: 'Nascita', width: 22 });
   if (reportConfig.display.baseColumns.includes('eta')) headers.push({ text: 'Età', width: 25 });
+  if (reportConfig.display.baseColumns.includes('dirittoVoto')) headers.push({ text: 'Diritto Voto', width: 30, align: 'center' });
+  if (reportConfig.display.baseColumns.includes('motivoEsclusione')) headers.push({ text: 'Motivo Esclusione', width: 45 });
 
   const sortedYearColumns = [...reportConfig.display.yearColumns].sort((a, b) => a - b);
   sortedYearColumns.forEach(year => {
@@ -297,12 +341,41 @@ export async function generateBetaDynamicPDF(data, reportConfig, filtersSummaryT
     if (reportConfig.display.baseColumns.includes('gruppo')) row.push(member.gruppo_appartenenza || '-');
     if (reportConfig.display.baseColumns.includes('dataNascita')) row.push(formatDate(member.data_nascita));
     if (reportConfig.display.baseColumns.includes('eta')) row.push(getAgeLabel(member.data_nascita));
+    if (reportConfig.display.baseColumns.includes('dirittoVoto')) {
+      let vColor = [200, 50, 50]; // default 'no' red
+      if (member.aventeDiritto === 'si') vColor = [0, 150, 0];
+      else if (member.aventeDiritto === 'regolarizza') vColor = [217, 119, 6]; // orange #d97706
+      row.push({ text: member.dirittoLabel || (member.aventeDiritto ? 'Sì' : 'No'), color: vColor });
+    }
+    if (reportConfig.display.baseColumns.includes('motivoEsclusione')) row.push(member.motivoEsclusione || '-');
 
-    // Inject V/X with specific colors to match requested UI aesthetic
+    // Inject V/O/X/- with specific colors
     const paidYears = member.tesseramenti?.map(t => t.anno) || [];
+    const isMinorInYear = (m, y) => {
+      if (!m.data_nascita) return false;
+      const birthYear = new Date(m.data_nascita).getFullYear();
+      return (y - birthYear < 18);
+    };
+
+    const getEnrollmentYear = (m) => {
+      if (m.data_iscrizione) {
+        return new Date(m.data_iscrizione).getFullYear();
+      }
+      if (paidYears.length > 0) return Math.min(...paidYears);
+      return new Date().getFullYear(); // Fallback to current year
+    };
+
+    const isEnrolledInYear = (m, y) => {
+      return y >= getEnrollmentYear(m);
+    };
+
     sortedYearColumns.forEach(year => {
-      if (paidYears.includes(year)) {
+      if (!isEnrolledInYear(member, year)) {
+        row.push({ text: '-', color: [0, 100, 200] });
+      } else if (paidYears.includes(year)) {
         row.push({ text: 'V', color: [0, 150, 0] });
+      } else if (isMinorInYear(member, year)) {
+        row.push({ text: 'O', color: [217, 119, 6] });
       } else {
         row.push({ text: 'X', color: [200, 50, 50] });
       }
@@ -313,8 +386,7 @@ export async function generateBetaDynamicPDF(data, reportConfig, filtersSummaryT
 
     return row;
   });
-
-  createPDFTable(doc, headers, tableData, headerY + 10);
+  createPDFTable(doc, headers, tableData, startY);
   addPDFFooter(doc);
 
   const filename = generatePDFFilename(fileBaseName, { timestamp: Date.now() });
