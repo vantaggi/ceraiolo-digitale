@@ -60,6 +60,7 @@ onBeforeUnmount(() => {
         <RouterLink to="/registrazione-seriale" class="nav-link"
           >🔄 Registrazione Seriale</RouterLink
         >
+        <RouterLink to="/blocchetti" class="nav-link">🧾 Blocchetti</RouterLink>
         <RouterLink to="/reports" class="nav-link">📊 Report</RouterLink>
         <RouterLink to="/settings" class="nav-link">⚙️ Impostazioni</RouterLink>
         <button @click="themeStore.toggleTheme" class="theme-toggle" title="Cambia Tema">

@@ -76,6 +76,14 @@ const router = createRouter({
       },
     },
     {
+      path: '/blocchetti',
+      name: 'blocchetti',
+      component: () => import('../views/BlocchettiView.vue'),
+      meta: {
+        title: 'Gestione Blocchetti - Ceraiolo Digitale',
+      },
+    },
+    {
       path: '/:pathMatch(.*)*',
       name: 'not-found',
       redirect: '/',

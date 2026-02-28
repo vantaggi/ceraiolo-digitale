@@ -144,6 +144,7 @@
           <button @click="exportChangeLogData" class="utility-button secondary">
             📊 Changelog
           </button>
+          <button @click="runNormalization" class="utility-button warning" title="Sistema i blocchetti storici invertiti">🔧 Fix DB Invertito</button>
           <button @click="clearDatabase" class="utility-button danger">🗑️ Reset DB</button>
         </div>
         <p class="footer-note">Sistema Gestionale Ceraiolo Digitale - v1.0</p>
@@ -165,6 +166,7 @@ import {
   getSetting,
   getRecentActivity,
   applyFiltersAndSearch,
+  normalizeDatabaseData
 } from '@/services/db'
 import { generateAndDownloadSociPDF, generateSingleCardPDF } from '@/services/export'
 import SocioCard from '@/components/SocioCard.vue'
@@ -418,6 +420,23 @@ const generateSingleCard = async (socio) => {
   } catch (error) {
     console.error('Generazione tessera fallita:', error)
     toast.error('Errore tessera')
+  }
+}
+
+const runNormalization = async () => {
+  if (!confirm('Vuoi scansionare il database e correggere automaticamente i blocchetti e ricevute invertite (vecchio errore storico)?')) return
+  try {
+    const fixedCount = await normalizeDatabaseData()
+    if (fixedCount > 0) {
+      toast.success(`Normalizzazione completata! Sistemati ${fixedCount} record.`)
+      // Ricarica per pulire cache locali
+      window.location.reload()
+    } else {
+      toast.info('Tutti i record sono già corretti! Non c\'era nulla da sistemare.')
+    }
+  } catch (error) {
+    console.error('Normalization error:', error)
+    toast.error('Errore durante la normalizzazione: ' + error.message)
   }
 }
 

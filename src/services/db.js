@@ -45,6 +45,19 @@ db.version(2).stores({
   `,
 })
 
+// Version 3: Add blocchetti table for receipt booklets
+db.version(3).stores({
+  blocchetti: `
+    ++id,
+    numero_blocchetto,
+    ricevute_da,
+    ricevute_a,
+    assegnato_a,
+    data_assegnazione,
+    data_restituzione
+  `,
+})
+
 // Hooks for Auto-Backup
 // We use dynamic import to avoid circular dependencies with backupService
 const triggerBackup = () => {
@@ -62,6 +75,10 @@ db.soci.hook('deleting', triggerBackup)
 db.tesseramenti.hook('creating', triggerBackup)
 db.tesseramenti.hook('updating', triggerBackup)
 db.tesseramenti.hook('deleting', triggerBackup)
+
+db.blocchetti.hook('creating', triggerBackup)
+db.blocchetti.hook('updating', triggerBackup)
+db.blocchetti.hook('deleting', triggerBackup)
 
 // A utility function to check if the database is empty.
 // We'll use this to decide whether to show the import screen.
@@ -89,6 +106,172 @@ export async function getUniqueGroups() {
   } catch (error) {
     console.error('Error getting unique groups:', error)
     return []
+  }
+}
+
+// ----------------------------------------------------
+// BLOCCHETTI (RECEIPT BOOKLETS) API
+// ----------------------------------------------------
+
+/**
+ * Get all receipt booklets (blocchetti)
+ * @returns {Promise<Array>} Array of all blocchetti sorted by numero_blocchetto inverse
+ */
+export async function getAllBlocchetti() {
+  try {
+    return await db.blocchetti.orderBy('numero_blocchetto').reverse().toArray()
+  } catch (error) {
+    console.error('Error fetching blocchetti:', error)
+    return []
+  }
+}
+
+/**
+ * Add a new blocchetto
+ * @param {Object} blocchettoData
+ * @returns {Promise<number>} newly generated id
+ */
+export async function addBlocchetto(blocchettoData) {
+  try {
+    const id = await db.blocchetti.add(blocchettoData)
+    await logLocalChange('blocchetti', id, 'CREATE', null, blocchettoData)
+    return id
+  } catch (error) {
+    console.error('Error adding blocchetto:', error)
+    throw new Error('Impossibile aggiungere il blocchetto: ' + error.message)
+  }
+}
+
+/**
+ * Update an existing blocchetto
+ * @param {number} id - the internal ID of the blocchetto
+ * @param {Object} updateData - properties to update
+ */
+export async function updateBlocchetto(id, updateData) {
+  try {
+    const oldData = await db.blocchetti.get(id)
+    if (!oldData) throw new Error('Blocchetto non trovato')
+    await db.blocchetti.update(id, updateData)
+    await logLocalChange('blocchetti', id, 'UPDATE', oldData, { ...oldData, ...updateData })
+  } catch (error) {
+    console.error('Error updating blocchetto:', error)
+    throw new Error("Impossibile aggiornare il blocchetto: " + error.message)
+  }
+}
+
+/**
+ * Mark a blocchetto as returned with the current date
+ * @param {number} id
+ */
+export async function returnBlocchetto(id) {
+  const data_restituzione = new Date().toISOString().split('T')[0]
+  await updateBlocchetto(id, { data_restituzione })
+}
+
+/**
+ * Delete a blocchetto
+ * @param {number} id
+ */
+export async function deleteBlocchetto(id) {
+  try {
+    const oldData = await db.blocchetti.get(id)
+    if (oldData) {
+      await db.blocchetti.delete(id)
+      await logLocalChange('blocchetti', id, 'DELETE', oldData, null)
+    }
+  } catch (error) {
+    console.error('Error deleting blocchetto:', error)
+    throw new Error("Impossibile eliminare il blocchetto: " + error.message)
+  }
+}
+
+/**
+ * Auto-syncs blocchetti from existing tesseramenti data.
+ * Reads all payments, groups by numero_blocchetto, and creates any missing blocchetto records.
+ */
+export async function syncBlocchettiFromTesseramenti() {
+  try {
+    // 1. Remove previous auto-imported blocchetti to recalculate them freshly
+    const vecchiAutoImportati = await db.blocchetti.filter(b => b.assegnato_a === 'Auto-Importato da Storico').toArray()
+    if (vecchiAutoImportati.length > 0) {
+      await db.blocchetti.bulkDelete(vecchiAutoImportati.map(b => b.id))
+    }
+
+    const tesseramenti = await db.tesseramenti.toArray();
+    const existingBlocchetti = await db.blocchetti.toArray();
+    const existingIds = new Set(existingBlocchetti.map(b => Number(b.numero_blocchetto)));
+
+    // Group tesseramenti by numero_blocchetto
+    const grouped = {};
+    for (const t of tesseramenti) {
+      if (t.numero_blocchetto !== null && t.numero_blocchetto !== undefined && t.numero_blocchetto !== '') {
+        const bloccoId = Number(t.numero_blocchetto);
+        if (isNaN(bloccoId) || bloccoId <= 0) continue;
+
+        if (!grouped[bloccoId]) {
+          grouped[bloccoId] = {
+            ricevute: [],
+            dates: []
+          };
+        }
+
+        if (t.numero_ricevuta !== null && t.numero_ricevuta !== undefined && t.numero_ricevuta !== '') {
+          const rId = Number(t.numero_ricevuta);
+          if (!isNaN(rId) && rId > 0) {
+            grouped[bloccoId].ricevute.push(rId);
+          }
+        }
+
+        if (t.data_pagamento) {
+          const dTime = new Date(t.data_pagamento).getTime();
+          if (!isNaN(dTime)) {
+            grouped[bloccoId].dates.push(dTime);
+          }
+        }
+      }
+    }
+
+    // Insert missing blocchetti
+    const toAdd = [];
+    for (const [numero_blocchetto, data] of Object.entries(grouped)) {
+      const bloccoNum = Number(numero_blocchetto);
+      if (!existingIds.has(bloccoNum)) {
+        // Calculate min and max receipts
+        const validRicevute = data.ricevute;
+        const minR = validRicevute.length > 0 ? Math.min(...validRicevute) : 1;
+        const maxR = validRicevute.length > 0 ? Math.max(...validRicevute) : 50;
+
+        // Find earliest payment date roughly
+        let earliestStr = new Date().toISOString().split('T')[0];
+        if (data.dates && data.dates.length > 0) {
+           const earliestTime = Math.min(...data.dates);
+           earliestStr = new Date(earliestTime).toISOString().split('T')[0];
+        }
+
+        // Se il blocchetto ha origini nell'anno scorso o prima, è verosimilmente già Restituito fine anno
+        let dataRestituzione = null;
+        if (new Date(earliestStr).getFullYear() < new Date().getFullYear()) {
+           dataRestituzione = new Date(new Date(earliestStr).getFullYear(), 11, 31).toISOString().split('T')[0]; // 31 Dicembre
+        }
+
+        toAdd.push({
+          numero_blocchetto: bloccoNum,
+          ricevute_da: minR,
+          ricevute_a: maxR,
+          assegnato_a: 'Auto-Importato da Storico',
+          data_assegnazione: earliestStr,
+          data_restituzione: dataRestituzione
+        });
+      }
+    }
+
+    if (toAdd.length > 0) {
+      await db.blocchetti.bulkAdd(toAdd);
+      console.log(`Auto-imported ${toAdd.length} blocchetti from tesseramenti.`);
+    }
+
+  } catch (err) {
+    console.error('Error syncing blocchetti:', err);
   }
 }
 
@@ -534,6 +717,15 @@ export async function exportDatabaseToSqlite(customFilename = null) {
         numero_blocchetto INTEGER,
         FOREIGN KEY (id_socio) REFERENCES Soci (id)
       );
+      CREATE TABLE Blocchetti (
+        id INTEGER PRIMARY KEY,
+        numero_blocchetto INTEGER,
+        ricevute_da INTEGER,
+        ricevute_a INTEGER,
+        assegnato_a TEXT,
+        data_assegnazione TEXT,
+        data_restituzione TEXT
+      );
     `)
 
     // 2. Create Advanced Tables (Settings, LocalChanges, Metadata)
@@ -594,6 +786,24 @@ export async function exportDatabaseToSqlite(customFilename = null) {
     }
     tessStmt.free()
 
+    // --- EXPORT BLOCCHETTI ---
+    const blocchettiData = await db.blocchetti.toArray()
+    const bloccoStmt = sqliteDb.prepare(
+      'INSERT INTO Blocchetti (id, numero_blocchetto, ricevute_da, ricevute_a, assegnato_a, data_assegnazione, data_restituzione) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    )
+    for (const b of blocchettiData) {
+      bloccoStmt.run([
+        b.id,
+        b.numero_blocchetto || null,
+        b.ricevute_da || null,
+        b.ricevute_a || null,
+        b.assegnato_a || null,
+        b.data_assegnazione || null,
+        b.data_restituzione || null,
+      ])
+    }
+    bloccoStmt.free()
+
     // --- EXPORT SETTINGS ---
     const settingsData = await db.settings.toArray()
     const settingsStmt = sqliteDb.prepare(
@@ -643,11 +853,12 @@ export async function exportDatabaseToSqlite(customFilename = null) {
       filename,
       soci_count: sociData.length,
       tesseramenti_count: tesseramentiData.length,
+      blocchetti_count: blocchettiData.length,
       settings_count: settingsData.length,
       history_count: historyData.length,
       file_size: binaryArray.length,
       timestamp,
-      schema_version: '2.0',
+      schema_version: '3.0',
     }
 
     sqliteDb.close()
@@ -2227,3 +2438,75 @@ export async function getChurnList(year) {
 
   return await db.soci.where('id').anyOf(churnIds).toArray()
 }
+
+/**
+ * Migrazione dati: normalizza tutti i tesseramenti invertendo numero_blocchetto
+ * e numero_ricevuta laddove numero_blocchetto > numero_ricevuta (errore storico).
+ * @returns {Promise<number>} numero di record corretti
+ */
+export async function normalizeDatabaseData() {
+  try {
+    const allTesseramenti = await db.tesseramenti.toArray()
+    const recordsToFix = []
+
+    for (const tess of allTesseramenti) {
+      const bNum = Number(tess.numero_blocchetto) || 0
+      const rNum = Number(tess.numero_ricevuta) || 0
+
+      // Se entrambi sono validi e il blocchetto è maggiore della ricevuta,
+      // significa che nel DB storico i campi sono stati inseriti al contrario.
+      if (bNum > 0 && rNum > 0 && bNum > rNum) {
+        recordsToFix.push({
+          ...tess,
+          numero_blocchetto: rNum, // Il più piccolo
+          numero_ricevuta: bNum    // Il più grande
+        })
+      }
+    }
+
+    if (recordsToFix.length > 0) {
+      await db.tesseramenti.bulkPut(recordsToFix)
+      console.log(`Normalizzati ${recordsToFix.length} record in db.tesseramenti`)
+    }
+
+    // ORA FIXIAMO LA TABELLA BLOCCHETTI
+    // Poiché i dati importati originali avevano il numero ricevuta salvato nel campo blocchetto,
+    // la migrazione originale di importazione o l'utente potrebbe aver inserito nella tabella "Blocchetti"
+    // dei numeri che in realtà sono Ricevute.
+    // L'unica vera identità dei Blocchetti sani risiede nei Tesseramenti (ora guariti).
+
+    const allBlocchettiDB = await db.blocchetti.toArray()
+    const validBlocchettiKeys = new Set()
+
+    // Per sapere quali sono i blocchetti VERI, scandagliamo i tesseramenti appena curati:
+    const updatedTesseramenti = await db.tesseramenti.toArray()
+    for (const t of updatedTesseramenti) {
+        validBlocchettiKeys.add(Number(t.numero_blocchetto))
+    }
+
+    let deletedBlocchetti = 0
+
+    // Rimuoviamo dalla tabella Blocchetti (fisica) quelli che NON esistono più come blocchetti
+    // nei tesseramenti guariti (perché in realtà erano numeri di ricevuta storici).
+    for (const b of allBlocchettiDB) {
+        const bNum = Number(b.numero_blocchetto)
+        if (!validBlocchettiKeys.has(bNum)) {
+            // Questo blocchetto non esiste nei pagamenti come numero piccolo.
+            // Significa che era un falso storico (un record generato dal numero ricevuta alto).
+            await db.blocchetti.delete(b.id || bNum)
+            deletedBlocchetti++
+        }
+    }
+
+    // (Opzionale ma utile): potremmo anche voler salvare i veri blocchetti per farli apparire "Assegnati allo storico"
+    // Non tocco l'assegnazione per non rompere cose, si vede già dinamicamente nella BlocchettiView.
+
+    console.log(`Pulizia Blocchetti Fantasma conclusa: eliminati ${deletedBlocchetti} falsi blocchetti generati dallo storico.`)
+
+    return recordsToFix.length + deletedBlocchetti
+  } catch (error) {
+    console.error('Errore durante la normalizzazione dati:', error)
+    throw new Error(`Errore durante la normalizzazione: ${error.message}`)
+  }
+}
+
