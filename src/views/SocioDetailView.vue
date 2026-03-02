@@ -191,7 +191,17 @@
               </div>
               <div class="detail-row">
                 <span class="detail-label">💰 Quota:</span>
-                <span class="detail-value">€ {{ item.tesseramento.quota_pagata.toFixed(2) }}</span>
+                <span class="detail-value">
+                  <span v-if="editingQuotaId === item.tesseramento.id_tesseramento">
+                    € <input type="number" v-model="editQuotaValue" style="width: 60px; padding: 2px;" />
+                    <button @click="saveQuotaStatus(item.tesseramento.id_tesseramento)" class="save-quota-btn">✓</button>
+                    <button @click="cancelEditQuota" class="cancel-quota-btn">✗</button>
+                  </span>
+                  <span v-else>
+                    € {{ Number(item.tesseramento.quota_pagata || 0).toFixed(2) }}
+                    <button @click="startEditQuota(item.tesseramento)" class="edit-btn-small" title="Modifica quota">✏️</button>
+                  </span>
+                </span>
               </div>
               <div class="detail-row">
                 <span class="detail-label">📄 Ricevuta:</span>
@@ -241,6 +251,7 @@ import {
   addTesseramento,
   deleteSocio,
   isExemptFromPayment,
+  updateTesseramentoQuota,
 } from '@/services/db'
 import AddPaymentModal from '@/components/AddPaymentModal.vue'
 import ConfirmDeleteModal from '@/components/ConfirmDeleteModal.vue'
@@ -262,6 +273,11 @@ const isDeleting = ref(false)
 // Dirty check for unsaved changes
 const originalMemberData = ref(null)
 const hasUnsavedChanges = ref(false)
+
+// Edit Quota State
+const editingQuotaId = ref(null)
+const editQuotaValue = ref(0)
+const saveQuotaLoading = ref(false)
 
 // Toast notifications
 const toast = useToast()
@@ -306,6 +322,36 @@ const calculateNavigation = () => {
     }
   } catch (e) {
     console.error('Nav calc error', e)
+  }
+}
+
+// ---- Modifica Quota Logic ----
+const startEditQuota = (tesseramento) => {
+  editingQuotaId.value = tesseramento.id_tesseramento
+  editQuotaValue.value = Number(tesseramento.quota_pagata || 0)
+}
+
+const cancelEditQuota = () => {
+  editingQuotaId.value = null
+  editQuotaValue.value = 0
+}
+
+const saveQuotaStatus = async (id_tesseramento) => {
+  try {
+    saveQuotaLoading.value = true
+    const newQuota = Number(editQuotaValue.value)
+
+    // Fallback import: updateTesseramentoQuota is now exported from db.js
+    await updateTesseramentoQuota(id_tesseramento, newQuota)
+
+    toast.success('Quota aggiornata con successo!')
+    await loadSocioData() // Ricarica tutto
+  } catch (error) {
+    console.error('Errore aggiornamento quota:', error)
+    toast.error('Errore durante l\'aggiornamento della quota: ' + error.message)
+  } finally {
+    saveQuotaLoading.value = false
+    cancelEditQuota()
   }
 }
 

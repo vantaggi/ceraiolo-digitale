@@ -515,6 +515,74 @@ export async function generateRenewalListPDF(soci, renewalYear) {
 }
 
 /**
+ * Restituisce se in quell'anno il socio era minorenne
+ */
+const isMinorInYear = (member, year) => {
+  if (!member.data_nascita) return false
+  const birthYear = new Date(member.data_nascita).getFullYear()
+  return year - birthYear < 18
+}
+
+/**
+ * Calcola l'anno di iscrizione del socio
+ */
+const getEnrollmentYear = (member, paidYears = []) => {
+  if (member.data_iscrizione) {
+    return new Date(member.data_iscrizione).getFullYear()
+  }
+  if (paidYears && paidYears.length > 0) return Math.min(...paidYears)
+  return new Date().getFullYear() // Fallback
+}
+
+/**
+ * Restituisce se il socio era iscritto in quell'anno
+ */
+const isEnrolledInYear = (member, year, paidYears = []) => {
+  return year >= getEnrollmentYear(member, paidYears)
+}
+
+/**
+ * Aggiunge la legenda dei 4 stati per gli anni al PDF
+ */
+function addStatusLegend(doc, startY) {
+  let currentX = 14
+  doc.setFontSize(8)
+  doc.setTextColor(100, 100, 100)
+  doc.text('Legenda Anni: ', currentX, startY)
+  currentX += doc.getTextWidth('Legenda Anni: ') + 2
+
+  doc.setTextColor(0, 150, 0)
+  doc.text('V', currentX, startY)
+  currentX += doc.getTextWidth('V') + 1
+  doc.setTextColor(100, 100, 100)
+  doc.text('= Pagato    ', currentX, startY)
+  currentX += doc.getTextWidth('= Pagato    ')
+
+  doc.setTextColor(200, 50, 50)
+  doc.text('X', currentX, startY)
+  currentX += doc.getTextWidth('X') + 1
+  doc.setTextColor(100, 100, 100)
+  doc.text('= Non Pagato    ', currentX, startY)
+  currentX += doc.getTextWidth('= Non Pagato    ')
+
+  doc.setTextColor(217, 119, 6)
+  doc.text('O', currentX, startY)
+  currentX += doc.getTextWidth('O') + 1
+  doc.setTextColor(100, 100, 100)
+  doc.text('= Minorenne (Esente)    ', currentX, startY)
+  currentX += doc.getTextWidth('= Minorenne (Esente)    ')
+
+  doc.setTextColor(0, 100, 200)
+  doc.text('-', currentX, startY)
+  currentX += doc.getTextWidth('-') + 1
+  doc.setTextColor(100, 100, 100)
+  doc.text('= Non ancora iscritto', currentX, startY)
+
+  doc.setTextColor(0, 0, 0)
+  return startY + 8
+}
+
+/**
  * Generates a PDF list of members eligible to vote
  * @param {Array} soci - Array of eligible members
  * @param {number} votingYear - The year of the vote (Target Year)
@@ -535,13 +603,16 @@ export async function generateVotingListPDF(soci, votingYear) {
   const previousYear = votingYear - 1
 
   // Header
-  const headerY = addPDFHeader(
+  let headerY = addPDFHeader(
     doc,
     `Aventi Diritto al Voto - Anno ${votingYear}`,
     `Requisiti: Maggiorenni nel ${votingYear} e in regola con il ${previousYear}`,
     `Totale aventi diritto: ${soci.length}`,
     logoData,
   )
+
+  // Aggiungi Legenda
+  headerY = addStatusLegend(doc, headerY + 6) + 4
 
   // Prepara i dati per la tabella
   const tableData = soci.map((socio) => {
@@ -552,17 +623,22 @@ export async function generateVotingListPDF(soci, votingYear) {
       birthDateStr = `${d}/${m}/${y}`
     }
 
+    const paidYears = socio.tesseramenti ? socio.tesseramenti.map((t) => t.anno) : []
     const history = socio.paymentHistory || {}
 
-    // Helper for status cell
-    // Note: Standard PDF fonts do not support Unicode checkmarks (✔).
-    // We use "V" (Verificato/Visto) in Green and "X" in Red.
+    // Nuovo helper per status a 4 stati (V, X, O, -)
     const getStatus = (year) => {
-      const isPaid = history[year]
-      if (isPaid) {
-        return { text: 'V', color: [0, 150, 0] } // Green "V"
+      // Usiamo paidYears (dal tesseramento) o history (se generato dal componente)
+      const isPaid = history[year] || paidYears.includes(year)
+
+      if (!isEnrolledInYear(socio, year, paidYears)) {
+        return { text: '-', color: [0, 100, 200] } // Blu "-"
+      } else if (isPaid) {
+        return { text: 'V', color: [0, 150, 0] } // Verde "V"
+      } else if (isMinorInYear(socio, year)) {
+        return { text: 'O', color: [217, 119, 6] } // Arancio "O"
       } else {
-        return { text: 'X', color: [200, 50, 50] } // Red "X"
+        return { text: 'X', color: [200, 50, 50] } // Rosso "X"
       }
     }
 
@@ -626,13 +702,16 @@ export async function generateActiveMembersPDF(soci, targetYear) {
   const startYear = targetYear - 4
 
   // Header
-  const headerY = addPDFHeader(
+  let headerY = addPDFHeader(
     doc,
     `Soci Attivi (Ultimi 5 Anni)`,
     `Periodo: ${startYear} - ${targetYear} (Almeno 1 pagamento)`,
     `Totale soci attivi: ${soci.length}`,
     logoData,
   )
+
+  // Aggiungi Legenda
+  headerY = addStatusLegend(doc, headerY + 6) + 4
 
   // Prepara i dati per la tabella
   const tableData = soci.map((socio) => {
@@ -643,15 +722,21 @@ export async function generateActiveMembersPDF(soci, targetYear) {
       birthDateStr = `${d}/${m}/${y}`
     }
 
+    const paidYears = socio.tesseramenti ? socio.tesseramenti.map((t) => t.anno) : []
     const history = socio.paymentHistory || {}
 
-    // Helper for status cell
+    // Nuovo helper per status a 4 stati (V, X, O, -)
     const getStatus = (year) => {
-      const isPaid = history[year]
-      if (isPaid) {
-        return { text: 'V', color: [0, 150, 0] } // Green "V"
+      const isPaid = history[year] || paidYears.includes(year)
+
+      if (!isEnrolledInYear(socio, year, paidYears)) {
+        return { text: '-', color: [0, 100, 200] } // Blu "-"
+      } else if (isPaid) {
+        return { text: 'V', color: [0, 150, 0] } // Verde "V"
+      } else if (isMinorInYear(socio, year)) {
+        return { text: 'O', color: [217, 119, 6] } // Arancio "O"
       } else {
-        return { text: 'X', color: [200, 50, 50] } // Red "X"
+        return { text: 'X', color: [200, 50, 50] } // Rosso "X"
       }
     }
 

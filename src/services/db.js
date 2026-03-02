@@ -2510,3 +2510,94 @@ export async function normalizeDatabaseData() {
   }
 }
 
+/**
+ * Audit Quote (Rientri / Nuovi Iscritti)
+ * Trova i soci che hanno pagato meno di 25€ nell'anno richiesto, ma che
+ * in realtà sono nuovi iscritti oppure "rientri" (cioè non hanno pagato l'anno precedente).
+ * @param {number} targetYear L'anno da analizzare
+ * @returns {Promise<Array>} Lista di anomalie trovate
+ */
+export async function getQuotaAuditList(targetYear) {
+  try {
+    const allSoci = await getAllSociWithTesseramenti()
+    const anomalies = []
+
+    for (const socio of allSoci) {
+      if (!socio.tesseramenti || socio.tesseramenti.length === 0) continue
+
+      // Trova il pagamento per l'anno target
+      const targetPayment = socio.tesseramenti.find((t) => t.anno === targetYear)
+      if (!targetPayment) continue // Non ha pagato in questo anno
+
+      // Se ha già pagato 25€ (o più), va bene
+      const quotaPagata = Number(targetPayment.quota_pagata) || 0
+      if (quotaPagata >= 25) continue
+
+      // Se nell'anno in questione era minorenne (esente), non è un'anomalia pagare meno di 25
+      if (isExemptFromPayment(socio, targetYear)) continue
+
+      // Analizziamo lo storico dei pagamenti per capire se doveva pagare 25€
+      const paidYears = socio.tesseramenti.map((t) => t.anno).sort((a, b) => a - b)
+
+      const isFirstPayment = paidYears[0] === targetYear
+      const missedPreviousYear = !paidYears.includes(targetYear - 1) && !isFirstPayment
+
+      if (isFirstPayment) {
+        anomalies.push({
+          socio,
+          tesseramento: targetPayment,
+          expectedQuota: 25,
+          reason: 'Nuovo Iscritto (primo pagamento registrato)',
+        })
+      } else if (missedPreviousYear) {
+        // Rientro: ha pagato in passato, ma non l'anno prima (es. paga nel 2024, ma non ha pagato nel 2023)
+        // Ma aspetta: se l'anno in cui ha saltato il pagamento (targetYear - 1) era MINORENNE,
+        // allora quel "buco" è giustificato e non deve pagare la quota di rientro doppia.
+        const wasMinorInMissedYear = isExemptFromPayment(socio, targetYear - 1)
+
+        if (!wasMinorInMissedYear) {
+          anomalies.push({
+            socio,
+            tesseramento: targetPayment,
+            expectedQuota: 25,
+            reason: `Rientro (nessun pagamento registrato e maggiorenne nel ${targetYear - 1})`,
+          })
+        }
+      }
+    }
+
+    // Ordina per cognome e nome
+    return anomalies.sort((a, b) => a.socio.cognome.localeCompare(b.socio.cognome))
+  } catch (error) {
+    console.error('Errore durante l\'Audit Quote:', error)
+    throw new Error(`Impossibile generare l'audit delle quote: ${error.message}`)
+  }
+}
+
+/**
+ * Aggiorna la quota pagata per un singolo tesseramento.
+ * @param {number|string} id_tesseramento - ID del tesseramento da modificare
+ * @param {number} nuova_quota - Il nuovo importo in Euro
+ * @returns {Promise<number>} numero di record aggiornati
+ */
+export async function updateTesseramentoQuota(id_tesseramento, nuova_quota) {
+  try {
+    const idNum = Number(id_tesseramento)
+    if (isNaN(idNum) || isNaN(nuova_quota)) {
+      throw new Error('ID tesseramento o nuova quota non validi')
+    }
+
+    const updated = await db.tesseramenti.update(idNum, {
+      quota_pagata: Number(nuova_quota)
+    })
+
+    if (updated === 0) {
+      throw new Error(`Tesseramento con ID ${idNum} non trovato`)
+    }
+
+    return updated
+  } catch (error) {
+    console.error('Errore durante l\'aggiornamento della quota:', error)
+    throw new Error(`Impossibile aggiornare la quota: ${error.message}`)
+  }
+}

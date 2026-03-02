@@ -33,6 +33,13 @@
           >
             📈 Statistiche
           </button>
+          <button
+            @click="currentTab = 'audit-quote'"
+            :class="{ active: currentTab === 'audit-quote' }"
+            class="nav-item"
+          >
+            ⚖️ Audit Quote (Rientri)
+          </button>
           <hr style="border: 0; border-top: 1px solid var(--color-border); margin: 10px 0;" />
           <router-link
             to="/reports-beta"
@@ -461,6 +468,75 @@
             </div>
           </section>
         </div>
+
+        <!-- TAB: AUDIT QUOTE (RIENTRI) -->
+        <div v-if="currentTab === 'audit-quote'">
+          <section class="report-section">
+            <h2>⚖️ Report Controllo Quote: Nuovi Iscritti & Rientri</h2>
+            <p>
+              I Nuovi Iscritti e chi riprende a pagare dopo aver saltato un anno (Rientri) devono versare una quota di <b>25€</b>.
+              Questo strumento controlla gli ultimi anni (e.g. 2024, 2025, 2026) per individuare chi è rientrato ma a cui sono stati erroneamente registrati solo 10€.
+            </p>
+
+            <div class="filters-inline">
+              <label>Anno Base: <strong>{{ renewalYear }}</strong> <small>(Controlla pagamenti di quest'anno o degli anni passati)</small></label>
+            </div>
+
+            <button @click="runQuotaAuditTask" class="action-button wide" :disabled="loading">
+              🔍 Esegui Controllo Quote
+            </button>
+
+            <!-- Risultati Audit Quote -->
+            <div v-if="auditQuotaResults" class="audit-box" style="margin-top: 2rem;">
+              <div v-if="auditQuotaResults.length === 0" class="success-message">
+                ✅ Nessuna anomalia trovata! Tutte le quote dei rientri per l'anno {{ renewalYear }} sono corrette.
+              </div>
+              <div v-else>
+                <div class="audit-stats">
+                  <span class="stat-tag" style="background: var(--color-danger); color: white;">
+                    ⚠️ Rilevate <b>{{ auditQuotaResults.length }}</b> anomalie di versamento
+                  </span>
+                </div>
+
+                <div class="audit-preview" style="margin-top: 1rem;">
+                  <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                      <tr style="border-bottom: 2px solid var(--color-border); text-align: left;">
+                        <th style="padding: 10px;">Socio</th>
+                        <th style="padding: 10px;">Anno Rientro</th>
+                        <th style="padding: 10px;">Quota Pagata</th>
+                        <th style="padding: 10px;">Ricevuta / Blocchetto</th>
+                        <th style="padding: 10px;">Motivo</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="item in auditQuotaResults" :key="item.tesseramento.id" style="border-bottom: 1px solid var(--color-border);">
+                        <td style="padding: 10px;">
+                          <router-link :to="`/socio/${item.socio.id}`" style="color: var(--color-primary); font-weight: bold;">
+                            {{ item.socio.cognome }} {{ item.socio.nome }}
+                          </router-link>
+                        </td>
+                        <td style="padding: 10px; font-weight: bold;">{{ item.tesseramento.anno }}</td>
+                        <td style="padding: 10px; color: var(--color-danger); font-weight: bold;">
+                          € {{ Number(item.tesseramento.quota_pagata || 0).toFixed(2) }}
+                        </td>
+                        <td style="padding: 10px;">
+                          {{ item.tesseramento.numero_ricevuta || '-' }} / {{ item.tesseramento.numero_blocchetto || '-' }}
+                        </td>
+                        <td style="padding: 10px;">
+                          <span style="font-size: 0.85em; color: var(--color-text-secondary);">
+                            {{ item.reason }}
+                          </span>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <!-- TODO: Pulsante Download PDF Export Audit Quote in futuro se necessario -->
+              </div>
+            </div>
+          </section>
+        </div>
       </main>
 
       <!-- Loading Overlay -->
@@ -501,6 +577,7 @@ import {
   getVotingEligibleMembers,
   getActiveMembersLast5Years,
   getSetting,
+  getQuotaAuditList,
 } from '@/services/db'
 import TesseraTemplate from '@/components/TesseraTemplate.vue'
 import AgeCategoryFilter from '@/components/AgeCategoryFilter.vue'
@@ -512,6 +589,7 @@ const loading = ref(false)
 const loadingMessage = ref('')
 const cardProgress = ref(0)
 const auditResults = ref(null)
+const auditQuotaResults = ref(null)
 const demographics = ref(null)
 const economicStats = ref(null)
 const cardBackground = ref(null)
@@ -1006,6 +1084,32 @@ const runDataAudit = async () => {
   } catch (error) {
     console.error(error)
     toast.error('Errore audit: ' + error.message)
+  } finally {
+    loading.value = false
+    loadingMessage.value = ''
+  }
+}
+
+const runQuotaAuditTask = async () => {
+  if (!renewalYear.value) return
+  try {
+    loading.value = true
+    loadingMessage.value = 'Ricerca anomalie quote (Rientri / Nuovi)...'
+
+    // Simulate delay per UX
+    await new Promise((r) => setTimeout(r, 500))
+
+    const results = await getQuotaAuditList(renewalYear.value)
+    auditQuotaResults.value = results
+
+    if (results.length === 0) {
+      toast.success('Nessuna anomalia trovata! Tutte le quote sono 25€ per i rientri.')
+    } else {
+      toast.warning(`Trovate ${results.length} quote potenzialmente errate.`)
+    }
+  } catch (error) {
+    console.error('Errore audit quote:', error)
+    toast.error('Errore audit quote: ' + error.message)
   } finally {
     loading.value = false
     loadingMessage.value = ''
