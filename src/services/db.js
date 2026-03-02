@@ -2097,16 +2097,30 @@ export async function getEconomicStats(year) {
     const stats = {
       totalRevenue: 0,
       totalPayments: tesseramenti.length,
+      totalStandardQuotas: 0,
+      totalPenaltyQuotas: 0,
+      otherQuotas: 0,
       averageQuota: 0,
       groupBreakdown: {},
     }
 
     tesseramenti.forEach((t) => {
-      stats.totalRevenue += t.quota_pagata
+      const quota = Number(t.quota_pagata) || 0
+      stats.totalRevenue += quota
+
+      // Logic for split quotas
+      if (quota > 0 && quota <= 15) {
+        stats.totalStandardQuotas += quota
+      } else if (quota >= 25) {
+        stats.totalPenaltyQuotas += quota
+      } else if (quota > 0) {
+        stats.otherQuotas += quota
+      }
+
       const socio = sociMap.get(t.id_socio)
       if (socio) {
         const group = socio.gruppo_appartenenza || 'Non specificato'
-        stats.groupBreakdown[group] = (stats.groupBreakdown[group] || 0) + t.quota_pagata
+        stats.groupBreakdown[group] = (stats.groupBreakdown[group] || 0) + quota
       }
     })
 
@@ -2183,6 +2197,7 @@ export async function getDataAuditStats() {
       missing_reg_date: 0,
       missing_group: 0,
       future_reg: 0,
+      invalid_reg_date: 0,
       total_issues: 0,
     }
 
@@ -2207,14 +2222,31 @@ export async function getDataAuditStats() {
       // Improved Logic: If data_prima_iscrizione is missing, check if they have any payment history.
       // If they have payments, we can infer the first payment year as registration, so it's not "missing basic data".
       // Only flag if BOTH are missing.
+      const hasPayments = activeMembers.has(socio.id)
+
       if (!socio.data_prima_iscrizione) {
-        if (!activeMembers.has(socio.id)) {
+        if (!hasPayments) {
           socioIssues.push('Data Iscrizione mancante (e nessun pagamento)')
           summary.missing_reg_date++
         }
-      } else if (socio.data_prima_iscrizione > currentYear) {
-        socioIssues.push(`Iscrizione nel futuro (${socio.data_prima_iscrizione})`)
-        summary.future_reg++
+      } else {
+        const regYear = parseInt(socio.data_prima_iscrizione)
+
+        if (regYear > currentYear) {
+          socioIssues.push(`Iscrizione nel futuro (${regYear})`)
+          summary.future_reg++
+        } else if (hasPayments) {
+          // Check if registration date is AFTER the first payment they made
+          // which is structurally illogical.
+          const payments = allTesseramenti.filter(t => t.id_socio === socio.id)
+          if (payments.length > 0) {
+            const firstPaymentYear = Math.min(...payments.map(t => t.anno))
+            if (regYear > firstPaymentYear) {
+              socioIssues.push(`Iscrizione illogica: Registrato nel ${regYear}, ma ha pagato nel ${firstPaymentYear}`)
+              summary.invalid_reg_date++
+            }
+          }
+        }
       }
 
       // Check Group

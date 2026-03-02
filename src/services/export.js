@@ -1836,3 +1836,63 @@ export async function importSettingsFromJson(file) {
     reader.readAsText(file)
   })
 }
+
+/**
+ * Report PDF delle quote Rientri/Nuovi (Audit Quote)
+ */
+export async function generateAuditQuotaPDF(auditResults, year) {
+  try {
+    const doc = createPDFDocument('portrait')
+
+    let logoData = null
+    try {
+      logoData = await loadImage(logoUrl)
+    } catch (e) {
+      console.warn('Impossibile caricare il logo per il PDF', e)
+    }
+
+    const headerY = addPDFHeader(
+      doc,
+      `Audit Quote (Rientri / Nuovi)`,
+      `Anno Riferimento: ${year}`,
+      `Righe trovate: ${auditResults.length}`,
+      logoData
+    )
+
+    const tableData = auditResults.map((item) => {
+      const quota = Number(item.tesseramento.quota_pagata || 0).toFixed(2)
+      return [
+        `${item.socio.cognome} ${item.socio.nome}`,
+        item.tesseramento.anno.toString(),
+        { text: `€ ${quota}`, color: [200, 50, 50] }, // Red for highlight
+        `${item.tesseramento.numero_ricevuta || '-'} / ${item.tesseramento.numero_blocchetto || '-'}`,
+        item.reason
+      ]
+    })
+
+    const headers = [
+      { text: 'Socio', width: 45 },
+      { text: 'Anno', width: 15 },
+      { text: 'Quota', width: 20 },
+      { text: 'Ric / Bloc', width: 25 },
+      { text: 'Motivazione', width: 80 }
+    ]
+
+    createPDFTable(doc, headers, tableData, headerY + 10)
+    addPDFFooter(doc)
+
+    const filename = `Audit_Quote_Rientri_${year}_${new Date().toISOString().split('T')[0]}.pdf`
+
+    return {
+      success: true,
+      blob: doc.output('blob'),
+      filename
+    }
+  } catch (error) {
+    console.error('Errore generazione PDF audit quote:', error)
+    return {
+      success: false,
+      error: error.message
+    }
+  }
+}

@@ -112,7 +112,7 @@
 
 <script setup>
 import { ref, reactive, watch, nextTick } from 'vue'
-import { getTesseramentiBySocioId, getSetting, calculateAgeInYear } from '@/services/db'
+import { getTesseramentiBySocioId, getSetting, calculateAgeInYear, isExemptFromPayment } from '@/services/db'
 
 const emit = defineEmits(['close', 'payments-saved'])
 
@@ -257,15 +257,42 @@ watch(
 
 const resetForm = async () => {
   // Load default quota from settings
-  const defaultQuota = await getSetting('defaultQuota', 10.0)
-  paymentDetails.quota_pagata = defaultQuota
+  let defaultQuota = await getSetting('defaultQuota', 10.0)
 
   paymentDetails.data_pagamento = new Date().toISOString().split('T')[0]
   paymentDetails.numero_blocchetto = props.numeroBlocchetto
   paymentDetails.numero_ricevuta = props.numeroRicevuta
 
   // Load available years and set default selection
+  // This also populates paidYears and availableYears
   await loadAvailableYears()
+
+  // Calculate if the user should pay the 25 EUR penalty fee (New member or Returning)
+  try {
+    const socio = await import('@/services/db').then((m) => m.getSocioById(props.socioId))
+    const targetYear = props.annoRiferimento
+
+    if (!isExemptFromPayment(socio, targetYear)) {
+      const pastPaidYears = Array.from(paidYears.value).sort((a, b) => a - b)
+
+      const isFirstPayment = pastPaidYears.length === 0 || pastPaidYears[0] >= targetYear
+      const missedPreviousYear = !pastPaidYears.includes(targetYear - 1) && !isFirstPayment
+
+      if (isFirstPayment) {
+        defaultQuota = 25.0 // Nuovo Iscritto
+      } else if (missedPreviousYear) {
+        // Rientro, a meno che l'anno del buco non fosse minorenne
+        const wasMinorInMissedYear = isExemptFromPayment(socio, targetYear - 1)
+        if (!wasMinorInMissedYear) {
+          defaultQuota = 25.0
+        }
+      }
+    }
+  } catch(e) {
+    console.warn("Could not calculate automatic quota", e)
+  }
+
+  paymentDetails.quota_pagata = defaultQuota
 
   // Pre-select reference year if available, otherwise select first available year
   if (availableYears.value.includes(props.annoRiferimento)) {

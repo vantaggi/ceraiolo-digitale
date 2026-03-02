@@ -153,9 +153,10 @@
               <div class="year-info">
                 <span class="year-number">{{ item.anno }}</span>
                 <span class="year-status" :class="item.stato">
-                  <span v-if="item.isPagato">✓ Pagato</span>
-                  <span v-else-if="item.isEsente">✓ Minorenne</span>
-                  <span v-else>✗ Non Pagato</span>
+                  <span v-if="item.stato === 'pagato'" class="badge badge-v">V Pagato</span>
+                  <span v-else-if="item.stato === 'esente'" class="badge badge-o">O Minorenne</span>
+                  <span v-else-if="item.stato === 'non-iscritto'" class="badge badge-minus">- Non iscritto</span>
+                  <span v-else class="badge badge-x">X Non Pagato</span>
                 </span>
               </div>
               <div class="year-actions">
@@ -465,16 +466,19 @@ const paymentChronology = computed(() => {
   for (let anno = annoPrimaIscrizione; anno <= annoFinale; anno++) {
     const isPagato = anniPagati.includes(anno)
     const isEsente = !isPagato && isExemptFromPayment(socio.value, anno)
+    const isNonIscritto = anno < annoPrimaIscrizione && !isPagato
     const tesseramento = tesseramenti.value.find((t) => t.anno === anno)
 
     let stato = 'non-pagato'
-    if (isPagato) stato = 'pagato'
+    if (isNonIscritto) stato = 'non-iscritto'
+    else if (isPagato) stato = 'pagato'
     else if (isEsente) stato = 'esente'
 
     chronology.push({
       anno,
       isPagato,
       isEsente,
+      isNonIscritto,
       tesseramento,
       stato,
     })

@@ -217,8 +217,23 @@
             <div class="stats-summary">
               <div class="stat-card totalHighlight">
                 <h3>Entrate Totali</h3>
-                <div class="big-number">€ {{ economicStats.totalRevenue }}</div>
+                <div class="big-number">€ {{ economicStats.totalRevenue.toFixed(2) }}</div>
                 <small>{{ economicStats.totalPayments }} pagamenti registrati</small>
+
+                <div style="margin-top: 1rem; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 1rem;">
+                  <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                     <span>Rinnovi Standard (10€):</span>
+                     <strong>€ {{ economicStats.totalStandardQuotas.toFixed(2) }}</strong>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                     <span>Nuovi / Rientri (25€+):</span>
+                     <strong>€ {{ economicStats.totalPenaltyQuotas.toFixed(2) }}</strong>
+                  </div>
+                  <div v-if="economicStats.otherQuotas > 0" style="display: flex; justify-content: space-between;">
+                     <span>Altre Quote:</span>
+                     <strong>€ {{ economicStats.otherQuotas.toFixed(2) }}</strong>
+                  </div>
+                </div>
               </div>
 
               <div class="stat-card">
@@ -410,6 +425,9 @@
                   <span v-if="auditResults.summary.future_reg" class="stat-tag"
                     >⚠️ Date Future: <b>{{ auditResults.summary.future_reg }}</b></span
                   >
+                  <span v-if="auditResults.summary.invalid_reg_date" class="stat-tag"
+                    >⚠️ Iscrizioni Illogiche: <b>{{ auditResults.summary.invalid_reg_date }}</b></span
+                  >
                 </div>
                 <p class="audit-info">
                   Trovate <b>{{ auditResults.summary.total_issues }}</b> anomalie totali.
@@ -532,7 +550,15 @@
                     </tbody>
                   </table>
                 </div>
-                <!-- TODO: Pulsante Download PDF Export Audit Quote in futuro se necessario -->
+
+                <div class="audit-actions" style="margin-top: 1.5rem; display: flex; gap: 1rem;">
+                  <button @click="exportAuditQuotaPDF" class="action-button secondary" :disabled="loading">
+                    📄 Esporta PDF
+                  </button>
+                  <button @click="exportAuditQuotaExcel" class="action-button secondary" :disabled="loading">
+                    📊 Esporta Excel
+                  </button>
+                </div>
               </div>
             </div>
           </section>
@@ -562,7 +588,9 @@ import {
   generateAuditPDF,
   generateVotingListPDF,
   generateActiveMembersPDF,
+  generateAuditQuotaPDF,
 } from '@/services/export'
+import { exportToExcel } from '@/services/excelExport'
 import {
   getAllSociWithTesseramenti,
   getNewMembersByYear,
@@ -1113,6 +1141,59 @@ const runQuotaAuditTask = async () => {
   } finally {
     loading.value = false
     loadingMessage.value = ''
+  }
+}
+
+const exportAuditQuotaPDF = async () => {
+  if (!auditQuotaResults.value || auditQuotaResults.value.length === 0) return
+
+  try {
+    loading.value = true
+    loadingMessage.value = 'Generazione PDF Audit Quote...'
+
+    const result = await generateAuditQuotaPDF(auditQuotaResults.value, renewalYear.value)
+
+    if (result.success) {
+      const url = URL.createObjectURL(result.blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = result.filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+
+      toast.success('Report PDF scaricato!')
+    } else {
+      throw new Error(result.error)
+    }
+  } catch (error) {
+    console.error('Errore export PDF Audit Quote:', error)
+    toast.error('Errore generazione PDF: ' + error.message)
+  } finally {
+    loading.value = false
+    loadingMessage.value = ''
+  }
+}
+
+const exportAuditQuotaExcel = () => {
+  if (!auditQuotaResults.value || auditQuotaResults.value.length === 0) return
+
+  try {
+    const data = auditQuotaResults.value.map(item => ({
+      'Cognome e Nome': `${item.socio.cognome} ${item.socio.nome}`,
+      'Anno Rientro': item.tesseramento.anno,
+      'Quota Pagata': `€ ${Number(item.tesseramento.quota_pagata || 0).toFixed(2)}`,
+      'Ricevuta': item.tesseramento.numero_ricevuta || '-',
+      'Blocchetto': item.tesseramento.numero_blocchetto || '-',
+      'Motivazione': item.reason
+    }))
+
+    exportToExcel(data, `Audit_Quote_Rientri_${renewalYear.value}`);
+    toast.success('File Excel scaricato!')
+  } catch (error) {
+    console.error('Errore export Excel Audit Quote:', error)
+    toast.error('Errore durante l\'export Excel.')
   }
 }
 
