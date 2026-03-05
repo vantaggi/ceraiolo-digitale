@@ -155,7 +155,7 @@ export async function updateBlocchetto(id, updateData) {
     await logLocalChange('blocchetti', id, 'UPDATE', oldData, { ...oldData, ...updateData })
   } catch (error) {
     console.error('Error updating blocchetto:', error)
-    throw new Error("Impossibile aggiornare il blocchetto: " + error.message)
+    throw new Error('Impossibile aggiornare il blocchetto: ' + error.message)
   }
 }
 
@@ -181,7 +181,7 @@ export async function deleteBlocchetto(id) {
     }
   } catch (error) {
     console.error('Error deleting blocchetto:', error)
-    throw new Error("Impossibile eliminare il blocchetto: " + error.message)
+    throw new Error('Impossibile eliminare il blocchetto: ' + error.message)
   }
 }
 
@@ -192,66 +192,78 @@ export async function deleteBlocchetto(id) {
 export async function syncBlocchettiFromTesseramenti() {
   try {
     // 1. Remove previous auto-imported blocchetti to recalculate them freshly
-    const vecchiAutoImportati = await db.blocchetti.filter(b => b.assegnato_a === 'Auto-Importato da Storico').toArray()
+    const vecchiAutoImportati = await db.blocchetti
+      .filter((b) => b.assegnato_a === 'Auto-Importato da Storico')
+      .toArray()
     if (vecchiAutoImportati.length > 0) {
-      await db.blocchetti.bulkDelete(vecchiAutoImportati.map(b => b.id))
+      await db.blocchetti.bulkDelete(vecchiAutoImportati.map((b) => b.id))
     }
 
-    const tesseramenti = await db.tesseramenti.toArray();
-    const existingBlocchetti = await db.blocchetti.toArray();
-    const existingIds = new Set(existingBlocchetti.map(b => Number(b.numero_blocchetto)));
+    const tesseramenti = await db.tesseramenti.toArray()
+    const existingBlocchetti = await db.blocchetti.toArray()
+    const existingIds = new Set(existingBlocchetti.map((b) => Number(b.numero_blocchetto)))
 
     // Group tesseramenti by numero_blocchetto
-    const grouped = {};
+    const grouped = {}
     for (const t of tesseramenti) {
-      if (t.numero_blocchetto !== null && t.numero_blocchetto !== undefined && t.numero_blocchetto !== '') {
-        const bloccoId = Number(t.numero_blocchetto);
-        if (isNaN(bloccoId) || bloccoId <= 0) continue;
+      if (
+        t.numero_blocchetto !== null &&
+        t.numero_blocchetto !== undefined &&
+        t.numero_blocchetto !== ''
+      ) {
+        const bloccoId = Number(t.numero_blocchetto)
+        if (isNaN(bloccoId) || bloccoId <= 0) continue
 
         if (!grouped[bloccoId]) {
           grouped[bloccoId] = {
             ricevute: [],
-            dates: []
-          };
+            dates: [],
+          }
         }
 
-        if (t.numero_ricevuta !== null && t.numero_ricevuta !== undefined && t.numero_ricevuta !== '') {
-          const rId = Number(t.numero_ricevuta);
+        if (
+          t.numero_ricevuta !== null &&
+          t.numero_ricevuta !== undefined &&
+          t.numero_ricevuta !== ''
+        ) {
+          const rId = Number(t.numero_ricevuta)
           if (!isNaN(rId) && rId > 0) {
-            grouped[bloccoId].ricevute.push(rId);
+            grouped[bloccoId].ricevute.push(rId)
           }
         }
 
         if (t.data_pagamento) {
-          const dTime = new Date(t.data_pagamento).getTime();
+          const dTime = new Date(t.data_pagamento).getTime()
           if (!isNaN(dTime)) {
-            grouped[bloccoId].dates.push(dTime);
+            grouped[bloccoId].dates.push(dTime)
           }
         }
       }
     }
 
     // Insert missing blocchetti
-    const toAdd = [];
+    const toAdd = []
     for (const [numero_blocchetto, data] of Object.entries(grouped)) {
-      const bloccoNum = Number(numero_blocchetto);
+      const bloccoNum = Number(numero_blocchetto)
       if (!existingIds.has(bloccoNum)) {
         // Calculate min and max receipts
-        const validRicevute = data.ricevute;
-        const minR = validRicevute.length > 0 ? Math.min(...validRicevute) : 1;
-        const maxR = validRicevute.length > 0 ? Math.max(...validRicevute) : 50;
+        const validRicevute = data.ricevute
+        const minR = validRicevute.length > 0 ? Math.min(...validRicevute) : 1
+        const maxR = validRicevute.length > 0 ? Math.max(...validRicevute) : 50
 
         // Find earliest payment date roughly
-        let earliestStr = new Date().toISOString().split('T')[0];
+        let earliestStr = new Date().toISOString().split('T')[0]
         if (data.dates && data.dates.length > 0) {
-           const earliestTime = Math.min(...data.dates);
-           earliestStr = new Date(earliestTime).toISOString().split('T')[0];
+          const earliestTime = Math.min(...data.dates)
+          earliestStr = new Date(earliestTime).toISOString().split('T')[0]
         }
 
         // Se il blocchetto ha origini nell'anno scorso o prima, è verosimilmente già Restituito fine anno
-        let dataRestituzione = null;
+        let dataRestituzione = null
         if (new Date(earliestStr).getFullYear() < new Date().getFullYear()) {
-           dataRestituzione = new Date(new Date(earliestStr).getFullYear(), 11, 31).toISOString().split('T')[0]; // 31 Dicembre
+          dataRestituzione = new Date(new Date(earliestStr).getFullYear(), 11, 31)
+            .toISOString()
+            .split('T')[0] // 31 Dicembre
         }
 
         toAdd.push({
@@ -260,18 +272,17 @@ export async function syncBlocchettiFromTesseramenti() {
           ricevute_a: maxR,
           assegnato_a: 'Auto-Importato da Storico',
           data_assegnazione: earliestStr,
-          data_restituzione: dataRestituzione
-        });
+          data_restituzione: dataRestituzione,
+        })
       }
     }
 
     if (toAdd.length > 0) {
-      await db.blocchetti.bulkAdd(toAdd);
-      console.log(`Auto-imported ${toAdd.length} blocchetti from tesseramenti.`);
+      await db.blocchetti.bulkAdd(toAdd)
+      console.log(`Auto-imported ${toAdd.length} blocchetti from tesseramenti.`)
     }
-
   } catch (err) {
-    console.error('Error syncing blocchetti:', err);
+    console.error('Error syncing blocchetti:', err)
   }
 }
 
@@ -2238,11 +2249,13 @@ export async function getDataAuditStats() {
         } else if (hasPayments) {
           // Check if registration date is AFTER the first payment they made
           // which is structurally illogical.
-          const payments = allTesseramenti.filter(t => t.id_socio === socio.id)
+          const payments = allTesseramenti.filter((t) => t.id_socio === socio.id)
           if (payments.length > 0) {
-            const firstPaymentYear = Math.min(...payments.map(t => t.anno))
+            const firstPaymentYear = Math.min(...payments.map((t) => t.anno))
             if (regYear > firstPaymentYear) {
-              socioIssues.push(`Iscrizione illogica: Registrato nel ${regYear}, ma ha pagato nel ${firstPaymentYear}`)
+              socioIssues.push(
+                `Iscrizione illogica: Registrato nel ${regYear}, ma ha pagato nel ${firstPaymentYear}`,
+              )
               summary.invalid_reg_date++
             }
           }
@@ -2491,7 +2504,7 @@ export async function normalizeDatabaseData() {
         recordsToFix.push({
           ...tess,
           numero_blocchetto: rNum, // Il più piccolo
-          numero_ricevuta: bNum    // Il più grande
+          numero_ricevuta: bNum, // Il più grande
         })
       }
     }
@@ -2513,7 +2526,7 @@ export async function normalizeDatabaseData() {
     // Per sapere quali sono i blocchetti VERI, scandagliamo i tesseramenti appena curati:
     const updatedTesseramenti = await db.tesseramenti.toArray()
     for (const t of updatedTesseramenti) {
-        validBlocchettiKeys.add(Number(t.numero_blocchetto))
+      validBlocchettiKeys.add(Number(t.numero_blocchetto))
     }
 
     let deletedBlocchetti = 0
@@ -2521,19 +2534,21 @@ export async function normalizeDatabaseData() {
     // Rimuoviamo dalla tabella Blocchetti (fisica) quelli che NON esistono più come blocchetti
     // nei tesseramenti guariti (perché in realtà erano numeri di ricevuta storici).
     for (const b of allBlocchettiDB) {
-        const bNum = Number(b.numero_blocchetto)
-        if (!validBlocchettiKeys.has(bNum)) {
-            // Questo blocchetto non esiste nei pagamenti come numero piccolo.
-            // Significa che era un falso storico (un record generato dal numero ricevuta alto).
-            await db.blocchetti.delete(b.id || bNum)
-            deletedBlocchetti++
-        }
+      const bNum = Number(b.numero_blocchetto)
+      if (!validBlocchettiKeys.has(bNum)) {
+        // Questo blocchetto non esiste nei pagamenti come numero piccolo.
+        // Significa che era un falso storico (un record generato dal numero ricevuta alto).
+        await db.blocchetti.delete(b.id || bNum)
+        deletedBlocchetti++
+      }
     }
 
     // (Opzionale ma utile): potremmo anche voler salvare i veri blocchetti per farli apparire "Assegnati allo storico"
     // Non tocco l'assegnazione per non rompere cose, si vede già dinamicamente nella BlocchettiView.
 
-    console.log(`Pulizia Blocchetti Fantasma conclusa: eliminati ${deletedBlocchetti} falsi blocchetti generati dallo storico.`)
+    console.log(
+      `Pulizia Blocchetti Fantasma conclusa: eliminati ${deletedBlocchetti} falsi blocchetti generati dallo storico.`,
+    )
 
     return recordsToFix.length + deletedBlocchetti
   } catch (error) {
@@ -2601,7 +2616,7 @@ export async function getQuotaAuditList(targetYear) {
     // Ordina per cognome e nome
     return anomalies.sort((a, b) => a.socio.cognome.localeCompare(b.socio.cognome))
   } catch (error) {
-    console.error('Errore durante l\'Audit Quote:', error)
+    console.error("Errore durante l'Audit Quote:", error)
     throw new Error(`Impossibile generare l'audit delle quote: ${error.message}`)
   }
 }
@@ -2614,22 +2629,26 @@ export async function getQuotaAuditList(targetYear) {
  */
 export async function updateTesseramentoQuota(id_tesseramento, nuova_quota) {
   try {
-    const idNum = Number(id_tesseramento)
-    if (isNaN(idNum) || isNaN(nuova_quota)) {
+    let finalId = id_tesseramento
+    if (typeof id_tesseramento === 'string' && !isNaN(Number(id_tesseramento))) {
+      finalId = Number(id_tesseramento)
+    }
+
+    if (!finalId || isNaN(Number(nuova_quota))) {
       throw new Error('ID tesseramento o nuova quota non validi')
     }
 
-    const updated = await db.tesseramenti.update(idNum, {
-      quota_pagata: Number(nuova_quota)
+    const updated = await db.tesseramenti.update(finalId, {
+      quota_pagata: Number(nuova_quota),
     })
 
     if (updated === 0) {
-      throw new Error(`Tesseramento con ID ${idNum} non trovato`)
+      throw new Error(`Tesseramento con ID ${finalId} non trovato`)
     }
 
     return updated
   } catch (error) {
-    console.error('Errore durante l\'aggiornamento della quota:', error)
+    console.error("Errore durante l'aggiornamento della quota:", error)
     throw new Error(`Impossibile aggiornare la quota: ${error.message}`)
   }
 }
