@@ -12,17 +12,35 @@ import logoUrl from '@/assets/logo_santantoniari.jpg'
  */
 const loadImage = (url) => {
   return new Promise((resolve, reject) => {
+    if (typeof Image === 'undefined') {
+      return reject(new Error('Image not supported'))
+    }
+    const timer = setTimeout(() => {
+      reject(new Error('Image load timeout'))
+    }, 400)
     const img = new Image()
     img.crossOrigin = 'Anonymous'
     img.onload = () => {
-      const canvas = document.createElement('canvas')
-      canvas.width = img.width
-      canvas.height = img.height
-      const ctx = canvas.getContext('2d')
-      ctx.drawImage(img, 0, 0)
-      resolve(canvas.toDataURL('image/jpeg'))
+      clearTimeout(timer)
+      try {
+        const canvas = document.createElement('canvas')
+        canvas.width = img.width || 100
+        canvas.height = img.height || 100
+        const ctx = canvas.getContext('2d')
+        if (ctx) {
+          ctx.drawImage(img, 0, 0)
+          resolve(canvas.toDataURL('image/jpeg'))
+        } else {
+          resolve(null)
+        }
+      } catch (err) {
+        reject(err)
+      }
     }
-    img.onerror = reject
+    img.onerror = (err) => {
+      clearTimeout(timer)
+      reject(err)
+    }
     img.src = url
   })
 }
@@ -44,6 +62,47 @@ function formatDate(dateStr) {
     return dateStr
   }
 }
+
+/**
+ * Formats an ISO date string (YYYY-MM-DD) into Italian capitalized month text format (DD Mese YYYY)
+ * e.g. '1980-05-15' -> '15 Maggio 1980'
+ * @param {string} dateStr
+ * @returns {string} Formatted date in Italian or empty string
+ */
+export function formatItalianDOB(dateStr) {
+  if (!dateStr) return ''
+  try {
+    const cleanDate = String(dateStr).split('T')[0].trim()
+    const parts = cleanDate.split('-')
+    if (parts.length < 3) return dateStr
+    const [anno, mese, giorno] = parts
+    const aNum = parseInt(anno, 10)
+    const mIndex = parseInt(mese, 10) - 1
+    const gNum = parseInt(giorno, 10)
+    if (isNaN(aNum) || isNaN(mIndex) || isNaN(gNum) || mIndex < 0 || mIndex > 11) {
+      return dateStr
+    }
+    const mesi = [
+      'Gennaio',
+      'Febbraio',
+      'Marzo',
+      'Aprile',
+      'Maggio',
+      'Giugno',
+      'Luglio',
+      'Agosto',
+      'Settembre',
+      'Ottobre',
+      'Novembre',
+      'Dicembre',
+    ]
+    const meseNome = mesi[mIndex]
+    return `${gNum} ${meseNome} ${aNum}`
+  } catch {
+    return dateStr || ''
+  }
+}
+
 
 /**
  * Crea un documento PDF con configurazione base
@@ -808,30 +867,8 @@ export async function generateSingleCardPDF(socio, renewalYear) {
     const page = pdfDoc.getPages()[0]
     const { width, height } = page.getSize()
 
-    // Formatta la data come nel componente Vue
-    const formattaData = (dataNascita) => {
-      if (!dataNascita) return ''
-      const [anno, mese, giorno] = dataNascita.split('-')
-      const mesi = [
-        'Gennaio',
-        'Febbraio',
-        'Marzo',
-        'Aprile',
-        'Maggio',
-        'Giugno',
-        'Luglio',
-        'Agosto',
-        'Settembre',
-        'Ottobre',
-        'Novembre',
-        'Dicembre',
-      ]
-      const meseNome = mesi[parseInt(mese) - 1]
-      return `${parseInt(giorno)} ${meseNome} ${anno}`
-    }
-
     const nomeCognome = `${socio.cognome} ${socio.nome}`
-    const dataNascitaFormattata = formattaData(socio.data_nascita)
+    const dataNascitaFormattata = formatItalianDOB(socio.data_nascita)
 
     // Calcola le dimensioni dell'area di testo (stesso calcolo di TesseraTemplate.vue)
     // Padding: 12mm sopra/sotto, 15% sinistra/destra per forzare wrapping
@@ -949,170 +986,327 @@ export async function generateSingleCardPDF(socio, renewalYear) {
 }
 
 /**
- * Generates a SINGLE PDF with all member cards alphabetically using PDF template
+ * Generates a SINGLE PDF with all member cards alphabetically or by manicchia using PDF template or standard grid
  * @param {Array} soci - Array of member objects
  * @param {number} renewalYear - The year for the cards
- * @param {Function} onProgress - Callback function for progress updates
+ * @param {Object|Function} optionsOrProgress - Options object { sortBy, layout } or legacy progress callback
+ * @param {Function} [maybeProgress] - Callback function for progress updates if options object is passed
  * @returns {Promise<Array>} Array with single PDF result containing filename and blob
  */
-export async function generateAllCardsPDF(soci, renewalYear, onProgress = () => {}) {
+export async function generateAllCardsPDF(soci, renewalYear, optionsOrProgress = {}, maybeProgress = () => {}) {
   try {
-    // Carica il PDF template dal database
-    const pdfTemplateData = await getSetting('cardTemplatePDF')
-    if (!pdfTemplateData) {
-      throw new Error('Nessun template PDF configurato. Carica un template PDF nelle impostazioni.')
+    let options = {}
+    let onProgress = () => {}
+
+    if (typeof optionsOrProgress === 'function') {
+      onProgress = optionsOrProgress
+    } else if (typeof optionsOrProgress === 'object' && optionsOrProgress !== null) {
+      options = optionsOrProgress
+      if (typeof maybeProgress === 'function') {
+        onProgress = maybeProgress
+      }
     }
 
-    // Converti i dati del template in Uint8Array
-    const templateBytes = new Uint8Array(pdfTemplateData)
-
-    // Carica il PDF template
-    const templateDoc = await PDFDocument.load(templateBytes)
+    // Carica il PDF template dal database se presente
+    let templateDoc = null
+    try {
+      const pdfTemplateData = await getSetting('cardTemplatePDF')
+      if (pdfTemplateData) {
+        const templateBytes = new Uint8Array(pdfTemplateData)
+        templateDoc = await PDFDocument.load(templateBytes)
+      }
+    } catch (err) {
+      console.warn('Template PDF non caricato o non valido, uso layout standard:', err)
+    }
 
     // Crea un UNICO nuovo documento per tutte le tessere
     const pdfDoc = await PDFDocument.create()
-
-    // Font - usa Times-Italic (caricato una volta sola per tutto il documento)
     const font = await pdfDoc.embedFont('Times-Italic')
 
-    // Ordina i soci per cognome
-    const sociOrdinati = soci.sort((a, b) => a.cognome.localeCompare(b.cognome))
+    // Ordina i soci: non mutare l'array originale in-place
+    const sortBy = options.sortBy || 'alfabetico'
+    const sociOrdinati = [...soci].sort((a, b) => {
+      if (sortBy === 'manicchia') {
+        const groupA = (a.gruppo_appartenenza || '').trim().toLowerCase()
+        const groupB = (b.gruppo_appartenenza || '').trim().toLowerCase()
+        const gCmp = groupA.localeCompare(groupB)
+        if (gCmp !== 0) return gCmp
+      }
+      const cCmp = (a.cognome || '').localeCompare(b.cognome || '')
+      if (cCmp !== 0) return cCmp
+      return (a.nome || '').localeCompare(b.nome || '')
+    })
 
     const totaleSoci = sociOrdinati.length
+    const is6x = options.layout === '6x'
 
-    // Ciclo unico su tutti i soci ordinati
-    for (let i = 0; i < totaleSoci; i++) {
-      const socio = sociOrdinati[i]
+    // Funzione helper per wrapping del testo
+    const wrapText = (text, maxWidth, fontRef, size) => {
+      if (!text) return []
+      const words = String(text).split(' ')
+      const lines = []
+      let currentLine = ''
 
-      // Copia la prima pagina del template per ogni tessera
-      const [templatePage] = await pdfDoc.copyPages(templateDoc, [0])
-      pdfDoc.addPage(templatePage)
+      for (const word of words) {
+        const testLine = currentLine ? `${currentLine} ${word}` : word
+        const textWidth = fontRef.widthOfTextAtSize(testLine, size)
 
-      // Ottieni la pagina corrente (l'ultima aggiunta) per aggiungere il testo
-      const page = pdfDoc.getPages()[i]
-      const { width, height } = page.getSize()
-
-      // Formatta la data come nel componente Vue
-      const formattaData = (dataNascita) => {
-        if (!dataNascita) return ''
-        const [anno, mese, giorno] = dataNascita.split('-')
-        const mesi = [
-          'Gennaio',
-          'Febbraio',
-          'Marzo',
-          'Aprile',
-          'Maggio',
-          'Giugno',
-          'Luglio',
-          'Agosto',
-          'Settembre',
-          'Ottobre',
-          'Novembre',
-          'Dicembre',
-        ]
-        const meseNome = mesi[parseInt(mese) - 1]
-        return `${parseInt(giorno)} ${meseNome} ${anno}`
-      }
-
-      const nomeCognome = `${socio.cognome} ${socio.nome}`
-      const dataNascitaFormattata = formattaData(socio.data_nascita)
-
-      // Calcola le dimensioni dell'area di testo (stesso calcolo di TesseraTemplate.vue)
-      // Padding: 12mm sopra/sotto, 15% sinistra/destra per forzare wrapping
-      const paddingTopBottom = 12 * 2.83465 // 12mm in punti
-      const paddingLeftRightPercent = 0.15 // 15% per area di testo più stretta
-      const availableWidth = width * (1 - 2 * paddingLeftRightPercent) // 70% della larghezza
-
-      // Centro dell'area di testo
-      const textAreaCenterX = width / 2
-      const textAreaTop = paddingTopBottom
-      const textAreaBottom = height - paddingTopBottom
-      const textAreaCenterY = (textAreaTop + textAreaBottom) / 2
-
-      const nameFontSize = 5 * 2.83465 // 5mm font size for names
-      const dateFontSize = 4.5 * 2.83465 // 4.5mm font size for dates
-      const lineSpacing = 3 * 2.83465 // 3mm gap tra righe
-      const nameMinLineHeight = 8 * 2.83465 // 8mm min-height per name line
-      const dateMinLineHeight = 6 * 2.83465 // 6mm min-height per date line
-
-      // Funzione per wrapping del testo
-      const wrapText = (text, maxWidth, font, size) => {
-        const words = text.split(' ')
-        const lines = []
-        let currentLine = ''
-
-        for (const word of words) {
-          const testLine = currentLine ? `${currentLine} ${word}` : word
-          const textWidth = font.widthOfTextAtSize(testLine, size)
-
-          if (textWidth <= maxWidth && currentLine) {
-            currentLine = testLine
-          } else if (textWidth <= maxWidth) {
-            currentLine = word
-          } else {
-            if (currentLine) {
-              lines.push(currentLine)
-            }
-            currentLine = word
+        if (textWidth <= maxWidth && currentLine) {
+          currentLine = testLine
+        } else if (textWidth <= maxWidth) {
+          currentLine = word
+        } else {
+          if (currentLine) {
+            lines.push(currentLine)
           }
+          currentLine = word
+        }
+      }
+
+      if (currentLine) {
+        lines.push(currentLine)
+      }
+
+      return lines
+    }
+
+    if (is6x) {
+      // Layout 6x: 6 tessere per foglio A4 (2 colonne x 3 righe)
+      // Dimensioni: A4 210mm x 297mm, tessere 85mm x 54mm
+      // Margini: marginX = (210 - 2*85)/3 = 13.333mm, marginY = (297 - 3*54)/4 = 33.75mm
+      const mmToPt = 2.83465
+      const a4Width = 210 * mmToPt
+      const a4Height = 297 * mmToPt
+      const cardWidth = 85 * mmToPt
+      const cardHeight = 54 * mmToPt
+      const marginX = ((210 - 2 * 85) / 3) * mmToPt
+      const marginY = ((297 - 3 * 54) / 4) * mmToPt
+
+      const CARDS_PER_PAGE = 6
+      const totalPages = Math.ceil(totaleSoci / CARDS_PER_PAGE) || 1
+
+      // Se c'è un template, incorporiamo la pagina una volta sola
+      let embeddedTemplate = null
+      if (templateDoc && templateDoc.getPageCount() > 0) {
+        try {
+          const [tPage] = await pdfDoc.copyPages(templateDoc, [0])
+          embeddedTemplate = await pdfDoc.embedPage(tPage)
+        } catch (e) {
+          console.warn('Errore incorporamento pagina template:', e)
+        }
+      }
+
+      for (let pageIdx = 0; pageIdx < totalPages; pageIdx++) {
+        const page = pdfDoc.addPage([a4Width, a4Height])
+
+        for (let slot = 0; slot < CARDS_PER_PAGE; slot++) {
+          const memberIdx = pageIdx * CARDS_PER_PAGE + slot
+          if (memberIdx >= totaleSoci) break
+
+          const socio = sociOrdinati[memberIdx]
+          const col = slot % 2
+          const row = Math.floor(slot / 2) // 0 = top, 1 = middle, 2 = bottom
+
+          const cardX = marginX + col * (cardWidth + marginX)
+          const cardY = a4Height - (row + 1) * (cardHeight + marginY)
+
+          // Disegna template o card box Santantoniari
+          if (embeddedTemplate) {
+            page.drawPage(embeddedTemplate, {
+              x: cardX,
+              y: cardY,
+              width: cardWidth,
+              height: cardHeight,
+            })
+          } else {
+            // Sfondo tessera Santantoniari e bordo istituzionale
+            page.drawRectangle({
+              x: cardX,
+              y: cardY,
+              width: cardWidth,
+              height: cardHeight,
+              color: rgb(0.99, 0.985, 0.97),
+              borderColor: rgb(0.718, 0.11, 0.11),
+              borderWidth: 0.8,
+            })
+
+            // Titolo istituzionale in alto
+            const headerTitle = 'FAMIGLIA DEI SANTANTONIARI'
+            page.drawText(headerTitle, {
+              x: cardX + cardWidth / 2 - 40,
+              y: cardY + cardHeight - 12,
+              size: 6.5,
+              font: font,
+              color: rgb(0.718, 0.11, 0.11),
+            })
+            page.drawText(`Tessera Socio ${renewalYear}`, {
+              x: cardX + cardWidth / 2 - 25,
+              y: cardY + cardHeight - 19,
+              size: 5.5,
+              font: font,
+              color: rgb(0.35, 0.35, 0.35),
+            })
+          }
+
+          // Linee guida di ritaglio (sottile rettangolo perimetrale)
+          page.drawRectangle({
+            x: cardX - 0.5,
+            y: cardY - 0.5,
+            width: cardWidth + 1,
+            height: cardHeight + 1,
+            borderColor: rgb(0.75, 0.75, 0.75),
+            borderWidth: 0.4,
+          })
+
+          // Dati socio tipografici
+          const nomeCognome = `${socio.cognome} ${socio.nome}`
+          const dataNascitaFormattata = formatItalianDOB(socio.data_nascita)
+
+          const nameFontSize = 3.6 * mmToPt // ~10.2 pt
+          const dateFontSize = 3.0 * mmToPt // ~8.5 pt
+          const availWidth = cardWidth * 0.85
+
+          const nomeLines = wrapText(nomeCognome, availWidth, font, nameFontSize)
+          const dataLines = wrapText(dataNascitaFormattata, availWidth, font, dateFontSize)
+
+          const nameLineHeight = 4.2 * mmToPt
+          const dateLineHeight = 3.6 * mmToPt
+          const totalTextHeight = nomeLines.length * nameLineHeight + 2 * mmToPt + dataLines.length * dateLineHeight
+          const cardCenterY = cardY + cardHeight / 2
+          let textY = cardCenterY + totalTextHeight / 2 - nameLineHeight / 2
+
+          for (const line of nomeLines) {
+            const w = font.widthOfTextAtSize(line, nameFontSize)
+            page.drawText(line, {
+              x: cardX + cardWidth / 2 - w / 2,
+              y: textY,
+              size: nameFontSize,
+              font: font,
+              color: rgb(0, 0, 0),
+            })
+            textY -= nameLineHeight
+          }
+
+          textY -= 2 * mmToPt
+
+          for (const line of dataLines) {
+            const w = font.widthOfTextAtSize(line, dateFontSize)
+            page.drawText(line, {
+              x: cardX + cardWidth / 2 - w / 2,
+              y: textY,
+              size: dateFontSize,
+              font: font,
+              color: rgb(0.1, 0.1, 0.1),
+            })
+            textY -= dateLineHeight
+          }
+
+          onProgress(((memberIdx + 1) / (totaleSoci || 1)) * 100)
+        }
+      }
+    } else {
+      // Layout standard: 1 tessera per pagina
+      for (let i = 0; i < totaleSoci; i++) {
+        const socio = sociOrdinati[i]
+
+        let page
+        if (templateDoc && templateDoc.getPageCount() > 0) {
+          const [templatePage] = await pdfDoc.copyPages(templateDoc, [0])
+          pdfDoc.addPage(templatePage)
+          page = pdfDoc.getPages()[i]
+        } else {
+          // Standard card size 80.77mm x 122.17mm
+          page = pdfDoc.addPage([80.77 * 2.83465, 122.17 * 2.83465])
+          const { width: pW, height: pH } = page.getSize()
+          page.drawRectangle({
+            x: 5,
+            y: 5,
+            width: pW - 10,
+            height: pH - 10,
+            color: rgb(0.99, 0.985, 0.97),
+            borderColor: rgb(0.718, 0.11, 0.11),
+            borderWidth: 1.5,
+          })
+          const hTitle = 'FAMIGLIA DEI SANTANTONIARI'
+          page.drawText(hTitle, {
+            x: pW / 2 - font.widthOfTextAtSize(hTitle, 10) / 2,
+            y: pH - 25,
+            size: 10,
+            font: font,
+            color: rgb(0.718, 0.11, 0.11),
+          })
+          const subTitle = `Tessera Socio ${renewalYear}`
+          page.drawText(subTitle, {
+            x: pW / 2 - font.widthOfTextAtSize(subTitle, 8) / 2,
+            y: pH - 38,
+            size: 8,
+            font: font,
+            color: rgb(0.3, 0.3, 0.3),
+          })
         }
 
-        if (currentLine) {
-          lines.push(currentLine)
+        const { width, height } = page.getSize()
+
+        const nomeCognome = `${socio.cognome} ${socio.nome}`
+        const dataNascitaFormattata = formatItalianDOB(socio.data_nascita)
+
+        const paddingTopBottom = 12 * 2.83465
+        const paddingLeftRightPercent = 0.15
+        const availableWidth = width * (1 - 2 * paddingLeftRightPercent)
+
+        const textAreaCenterX = width / 2
+        const textAreaTop = paddingTopBottom
+        const textAreaBottom = height - paddingTopBottom
+        const textAreaCenterY = (textAreaTop + textAreaBottom) / 2
+
+        const nameFontSize = 5 * 2.83465
+        const dateFontSize = 4.5 * 2.83465
+        const lineSpacing = 3 * 2.83465
+        const nameMinLineHeight = 8 * 2.83465
+        const dateMinLineHeight = 6 * 2.83465
+
+        const nomeLines = wrapText(nomeCognome, availableWidth, font, nameFontSize)
+        const dataLines = wrapText(dataNascitaFormattata, availableWidth, font, dateFontSize)
+
+        const nomeHeight = nomeLines.length * nameMinLineHeight
+        const dataHeight = dataLines.length * dateMinLineHeight
+        const gapHeight = lineSpacing
+        const totalContentHeight = nomeHeight + gapHeight + dataHeight
+
+        let currentY = textAreaCenterY + totalContentHeight / 2 - nameMinLineHeight / 2
+
+        for (let j = 0; j < nomeLines.length; j++) {
+          const textWidth = font.widthOfTextAtSize(nomeLines[j], nameFontSize)
+          const x = textAreaCenterX - textWidth / 2
+
+          page.drawText(nomeLines[j], {
+            x: x,
+            y: currentY,
+            size: nameFontSize,
+            font: font,
+            color: rgb(0, 0, 0),
+          })
+          currentY -= nameMinLineHeight
         }
 
-        return lines
+        currentY -= lineSpacing
+
+        for (let k = 0; k < dataLines.length; k++) {
+          const textWidth = font.widthOfTextAtSize(dataLines[k], dateFontSize)
+          const x = textAreaCenterX - textWidth / 2
+
+          page.drawText(dataLines[k], {
+            x: x,
+            y: currentY,
+            size: dateFontSize,
+            font: font,
+            color: rgb(0, 0, 0),
+          })
+          currentY -= dateMinLineHeight
+        }
+
+        onProgress(((i + 1) / (totaleSoci || 1)) * 100)
       }
-
-      // Gestisci il nome e cognome con wrapping se necessario
-      const nomeLines = wrapText(nomeCognome, availableWidth, font, nameFontSize)
-      const dataLines = wrapText(dataNascitaFormattata, availableWidth, font, dateFontSize)
-
-      // Calcola l'altezza totale del contenuto (nome + gap + data)
-      const nomeHeight = nomeLines.length * nameMinLineHeight
-      const dataHeight = dataLines.length * dateMinLineHeight
-      const gapHeight = lineSpacing
-      const totalContentHeight = nomeHeight + gapHeight + dataHeight
-
-      // Posizione Y iniziale (centrata verticalmente nell'area di testo)
-      let currentY = textAreaCenterY + totalContentHeight / 2 - nameMinLineHeight / 2
-
-      // Disegna le righe del nome (dall'alto verso il basso)
-      for (let j = 0; j < nomeLines.length; j++) {
-        const textWidth = font.widthOfTextAtSize(nomeLines[j], nameFontSize)
-        const x = textAreaCenterX - textWidth / 2 // Centra manualmente
-
-        page.drawText(nomeLines[j], {
-          x: x,
-          y: currentY,
-          size: nameFontSize,
-          font: font,
-          color: rgb(0, 0, 0),
-        })
-        currentY -= nameMinLineHeight
-      }
-
-      // Aggiungi il gap tra nome e data
-      currentY -= lineSpacing
-
-      // Disegna le righe della data
-      for (let k = 0; k < dataLines.length; k++) {
-        const textWidth = font.widthOfTextAtSize(dataLines[k], dateFontSize)
-        const x = textAreaCenterX - textWidth / 2 // Centra manualmente
-
-        page.drawText(dataLines[k], {
-          x: x,
-          y: currentY,
-          size: dateFontSize,
-          font: font,
-          color: rgb(0, 0, 0),
-        })
-        currentY -= dateMinLineHeight
-      }
-
-      // Aggiorna progresso
-      const progress = ((i + 1) / totaleSoci) * 100
-      onProgress(progress)
     }
 
     // Salva il PDF unico completo
@@ -1121,13 +1315,13 @@ export async function generateAllCardsPDF(soci, renewalYear, onProgress = () => 
 
     // Genera il nome file unico
     const fileName = sanitizeFilename(
-      `tessere_complete_${renewalYear}_${new Date().toISOString().split('T')[0]}.pdf`,
+      `tessere_${is6x ? '6x_' : ''}${sortBy}_${renewalYear}_${new Date().toISOString().split('T')[0]}.pdf`,
     )
 
     // Ritorna un array con un solo elemento (per compatibilità)
     return [
       {
-        letter: 'ALL', // Identificativo generico
+        letter: 'ALL',
         filename: fileName,
         blob: blob,
         count: totaleSoci,
@@ -1135,6 +1329,145 @@ export async function generateAllCardsPDF(soci, renewalYear, onProgress = () => 
     ]
   } catch (error) {
     console.error('Errore nella generazione del PDF delle tessere:', error)
+    throw error
+  }
+}
+
+/**
+ * Generates a PDF summary report for receipt booklets (blocchetti)
+ * @param {Array} blocchetti - Array of booklet records
+ * @param {Array} tesseramenti - Array of membership payments
+ * @param {number} year - Renewal year for the report
+ * @returns {Promise<Object>} Result object with success status, filename, blob, totalCash, totalBooklets
+ */
+export async function generateBookletSummaryPDF(blocchetti = [], tesseramenti = [], year = new Date().getFullYear()) {
+  try {
+    const targetYear = Number(year) || new Date().getFullYear()
+
+    // Aggregazione dati per ciascun blocchetto
+    const summary = (blocchetti || []).map((b) => {
+      const numB = Number(b.numero_blocchetto || b.id || 0)
+      const da = b.ricevute_da !== undefined && b.ricevute_da !== null ? b.ricevute_da : numB ? (numB - 1) * 10 + 1 : 1
+      const a = b.ricevute_a !== undefined && b.ricevute_a !== null ? b.ricevute_a : numB ? numB * 10 : 10
+      const range = `${da} - ${a}`
+
+      const bPayments = (tesseramenti || []).filter((t) => {
+        const matchBooklet = t.numero_blocchetto !== undefined && t.numero_blocchetto !== null && Number(t.numero_blocchetto) === numB
+        const matchYear = !targetYear || !t.anno || Number(t.anno) === targetYear
+        return matchBooklet && matchYear
+      })
+
+      const totalCash = bPayments.reduce((sum, t) => sum + (Number(t.quota_pagata) || 0), 0)
+      const usedReceiptsSet = new Set(
+        bPayments.map((t) => t.numero_ricevuta).filter((r) => r !== undefined && r !== null),
+      )
+      const receiptsUsed = usedReceiptsSet.size
+
+      let status = b.stato
+      if (!status) {
+        if (receiptsUsed >= 10) status = 'Completato'
+        else if (receiptsUsed > 0) status = 'In uso'
+        else status = 'Non iniziato'
+      }
+
+      return {
+        numero_blocchetto: numB,
+        assegnato_a: b.assegnato_a || 'Non assegnato',
+        range,
+        ricevute_utilizzate: receiptsUsed,
+        totale_cassa: totalCash,
+        stato: status,
+      }
+    })
+
+    // Ordina per numero blocchetto
+    summary.sort((a, b) => a.numero_blocchetto - b.numero_blocchetto)
+
+    const totalCashSum = summary.reduce((acc, s) => acc + s.totale_cassa, 0)
+    const totalReceiptsUsed = summary.reduce((acc, s) => acc + s.ricevute_utilizzate, 0)
+    const totalBooklets = summary.length
+
+    // Costruzione documento PDF con jsPDF
+    const doc = createPDFDocument('portrait')
+
+    // Carica Logo se disponibile
+    let logoData = null
+    try {
+      logoData = await loadImage(logoUrl)
+    } catch {
+      // Ignora se non disponibile in test headless
+    }
+
+    const headerY = addPDFHeader(
+      doc,
+      'Resoconto Cassa Blocchetti',
+      `Anno di Riferimento: ${targetYear}`,
+      `Blocchetti: ${totalBooklets} | Ricevute Utilizzate: ${totalReceiptsUsed} | Cassa Totale: € ${totalCashSum.toFixed(2)}`,
+      logoData,
+    )
+
+    // Configurazione colonne tabella
+    const headers = [
+      { text: 'N. Blocchetto', width: 25, align: 'center' },
+      { text: 'Assegnato a', width: 55, align: 'left' },
+      { text: 'Ricevute', width: 25, align: 'center' },
+      { text: 'Usate', width: 20, align: 'center' },
+      { text: 'Totale Cassa', width: 30, align: 'right' },
+      { text: 'Stato', width: 25, align: 'center' },
+    ]
+
+    const rows = summary.map((item) => [
+      String(item.numero_blocchetto || '-'),
+      item.assegnato_a,
+      item.range,
+      String(item.ricevute_utilizzate),
+      `€ ${item.totale_cassa.toFixed(2)}`,
+      item.stato,
+    ])
+
+    // Riga totale in calce
+    if (summary.length > 0) {
+      rows.push([
+        'TOTALE',
+        `${totalBooklets} blocchetti`,
+        '-',
+        String(totalReceiptsUsed),
+        `€ ${totalCashSum.toFixed(2)}`,
+        '-',
+      ])
+    }
+
+    createPDFTable(doc, headers, rows, headerY + 8, 8)
+    addPDFFooter(doc)
+
+    const filename = generatePDFFilename('resoconto_cassa_blocchetti', { year: targetYear })
+    const blob = doc.output('blob')
+
+    try {
+      if (typeof doc.save === 'function') {
+        doc.save(filename)
+      }
+    } catch {
+      // In ambiente headless/vitest doc.save potrebbe non essere supportato
+    }
+
+    return {
+      success: true,
+      year: targetYear,
+      filename,
+      blob,
+      totalCash: totalCashSum,
+      totalReceipts: totalReceiptsUsed,
+      totalBooklets,
+      summary: {
+        totalCash: totalCashSum,
+        totalReceipts: totalReceiptsUsed,
+        totalBooklets,
+      },
+      rows: summary,
+    }
+  } catch (error) {
+    console.error('Errore nella generazione del resoconto cassa blocchetti:', error)
     throw error
   }
 }

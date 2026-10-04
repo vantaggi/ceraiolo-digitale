@@ -62,10 +62,7 @@ const router = createRouter({
     {
       path: '/reports-beta',
       name: 'reports-beta',
-      component: () => import('../views/ReportsBetaView.vue'),
-      meta: {
-        title: 'Report Builder Beta - Ceraiolo Digitale',
-      },
+      redirect: '/reports',
     },
     {
       path: '/settings',
@@ -118,7 +115,7 @@ router.beforeEach(async (to, from, next) => {
 
 router.afterEach((to, from) => {
   window.scrollTo(0, 0)
-  console.log(`Navigazione: ${from.name} → ${to.name}`)
+  console.log(`Navigazione: ${from.name} -> ${to.name}`)
 })
 
 export default router

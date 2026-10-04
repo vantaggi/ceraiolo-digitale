@@ -8,33 +8,36 @@
 
     <!-- Error State -->
     <div v-else-if="error" class="error-container">
-      <h2>❌ Errore</h2>
+      <h2><BaseIcon name="alert-circle" :size="24" color="accent" /> Errore</h2>
       <p>{{ error }}</p>
-      <router-link to="/" class="back-button">← Torna alla ricerca</router-link>
+      <router-link to="/" class="back-button">
+        <BaseIcon name="chevron-left" :size="16" /> Torna alla ricerca
+      </router-link>
     </div>
 
     <!-- Main Content -->
     <div v-else-if="socio" class="detail-content">
       <!-- Header con nome e azioni -->
-      <!-- Header con nome e azioni -->
       <div class="detail-header">
         <div class="header-left">
           <div class="nav-row">
-            <router-link to="/" class="back-link">← Lista</router-link>
+            <router-link to="/" class="back-link">
+              <BaseIcon name="chevron-left" :size="16" /> Lista
+            </router-link>
             <div class="nav-buttons" v-if="prevSocioId || nextSocioId">
               <router-link
                 v-if="prevSocioId"
                 :to="'/socio/' + prevSocioId"
                 class="nav-btn"
                 title="Precedente"
-                >← Prec</router-link
+                ><BaseIcon name="chevron-left" :size="14" /> Prec</router-link
               >
               <router-link
                 v-if="nextSocioId"
                 :to="'/socio/' + nextSocioId"
                 class="nav-btn"
                 title="Successivo"
-                >Succ →</router-link
+                >Succ <BaseIcon name="chevron-right" :size="14" /></router-link
               >
             </div>
           </div>
@@ -48,27 +51,34 @@
             @click="payYear(quickRenewTargetYear)"
             class="quick-renew-button"
           >
-            💳 Paga {{ quickRenewTargetYear }}
+            <BaseIcon name="credit-card" :size="18" />
+            <span>Paga {{ quickRenewTargetYear }}</span>
           </button>
 
-          <button @click="exportSocio" class="export-button">📥 Export</button>
+          <button @click="exportSocio" class="export-button" title="Esporta scheda socio">
+            <BaseIcon name="download" :size="18" />
+            <span>Esporta</span>
+          </button>
           <button
             @click="toggleEditMode"
             :disabled="isSaving"
             class="edit-button"
+            :class="{ 'is-editing': editMode }"
             title="Modifica rapida in questa pagina"
           >
-            {{ isSaving ? '💾...' : editMode ? '✓ Salva' : '✏️ Modifica' }}
+            <BaseIcon :name="editMode ? 'check' : 'edit'" :size="18" />
+            <span>{{ isSaving ? 'Salvataggio...' : editMode ? 'Salva Modifiche' : 'Modifica' }}</span>
           </button>
-          <button @click="showDeleteModal" class="delete-socio-button" :disabled="isDeleting">
-            🗑️
+          <button @click="showDeleteModal" class="delete-socio-button" :disabled="isDeleting" title="Elimina socio">
+            <BaseIcon name="trash" :size="18" />
+            <span>Elimina</span>
           </button>
         </div>
       </div>
 
       <!-- Sezione Dati Anagrafici -->
       <section class="info-section">
-        <h2>📋 Dati Anagrafici</h2>
+        <h2><BaseIcon name="user" :size="22" color="accent" /> Dati Anagrafici</h2>
         <div class="info-grid">
           <div class="info-item">
             <span class="label">Cognome</span>
@@ -85,7 +95,7 @@
           <div class="info-item">
             <span class="label">Data di Nascita</span>
             <input v-if="editMode" v-model="socio.data_nascita" type="date" class="edit-input" />
-            <span v-else class="value">
+            <span v-else class="value tabular-num">
               {{ formatDate(socio.data_nascita) }}
               <span class="age-badge" :class="{ minor: isMinor }"> {{ calculateAge }} anni </span>
             </span>
@@ -116,13 +126,13 @@
               type="number"
               class="edit-input"
             />
-            <span v-else class="value">{{ primaIscrizioneDisplay }}</span>
+            <span v-else class="value tabular-num">{{ primaIscrizioneDisplay }}</span>
           </div>
         </div>
 
         <!-- Note -->
         <div class="notes-section">
-          <span class="label">📝 Note</span>
+          <span class="label"><BaseIcon name="file-text" :size="18" /> Note</span>
           <textarea
             v-if="editMode"
             v-model="socio.note"
@@ -139,7 +149,7 @@
       <!-- Sezione Cronologia Pagamenti -->
       <section class="payments-section">
         <div class="section-header">
-          <h2>💰 Cronologia Pagamenti</h2>
+          <h2><BaseIcon name="coins" :size="22" color="gold" /> Cronologia Pagamenti</h2>
         </div>
 
         <div class="chronology-container">
@@ -151,7 +161,7 @@
           >
             <div class="year-header">
               <div class="year-info">
-                <span class="year-number">{{ item.anno }}</span>
+                <span class="year-number tabular-num">{{ item.anno }}</span>
                 <span class="year-status" :class="item.stato">
                   <span v-if="item.stato === 'pagato'" class="badge badge-v">V Pagato</span>
                   <span v-else-if="item.stato === 'esente'" class="badge badge-o">O Minorenne</span>
@@ -165,14 +175,16 @@
                   @click="payYear(item.anno)"
                   class="pay-button accent"
                 >
-                  💳 Paga Ora
+                  <BaseIcon name="credit-card" :size="16" />
+                  <span>Paga Ora</span>
                 </button>
                 <button
                   v-if="!item.isPagato && item.isEsente"
                   @click="payYear(item.anno)"
                   class="pay-button secondary"
                 >
-                  💳 Paga (Opzionale)
+                  <BaseIcon name="credit-card" :size="16" />
+                  <span>Paga (Opzionale)</span>
                 </button>
                 <button
                   v-if="item.isPagato"
@@ -180,33 +192,39 @@
                   class="delete-btn"
                   title="Elimina pagamento"
                 >
-                  🗑️
+                  <BaseIcon name="trash" :size="16" />
                 </button>
               </div>
             </div>
 
             <div v-if="item.isPagato" class="payment-details">
               <div class="detail-row">
-                <span class="detail-label">📅 Data Pagamento:</span>
-                <span class="detail-value">{{ formatDate(item.tesseramento.data_pagamento) }}</span>
+                <span class="detail-label"><BaseIcon name="calendar" :size="16" /> Data Pagamento:</span>
+                <span class="detail-value tabular-num">{{ formatDate(item.tesseramento.data_pagamento) }}</span>
               </div>
               <div class="detail-row">
-                <span class="detail-label">💰 Quota:</span>
-                <span class="detail-value">
+                <span class="detail-label"><BaseIcon name="coins" :size="16" /> Quota:</span>
+                <span class="detail-value tabular-num">
                   <span v-if="editingQuotaId === item.tesseramento.id_tesseramento">
-                    € <input type="number" v-model="editQuotaValue" style="width: 60px; padding: 2px;" />
-                    <button @click="saveQuotaStatus(item.tesseramento.id_tesseramento)" class="save-quota-btn">✓</button>
-                    <button @click="cancelEditQuota" class="cancel-quota-btn">✗</button>
+                    € <input type="number" v-model="editQuotaValue" style="width: 60px; padding: 2px;" class="tabular-num" />
+                    <button @click="saveQuotaStatus(item.tesseramento.id_tesseramento)" class="save-quota-btn" aria-label="Salva quota" title="Salva quota">
+                      <BaseIcon name="check" :size="14" />
+                    </button>
+                    <button @click="cancelEditQuota" class="cancel-quota-btn" aria-label="Annulla modifica quota" title="Annulla">
+                      <BaseIcon name="x" :size="14" />
+                    </button>
                   </span>
                   <span v-else>
                     € {{ Number(item.tesseramento.quota_pagata || 0).toFixed(2) }}
-                    <button @click="startEditQuota(item.tesseramento)" class="edit-btn-small" title="Modifica quota">✏️</button>
+                    <button @click="startEditQuota(item.tesseramento)" class="edit-btn-small" title="Modifica quota">
+                      <BaseIcon name="edit" :size="14" />
+                    </button>
                   </span>
                 </span>
               </div>
               <div class="detail-row">
-                <span class="detail-label">📄 Ricevuta:</span>
-                <span class="detail-value"
+                <span class="detail-label"><BaseIcon name="receipt" :size="16" /> Ricevuta:</span>
+                <span class="detail-value tabular-num"
                   >{{ item.tesseramento.numero_ricevuta }} /
                   {{ item.tesseramento.numero_blocchetto }}</span
                 >
@@ -256,6 +274,7 @@ import {
 } from '@/services/db'
 import AddPaymentModal from '@/components/AddPaymentModal.vue'
 import ConfirmDeleteModal from '@/components/ConfirmDeleteModal.vue'
+import BaseIcon from '@/components/common/BaseIcon.vue'
 
 const route = useRoute()
 
@@ -818,9 +837,9 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .socio-detail {
-  max-width: 1000px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 0 0 2rem 0;
 }
 
 /* Loading & Error States */
@@ -929,9 +948,17 @@ onBeforeUnmount(() => {
 
 .header-actions {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.6rem;
   align-items: center;
   flex-wrap: wrap;
+}
+
+.header-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  font-size: 0.95rem;
 }
 
 .quick-renew-button {
@@ -945,9 +972,6 @@ onBeforeUnmount(() => {
   transition: all 0.2s;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   margin-right: 0.5rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
 }
 
 .quick-renew-button:hover {
@@ -958,9 +982,9 @@ onBeforeUnmount(() => {
 
 .export-button {
   padding: 0.75rem 1rem;
-  background-color: var(--color-secondary);
-  color: white;
-  border: none;
+  background-color: var(--color-surface-hover);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   cursor: pointer;
   font-weight: 600;
@@ -968,14 +992,14 @@ onBeforeUnmount(() => {
 }
 
 .export-button:hover {
-  background-color: var(--color-secondary-hover);
+  background-color: var(--color-border);
 }
 
 .edit-button {
-  padding: 0.75rem 1.5rem;
-  background-color: var(--color-primary);
-  color: white;
-  border: none;
+  padding: 0.75rem 1.25rem;
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   cursor: pointer;
   font-weight: 600;
@@ -983,7 +1007,20 @@ onBeforeUnmount(() => {
 }
 
 .edit-button:hover {
+  background-color: var(--color-surface-hover);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.edit-button.is-editing {
   background-color: var(--color-accent);
+  color: #ffffff;
+  border-color: var(--color-accent);
+}
+
+.edit-button.is-editing:hover {
+  background-color: var(--color-accent-hover);
+  color: #ffffff;
 }
 
 .edit-data-button {
@@ -994,7 +1031,10 @@ onBeforeUnmount(() => {
   border-radius: 8px;
   font-weight: 600;
   transition: all 0.2s;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
   text-align: center;
   margin-left: 0.5rem;
 }
@@ -1007,24 +1047,28 @@ onBeforeUnmount(() => {
 }
 
 .delete-socio-button {
-  padding: 0.75rem 1.5rem;
-  background-color: var(--color-danger);
-  color: white;
-  border: none;
+  padding: 0.75rem 1.25rem;
+  background-color: transparent;
+  color: var(--color-danger);
+  border: 1px solid var(--color-danger);
   border-radius: 8px;
   cursor: pointer;
   font-weight: 600;
   transition: all 0.2s;
-  margin-left: 0.5rem;
 }
 
 .delete-socio-button:hover:not(:disabled) {
-  background-color: var(--color-danger-hover);
+  background-color: var(--color-danger);
+  color: white;
 }
 
 .delete-socio-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.tabular-num {
+  font-variant-numeric: tabular-nums;
 }
 
 /* Info Section */
@@ -1265,20 +1309,67 @@ onBeforeUnmount(() => {
 }
 
 .delete-btn {
-  padding: 0.5rem 0.75rem;
-  background: none;
-  border: 2px solid var(--color-danger);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--color-border);
   border-radius: 6px;
   color: var(--color-danger);
   cursor: pointer;
-  font-size: 1rem;
   transition: all 0.2s;
 }
 
 .delete-btn:hover {
-  background-color: var(--color-danger);
-  color: white;
-  transform: scale(1.1);
+  background-color: rgba(239, 68, 68, 0.15);
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.edit-btn-small,
+.save-quota-btn,
+.cancel-quota-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  margin-left: 0.4rem;
+  vertical-align: middle;
+  transition: all 0.15s ease;
+}
+
+.edit-btn-small:hover {
+  background: var(--color-surface-hover);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.save-quota-btn {
+  color: var(--color-success);
+}
+
+.save-quota-btn:hover {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: var(--color-success);
+}
+
+.cancel-quota-btn {
+  color: var(--color-danger);
+}
+
+.cancel-quota-btn:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: var(--color-danger);
 }
 
 .payment-details {

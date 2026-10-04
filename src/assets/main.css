@@ -1,27 +1,33 @@
 /* Global Styles for Ceraiolo Digitale */
-@import url('https://fonts.googleapis.com/css2?family=Merriweather:wght@700&family=Inter:wght@400;500;600;700&display=swap');
+/* Offline native system font stack: 0 external network requests */
 
 /* Official Color Palette & Variables */
 :root {
   /* Light Theme (Default) */
-  --color-primary: #1a1a1a; /* Text Main */
-  --color-primary-light: #333333; /* Text Light / Hover */
-  --color-accent: #b71c1c; /* Red Brand */
-  --color-accent-hover: #c62828;
+  --color-primary: #1a1a1a; /* Text Main - Contrast 17.4:1 */
+  --color-primary-light: #333333; /* Text Light / Hover - Contrast 12.6:1 */
+  --color-accent: #b71c1c; /* Red Brand Santantoniari - Contrast 6.57:1 */
+  --color-accent-hover: #991b1b;
+  --color-gold: #c59b27; /* Warm Gold Santantoniari */
   --color-background: #f4f5f7; /* App Background */
   --color-surface: #ffffff; /* Card/Panel Background */
   --color-surface-hover: #f9fafb;
   --color-text-primary: #1a1a1a;
-  --color-text-secondary: #5c6266;
+  --color-text-secondary: #5c6266; /* Contrast 6.19:1 */
   --color-text-inverse: #ffffff;
   --color-border: #e1e4e8;
   --color-input-bg: #ffffff;
-  --color-success: #2e7d32;
-  --color-warning: #ed6c02;
-  --color-info: #0288d1;
+  --color-success: #2e7d32; /* Contrast 5.13:1 */
+  --color-warning: #c2410c; /* WCAG 2.2 AA Compliant - Contrast 5.18:1 */
+  --color-info: #0369a1;    /* WCAG 2.2 AA Compliant - Contrast 5.93:1 */
 
-  --font-family-heading: 'Merriweather', serif;
-  --font-family-body: 'Inter', sans-serif;
+  /* Offline Robust Font Stacks */
+  --font-family-sans: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+  --font-family-serif: Georgia, Cambria, 'Times New Roman', Times, serif;
+  --font-family-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+
+  --font-family-heading: var(--font-family-sans);
+  --font-family-body: var(--font-family-sans);
 
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
@@ -30,21 +36,22 @@
 
 /* Dark Theme Overrides */
 [data-theme='dark'] {
-  --color-primary: #e0e0e0; /* Text Main (Inverted) */
+  --color-primary: #e0e0e0; /* Contrast 14.19:1 */
   --color-primary-light: #b0b0b0;
-  --color-accent: #e53935; /* Brighter Red for Dark Mode */
-  --color-accent-hover: #ef5350;
-  --color-background: #121212; /* Dark Background */
-  --color-surface: #1e1e1e; /* Dark Surface */
+  --color-accent: #ef5350; /* WCAG 2.2 AA Compliant on #1e1e1e - Contrast 4.78:1 */
+  --color-accent-hover: #f87171;
+  --color-gold: #e5b338;
+  --color-background: #121212;
+  --color-surface: #1e1e1e;
   --color-surface-hover: #2c2c2c;
   --color-text-primary: #e0e0e0;
-  --color-text-secondary: #a0a0a0;
+  --color-text-secondary: #a0a0a0; /* Contrast 6.37:1 */
   --color-text-inverse: #121212;
   --color-border: #333333;
   --color-input-bg: #2c2c2c;
-  --color-success: #66bb6a;
-  --color-warning: #ffa726;
-  --color-info: #29b6f6;
+  --color-success: #66bb6a; /* Contrast 7.05:1 */
+  --color-warning: #ffa726; /* Contrast 8.58:1 */
+  --color-info: #38bdf8;    /* Contrast 7.78:1 */
 
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.5);
@@ -58,11 +65,20 @@
   padding: 0;
 }
 
+html {
+  font-size: 17px; /* 17px Base Typography Scale */
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   font-family: var(--font-family-body);
+  font-size: 1rem; /* 17px */
   background-color: var(--color-background);
   color: var(--color-text-primary);
-  line-height: 1.6;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
   transition:
     background-color 0.3s ease,
     color 0.3s ease;
@@ -76,6 +92,8 @@ h5,
 h6 {
   font-family: var(--font-family-heading);
   color: var(--color-text-primary);
+  font-weight: 700;
+  line-height: 1.25;
   margin-bottom: 1rem;
 }
 
@@ -185,7 +203,7 @@ a:hover {
   text-decoration: underline;
 }
 
-/* 📱 Classi di Utilità Globali per Responsività Mobile */
+/* Classi di Utilità Globali per Responsività Mobile */
 @media (max-width: 768px) {
   html,
   body {
@@ -223,3 +241,100 @@ a:hover {
     min-height: 48px;
   }
 }
+
+/* ==========================================================================
+   Accessible Tables & Accounting Alignment (WCAG 2.2 & Senior Ergonomics)
+   ========================================================================== */
+
+table,
+.data-table,
+.preview-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 1rem; /* 17px */
+  color: var(--color-text-primary);
+  background-color: var(--color-surface);
+  text-align: left;
+}
+
+thead th,
+.data-table th,
+.preview-table th {
+  padding: 0.85rem 1rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--color-text-secondary);
+  background-color: var(--color-surface);
+  border-bottom: 2px solid var(--color-border);
+  white-space: nowrap;
+}
+
+tbody tr,
+.data-table tbody tr,
+.preview-table tbody tr {
+  min-height: 48px;
+  height: 50px; /* Ergonomic 48-52px range */
+  transition: background-color 0.15s ease;
+}
+
+tbody td,
+.data-table td,
+.preview-table td {
+  padding: 0.85rem 1rem;
+  min-height: 48px;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--color-border);
+  line-height: 1.4;
+}
+
+/* Alternating zebra striping */
+tbody tr:nth-child(even),
+.data-table tbody tr:nth-child(even),
+.preview-table tbody tr:nth-child(even) {
+  background-color: var(--color-surface-hover);
+}
+
+/* High contrast row hover */
+tbody tr:hover,
+.data-table tbody tr:hover,
+.preview-table tbody tr:hover {
+  background-color: rgba(183, 28, 28, 0.04);
+}
+
+[data-theme='dark'] tbody tr:hover,
+[data-theme='dark'] .data-table tbody tr:hover,
+[data-theme='dark'] .preview-table tbody tr:hover {
+  background-color: rgba(239, 83, 80, 0.08);
+}
+
+/* Tabular numbers and accounting alignment */
+.tabular-nums,
+.text-right,
+.col-currency,
+.col-number,
+th.tabular-nums,
+td.tabular-nums,
+th.text-right,
+td.text-right,
+th.col-currency,
+td.col-currency,
+th.col-number,
+td.col-number {
+  text-align: right !important;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+/* Responsive Table Wrapper */
+.table-responsive,
+.table-container {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 1.5rem;
+}
+

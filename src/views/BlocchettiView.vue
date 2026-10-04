@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import {
   db,
   getAllBlocchetti,
@@ -8,6 +8,7 @@ import {
   deleteBlocchetto,
   exportAllTesseramenti
 } from '@/services/db'
+import BaseIcon from '@/components/common/BaseIcon.vue'
 
 // Stato DB
 const blocchettiDB = ref([])
@@ -123,19 +124,35 @@ const blocchettiDinamici = computed(() => {
    return sorted
 })
 
+// Filtro attivo e paginazione
+const activeFilter = ref('tutti') // 'tutti' | 'attivi' | 'restituiti' | 'registrati'
+const currentPage = ref(1)
+const itemsPerPage = ref(50)
+
 const filteredBlocchetti = computed(() => {
-    // 1. Mostra SOLO i blocchetti realmente esistenti nel database (isReal === true)
-    let baseList = blocchettiDinamici.value.filter(b => b.isReal)
+    // Mostra tutti i blocchetti dinamici (inclusi quelli dallo storico pagamenti)
+    let baseList = blocchettiDinamici.value
+
+    if (activeFilter.value === 'attivi') {
+        baseList = baseList.filter(b => !b.data_restituzione)
+    } else if (activeFilter.value === 'restituiti') {
+        baseList = baseList.filter(b => !!b.data_restituzione)
+    } else if (activeFilter.value === 'registrati') {
+        baseList = baseList.filter(b => b.isReal)
+    }
 
     if (!searchQuery.value) return baseList
 
-    const q = searchQuery.value.toLowerCase()
+    const q = searchQuery.value.toLowerCase().trim()
     return baseList.filter(b => {
         if (b.numero_blocchetto.toString() === q) return true;
         if (b.assegnato_a && b.assegnato_a.toLowerCase().includes(q)) return true;
 
-        // Cerca anche all'interno delle ricevute incassate
-        const hasRicevuta = b.ricevuteList?.some(r => r.numero_ricevuta.toString() === q)
+        // Cerca anche all'interno delle ricevute incassate e soci
+        const hasRicevuta = b.ricevuteList?.some(r =>
+            r.numero_ricevuta.toString() === q ||
+            r.payments?.some(p => p.socioNome && p.socioNome.toLowerCase().includes(q))
+        )
         if (hasRicevuta) return true;
 
         return false;
@@ -144,6 +161,20 @@ const filteredBlocchetti = computed(() => {
 
 const totalBlocchetti = computed(() => blocchettiDinamici.value.length)
 const totalAttivi = computed(() => blocchettiDinamici.value.filter(b => !b.data_restituzione).length)
+const totalRestituiti = computed(() => blocchettiDinamici.value.filter(b => !!b.data_restituzione).length)
+const totalRegistrati = computed(() => blocchettiDinamici.value.filter(b => b.isReal).length)
+
+const totalPages = computed(() => Math.ceil(filteredBlocchetti.value.length / itemsPerPage.value) || 1)
+
+const pagedBlocchetti = computed(() => {
+    if (itemsPerPage.value === -1) return filteredBlocchetti.value
+    const start = (currentPage.value - 1) * itemsPerPage.value
+    return filteredBlocchetti.value.slice(start, start + itemsPerPage.value)
+})
+
+watch([searchQuery, activeFilter, itemsPerPage], () => {
+    currentPage.value = 1
+})
 
 
 // ---- AZIONI MANUALI ----
@@ -218,7 +249,8 @@ const formatDate = (dateString) => {
       </div>
       <div class="header-actions">
         <button class="primary-button" @click="showAddForm = !showAddForm">
-          {{ showAddForm ? 'Annulla' : '+ Registra Nuovo Blocchetto' }}
+          <BaseIcon :name="showAddForm ? 'x' : 'plus'" :size="18" />
+          <span>{{ showAddForm ? 'Annulla' : 'Registra Nuovo Blocchetto' }}</span>
         </button>
       </div>
     </div>
@@ -251,21 +283,55 @@ const formatDate = (dateString) => {
       </form>
     </div>
 
+    <!-- FILTRI RAPIDI -->
+    <div class="filter-pills-container">
+      <button
+        class="filter-pill"
+        :class="{ active: activeFilter === 'tutti' }"
+        @click="activeFilter = 'tutti'"
+      >
+        Tutti i Blocchetti ({{ totalBlocchetti }})
+      </button>
+      <button
+        class="filter-pill"
+        :class="{ active: activeFilter === 'attivi' }"
+        @click="activeFilter = 'attivi'"
+      >
+        In Circolazione ({{ totalAttivi }})
+      </button>
+      <button
+        class="filter-pill"
+        :class="{ active: activeFilter === 'restituiti' }"
+        @click="activeFilter = 'restituiti'"
+      >
+        Restituiti ({{ totalRestituiti }})
+      </button>
+      <button
+        v-if="totalRegistrati > 0"
+        class="filter-pill"
+        :class="{ active: activeFilter === 'registrati' }"
+        @click="activeFilter = 'registrati'"
+      >
+        Con Anagrafica ({{ totalRegistrati }})
+      </button>
+    </div>
+
     <!-- STATISTICHE E RICERCA -->
     <div class="stats-bar shadow-panel">
        <div class="stats-left">
           <div class="search-box">
-             <input type="text" v-model="searchQuery" placeholder="Cerca Blocchetto n° o Ricevuta n°..." class="search-input" />
+             <BaseIcon name="search" :size="18" class="search-icon" />
+             <input type="text" v-model="searchQuery" placeholder="Cerca Blocchetto n°, Ricevuta n°, Socio..." class="search-input" />
           </div>
        </div>
        <div class="stats-right">
           <div class="stat-item">
-             <span class="stat-label">Totale Taccuini Lavorati</span>
-             <span class="stat-value">{{ totalBlocchetti }}</span>
+             <span class="stat-label">Taccuini Visualizzati</span>
+             <span class="stat-value tabular-num">{{ filteredBlocchetti.length }}</span>
           </div>
           <div class="stat-item">
-             <span class="stat-label">Non Restituiti</span>
-             <span class="stat-value highlight-active">{{ totalAttivi }}</span>
+             <span class="stat-label">In Circolazione</span>
+             <span class="stat-value highlight-active tabular-num">{{ totalAttivi }}</span>
           </div>
        </div>
     </div>
@@ -284,26 +350,32 @@ const formatDate = (dateString) => {
           </tr>
         </thead>
         <tbody>
-          <template v-for="b in filteredBlocchetti" :key="b.numero_blocchetto">
+          <template v-for="b in pagedBlocchetti" :key="b.numero_blocchetto">
             <tr :class="{ 'row-returned': b.data_restituzione, 'is-dynamic': !b.isReal }">
-              <td><strong>N° {{ b.numero_blocchetto }}</strong></td>
+              <td><strong class="tabular-num">N° {{ b.numero_blocchetto }}</strong></td>
               <td>{{ b.assegnato_a }}</td>
-              <td>{{ b.data_assegnazione ? formatDate(b.data_assegnazione) : '-' }}</td>
+              <td class="tabular-num">{{ b.data_assegnazione ? formatDate(b.data_assegnazione) : '-' }}</td>
               <td>
-                 <span v-if="b.data_restituzione" class="status-badge valid">
+                 <span v-if="b.data_restituzione" class="status-badge valid tabular-num">
                     {{ formatDate(b.data_restituzione) }}
                  </span>
-                 <span v-else-if="!b.isReal" class="status-badge dynamic" title="Esiste dai pagamenti ma non ha un'anagrafica">Sconosciuto</span>
+                 <span v-else-if="!b.isReal" class="status-badge dynamic" title="Esiste dai pagamenti storici">Storico</span>
                  <span v-else class="status-badge pending">In Circolazione</span>
               </td>
               <td>
-                 <span class="badge blue">{{ b.countPagamenti }} Quote</span>
-                 <span class="badge green">€ {{ b.totaleIncassato }}</span>
+                 <span class="badge blue tabular-num">{{ b.countPagamenti }} Quote</span>
+                 <span class="badge green tabular-num">€ {{ Number(b.totaleIncassato || 0).toFixed(2) }}</span>
               </td>
               <td class="action-cell">
-                 <button v-if="b.isReal && !b.data_restituzione" @click="handleReturn(b.id)" class="action-btn ok-btn" title="Segna come Restituito">✅</button>
-                 <button @click="toggleDetails(b.numero_blocchetto)" class="action-btn info-btn" title="Esplora Ricevute in questo blocchetto">🔎</button>
-                 <button v-if="b.isReal" @click="handleDelete(b.id)" class="action-btn delete-btn" title="Elimina Assegnazione (Diventerà Storico)">🗑️</button>
+                 <button v-if="b.isReal && !b.data_restituzione" @click="handleReturn(b.id)" class="action-btn ok-btn" title="Segna come Restituito">
+                   <BaseIcon name="check" :size="18" color="success" />
+                 </button>
+                 <button @click="toggleDetails(b.numero_blocchetto)" class="action-btn info-btn" :title="expandedRowId === b.numero_blocchetto ? 'Chiudi dettagli' : 'Esplora Ricevute in questo blocchetto'">
+                   <BaseIcon :name="expandedRowId === b.numero_blocchetto ? 'chevron-up' : 'eye'" :size="18" />
+                 </button>
+                 <button v-if="b.isReal" @click="handleDelete(b.id)" class="action-btn delete-btn" title="Elimina Assegnazione (Diventerà Storico)">
+                   <BaseIcon name="trash" :size="18" color="accent" />
+                 </button>
               </td>
             </tr>
             <!-- Dettaglio Espanso: Ricevute e Soci -->
@@ -316,12 +388,12 @@ const formatDate = (dateString) => {
 
                   <div v-else class="receipts-grid">
                      <div v-for="ric in b.ricevuteList" :key="ric.numero_ricevuta" class="receipt-card">
-                        <div class="receipt-title">Ricevuta N° {{ ric.numero_ricevuta }}</div>
+                        <div class="receipt-title tabular-num">Ricevuta N° {{ ric.numero_ricevuta }}</div>
                         <ul class="persons-list">
                            <li v-for="pay in ric.payments" :key="pay.id_tesseramento">
                               <strong>{{ pay.socioNome }}</strong>
-                              <span class="pay-year">Anno {{ pay.anno }}</span>
-                              <span class="pay-amount">€ {{ pay.quota_pagata }}</span>
+                              <span class="pay-year tabular-num">Anno {{ pay.anno }}</span>
+                              <span class="pay-amount tabular-num">€ {{ Number(pay.quota_pagata || 0).toFixed(2) }}</span>
                            </li>
                         </ul>
                      </div>
@@ -333,6 +405,39 @@ const formatDate = (dateString) => {
       </table>
       <div v-else class="empty-state">
         <p>Nessun Blocchetto corrisponde alla tua ricerca o non ci sono ancora pagamenti registrati.</p>
+      </div>
+
+      <!-- BARRA DI PAGINAZIONE -->
+      <div v-if="filteredBlocchetti.length > 0" class="pagination-footer">
+        <div class="pagination-summary">
+          Visualizzati <strong>{{ pagedBlocchetti.length }}</strong> di <strong>{{ filteredBlocchetti.length }}</strong> blocchetti
+        </div>
+        <div class="pagination-buttons" v-if="totalPages > 1">
+          <button
+            class="pagination-btn"
+            :disabled="currentPage <= 1"
+            @click="currentPage--"
+          >
+            <BaseIcon name="chevron-left" :size="16" /> Precedente
+          </button>
+          <span class="pagination-current">Pagina {{ currentPage }} di {{ totalPages }}</span>
+          <button
+            class="pagination-btn"
+            :disabled="currentPage >= totalPages"
+            @click="currentPage++"
+          >
+            Successivo <BaseIcon name="chevron-right" :size="16" />
+          </button>
+        </div>
+        <div class="page-size-selector">
+          <label>Per pagina:</label>
+          <select v-model.number="itemsPerPage" class="page-size-select">
+            <option :value="25">25</option>
+            <option :value="50">50</option>
+            <option :value="100">100</option>
+            <option :value="-1">Tutti</option>
+          </select>
+        </div>
       </div>
     </div>
 
@@ -379,14 +484,26 @@ const formatDate = (dateString) => {
 .stats-left {
    flex: 1;
 }
+.search-box {
+   position: relative;
+   display: flex;
+   align-items: center;
+   max-width: 420px;
+}
+.search-icon {
+   position: absolute;
+   left: 12px;
+   color: var(--color-text-secondary);
+   pointer-events: none;
+}
 .search-input {
    width: 100%;
-   max-width: 400px;
-   padding: 0.8rem 1rem;
+   padding: 0.8rem 1rem 0.8rem 2.6rem;
    border: 1px solid var(--color-border);
    border-radius: 8px;
    background: var(--color-background);
    font-size: 1rem;
+   color: var(--color-text-primary);
 }
 .stats-right {
    display: flex;
@@ -502,19 +619,26 @@ th {
 .action-cell {
    display: flex;
    gap: 0.5rem;
+   align-items: center;
 }
 .action-btn {
-  border: none;
-  background: none;
-  font-size: 1.2rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
   cursor: pointer;
-  padding: 0.3rem;
-  border-radius: 4px;
-  transition: transform 0.2s, background-color 0.2s;
+  padding: 0.5rem;
+  border-radius: 8px;
+  transition: transform 0.2s, background-color 0.2s, border-color 0.2s;
 }
 .action-btn:hover {
-  transform: scale(1.1);
-  background-color: var(--color-border);
+  transform: scale(1.05);
+  background-color: var(--color-surface-hover);
+  border-color: var(--color-accent);
 }
 
 /* Dettagli Espansi RICEVUTE */
@@ -584,9 +708,13 @@ th {
 
 /* BUTTONS */
 .primary-button, .secondary-button {
-  padding: 0.5rem 1rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0.6rem 1.2rem;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
@@ -602,5 +730,125 @@ th {
   color: var(--color-text-primary);
 }
 .secondary-button:hover { background-color: var(--color-surface-hover); }
+
+.tabular-num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* FILTRI RAPIDI (PILLS) */
+.filter-pills-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.filter-pill {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  border-radius: 9999px;
+  padding: 0.5rem 1.1rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.filter-pill:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+  border-color: var(--color-accent);
+}
+
+.filter-pill.active {
+  background: var(--color-accent);
+  color: #ffffff;
+  border-color: var(--color-accent);
+  box-shadow: 0 2px 4px rgba(183, 28, 28, 0.25);
+  font-weight: 600;
+}
+
+/* PAGINATION FOOTER */
+.pagination-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface-hover);
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+
+.pagination-summary {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+}
+
+.pagination-summary strong {
+  color: var(--color-text-primary);
+}
+
+.pagination-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.pagination-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  min-height: 38px;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+  border-color: var(--color-accent);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.pagination-current {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.page-size-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+}
+
+.page-size-select {
+  padding: 0.35rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
 
 </style>

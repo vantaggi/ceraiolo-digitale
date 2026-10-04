@@ -3,7 +3,9 @@
     <div class="form-container">
       <!-- Header -->
       <div class="form-header">
-        <router-link to="/" class="back-link">← Torna alla ricerca</router-link>
+        <router-link to="/" class="back-link">
+          <BaseIcon name="chevron-left" :size="16" /> Torna alla ricerca
+        </router-link>
         <h1>+ Nuovo Socio</h1>
       </div>
 
@@ -13,7 +15,7 @@
         <div class="form-row">
           <div class="form-group">
             <label for="nome">
-              <span class="field-icon">👤</span>
+              <span class="field-icon"><BaseIcon name="user" :size="16" /></span>
               Nome
             </label>
             <input
@@ -29,7 +31,7 @@
 
           <div class="form-group">
             <label for="cognome">
-              <span class="field-icon">📝</span>
+              <span class="field-icon"><BaseIcon name="user" :size="16" /></span>
               Cognome
             </label>
             <input
@@ -47,7 +49,7 @@
         <div class="form-row">
           <div class="form-group">
             <label for="data-nascita">
-              <span class="field-icon">🎂</span>
+              <span class="field-icon"><BaseIcon name="calendar" :size="16" /></span>
               Data di Nascita
             </label>
             <input
@@ -62,7 +64,7 @@
 
           <div class="form-group">
             <label for="luogo-nascita">
-              <span class="field-icon">📍</span>
+              <span class="field-icon"><BaseIcon name="map-pin" :size="16" /></span>
               Luogo di Nascita
             </label>
             <input
@@ -79,7 +81,7 @@
         <!-- Gruppo appartenenza -->
         <div class="form-group">
           <label for="gruppo-appartenenza">
-            <span class="field-icon">👥</span>
+            <span class="field-icon"><BaseIcon name="users" :size="16" /></span>
             Gruppo di Appartenenza
           </label>
           <select
@@ -99,7 +101,7 @@
         <!-- Campo nuovo gruppo (se selezionato "Nuovo Gruppo") -->
         <div v-if="formData.gruppo_appartenenza === 'Nuovo'" class="form-group">
           <label for="nuovo-gruppo">
-            <span class="field-icon">✨</span>
+            <span class="field-icon"><BaseIcon name="plus" :size="16" color="gold" /></span>
             Nome Nuovo Gruppo
           </label>
           <input
@@ -115,7 +117,7 @@
         <!-- Anno prima iscrizione (opzionale) -->
         <div class="form-group">
           <label for="data-prima-iscrizione">
-            <span class="field-icon">📅</span>
+            <span class="field-icon"><BaseIcon name="calendar" :size="16" /></span>
             Anno Prima Iscrizione (opzionale)
           </label>
           <input
@@ -132,7 +134,7 @@
         <!-- Note -->
         <div class="form-group">
           <label for="note">
-            <span class="field-icon">📝</span>
+            <span class="field-icon"><BaseIcon name="file-text" :size="16" /></span>
             Note (opzionale)
           </label>
           <textarea
@@ -148,7 +150,8 @@
         <div class="form-actions">
           <router-link to="/" class="cancel-button">Annulla</router-link>
           <button type="submit" class="save-button" :disabled="isSubmitting">
-            {{ isSubmitting ? '💾 Salvando...' : '👤 Salva Nuovo Socio' }}
+            <BaseIcon :name="isSubmitting ? 'loader' : 'user-plus'" :spin="isSubmitting" :size="18" />
+            <span>{{ isSubmitting ? 'Salvataggio...' : 'Salva Nuovo Socio' }}</span>
           </button>
         </div>
       </form>
@@ -160,6 +163,7 @@
 import { ref, reactive, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { addSocio, getUniqueGroups, getSetting, addCustomGroup } from '@/services/db'
+import BaseIcon from '@/components/common/BaseIcon.vue'
 
 const router = useRouter()
 const availableGroups = ref([])
@@ -399,7 +403,10 @@ onMounted(() => {
 }
 
 .field-icon {
-  font-size: 1.2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-accent);
 }
 
 .form-input,
@@ -421,6 +428,13 @@ onMounted(() => {
   box-shadow: 0 0 0 3px rgba(183, 28, 28, 0.1);
 }
 
+.form-input:disabled,
+.form-textarea:disabled {
+  background-color: var(--color-background);
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .form-textarea {
   resize: vertical;
   min-height: 80px;
@@ -436,9 +450,14 @@ onMounted(() => {
 }
 
 .cancel-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
   padding: 0.75rem 1.5rem;
-  background-color: var(--color-text-secondary);
-  color: white;
+  background-color: var(--color-surface-hover);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
   text-decoration: none;
   border-radius: 8px;
   font-weight: 600;
@@ -447,11 +466,16 @@ onMounted(() => {
 }
 
 .cancel-button:hover {
-  background-color: #666;
+  background-color: var(--color-border);
   transform: translateY(-1px);
 }
 
 .save-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: center;
+  min-height: 48px;
   padding: 0.75rem 1.5rem;
   background-color: var(--color-accent);
   color: white;
@@ -463,7 +487,7 @@ onMounted(() => {
 }
 
 .save-button:hover:not(:disabled) {
-  background-color: #a22a2a;
+  background-color: var(--color-accent-hover);
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(183, 28, 28, 0.3);
 }

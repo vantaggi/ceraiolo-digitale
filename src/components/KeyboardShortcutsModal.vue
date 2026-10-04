@@ -1,10 +1,15 @@
 <template>
   <Teleport to="body">
-    <div v-if="isVisible" class="modal-overlay" @click="closeOnOverlay">
-      <div class="modal-content" @click.stop>
+    <div v-if="isVisible" class="modal-overlay" @click="closeOnOverlay" @keydown.esc="$emit('close')" tabindex="-1">
+      <div class="modal-content" @click.stop role="dialog" aria-modal="true" aria-labelledby="shortcuts-modal-title">
         <div class="modal-header">
-          <h3 class="modal-title">⌨️ Scorciatoie da Tastiera</h3>
-          <button class="close-button" @click="$emit('close')" aria-label="Chiudi">✕</button>
+          <h3 id="shortcuts-modal-title" class="modal-title">
+            <BaseIcon name="keyboard" size="22" color="accent" />
+            <span>Scorciatoie da Tastiera</span>
+          </h3>
+          <button ref="closeBtn" class="close-button" @click="$emit('close')" aria-label="Chiudi finestra" type="button">
+            <BaseIcon name="x" size="20" />
+          </button>
         </div>
 
         <div class="modal-body">
@@ -29,7 +34,7 @@
               <h4>Liste / Ricerca</h4>
               <ul class="shortcut-list">
                 <li>
-                  <span class="key">↑</span> / <span class="key">↓</span>
+                  <span class="key"><BaseIcon name="chevron-up" :size="12" /></span> / <span class="key"><BaseIcon name="chevron-down" :size="12" /></span>
                   <span class="desc">Seleziona socio</span>
                 </li>
                 <li>
@@ -44,11 +49,11 @@
               <h4>Dettaglio Socio</h4>
               <ul class="shortcut-list">
                 <li>
-                  <span class="key">J</span> / <span class="key">→</span>
+                  <span class="key">J</span> / <span class="key"><BaseIcon name="chevron-right" :size="12" /></span>
                   <span class="desc">Socio successivo</span>
                 </li>
                 <li>
-                  <span class="key">K</span> / <span class="key">←</span>
+                  <span class="key">K</span> / <span class="key"><BaseIcon name="chevron-left" :size="12" /></span>
                   <span class="desc">Socio precedente</span>
                 </li>
                 <li>
@@ -80,7 +85,10 @@
 </template>
 
 <script setup>
-defineProps({
+import { ref, watch, nextTick } from 'vue'
+import BaseIcon from '@/components/common/BaseIcon.vue'
+
+const props = defineProps({
   isVisible: {
     type: Boolean,
     default: false,
@@ -88,6 +96,19 @@ defineProps({
 })
 
 const emit = defineEmits(['close'])
+
+const closeBtn = ref(null)
+
+watch(
+  () => props.isVisible,
+  (visible) => {
+    if (visible) {
+      nextTick(() => {
+        closeBtn.value?.focus()
+      })
+    }
+  },
+)
 
 const closeOnOverlay = (event) => {
   if (event.target === event.currentTarget) {
@@ -136,16 +157,23 @@ const closeOnOverlay = (event) => {
   color: var(--color-primary);
   font-size: 1.25rem;
   font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
 }
 
 .close-button {
   background: none;
   border: none;
-  font-size: 1.5rem;
   cursor: pointer;
   color: var(--color-text-secondary);
   padding: 0.25rem;
-  border-radius: 4px;
+  border-radius: 6px;
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   transition: all 0.2s;
 }
 

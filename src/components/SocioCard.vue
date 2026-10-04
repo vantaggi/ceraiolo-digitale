@@ -12,12 +12,17 @@
         class="renew-button"
         title="Rinnova Velocemente"
       >
-        ⚡
+        <BaseIcon name="zap" :size="16" />
+        <span>Rinnova</span>
       </button>
       <RouterLink :to="{ name: 'socio-detail', params: { id: socio.id } }" class="details-button">
-        Vedi Dettagli
+        <BaseIcon name="user" :size="16" />
+        <span>Dettagli</span>
       </RouterLink>
-      <button @click="$emit('generate-card', socio)" class="card-button">🎫 Genera Tessera</button>
+      <button @click="$emit('generate-card', socio)" class="card-button">
+        <BaseIcon name="ticket" :size="16" />
+        <span>Genera Tessera</span>
+      </button>
     </div>
   </div>
 </template>
@@ -26,6 +31,7 @@
 import { RouterLink } from 'vue-router'
 import { ref, onMounted, watch } from 'vue'
 import { getTesseramentiBySocioId } from '@/services/db'
+import BaseIcon from '@/components/common/BaseIcon.vue'
 
 const props = defineProps({
   socio: {
@@ -87,10 +93,11 @@ watch(() => props.socio, checkRenewal)
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.75rem 1.5rem;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
   font-family: var(--font-family-body);
-  font-weight: 500;
-  font-size: 1rem;
+  font-weight: 600;
+  font-size: 0.95rem;
   background-color: var(--color-accent);
   color: white;
   border: none;
@@ -112,10 +119,11 @@ watch(() => props.socio, checkRenewal)
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.75rem 1.5rem;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
   font-family: var(--font-family-body);
-  font-weight: 500;
-  font-size: 1rem;
+  font-weight: 600;
+  font-size: 0.95rem;
   background-color: var(--color-success);
   color: white;
   border: none;
@@ -129,7 +137,7 @@ watch(() => props.socio, checkRenewal)
 }
 
 .card-button:hover {
-  background-color: #1b5e20; /* Keep or improve if needed, but let's align opacity/transform */
+  background-color: #1b5e20;
   filter: brightness(0.9);
 }
 
@@ -137,10 +145,12 @@ watch(() => props.socio, checkRenewal)
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.75rem 1rem;
-  font-size: 1.2rem;
-  background-color: var(--color-warning); /* Use theme warning (orange) */
-  color: white; /* Contrast for orange */
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  background-color: var(--color-warning);
+  color: white;
   border: none;
   border-radius: 8px;
   cursor: pointer;
@@ -150,8 +160,8 @@ watch(() => props.socio, checkRenewal)
 }
 
 .renew-button:hover {
-  transform: scale(1.1);
-  background-color: #e65100; /* Darker shade of warning #ed6c02 */
+  transform: translateY(-1px);
+  background-color: #c2410c;
 }
 
 /* Responsive */

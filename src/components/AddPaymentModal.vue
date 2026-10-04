@@ -1,16 +1,21 @@
 <template>
-  <div v-if="show" class="modal-overlay" @click="closeModal">
-    <div class="modal-content" @click.stop>
+  <div v-if="show" class="modal-overlay" @click="closeModal" @keydown.esc="closeModal" tabindex="-1">
+    <div class="modal-content" @click.stop role="dialog" aria-modal="true" aria-labelledby="modal-payment-title">
       <div class="modal-header">
-        <h3>💳 Registra Pagamento</h3>
-        <button @click="closeModal" class="close-button">✕</button>
+        <h3 id="modal-payment-title">
+          <BaseIcon name="credit-card" size="22" color="accent" />
+          <span>Registra Pagamento</span>
+        </h3>
+        <button @click="closeModal" class="close-button" aria-label="Chiudi finestra" type="button">
+          <BaseIcon name="x" size="20" />
+        </button>
       </div>
 
       <form @submit.prevent="handleSubmit" class="payment-form">
         <div class="form-group">
           <label for="quota-pagata">
-            <span class="field-icon">💰</span>
-            Quota Pagata (€)
+            <span class="field-icon"><BaseIcon name="coins" size="18" color="accent" /></span>
+            <span>Quota Pagata (€)</span>
           </label>
           <input
             id="quota-pagata"
@@ -27,8 +32,8 @@
 
         <div class="form-group">
           <label for="data-pagamento">
-            <span class="field-icon">📅</span>
-            Data Pagamento
+            <span class="field-icon"><BaseIcon name="calendar" size="18" color="accent" /></span>
+            <span>Data Pagamento</span>
           </label>
           <input
             id="data-pagamento"
@@ -42,8 +47,8 @@
 
         <div class="form-group">
           <label for="numero-blocchetto">
-            <span class="field-icon">📄</span>
-            N. Blocchetto
+            <span class="field-icon"><BaseIcon name="receipt" size="18" color="accent" /></span>
+            <span>N. Blocchetto</span>
           </label>
           <input
             id="numero-blocchetto"
@@ -58,8 +63,8 @@
 
         <div class="form-group">
           <label for="numero-ricevuta">
-            <span class="field-icon">🧾</span>
-            N. Ricevuta
+            <span class="field-icon"><BaseIcon name="ticket" size="18" color="accent" /></span>
+            <span>N. Ricevuta</span>
           </label>
           <input
             id="numero-ricevuta"
@@ -75,8 +80,8 @@
         <!-- Years Selection -->
         <div class="form-group">
           <label>
-            <span class="field-icon">📅</span>
-            Anni di Tesseramento
+            <span class="field-icon"><BaseIcon name="calendar" size="18" color="accent" /></span>
+            <span>Anni di Tesseramento</span>
           </label>
           <div class="years-selection">
             <div v-for="year in availableYears" :key="year" class="year-option">
@@ -99,10 +104,13 @@
 
         <div class="modal-actions">
           <button type="button" @click="closeModal" class="cancel-button" :disabled="isSubmitting">
-            Annulla
+            <BaseIcon name="x" size="18" />
+            <span>Annulla</span>
           </button>
           <button type="submit" class="save-button" :disabled="isSubmitting" ref="saveButton">
-            {{ isSubmitting ? 'Salvando...' : `Salva Pagamenti (${selectedYears.length} anni)` }}
+            <BaseIcon v-if="isSubmitting" name="loader" size="18" spin />
+            <BaseIcon v-else name="save" size="18" />
+            <span>{{ isSubmitting ? 'Salvando...' : `Salva Pagamenti (${selectedYears.length} anni)` }}</span>
           </button>
         </div>
       </form>
@@ -112,7 +120,8 @@
 
 <script setup>
 import { ref, reactive, watch, nextTick } from 'vue'
-import { getTesseramentiBySocioId, getSetting, calculateAgeInYear, isExemptFromPayment } from '@/services/db'
+import BaseIcon from '@/components/common/BaseIcon.vue'
+import { getSocioById, getTesseramentiBySocioId, getSetting, calculateAgeInYear, isExemptFromPayment } from '@/services/db'
 
 const emit = defineEmits(['close', 'payments-saved'])
 
@@ -166,7 +175,7 @@ const loadAvailableYears = async () => {
 
     // Get socio info and paid years
     const [socio, tesseramenti] = await Promise.all([
-      import('@/services/db').then((m) => m.getSocioById(props.socioId)),
+      getSocioById(props.socioId),
       getTesseramentiBySocioId(props.socioId),
     ])
 
@@ -269,7 +278,7 @@ const resetForm = async () => {
 
   // Calculate if the user should pay the 25 EUR penalty fee (New member or Returning)
   try {
-    const socio = await import('@/services/db').then((m) => m.getSocioById(props.socioId))
+    const socio = await getSocioById(props.socioId)
     const targetYear = props.annoRiferimento
 
     if (!isExemptFromPayment(socio, targetYear)) {
@@ -344,9 +353,11 @@ const handleSubmit = () => {
   border: 2px solid var(--color-border);
   box-shadow: var(--shadow-lg);
   min-width: 400px;
-  max-width: 450px;
-  max-height: 80vh;
-  overflow-y: auto;
+  max-width: 460px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   animation: slideIn 0.3s ease-out;
 }
 
@@ -354,10 +365,11 @@ const handleSubmit = () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1.5rem 2rem;
+  padding: 1.25rem 2rem;
   border-bottom: 2px solid var(--color-border);
   background-color: var(--color-background);
   border-radius: 12px 12px 0 0;
+  flex-shrink: 0;
 }
 
 .modal-header h3 {
@@ -372,11 +384,15 @@ const handleSubmit = () => {
 .close-button {
   background: none;
   border: none;
-  font-size: 1.5rem;
   cursor: pointer;
   color: var(--color-text-secondary);
   padding: 0.25rem;
-  border-radius: 4px;
+  border-radius: 6px;
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   transition: all 0.2s;
 }
 
@@ -386,10 +402,12 @@ const handleSubmit = () => {
 }
 
 .payment-form {
-  padding: 2rem;
+  padding: 1.5rem 2rem 2rem;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1.25rem;
+  overflow-y: auto;
+  flex: 1;
 }
 
 .form-group {
@@ -401,8 +419,8 @@ const handleSubmit = () => {
 .form-group label {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 0.95rem;
+  gap: 0.6rem;
+  font-size: 1.1rem; /* >= 17px Senior Ergonomics */
   font-weight: 600;
   color: var(--color-text-primary);
 }
@@ -416,17 +434,21 @@ const handleSubmit = () => {
 }
 
 .field-icon {
-  font-size: 1.2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .form-input {
-  padding: 0.75rem;
+  padding: 0.75rem 1rem;
+  min-height: 48px;
   border-radius: 8px;
   border: 2px solid var(--color-border);
   background-color: var(--color-background);
   color: var(--color-text-primary);
-  font-size: 1rem;
+  font-size: 1.05rem;
   font-family: var(--font-family-body);
+  font-variant-numeric: tabular-nums;
   transition: all 0.2s;
 }
 
@@ -445,26 +467,40 @@ const handleSubmit = () => {
   justify-content: flex-end;
   gap: 1rem;
   margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+  position: sticky;
+  bottom: 0;
+  background-color: var(--color-surface);
+  z-index: 2;
 }
 
 .cancel-button,
 .save-button {
+  min-height: 48px;
   padding: 0.75rem 1.5rem;
   border: none;
   border-radius: 8px;
-  font-size: 1rem;
+  font-size: 1.05rem;
   font-weight: 600;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
   transition: all 0.2s;
 }
 
 .cancel-button {
-  background-color: var(--color-text-secondary);
-  color: white;
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
 }
 
 .cancel-button:hover {
-  background-color: #666;
+  background-color: var(--color-surface-hover);
+  border-color: var(--color-text-secondary);
+  color: var(--color-text-primary);
   transform: scale(1.02);
 }
 
@@ -511,13 +547,39 @@ const handleSubmit = () => {
   flex-direction: column;
   gap: 0.5rem;
   margin-top: 0.5rem;
+  max-height: 220px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.years-selection::-webkit-scrollbar,
+.payment-form::-webkit-scrollbar {
+  width: 6px;
+}
+
+.years-selection::-webkit-scrollbar-track,
+.payment-form::-webkit-scrollbar-track {
+  background: var(--color-background);
+  border-radius: 3px;
+}
+
+.years-selection::-webkit-scrollbar-thumb,
+.payment-form::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+.years-selection::-webkit-scrollbar-thumb:hover,
+.payment-form::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-secondary);
 }
 
 .year-option {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  min-height: 44px;
   background-color: var(--color-background);
   border-radius: 6px;
   border: 1px solid var(--color-border);
@@ -530,14 +592,16 @@ const handleSubmit = () => {
 }
 
 .year-option input[type='checkbox'] {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   accent-color: var(--color-accent);
 }
 
 .year-label {
   cursor: pointer;
   font-weight: 500;
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
   color: var(--color-text-primary);
   display: flex;
   align-items: center;
@@ -597,13 +661,7 @@ const handleSubmit = () => {
 
   .modal-header {
     padding: 1rem;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.5rem;
-  }
-
-  .close-button {
-    align-self: flex-end;
+    gap: 0.75rem;
   }
 
   .payment-form {

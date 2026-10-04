@@ -1,14 +1,21 @@
 <template>
   <Teleport to="body">
-    <div v-if="isVisible" class="modal-overlay" @click="closeOnOverlay">
-      <div class="modal-content" @click.stop>
+    <div v-if="isVisible" class="modal-overlay" @click="closeOnOverlay" @keydown.esc="closeModal" tabindex="-1">
+      <div class="modal-content" @click.stop role="dialog" aria-modal="true" aria-labelledby="delete-modal-title">
         <div class="modal-header">
-          <h3 class="modal-title">{{ title || '🗑️ Elimina Socio' }}</h3>
-          <button class="close-button" @click="closeModal" aria-label="Chiudi">✕</button>
+          <h3 id="delete-modal-title" class="modal-title">
+            <BaseIcon name="trash-2" size="22" color="accent" />
+            <span>{{ title || 'Elimina Socio' }}</span>
+          </h3>
+          <button class="close-button" @click="closeModal" aria-label="Chiudi finestra" type="button">
+            <BaseIcon name="x" size="20" />
+          </button>
         </div>
 
         <div class="modal-body">
-          <div class="warning-icon">⚠️</div>
+          <div class="warning-icon">
+            <BaseIcon name="alert-triangle" size="56" color="warning" />
+          </div>
 
           <div v-if="message" class="custom-message">
             <p class="warning-message" style="white-space: pre-line">{{ message }}</p>
@@ -28,10 +35,14 @@
         </div>
 
         <div class="modal-footer">
-          <button class="cancel-button" @click="closeModal" :disabled="isDeleting">Annulla</button>
+          <button ref="cancelBtn" class="cancel-button" @click="closeModal" :disabled="isDeleting">
+            <BaseIcon name="x" size="18" />
+            <span>Annulla</span>
+          </button>
           <button class="delete-button" @click="confirmDelete" :disabled="isDeleting">
-            <span v-if="isDeleting" class="loading-spinner">⏳</span>
-            {{ isDeleting ? 'Eliminazione...' : 'Elimina Socio' }}
+            <BaseIcon v-if="isDeleting" name="loader" size="18" spin color="white" />
+            <BaseIcon v-else name="trash-2" size="18" color="white" />
+            <span>{{ isDeleting ? 'Eliminazione...' : 'Elimina Socio' }}</span>
           </button>
         </div>
       </div>
@@ -40,9 +51,10 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, watch, nextTick } from 'vue'
+import BaseIcon from '@/components/common/BaseIcon.vue'
 
-defineProps({
+const props = defineProps({
   isVisible: {
     type: Boolean,
     default: false,
@@ -64,6 +76,18 @@ defineProps({
 const emit = defineEmits(['close', 'confirm'])
 
 const isDeleting = ref(false)
+const cancelBtn = ref(null)
+
+watch(
+  () => props.isVisible,
+  (visible) => {
+    if (visible) {
+      nextTick(() => {
+        cancelBtn.value?.focus()
+      })
+    }
+  },
+)
 
 // Close modal when clicking on overlay
 const closeOnOverlay = (event) => {
@@ -126,16 +150,23 @@ const confirmDelete = () => {
   color: var(--color-accent);
   font-size: 1.25rem;
   font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
 }
 
 .close-button {
   background: none;
   border: none;
-  font-size: 1.5rem;
   cursor: pointer;
   color: var(--color-text-secondary);
   padding: 0.25rem;
-  border-radius: 4px;
+  border-radius: 6px;
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   transition: all 0.2s;
 }
 
@@ -150,8 +181,11 @@ const confirmDelete = () => {
 }
 
 .warning-icon {
-  font-size: 3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin-bottom: 1rem;
+  color: var(--color-warning);
 }
 
 .warning-message {
@@ -185,14 +219,17 @@ const confirmDelete = () => {
 
 .cancel-button,
 .delete-button {
+  min-height: 48px;
   padding: 0.75rem 1.5rem;
   border: none;
   border-radius: 8px;
-  font-weight: 500;
+  font-size: 1.05rem;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
-  display: flex;
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
 }
 
@@ -261,12 +298,6 @@ const confirmDelete = () => {
   .modal-content {
     width: 95%;
     margin: 1rem;
-  }
-
-  .modal-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.5rem;
   }
 
   .modal-header,

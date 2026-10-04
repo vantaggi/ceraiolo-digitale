@@ -4,7 +4,8 @@
       <div class="header-section">
         <h1>Cerca Socio</h1>
         <router-link to="/socio/nuovo" class="add-socio-button accent">
-          + Aggiungi Nuovo Socio
+          <BaseIcon name="plus" :size="18" />
+          <span>Aggiungi Nuovo Socio</span>
         </router-link>
       </div>
 
@@ -22,7 +23,7 @@
           }"
         >
           <span class="stat-label">Totale Soci</span>
-          <span class="stat-value">{{ stats.totalSoci }}</span>
+          <span class="stat-value tabular-num">{{ stats.totalSoci }}</span>
         </div>
         <div
           class="stat-card clickable"
@@ -30,7 +31,7 @@
           :class="{ active: filters.renewalYear === currentYear }"
         >
           <span class="stat-label">Rinnovi {{ currentYear }}</span>
-          <span class="stat-value">{{ stats.renewalsCurrent }}</span>
+          <span class="stat-value tabular-num">{{ stats.renewalsCurrent }}</span>
         </div>
         <div
           class="stat-card highlight clickable"
@@ -38,7 +39,7 @@
           :class="{ active: filters.renewalYear === currentYear + 1 }"
         >
           <span class="stat-label">Rinnovi {{ currentYear + 1 }}</span>
-          <span class="stat-value">{{ stats.renewalsNext }}</span>
+          <span class="stat-value tabular-num">{{ stats.renewalsNext }}</span>
         </div>
       </div>
 
@@ -66,8 +67,9 @@
             <div v-if="searchResults.length > 0" class="results-header">
               <span class="results-count">{{ searchResults.length }} soci trovati</span>
               <button @click="exportSociToPdf" :disabled="isExporting" class="pdf-export-button">
-                <span v-if="isExporting" class="loading-spinner">⏳</span>
-                {{ isExporting ? 'Esporta PDF' : '📄 Esporta PDF' }}
+                <BaseIcon v-if="isExporting" name="loader" spin :size="16" class="loading-spinner" />
+                <BaseIcon v-else name="file-text" :size="16" />
+                <span>Esporta PDF</span>
               </button>
             </div>
 
@@ -87,7 +89,7 @@
 
             <!-- Recent Members (Only when empty search) -->
             <div v-if="!hasSearchCriteria && recentMembers.length > 0" class="recent-section">
-              <h3>🕒 Ultimi Soci Visitati</h3>
+              <h3><BaseIcon name="clock" :size="20" /> Ultimi Soci Visitati</h3>
               <div class="results-list">
                 <SocioCard
                   v-for="socio in recentMembers"
@@ -107,11 +109,13 @@
 
         <!-- Right Column: Sidebar (Activity) -->
         <aside class="activity-sidebar">
-          <h3>⚡ Attività Recente</h3>
+          <h3><BaseIcon name="zap" :size="20" color="gold" /> Attività Recente</h3>
           <div v-if="activityLogs.length > 0" class="activity-list">
             <div v-for="log in activityLogs" :key="log.id" class="activity-item">
               <div class="activity-icon" :class="log.type">
-                {{ log.type === 'create' ? '✨' : log.type === 'update' ? '📝' : '🗑️' }}
+                <BaseIcon v-if="log.type === 'create'" name="sparkles" :size="18" color="success" />
+                <BaseIcon v-else-if="log.type === 'update'" name="edit" :size="18" color="info" />
+                <BaseIcon v-else name="trash-2" :size="18" color="accent" />
               </div>
               <div class="activity-content">
                 <div class="activity-desc">{{ log.description }}</div>
@@ -122,11 +126,15 @@
           <div v-else class="empty-activity">Nessuna attività registrata di recente.</div>
 
           <div class="quick-links">
-            <h4>🔗 Link Rapidi</h4>
-            <router-link to="/registrazione-seriale" class="q-link"
-              >🔄 Inserimento Rapido</router-link
-            >
-            <router-link to="/reports" class="q-link">📊 Report Annuali</router-link>
+            <h4><BaseIcon name="link" :size="18" /> Link Rapidi</h4>
+            <router-link to="/registrazione-seriale" class="q-link">
+              <BaseIcon name="refresh-cw" :size="16" />
+              <span>Inserimento Rapido</span>
+            </router-link>
+            <router-link to="/reports" class="q-link">
+              <BaseIcon name="bar-chart" :size="16" />
+              <span>Report Annuali</span>
+            </router-link>
           </div>
         </aside>
       </div>
@@ -140,12 +148,26 @@
       <!-- Utility Footer -->
       <footer class="dashboard-footer">
         <div class="footer-actions">
-          <button @click="exportDatabase" class="utility-button secondary">📥 Backup DB</button>
-          <button @click="exportChangeLogData" class="utility-button secondary">
-            📊 Changelog
+          <button @click="exportDatabase" class="utility-button secondary">
+            <BaseIcon name="download" :size="16" />
+            <span>Backup DB</span>
           </button>
-          <button @click="runNormalization" class="utility-button warning" title="Sistema i blocchetti storici invertiti">🔧 Fix DB Invertito</button>
-          <button @click="clearDatabase" class="utility-button danger">🗑️ Reset DB</button>
+          <button @click="exportChangeLogData" class="utility-button secondary">
+            <BaseIcon name="bar-chart" :size="16" />
+            <span>Changelog</span>
+          </button>
+          <button
+            @click="runNormalization"
+            class="utility-button warning"
+            title="Sistema i blocchetti storici invertiti"
+          >
+            <BaseIcon name="settings" :size="16" />
+            <span>Fix DB Invertito</span>
+          </button>
+          <button @click="clearDatabase" class="utility-button danger">
+            <BaseIcon name="trash-2" :size="16" color="accent" />
+            <span>Reset DB</span>
+          </button>
         </div>
         <p class="footer-note">Sistema Gestionale Ceraiolo Digitale - v1.0</p>
       </footer>
@@ -172,6 +194,7 @@ import { generateAndDownloadSociPDF, generateSingleCardPDF } from '@/services/ex
 import SocioCard from '@/components/SocioCard.vue'
 import FilterPanel from '@/components/FilterPanel.vue'
 import DashboardCharts from '@/components/DashboardCharts.vue'
+import BaseIcon from '@/components/common/BaseIcon.vue'
 
 // Stato dell'applicazione
 const searchTerm = ref('')
@@ -468,7 +491,7 @@ const quickRenew = async (socio) => {
 .dashboard {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 0 0 1.5rem 0;
 }
 
 .header-section {
@@ -530,6 +553,10 @@ const quickRenew = async (socio) => {
 }
 
 .add-socio-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 48px;
   padding: 0.75rem 1.5rem;
   background-color: var(--color-accent);
   color: white;
@@ -542,6 +569,10 @@ const quickRenew = async (socio) => {
 .add-socio-button:hover {
   background-color: var(--color-accent-hover);
   transform: translateY(-1px);
+}
+
+.tabular-num {
+  font-variant-numeric: tabular-nums;
 }
 
 .dashboard-grid {
@@ -581,6 +612,9 @@ const quickRenew = async (socio) => {
   color: var(--color-primary);
   font-size: 1.1rem;
   margin-bottom: 1.2rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .activity-item {
@@ -627,6 +661,13 @@ const quickRenew = async (socio) => {
   gap: 0.5rem;
 }
 
+.quick-links h4 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.5rem 0;
+}
+
 .q-link {
   padding: 0.6rem;
   background: var(--color-background);
@@ -635,6 +676,9 @@ const quickRenew = async (socio) => {
   color: var(--color-text-primary);
   font-size: 0.9rem;
   border: 1px solid transparent;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .q-link:hover {
@@ -655,6 +699,9 @@ const quickRenew = async (socio) => {
   border: none;
   border-radius: 6px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .results-list {
@@ -672,6 +719,9 @@ const quickRenew = async (socio) => {
   color: var(--color-text-secondary);
   text-transform: uppercase;
   margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .status-msg,
@@ -693,6 +743,7 @@ const quickRenew = async (socio) => {
   justify-content: center;
   gap: 1rem;
   margin-bottom: 1rem;
+  flex-wrap: wrap;
 }
 
 .utility-button {
@@ -701,6 +752,9 @@ const quickRenew = async (socio) => {
   border: 1px solid var(--color-border);
   background: var(--color-surface);
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 .utility-button.danger {

@@ -5,8 +5,11 @@ import Toast from 'vue-toastification'
 import 'vue-toastification/dist/index.css'
 import App from './App.vue'
 import router from './router'
+import BaseIcon from './components/common/BaseIcon.vue'
 
 const app = createApp(App)
+
+app.component('BaseIcon', BaseIcon)
 
 app.use(createPinia())
 app.use(router)

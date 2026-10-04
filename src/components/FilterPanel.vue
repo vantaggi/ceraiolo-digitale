@@ -1,16 +1,22 @@
 <template>
   <div class="filter-panel">
     <div class="filter-header">
-      <h3>🔍 Filtri</h3>
-      <button v-if="hasActiveFilters" @click="resetFilters" class="reset-button">✕ Reset</button>
+      <h3>
+        <BaseIcon name="search" size="20" color="accent" />
+        <span>Filtri</span>
+      </h3>
+      <button v-if="hasActiveFilters" @click="resetFilters" class="reset-button" aria-label="Reimposta tutti i filtri">
+        <BaseIcon name="refresh-cw" size="16" />
+        <span>Reset</span>
+      </button>
     </div>
 
     <div class="filter-controls">
       <!-- Filtro Età -->
       <div class="filter-group">
         <label for="age-filter">
-          <span class="filter-icon">🎂</span>
-          Età
+          <span class="filter-icon"><BaseIcon name="calendar" size="18" color="accent" /></span>
+          <span>Età</span>
         </label>
         <select
           id="age-filter"
@@ -27,8 +33,8 @@
       <!-- Filtro Gruppo -->
       <div class="filter-group">
         <label for="group-filter">
-          <span class="filter-icon">👥</span>
-          Gruppo
+          <span class="filter-icon"><BaseIcon name="users" size="18" color="accent" /></span>
+          <span>Gruppo</span>
         </label>
         <select
           id="group-filter"
@@ -45,7 +51,8 @@
 
       <!-- Indicatore filtri attivi -->
       <div v-if="hasActiveFilters" class="active-filters-badge">
-        {{ activeFiltersCount }} filtri attivi
+        <BaseIcon name="sliders" size="14" />
+        <span>{{ activeFiltersCount === 1 ? '1 filtro attivo' : `${activeFiltersCount} filtri attivi` }}</span>
       </div>
     </div>
   </div>
@@ -53,6 +60,7 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, watch } from 'vue'
+import BaseIcon from '@/components/common/BaseIcon.vue'
 import { getUniqueGroups } from '@/services/db'
 
 // Props per ricevere i valori iniziali dal parent
@@ -155,22 +163,33 @@ onMounted(async () => {
   margin: 0;
   font-size: 1.25rem;
   color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .reset-button {
-  padding: 0.4rem 0.8rem;
-  font-size: 0.9rem;
-  background-color: var(--color-text-secondary);
-  color: white;
-  border: none;
+  min-height: 44px;
+  padding: 0.5rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
   border-radius: 6px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
   transition: all 0.2s;
 }
 
 .reset-button:hover {
   background-color: var(--color-accent);
-  transform: scale(1.05);
+  border-color: var(--color-accent);
+  color: white;
+  transform: scale(1.02);
 }
 
 .filter-controls {
@@ -191,18 +210,21 @@ onMounted(async () => {
 .filter-group label {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 0.95rem;
+  gap: 0.6rem;
+  font-size: 1.05rem;
   font-weight: 600;
   color: var(--color-text-primary);
 }
 
 .filter-icon {
-  font-size: 1.2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .filter-select {
-  padding: 0.75rem;
+  padding: 0.75rem 1rem;
+  min-height: 44px;
   border-radius: 8px;
   border: 2px solid var(--color-border);
   background-color: var(--color-background);
@@ -223,15 +245,22 @@ onMounted(async () => {
   box-shadow: 0 0 0 3px rgba(183, 28, 28, 0.1);
 }
 
+.filter-select option {
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+}
+
 .active-filters-badge {
-  display: flex;
+  display: inline-flex;
   align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
   padding: 0.75rem 1rem;
   background-color: var(--color-accent);
   color: white;
   border-radius: 8px;
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   white-space: nowrap;
 }
 

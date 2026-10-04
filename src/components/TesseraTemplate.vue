@@ -2,13 +2,28 @@
   <div class="tessera-vertical" :style="cardStyle">
     <div
       class="tessera-front"
-      :class="{ 'pdf-template': hasPdfTemplate && !backgroundImage }"
+      :class="{
+        'pdf-template': hasPdfTemplate && !backgroundImage,
+        'institutional-fallback': !hasPdfTemplate && !backgroundImage
+      }"
       :style="{ backgroundImage: backgroundImage ? `url(${backgroundImage})` : undefined }"
     >
       <!-- Messaggio PDF Template -->
       <div v-if="hasPdfTemplate && !backgroundImage" class="pdf-template-message">
-        <div class="pdf-icon">📄</div>
+        <div class="pdf-icon">
+          <BaseIcon name="receipt" :size="28" />
+        </div>
         <div class="pdf-text">PDF Template<br />Configurato</div>
+      </div>
+
+      <!-- Institutional Fallback Header (quando non è caricato un template personalizzato) -->
+      <div v-if="!hasPdfTemplate && !backgroundImage" class="institutional-card-header">
+        <div class="card-crest">
+          <BaseIcon name="shield-check" :size="26" color="gold" />
+        </div>
+        <div class="card-org-title">FAMIGLIA DEI SANTANTONIARI</div>
+        <div class="card-subtitle">GUBBIO</div>
+        <div class="card-year-badge">TESSERA SOCIO {{ anno || new Date().getFullYear() }}</div>
       </div>
 
       <!-- Sezione dati socio -->
@@ -16,12 +31,19 @@
         <div class="info-value name-value">{{ nomeCognome }}</div>
         <div class="info-value birthdate-value">{{ dataNascitaFormattata }}</div>
       </div>
+
+      <!-- Institutional Fallback Footer -->
+      <div v-if="!hasPdfTemplate && !backgroundImage" class="institutional-card-footer">
+        <div class="card-motto">«In Fide et Honore»</div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
 import { computed } from 'vue'
+import BaseIcon from '@/components/common/BaseIcon.vue'
+import { formatItalianDOB } from '@/services/export'
 
 const props = defineProps({
   nomeCognome: {
@@ -31,6 +53,10 @@ const props = defineProps({
   dataNascita: {
     type: String,
     required: true,
+  },
+  anno: {
+    type: [Number, String],
+    default: () => new Date().getFullYear(),
   },
   backgroundImage: {
     type: String,
@@ -50,26 +76,8 @@ const props = defineProps({
   },
 })
 
-const mesi = [
-  'Gennaio',
-  'Febbraio',
-  'Marzo',
-  'Aprile',
-  'Maggio',
-  'Giugno',
-  'Luglio',
-  'Agosto',
-  'Settembre',
-  'Ottobre',
-  'Novembre',
-  'Dicembre',
-]
-
 const dataNascitaFormattata = computed(() => {
-  if (!props.dataNascita) return ''
-  const [anno, mese, giorno] = props.dataNascita.split('-')
-  const meseNome = mesi[parseInt(mese) - 1]
-  return `${parseInt(giorno)} ${meseNome} ${anno}`
+  return formatItalianDOB(props.dataNascita)
 })
 
 const cardStyle = computed(() => ({
@@ -83,7 +91,7 @@ const cardStyle = computed(() => ({
   width: 80.77mm;
   height: 122.17mm;
   perspective: 1000px;
-  font-family: cursive;
+  font-family: 'Brush Script MT', 'Dancing Script', 'Segoe Script', cursive;
 }
 
 .tessera-front {
@@ -150,7 +158,9 @@ const cardStyle = computed(() => ({
 }
 
 .pdf-icon {
-  font-size: 24px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
   margin-bottom: 8px;
 }
 
@@ -158,5 +168,86 @@ const cardStyle = computed(() => ({
   font-size: 12px;
   font-weight: 600;
   line-height: 1.2;
+}
+
+/* Institutional Fallback (Famiglia dei Santantoniari) */
+.institutional-fallback {
+  background: linear-gradient(145deg, #fffefb 0%, #f7f3ea 100%) !important;
+  border: 3.5px double #b71c1c;
+  box-shadow: inset 0 0 0 2px #c59b27, 0 4px 12px rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  padding: 8px 6px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.institutional-card-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-top: 4px;
+}
+
+.card-crest {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 3px;
+}
+
+.card-org-title {
+  font-family: 'Cinzel', 'Georgia', 'Times New Roman', serif;
+  font-size: 11px;
+  font-weight: 800;
+  color: #b71c1c;
+  letter-spacing: 0.8px;
+  line-height: 1.2;
+}
+
+.card-subtitle {
+  font-family: 'Cinzel', 'Georgia', 'Times New Roman', serif;
+  font-size: 9px;
+  font-weight: 700;
+  color: #854d0e;
+  letter-spacing: 2px;
+  margin-top: 1px;
+}
+
+.card-year-badge {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 2px 8px;
+  background: #b71c1c;
+  color: #ffffff;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  border-radius: 9999px;
+  border: 1px solid #c59b27;
+  font-variant-numeric: tabular-nums;
+}
+
+.institutional-fallback .member-info {
+  padding: 2mm 4% 2mm 4%;
+}
+
+.institutional-card-footer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.card-motto {
+  font-family: 'Cinzel', 'Georgia', 'Times New Roman', serif;
+  font-size: 8.5px;
+  font-weight: 600;
+  font-style: italic;
+  color: #78716c;
+  letter-spacing: 1px;
 }
 </style>

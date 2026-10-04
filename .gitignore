@@ -22,6 +22,9 @@ node_modules/
 *.sqlite
 *.sqlite3
 
+# Generated PDFs
+*.pdf
+
 # Editor directories and files
 .idea
 .vscode

@@ -3,35 +3,42 @@
     <div class="container settings-layout">
       <!-- Sidebar Navigation -->
       <aside class="settings-sidebar">
-        <h1 class="sidebar-title">⚙️ Impostazioni</h1>
+        <h1 class="sidebar-title">
+          <BaseIcon name="settings" size="24" />
+          <span>Impostazioni</span>
+        </h1>
         <nav class="settings-nav">
           <button
             @click="currentTab = 'generale'"
             :class="{ active: currentTab === 'generale' }"
             class="nav-item"
           >
-            🔧 Generale
+            <BaseIcon name="sliders" size="18" />
+            <span>Generale</span>
           </button>
           <button
             @click="currentTab = 'template'"
             :class="{ active: currentTab === 'template' }"
             class="nav-item"
           >
-            🎫 Template Tessera
+            <BaseIcon name="ticket" size="18" />
+            <span>Template Tessera</span>
           </button>
           <button
             @click="currentTab = 'dati'"
             :class="{ active: currentTab === 'dati' }"
             class="nav-item"
           >
-            💾 Dati & Backup
+            <BaseIcon name="database" size="18" />
+            <span>Dati & Backup</span>
           </button>
           <button
             @click="currentTab = 'zone'"
             :class="{ active: currentTab === 'zone' }"
             class="nav-item"
           >
-            🏘️ Gestione Zone
+            <BaseIcon name="map-pin" size="18" />
+            <span>Gestione Zone</span>
           </button>
         </nav>
       </aside>
@@ -40,8 +47,88 @@
       <main class="settings-content">
         <!-- Tab: Generale -->
         <section v-if="currentTab === 'generale'" class="settings-section">
-          <h2>🔧 Configurazione Applicazione</h2>
+          <h2>
+            <BaseIcon name="sliders" size="22" />
+            <span>Configurazione Applicazione</span>
+          </h2>
           <p>Parametri globali per il funzionamento dell'applicazione</p>
+
+          <!-- Selettore Tema Interfaccia (Opzione 2: Dark Mode Preservata) -->
+          <div class="theme-setting-card">
+            <div class="theme-setting-header">
+              <div class="theme-title-group">
+                <h3>Aspetto e Tema Visivo</h3>
+                <p class="section-desc">Personalizza l'aspetto dell'applicazione. La preferenza viene memorizzata sul dispositivo.</p>
+              </div>
+              <span class="current-theme-badge">
+                Attivo: <strong>{{ themeStore.currentTheme === 'dark' ? 'Scuro' : 'Chiaro' }}</strong>
+              </span>
+            </div>
+
+            <div class="theme-options-grid" role="radiogroup" aria-label="Selezione tema interfaccia">
+              <!-- Opzione Tema Chiaro -->
+              <button
+                type="button"
+                role="radio"
+                :aria-checked="themeStore.currentTheme === 'light'"
+                @click="selectTheme('light')"
+                class="theme-card"
+                :class="{ 'active': themeStore.currentTheme === 'light' }"
+              >
+                <div class="theme-preview-box light-preview">
+                  <div class="preview-header">
+                    <span class="preview-dot dot-red"></span>
+                    <span class="preview-bar"></span>
+                  </div>
+                  <div class="preview-body">
+                    <div class="preview-row"></div>
+                    <div class="preview-row short"></div>
+                  </div>
+                </div>
+                <div class="theme-card-info">
+                  <div class="theme-card-title">
+                    <span class="theme-name">Tema Chiaro</span>
+                    <span v-if="themeStore.currentTheme === 'light'" class="check-pill">
+                      <BaseIcon name="check" size="14" />
+                      <span>Selezionato</span>
+                    </span>
+                  </div>
+                  <p class="theme-card-desc">Sfondo bianco ad alto contrasto. Ottimale per ambienti luminosi e consultazione diurna.</p>
+                </div>
+              </button>
+
+              <!-- Opzione Tema Scuro -->
+              <button
+                type="button"
+                role="radio"
+                :aria-checked="themeStore.currentTheme === 'dark'"
+                @click="selectTheme('dark')"
+                class="theme-card"
+                :class="{ 'active': themeStore.currentTheme === 'dark' }"
+              >
+                <div class="theme-preview-box dark-preview">
+                  <div class="preview-header">
+                    <span class="preview-dot dot-red"></span>
+                    <span class="preview-bar"></span>
+                  </div>
+                  <div class="preview-body">
+                    <div class="preview-row"></div>
+                    <div class="preview-row short"></div>
+                  </div>
+                </div>
+                <div class="theme-card-info">
+                  <div class="theme-card-title">
+                    <span class="theme-name">Tema Scuro</span>
+                    <span v-if="themeStore.currentTheme === 'dark'" class="check-pill">
+                      <BaseIcon name="check" size="14" />
+                      <span>Selezionato</span>
+                    </span>
+                  </div>
+                  <p class="theme-card-desc">Sfondo antracite ad alto contrasto. Ideale per ambienti con luce soffusa o lavoro prolungato.</p>
+                </div>
+              </button>
+            </div>
+          </div>
 
           <div class="config-grid">
             <!-- Nuovi Parametri -->
@@ -108,8 +195,9 @@
 
             <div class="action-buttons">
               <button @click="saveAppConfig" :disabled="isSavingConfig" class="save-button">
-                <span v-if="isSavingConfig" class="loading-spinner">⏳</span>
-                {{ isSavingConfig ? 'Salvataggio...' : '💾 Salva Configurazione' }}
+                <BaseIcon v-if="isSavingConfig" name="loader" size="18" spin />
+                <BaseIcon v-else name="save" size="18" />
+                <span>{{ isSavingConfig ? 'Salvataggio...' : 'Salva Configurazione' }}</span>
               </button>
             </div>
           </div>
@@ -117,7 +205,10 @@
 
         <!-- Tab: Template -->
         <section v-if="currentTab === 'template'" class="settings-section">
-          <h2>🎫 Template Tessera</h2>
+          <h2>
+            <BaseIcon name="ticket" size="22" />
+            <span>Template Tessera</span>
+          </h2>
           <p>Personalizza l'aspetto delle tessere di iscrizione</p>
 
           <div class="template-section">
@@ -167,12 +258,14 @@
                   :disabled="(!selectedPDF && !selectedImage) || isSaving"
                   class="save-button"
                 >
-                  <span v-if="isSaving" class="loading-spinner">⏳</span>
-                  {{ isSaving ? 'Salvataggio...' : '💾 Salva Template' }}
+                  <BaseIcon v-if="isSaving" name="loader" size="18" spin />
+                  <BaseIcon v-else name="save" size="18" />
+                  <span>{{ isSaving ? 'Salvataggio...' : 'Salva Template' }}</span>
                 </button>
 
                 <button @click="resetTemplate" :disabled="isSaving" class="reset-button">
-                  🔄 Ripristina Default
+                  <BaseIcon name="refresh-cw" size="18" />
+                  <span>Ripristina Default</span>
                 </button>
               </div>
             </div>
@@ -180,7 +273,10 @@
         </section>
 
         <section v-if="currentTab === 'dati'" class="settings-section">
-          <h2>💾 Gestione Dati & Backup</h2>
+          <h2>
+            <BaseIcon name="database" size="22" />
+            <span>Gestione Dati & Backup</span>
+          </h2>
 
           <!-- Health Status -->
           <div class="data-health-banner" v-if="auditStats">
@@ -191,9 +287,13 @@
                 warning: auditStats.summary.total_issues > 0,
               }"
             >
-              <span class="health-icon">{{
-                auditStats.summary.total_issues === 0 ? '✅' : '⚠️'
-              }}</span>
+              <span class="health-icon">
+                <BaseIcon
+                  :name="auditStats.summary.total_issues === 0 ? 'check-circle' : 'alert-triangle'"
+                  size="28"
+                  :color="auditStats.summary.total_issues === 0 ? 'success' : 'warning'"
+                />
+              </span>
               <div class="health-text">
                 <h3>Stato Salute Dati</h3>
                 <p v-if="auditStats.summary.total_issues === 0">Tutti i dati sono corretti.</p>
@@ -207,10 +307,16 @@
 
           <!-- Sezione Backup Automatico -->
           <div class="subsection">
-            <h3>🔄 Backup Automatico su PC</h3>
+            <h3>
+              <BaseIcon name="refresh-cw" size="20" />
+              <span>Backup Automatico su PC</span>
+            </h3>
             <div class="backup-grid">
               <div class="backup-card">
-                <h4>📁 Cartella di Backup</h4>
+                <h4>
+                  <BaseIcon name="folder" size="18" />
+                  <span>Cartella di Backup</span>
+                </h4>
                 <p class="path-text">{{ backupStore.backupPath }}</p>
                 <button
                   @click="selectBackupFolder"
@@ -221,18 +327,26 @@
                     !isFileSystemSupported ? 'Il tuo browser non supporta questa funzionalità' : ''
                   "
                 >
-                  {{
-                    !isFileSystemSupported
-                      ? '❌ Non Supportato'
-                      : backupStore.isAuthorized
-                        ? '✅ Cambia Cartella'
-                        : '📁 Seleziona Cartella'
-                  }}
+                  <template v-if="!isFileSystemSupported">
+                    <BaseIcon name="x-circle" size="16" />
+                    <span>Non Supportato</span>
+                  </template>
+                  <template v-else-if="backupStore.isAuthorized">
+                    <BaseIcon name="check" size="16" />
+                    <span>Cambia Cartella</span>
+                  </template>
+                  <template v-else>
+                    <BaseIcon name="folder" size="16" />
+                    <span>Seleziona Cartella</span>
+                  </template>
                 </button>
               </div>
 
               <div class="backup-card">
-                <h4>⚡ Auto-Salvataggio</h4>
+                <h4>
+                  <BaseIcon name="zap" size="18" />
+                  <span>Auto-Salvataggio</span>
+                </h4>
                 <p>Salva automaticamente ad ogni modifica.</p>
                 <button
                   @click="toggleAutoBackup"
@@ -240,12 +354,16 @@
                   class="backup-toggle-button"
                   :class="{ active: backupStore.autoBackupEnabled }"
                 >
-                  {{ backupStore.autoBackupEnabled ? '✅ Attivo' : '⭕ Disattivato' }}
+                  <BaseIcon :name="backupStore.autoBackupEnabled ? 'check' : 'circle-slash'" size="16" />
+                  <span>{{ backupStore.autoBackupEnabled ? 'Attivo' : 'Disattivato' }}</span>
                 </button>
               </div>
 
               <div class="backup-card highlight">
-                <h4>💾 Backup Manuale</h4>
+                <h4>
+                  <BaseIcon name="database" size="18" />
+                  <span>Backup Manuale</span>
+                </h4>
                 <p>Crea subito una copia.</p>
                 <button
                   @click="forceBackup"
@@ -253,14 +371,13 @@
                   class="manual-backup-button"
                   :class="{ 'btn-loading': isSavingBackup }"
                 >
-                  <span v-if="isSavingBackup" class="loading-spinner">⏳</span>
-                  {{
-                    isSavingBackup
-                      ? 'In corso...'
-                      : backupStore.isAuthorized
-                        ? '💾 Esegui Backup Ora'
-                        : '📥 Scarica Backup'
-                  }}
+                  <BaseIcon v-if="isSavingBackup" name="loader" size="18" spin />
+                  <template v-else>
+                    <BaseIcon :name="backupStore.isAuthorized ? 'save' : 'download'" size="18" />
+                    <span>{{
+                      backupStore.isAuthorized ? 'Esegui Backup Ora' : 'Scarica Backup'
+                    }}</span>
+                  </template>
                 </button>
               </div>
             </div>
@@ -270,34 +387,52 @@
 
           <!-- Sezione Export/Import -->
           <div class="subsection">
-            <h3>📦 Esportazione & Ripristino</h3>
+            <h3>
+              <BaseIcon name="package" size="20" />
+              <span>Esportazione & Ripristino</span>
+            </h3>
             <div class="data-section">
               <div class="export-options">
                 <div class="export-option">
-                  <h4>📥 Esporta Database Completo</h4>
+                  <h4>
+                    <BaseIcon name="download" size="18" />
+                    <span>Esporta Database Completo</span>
+                  </h4>
                   <p>File .sqlite per migrazione o backup manuale (include Impostazioni).</p>
                   <button @click="exportDatabase" :disabled="isExporting" class="export-button">
-                    {{ isExporting ? 'Esportazione...' : 'Scarica SQLite' }}
+                    <BaseIcon v-if="isExporting" name="loader" size="18" spin />
+                    <BaseIcon v-else name="database" size="18" />
+                    <span>{{ isExporting ? 'Esportazione...' : 'Scarica SQLite' }}</span>
                   </button>
                 </div>
 
                 <div class="export-option">
-                  <h4>📊 Esporta Excel</h4>
+                  <h4>
+                    <BaseIcon name="file-spreadsheet" size="18" />
+                    <span>Esporta Excel</span>
+                  </h4>
                   <p>Tabelle per Maggiorenni e Minorenni.</p>
                   <button @click="exportExcel" :disabled="isExporting" class="export-button">
-                    {{ isExporting ? 'Esportazione...' : 'Scarica Excel' }}
+                    <BaseIcon v-if="isExporting" name="loader" size="18" spin />
+                    <BaseIcon v-else name="file-spreadsheet" size="18" />
+                    <span>{{ isExporting ? 'Esportazione...' : 'Scarica Excel' }}</span>
                   </button>
                 </div>
 
                 <div class="export-option">
-                  <h4>⚙️ Configurazione JSON</h4>
+                  <h4>
+                    <BaseIcon name="settings" size="18" />
+                    <span>Configurazione JSON</span>
+                  </h4>
                   <p>Export/Import solo impostazioni.</p>
                   <div class="button-group-small">
                     <button @click="exportSettings" :disabled="isExporting" class="action-button">
-                      Esporta JSON
+                      <BaseIcon name="download" size="16" />
+                      <span>Esporta JSON</span>
                     </button>
                     <label class="action-button secondary clickable">
-                      Importa JSON
+                      <BaseIcon name="upload" size="16" />
+                      <span>Importa JSON</span>
                       <input
                         type="file"
                         accept=".json"
@@ -310,7 +445,10 @@
                 </div>
 
                 <div class="export-option danger">
-                  <h4>♻️ Ripristina Database</h4>
+                  <h4>
+                    <BaseIcon name="refresh-cw" size="18" />
+                    <span>Ripristina Database</span>
+                  </h4>
                   <p>Carica un backup .sqlite (Sovrascrive tutto!).</p>
                   <input
                     type="file"
@@ -328,9 +466,15 @@
 
           <!-- DANGER ZONE -->
           <div class="subsection danger-zone">
-            <h3>⛔ Zona Pericolosa</h3>
+            <h3>
+              <BaseIcon name="alert-octagon" size="20" color="accent" />
+              <span>Zona Pericolosa</span>
+            </h3>
             <div class="danger-card">
-              <h4>🏭 Ripristino Impostazioni di Fabbrica</h4>
+              <h4>
+                <BaseIcon name="factory" size="18" />
+                <span>Ripristino Impostazioni di Fabbrica</span>
+              </h4>
               <p>
                 Cancella TUTTI i dati (Soci, Pagamenti, Impostazioni) e riporta l'applicazione allo
                 stato iniziale.
@@ -340,7 +484,8 @@
                 :disabled="isExporting"
                 class="danger-button-large"
               >
-                🗑️ CANCELLA TUTTO E RIPRISTINA
+                <BaseIcon name="trash-2" size="20" />
+                <span>CANCELLA TUTTO E RIPRISTINA</span>
               </button>
             </div>
           </div>
@@ -348,7 +493,10 @@
 
         <!-- Tab: Zone (Gestione Manicchie) -->
         <section v-if="currentTab === 'zone'" class="settings-section">
-          <h2>🏘️ Gestione Zone (Gruppi)</h2>
+          <h2>
+            <BaseIcon name="users" size="22" />
+            <span>Gestione Zone (Gruppi)</span>
+          </h2>
           <p>
             Gestisci le zone di appartenenza. Puoi rinominare zone esistenti (aggiornando tutti i soci)
             o aggiungerne di nuove per averle pronte nel menu a tendina.
@@ -363,13 +511,17 @@
                 @keyup.enter="addNewZone"
               />
               <button @click="addNewZone" :disabled="!newZoneName.trim()" class="save-button">
-                ➕ Aggiungi
+                <BaseIcon name="plus" size="18" />
+                <span>Aggiungi</span>
               </button>
             </div>
           </div>
 
           <div class="zones-list-container">
-            <div v-if="isLoadingZones" class="loading-spinner-large">⏳ Caricamento...</div>
+            <div v-if="isLoadingZones" class="loading-spinner-large">
+              <BaseIcon name="loader" size="24" spin />
+              <span>Caricamento...</span>
+            </div>
             <div v-else-if="zones.length === 0" class="empty-state">Nessuna zona definita.</div>
             <ul v-else class="zones-list">
               <li v-for="zone in zones" :key="zone" class="zone-item">
@@ -387,20 +539,20 @@
 
                 <div class="zone-buttons">
                   <template v-if="editingZone !== zone">
-                    <button @click="startRename(zone)" class="action-button small secondary" title="Rinomina">
-                      ✏️
+                    <button @click="startRename(zone)" class="action-button small secondary" title="Rinomina" aria-label="Rinomina">
+                      <BaseIcon name="edit" size="16" />
                     </button>
                     <!-- Delete button just removes from defined list, doesn't delete users -->
-                    <button @click="deleteZone(zone)" class="action-button small danger" title="Rimuovi dalla lista (non cancella i soci)">
-                      🗑️
+                    <button @click="deleteZone(zone)" class="action-button small danger" title="Rimuovi dalla lista (non cancella i soci)" aria-label="Rimuovi">
+                      <BaseIcon name="trash-2" size="16" />
                     </button>
                   </template>
                   <template v-else>
-                     <button @click="saveZoneRename(zone)" class="action-button small success" title="Salva">
-                      💾
+                     <button @click="saveZoneRename(zone)" class="action-button small success" title="Salva" aria-label="Salva">
+                      <BaseIcon name="save" size="16" />
                     </button>
-                    <button @click="cancelRename" class="action-button small secondary" title="Annulla">
-                      ❌
+                    <button @click="cancelRename" class="action-button small secondary" title="Annulla" aria-label="Annulla">
+                      <BaseIcon name="x" size="16" />
                     </button>
                   </template>
                 </div>
@@ -414,7 +566,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch, nextTick } from 'vue'
 import { useToast } from 'vue-toastification'
 import {
   getSetting,
@@ -432,9 +584,17 @@ import { exportDataToExcel, exportSettingsToJson, importSettingsFromJson } from 
 import { useBackupStore } from '@/stores/backupStore'
 import { backupService } from '@/services/backupService'
 import TesseraTemplate from '@/components/TesseraTemplate.vue'
+import { useThemeStore } from '@/stores/theme'
+import BaseIcon from '@/components/common/BaseIcon.vue'
 
 const toast = useToast()
+const themeStore = useThemeStore()
 const currentYear = new Date().getFullYear()
+
+const selectTheme = (theme) => {
+  themeStore.applyTheme(theme)
+  toast.success(theme === 'dark' ? 'Tema Scuro attivato' : 'Tema Chiaro attivato')
+}
 
 // Stato del componente
 const selectedImage = ref(null)
@@ -907,6 +1067,7 @@ const newZoneName = ref('')
 const isLoadingZones = ref(false)
 const editingZone = ref(null)
 const editingZoneName = ref('')
+const editInput = ref(null)
 
 const loadZones = async () => {
   isLoadingZones.value = true
@@ -920,7 +1081,6 @@ const loadZones = async () => {
   }
 }
 
-import { watch } from 'vue'
 watch(currentTab, (newTab) => {
   if (newTab === 'zone') {
     loadZones()
@@ -954,6 +1114,12 @@ const deleteZone = async (zoneName) => {
 const startRename = (zoneName) => {
   editingZone.value = zoneName
   editingZoneName.value = zoneName
+  nextTick(() => {
+    if (editInput.value) {
+      const input = Array.isArray(editInput.value) ? editInput.value[0] : editInput.value
+      input?.focus()
+    }
+  })
 }
 
 const cancelRename = () => {
@@ -1017,6 +1183,10 @@ const saveZoneRename = async (oldName) => {
 }
 
 .nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 44px;
   text-align: left;
   padding: 0.75rem 1rem;
   border: none;
@@ -1064,6 +1234,28 @@ const saveZoneRename = async (oldName) => {
   justify-content: space-between;
 }
 
+.backup-card.highlight {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-accent), var(--shadow-sm);
+}
+
+.subsection {
+  margin-top: 2.5rem;
+}
+
+.subsection:first-child {
+  margin-top: 0;
+}
+
+.subsection h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 1.25rem;
+  color: var(--color-primary);
+  font-size: 1.25rem;
+}
+
 .backup-card h4 {
   color: var(--color-primary);
   margin-bottom: 0.5rem;
@@ -1086,8 +1278,41 @@ const saveZoneRename = async (oldName) => {
 }
 
 .action-button.small {
-  padding: 0.5rem 1rem;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0.5rem 0.85rem;
   font-size: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.action-button.small.danger {
+  background-color: var(--color-accent);
+  color: white;
+}
+
+.action-button.small.danger:hover {
+  background-color: var(--color-accent-hover);
+}
+
+.action-button.small.success {
+  background-color: var(--color-success);
+  color: white;
+}
+
+.action-button.small.success:hover {
+  filter: brightness(1.1);
+}
+
+.action-button.btn-success {
+  background-color: var(--color-success) !important;
+  color: white !important;
+}
+
+.action-button.btn-success:hover {
+  filter: brightness(1.1);
 }
 
 /* Responsive Sidebar */
@@ -1250,14 +1475,16 @@ const saveZoneRename = async (oldName) => {
 
 .save-button,
 .reset-button {
+  min-height: 48px;
   padding: 0.75rem 1.5rem;
   border: none;
   border-radius: 8px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
-  display: flex;
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
 }
 
@@ -1280,6 +1507,7 @@ const saveZoneRename = async (oldName) => {
 }
 
 .export-button {
+  min-height: 48px;
   width: 100%;
   padding: 0.75rem 1rem;
   background-color: var(--color-info);
@@ -1289,7 +1517,7 @@ const saveZoneRename = async (oldName) => {
   cursor: pointer;
   font-weight: 500;
   transition: all 0.2s;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
@@ -1299,13 +1527,36 @@ const saveZoneRename = async (oldName) => {
   filter: brightness(1.1);
 }
 
+.backup-toggle-button {
+  min-height: 48px;
+  padding: 0.75rem 1.5rem;
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+  box-shadow: var(--shadow-sm);
+  width: 100%;
+}
+
 .backup-toggle-button:hover:not(:disabled) {
   background-color: var(--color-surface-hover);
+  border-color: var(--color-text-secondary);
+  color: var(--color-text-primary);
   transform: scale(1.02);
 }
 
 .backup-toggle-button.active {
   background-color: var(--color-success);
+  color: white;
+  border-color: var(--color-success);
 }
 
 .backup-toggle-button.active:hover:not(:disabled) {
@@ -1313,6 +1564,7 @@ const saveZoneRename = async (oldName) => {
 }
 
 .manual-backup-button {
+  min-height: 48px;
   padding: 0.75rem 1.5rem;
   background-color: var(--color-accent);
   color: white;
@@ -1321,8 +1573,9 @@ const saveZoneRename = async (oldName) => {
   cursor: pointer;
   font-weight: 600;
   transition: all 0.2s;
-  display: flex;
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
 }
 
@@ -1332,6 +1585,7 @@ const saveZoneRename = async (oldName) => {
 }
 
 .history-button {
+  min-height: 48px;
   padding: 0.75rem 1.5rem;
   background-color: #9c27b0; /* Keep purple or define new var? Let's leave for now or map to info */
   color: white;
@@ -1340,6 +1594,10 @@ const saveZoneRename = async (oldName) => {
   cursor: pointer;
   font-weight: 600;
   transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
 }
 
 .save-button:disabled,
@@ -1379,31 +1637,6 @@ const saveZoneRename = async (oldName) => {
   color: var(--color-text-secondary);
   font-size: 0.9rem;
   line-height: 1.4;
-}
-
-.export-button {
-  width: 100%;
-  padding: 0.75rem 1rem;
-  background-color: var(--color-info);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-}
-
-.export-button:hover:not(:disabled) {
-  filter: brightness(1.1);
-}
-
-.export-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
 }
 
 .export-info {
@@ -1448,156 +1681,110 @@ const saveZoneRename = async (oldName) => {
   }
 }
 
-/* Backup Section */
-.backup-section {
+/* Zone Management */
+.zone-actions {
+  margin-bottom: 1.5rem;
+}
+
+.add-zone-form {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  max-width: 520px;
+}
+
+.add-zone-form .form-input {
+  flex: 1;
+  min-height: 48px;
+}
+
+.zones-list-container {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 1.25rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.zones-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 0.75rem;
 }
 
-.backup-options {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2rem;
-}
-
-.backup-option {
-  background: var(--color-background);
-  padding: 1.5rem;
-  border-radius: 8px;
+.zone-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1.25rem;
+  background-color: var(--color-background);
   border: 1px solid var(--color-border);
+  border-radius: 8px;
+  gap: 1rem;
+  transition: all 0.2s ease;
 }
 
-.backup-option h3 {
-  margin: 0 0 0.5rem 0;
-  color: var(--color-primary);
+.zone-item:hover {
+  border-color: var(--color-primary-light);
+}
+
+.zone-info {
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.zone-name {
+  font-weight: 600;
+  font-size: 1.05rem;
+  color: var(--color-text-primary);
+}
+
+.edit-input {
+  min-height: 44px;
+  padding: 0.5rem 0.85rem;
+  font-size: 1rem;
+  width: 100%;
+  max-width: 360px;
+}
+
+.zone-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.empty-state {
+  padding: 2.5rem;
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: 1.05rem;
+}
+
+.loading-spinner-large {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 2.5rem;
+  color: var(--color-text-secondary);
   font-size: 1.1rem;
 }
 
-.backup-option p {
-  margin: 0 0 1rem 0;
-  color: var(--color-text-secondary);
-  font-size: 0.9rem;
-  line-height: 1.4;
-}
-
-.backup-controls {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.backup-controls label {
-  font-weight: 600;
-  color: var(--color-text-primary);
-  font-size: 0.9rem;
-}
-
-.backup-toggle-button {
-  padding: 0.75rem 1rem;
-  background-color: var(--color-text-secondary);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-}
-
-.backup-toggle-button:hover:not(:disabled) {
-  background-color: var(--color-surface-hover);
-  transform: scale(1.02);
-}
-
-.backup-toggle-button.active {
-  background-color: var(--color-success);
-}
-
-.backup-toggle-button.active:hover:not(:disabled) {
-  filter: brightness(1.1);
-}
-
-.backup-toggle-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.backup-info {
-  background: var(--color-background);
-  padding: 1.5rem;
-  border-radius: 8px;
+.file-input-compact {
+  padding: 0.6rem 0.85rem;
   border: 1px solid var(--color-border);
-}
-
-.backup-info h4 {
-  margin: 0 0 1rem 0;
-  color: var(--color-primary);
-  font-size: 1rem;
-}
-
-.backup-info ul {
-  margin: 0;
-  padding-left: 1.5rem;
-}
-
-.backup-info li {
-  margin-bottom: 0.5rem;
-  color: var(--color-text-secondary);
-  font-size: 0.9rem;
-}
-
-.backup-info strong {
+  border-radius: 6px;
+  background-color: var(--color-background);
   color: var(--color-text-primary);
-}
-
-.backup-actions {
-  display: flex;
-  gap: 1rem;
-  justify-content: center;
-}
-
-.manual-backup-button {
-  padding: 0.75rem 1.5rem;
-  background-color: var(--color-accent);
-  color: white;
-  border: none;
-  border-radius: 8px;
+  font-size: 0.9rem;
   cursor: pointer;
-  font-weight: 600;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.manual-backup-button:hover:not(:disabled) {
-  background-color: var(--color-accent-hover);
-  transform: scale(1.05);
-}
-
-.manual-backup-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.history-button {
-  padding: 0.75rem 1.5rem;
-  background-color: #9c27b0;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: all 0.2s;
-}
-
-.history-button:hover {
-  background-color: #7b1fa2;
-  transform: scale(1.05);
+  min-height: 44px;
+  width: 100%;
 }
 
 /* Responsive */
@@ -1630,19 +1817,31 @@ const saveZoneRename = async (oldName) => {
     gap: 1.5rem;
   }
 
-  .backup-options {
-    grid-template-columns: 1fr;
-    gap: 1.5rem;
-  }
-
-  .backup-actions {
-    flex-direction: column;
-  }
-
   .manual-backup-button,
-  .history-button {
+  .export-button {
     width: 100%;
-    text-align: center;
+    justify-content: center;
+  }
+
+  .add-zone-form {
+    flex-direction: column;
+    align-items: stretch;
+    max-width: 100%;
+  }
+
+  .add-zone-form .save-button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .zone-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .zone-buttons {
+    justify-content: flex-end;
   }
 }
 /* Health Banner */
@@ -1743,6 +1942,7 @@ const saveZoneRename = async (oldName) => {
 }
 
 .action-button {
+  min-height: 48px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1779,5 +1979,204 @@ const saveZoneRename = async (oldName) => {
 
 .clickable {
   cursor: pointer;
+}
+
+/* Theme Selector Styling */
+.theme-setting-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.theme-setting-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.25rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.theme-title-group h3 {
+  margin: 0 0 0.35rem 0;
+  font-size: 1.25rem;
+  color: var(--color-text-primary);
+}
+
+.section-desc {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.95rem;
+}
+
+.current-theme-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: 20px;
+  background-color: var(--color-background);
+  border: 1px solid var(--color-border);
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+}
+
+.current-theme-badge strong {
+  color: var(--color-accent);
+}
+
+.theme-options-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.25rem;
+}
+
+.theme-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: 10px;
+  padding: 1.25rem;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s ease;
+  position: relative;
+  box-shadow: var(--shadow-sm);
+  min-height: 140px;
+  white-space: normal;
+  width: 100%;
+}
+
+.theme-card:hover {
+  border-color: var(--color-accent-hover);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.theme-card.active {
+  border-color: var(--color-accent);
+  background-color: rgba(183, 28, 28, 0.03);
+  box-shadow: 0 0 0 2px rgba(183, 28, 28, 0.2), var(--shadow-sm);
+}
+
+[data-theme='dark'] .theme-card.active {
+  background-color: rgba(239, 83, 80, 0.08);
+  box-shadow: 0 0 0 2px rgba(239, 83, 80, 0.3), var(--shadow-sm);
+}
+
+.theme-preview-box {
+  height: 75px;
+  border-radius: 6px;
+  padding: 0.6rem;
+  margin-bottom: 1rem;
+  border: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.theme-preview-box.light-preview {
+  background-color: #f4f5f7;
+  border-color: #e1e4e8;
+}
+
+.theme-preview-box.dark-preview {
+  background-color: #121212;
+  border-color: #333333;
+}
+
+.theme-preview-box .preview-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.theme-preview-box .preview-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: #b71c1c;
+}
+
+.theme-preview-box.dark-preview .preview-dot {
+  background-color: #ef5350;
+}
+
+.theme-preview-box .preview-bar {
+  height: 6px;
+  width: 50%;
+  border-radius: 3px;
+  background-color: #d1d5db;
+}
+
+.theme-preview-box.dark-preview .preview-bar {
+  background-color: #4b5563;
+}
+
+.theme-preview-box .preview-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.theme-preview-box .preview-row {
+  height: 8px;
+  width: 100%;
+  border-radius: 3px;
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+}
+
+.theme-preview-box.dark-preview .preview-row {
+  background-color: #1e1e1e;
+  border-color: #374151;
+}
+
+.theme-preview-box .preview-row.short {
+  width: 60%;
+}
+
+.theme-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.theme-card-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.theme-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.check-pill {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.2rem 0.5rem;
+  border-radius: 12px;
+  background-color: var(--color-accent);
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.theme-card-desc {
+  font-size: 0.88rem;
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+  margin: 0;
+  white-space: normal;
+  overflow-wrap: break-word;
 }
 </style>
