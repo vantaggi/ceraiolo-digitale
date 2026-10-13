@@ -1,0 +1,3124 @@
+﻿diff --git a/src/views/BatchEntryView.vue b/.agents/explorer_m2/proposed_BatchEntryView.vue
+index 3f346d9..3329295 100644
+--- a/src/views/BatchEntryView.vue
++++ b/.agents/explorer_m2/proposed_BatchEntryView.vue
+@@ -1,17 +1,56 @@
+ <template>
+   <div class="batch-entry">
++    <!-- Header Istituzionale -->
+     <div class="batch-header">
+-      <h1>­ƒöä Registrazione Seriale Pagamenti</h1>
+-      <p class="batch-subtitle">Flusso ottimizzato per blocchetti cartacei</p>
++      <h1>
++        <BaseIcon name="refresh-cw" size="28" color="accent" />
++        Registrazione Seriale Pagamenti
++      </h1>
++      <p class="batch-subtitle">Flusso ottimizzato per blocchetti cartacei da 10 foglietti</p>
++    </div>
++
++    <!-- Banner Cassa Libretto & Avanzamento (Live Booklet Cash Total) -->
++    <div class="booklet-summary-banner">
++      <div class="banner-main">
++        <div class="banner-title-row">
++          <BaseIcon name="receipt" size="26" color="gold" />
++          <div class="banner-text">
++            <h2>Blocchetto #{{ sessionData.numeroBlocchetto || 1 }}</h2>
++            <span class="banner-range">
++              Ricevute {{ ((sessionData.numeroBlocchetto || 1) - 1) * 10 + 1 }} ÔÇö {{ (sessionData.numeroBlocchetto || 1) * 10 }}
++              &bull; Campagna {{ sessionData.annoRiferimento }}
++            </span>
++          </div>
++        </div>
++      </div>
++
++      <div class="banner-stats">
++        <div class="stat-pill" title="Foglietti con almeno un socio registrato">
++          <BaseIcon name="clipboard" size="18" color="secondary" />
++          <span class="stat-label">Compilati:</span>
++          <strong class="stat-value tabular-nums">{{ filledSlotsCount }} / 10</strong>
++        </div>
++
++        <div class="cash-total-card" title="Totale cassa riscosso per l'intero blocchetto">
++          <BaseIcon name="coins" size="28" color="gold" />
++          <div class="cash-content">
++            <span class="cash-label">Totale Cassa Libretto</span>
++            <strong class="cash-amount tabular-nums">Ôé¼ {{ formatCurrency(bookletCashTotal) }}</strong>
++          </div>
++        </div>
++      </div>
+     </div>
+ 
+     <!-- Area 1: Dati di Sessione (Fissi) -->
+     <div class="session-data">
+-      <h2>­ƒôï Dati di Sessione</h2>
++      <h2>
++        <BaseIcon name="clipboard" size="20" color="primary" />
++        Dati di Sessione
++      </h2>
+       <div class="session-grid">
+         <div class="form-group">
+           <label for="anno-riferimento">
+-            <span class="field-icon">­ƒôà</span>
++            <BaseIcon name="calendar" size="16" color="secondary" />
+             Anno di Riferimento *
+           </label>
+           <input
+@@ -20,17 +59,18 @@
+             type="number"
+             class="form-input"
+             :class="{ error: sessionErrors.annoRiferimento }"
+-            :min="currentYear"
++            :min="currentYear - 5"
+             :max="currentYear + 5"
++            :disabled="isProcessing"
+           />
+-          <span v-if="sessionErrors.annoRiferimento" class="error-message">{{
+-            sessionErrors.annoRiferimento
+-          }}</span>
++          <span v-if="sessionErrors.annoRiferimento" class="error-message">
++            {{ sessionErrors.annoRiferimento }}
++          </span>
+         </div>
+ 
+         <div class="form-group">
+           <label for="numero-blocchetto">
+-            <span class="field-icon">­ƒôä</span>
++            <BaseIcon name="file-text" size="16" color="secondary" />
+             Numero Blocchetto *
+           </label>
+           <input
+@@ -40,15 +80,16 @@
+             class="form-input"
+             :class="{ error: sessionErrors.numeroBlocchetto }"
+             min="1"
++            :disabled="isProcessing"
+           />
+-          <span v-if="sessionErrors.numeroBlocchetto" class="error-message">{{
+-            sessionErrors.numeroBlocchetto
+-          }}</span>
++          <span v-if="sessionErrors.numeroBlocchetto" class="error-message">
++            {{ sessionErrors.numeroBlocchetto }}
++          </span>
+         </div>
+ 
+         <div class="form-group">
+           <label for="data-pagamento">
+-            <span class="field-icon">­ƒùô´©Å</span>
++            <BaseIcon name="calendar" size="16" color="secondary" />
+             Data Pagamento *
+           </label>
+           <input
+@@ -58,74 +99,186 @@
+             class="form-input"
+             :class="{ error: sessionErrors.dataPagamento }"
+             :max="today"
++            :disabled="isProcessing"
+           />
+-          <span v-if="sessionErrors.dataPagamento" class="error-message">{{
+-            sessionErrors.dataPagamento
+-          }}</span>
++          <span v-if="sessionErrors.dataPagamento" class="error-message">
++            {{ sessionErrors.dataPagamento }}
++          </span>
++        </div>
++      </div>
++    </div>
++
++    <!-- Barra Visuale a 10 Caselle (Visual 10-Slot Receipt Bar [1]..[10]) -->
++    <div class="receipt-slot-bar" role="navigation" aria-label="Navigazione 10 foglietti del blocchetto">
++      <div class="slot-bar-header">
++        <div class="slot-bar-title">
++          <BaseIcon name="receipt" size="18" color="gold" />
++          <span>Foglietti del Blocchetto Fisico (10 ricevute per libretto)</span>
+         </div>
++        <div class="slot-bar-instructions">
++          <BaseIcon name="keyboard" size="15" color="secondary" />
++          <small>Usa i tasti freccia ÔùÇ / ÔûÂ per scorrere i foglietti</small>
++        </div>
++      </div>
++
++      <div class="slot-grid">
++        <button
++          v-for="slot in bookletSlots"
++          :key="slot.index"
++          type="button"
++          class="slot-item"
++          :class="{
++            'slot-item--active': slot.isActive,
++            'slot-item--filled': slot.isFilled,
++            'slot-item--empty': !slot.isFilled && !slot.isActive
++          }"
++          :title="`Ricevuta #${slot.receiptNumber} (${slot.isFilled ? slot.count + ' soci' : 'vuota'})`"
++          @click="goToReceipt(slot.receiptNumber)"
++          :disabled="isProcessing"
++        >
++          <span class="slot-bracket">[{{ slot.index }}]</span>
++          <span class="slot-receipt-num">#{{ slot.receiptNumber }}</span>
++
++          <div v-if="slot.isFilled" class="slot-status-indicator filled" title="Compilata">
++            <BaseIcon name="check" size="12" color="white" />
++            <span class="slot-count">{{ slot.count }}</span>
++          </div>
++          <div v-else class="slot-status-indicator empty" title="Vuota">
++            <span class="empty-dot"></span>
++          </div>
++        </button>
+       </div>
+     </div>
+ 
+-    <!-- Area 2: Contesto Ricevuta Attuale -->
++    <!-- Area 2: Contesto Ricevuta Attuale & Gestione Multi-Socio -->
+     <div class="receipt-context">
+       <div class="receipt-header">
+-        <h2>­ƒº¥ Ricevuta Attuale</h2>
++        <div class="receipt-title-group">
++          <h2>
++            <BaseIcon name="receipt" size="22" color="primary" />
++            Ricevuta Attuale #{{ currentReceipt.numero }}
++          </h2>
++          <span class="receipt-slot-indicator">
++            (Foglietto {{ activeSlotIndex }} di 10)
++          </span>
++        </div>
++
+         <div class="receipt-controls">
+-          <label for="numero-ricevuta">
+-            <span class="field-icon">­ƒôè</span>
+-            Numero Ricevuta:
++          <label for="numero-ricevuta" class="receipt-controls-label">
++            <BaseIcon name="bar-chart" size="16" color="secondary" />
++            Navigazione rapida:
+           </label>
+           <div class="receipt-number-controls">
+-            <button @click="decrementReceipt" class="receipt-btn" :disabled="isProcessing">
+-              Ô¼à´©Å
++            <button
++              @click="decrementReceipt"
++              class="receipt-nav-btn"
++              :disabled="isProcessing || currentReceipt.numero <= 1"
++              title="Ricevuta precedente (Freccia Sinistra)"
++            >
++              <BaseIcon name="chevron-left" size="18" />
+             </button>
+             <input
+               id="numero-ricevuta"
+               v-model.number="currentReceipt.numero"
+               type="number"
+-              class="receipt-number-input"
++              class="receipt-number-input tabular-nums"
+               min="1"
+               readonly
+               :disabled="isProcessing"
+             />
+-            <button @click="incrementReceipt" class="receipt-btn" :disabled="isProcessing">
+-              Ô×í´©Å
++            <button
++              @click="incrementReceipt"
++              class="receipt-nav-btn"
++              :disabled="isProcessing"
++              title="Ricevuta successiva (Freccia Destra)"
++            >
++              <BaseIcon name="chevron-right" size="18" />
+             </button>
+           </div>
+         </div>
+       </div>
+ 
+-      <!-- Riepilogo Soci sulla Ricevuta -->
++      <!-- Riepilogo Soci sulla Ricevuta con Subtotale -->
+       <div class="receipt-summary">
+-        <h3>­ƒæÑ Soci su questa ricevuta ({{ currentReceipt.soci.length }})</h3>
++        <div class="receipt-summary-header">
++          <h3>
++            <BaseIcon name="users" size="18" color="primary" />
++            Soci su questa ricevuta ({{ currentReceipt.soci.length }})
++          </h3>
++
++          <div class="receipt-subtotal-badge" title="Subtotale importi registrati per questo foglietto">
++            <span class="subtotal-label">Subtotale Ricevuta:</span>
++            <strong class="subtotal-amount tabular-nums">Ôé¼ {{ formatCurrency(receiptSubtotal) }}</strong>
++          </div>
++        </div>
++
+         <div v-if="currentReceipt.soci.length === 0" class="empty-receipt">
+-          <p>­ƒÄ» Nessun socio aggiunto ancora</p>
+-          <small>Inizia cercando un socio esistente o registrane uno nuovo</small>
++          <BaseIcon name="inbox" size="32" color="muted" />
++          <p>Nessun socio aggiunto su questa ricevuta</p>
++          <small>Cerca un socio esistente nella barra sottostante o registranne uno nuovo inline</small>
+         </div>
++
+         <TransitionGroup name="list" tag="div" class="receipt-soci-list">
+-          <div v-for="socio in currentReceipt.soci" :key="socio.id" class="receipt-socio-item">
+-            <span class="socio-name">{{ socio.cognome }} {{ socio.nome }}</span>
+-            <span class="socio-payment">{{ socio.anniPagati.join(', ') }}</span>
+-            <button @click="removeFromReceipt(socio)" class="remove-btn" :disabled="isProcessing">
+-              ÔØî
++          <div
++            v-for="socio in currentReceipt.soci"
++            :key="socio.id"
++            class="receipt-socio-card"
++          >
++            <div class="socio-card-identity">
++              <span class="socio-name">{{ socio.cognome }} {{ socio.nome }}</span>
++              <span v-if="socio.gruppo_appartenenza" class="socio-group-tag">
++                {{ socio.gruppo_appartenenza }}
++              </span>
++            </div>
++
++            <div class="socio-card-payment">
++              <span v-if="socio.is_nuovo" class="badge badge-gold">
++                Nuovo Socio
++              </span>
++              <span v-else-if="isMinor(socio)" class="badge badge-info">
++                Minorenne
++              </span>
++              <span v-else class="badge badge-success">
++                Rinnovo
++              </span>
++
++              <span class="socio-years" title="Anni saldati">
++                Anni: {{ socio.anniPagati.join(', ') }}
++              </span>
++
++              <span class="socio-fee tabular-nums" title="Quota versata">
++                Ôé¼ {{ formatCurrency(socio.totale_versato || socio.quota_pagata || 0) }}
++              </span>
++            </div>
++
++            <button
++              @click="removeFromReceipt(socio)"
++              class="remove-socio-btn"
++              :disabled="isProcessing"
++              title="Rimuovi socio da questa ricevuta"
++            >
++              <BaseIcon name="trash-2" size="17" color="accent" />
+             </button>
+           </div>
+         </TransitionGroup>
+       </div>
+     </div>
+ 
+-    <!-- Area 3: L'Area di Lavoro -->
++    <!-- Area 3: L'Area di Lavoro (Ricerca Rapida & Nuovo Socio Inline) -->
+     <div class="work-area">
+       <div class="work-area-header">
+-        <h2>­ƒöì Area di Lavoro</h2>
++        <h2>
++          <BaseIcon name="search" size="20" color="primary" />
++          Area di Lavoro
++        </h2>
+         <button
+           @click="openNewSocioForm"
+           class="add-socio-header-btn"
+-          title="Registra Nuovo Socio"
++          title="Registra Nuovo Socio direttamente in questa ricevuta"
+           :disabled="isProcessing"
+         >
+-          <span class="icon">Ô×ò</span>
+-          <span class="label">Nuovo Socio</span>
++          <BaseIcon name="user-plus" size="18" color="white" />
++          <span class="label">Nuovo Socio (25Ôé¼)</span>
+         </button>
+       </div>
+ 
+@@ -135,42 +288,54 @@
+           <label
+             class="turbo-toggle"
+             :class="{ active: turboMode }"
+-            title="Salta la conferma pagamento (Invio = Paga)"
++            title="Turbo Mode: Salta il modal di conferma quota (Invio = Paga subito con quota predefinita)"
+           >
+             <input type="checkbox" v-model="turboMode" />
+-            <span class="toggle-icon">ÔÜí</span>
++            <BaseIcon name="zap" size="18" :color="turboMode ? 'warning' : 'secondary'" />
+             <span class="toggle-label">Turbo Mode</span>
+           </label>
+ 
+           <label
+             class="turbo-toggle sound-toggle"
+             :class="{ active: soundEnabled }"
+-            title="Attiva/Disattiva suoni di feedback"
++            title="Attiva o disattiva il segnale acustico di conferma"
+           >
+             <input type="checkbox" v-model="soundEnabled" />
+-            <span class="toggle-icon">{{ soundEnabled ? '­ƒöè' : '­ƒöç' }}</span>
++            <BaseIcon :name="soundEnabled ? 'volume-2' : 'volume-x'" size="18" />
+             <span class="toggle-label">Suoni</span>
+           </label>
+         </div>
++
+         <div class="search-input-group">
+           <input
+             v-model="searchQuery"
+             type="text"
+             class="search-input"
+-            placeholder="Cerca socio per cognome o nome..."
++            placeholder="Cerca socio per cognome o nome... (es. Rossi Mario)"
+             @input="debouncedSearch"
+             @keydown="handleSearchKeydown"
+             @focus="$event.target.select()"
+             :disabled="isProcessing"
+             ref="searchInput"
+           />
+-          <button @click="clearSearch" class="clear-search-btn" v-if="searchQuery">Ô£ò</button>
++          <button
++            @click="clearSearch"
++            class="clear-search-btn"
++            v-if="searchQuery"
++            type="button"
++            title="Cancella ricerca"
++          >
++            <BaseIcon name="x" size="16" />
++          </button>
+         </div>
+       </div>
+ 
+       <!-- Risultati Ricerca -->
+       <div v-if="searchResults.length > 0" class="search-results">
+-        <h3>­ƒöÄ Risultati ({{ searchResults.length }})</h3>
++        <h3>
++          <BaseIcon name="search" size="18" color="primary" />
++          Risultati Ricerca ({{ searchResults.length }})
++        </h3>
+         <div class="results-list" ref="resultsListRef">
+           <div
+             v-for="(socio, index) in searchResults"
+@@ -183,21 +348,31 @@
+             <div class="socio-info">
+               <strong>{{ socio.cognome }} {{ socio.nome }}</strong>
+               <small>Nato il {{ formatDate(socio.data_nascita) }}</small>
+-              <small>Manicchia: {{ socio.gruppo_appartenenza }}</small>
++              <small v-if="socio.gruppo_appartenenza">Manicchia: {{ socio.gruppo_appartenenza }}</small>
+             </div>
++
+             <div class="socio-status">
+-              <div v-if="getSocioStatus(socio) === 'IN_RECEIPT'" class="status-badge success">
+-                Ô£à In Ricevuta
++              <div v-if="getSocioStatus(socio) === 'IN_RECEIPT'" class="status-badge status-in-receipt">
++                <BaseIcon name="check-circle" size="16" color="success" />
++                <span>In Ricevuta #{{ currentReceipt.numero }}</span>
+               </div>
+-              <div v-else-if="getSocioStatus(socio) === 'IN_ORDER'" class="status-badge success">
+-                Ô£à In Regola
++              <div v-else-if="getSocioStatus(socio) === 'IN_ORDER'" class="status-badge status-in-order">
++                <BaseIcon name="check-circle" size="16" color="success" />
++                <span>In Regola ({{ sessionData.annoRiferimento }})</span>
+               </div>
+               <div v-else class="action-area">
+-                <div v-if="socio.arretrati.length > 0 && !isMinor(socio)" class="arretrati-badge">
+-                  ÔÜá´©Å Arretrati: {{ socio.arretrati.join(', ') }}
++                <div v-if="socio.arretrati && socio.arretrati.length > 0 && !isMinor(socio)" class="arretrati-badge">
++                  <BaseIcon name="alert-triangle" size="15" color="warning" />
++                  <span>Arretrati: {{ socio.arretrati.join(', ') }}</span>
+                 </div>
+-                <button class="pay-btn" :disabled="isProcessing" @click.stop="selectSocio(socio)">
+-                  ­ƒÆ░ Paga
++                <button
++                  class="pay-btn"
++                  :disabled="isProcessing"
++                  @click.stop="selectSocio(socio)"
++                  title="Registra quota sulla ricevuta attiva"
++                >
++                  <BaseIcon name="coins" size="16" color="white" />
++                  <span>Paga</span>
+                 </button>
+               </div>
+             </div>
+@@ -205,23 +380,49 @@
+         </div>
+       </div>
+ 
+-      <!-- Nessun Risultato - Nuovo Socio -->
++      <!-- Nessun Risultato - Prompt Nuovo Socio Inline -->
+       <div v-else-if="searchQuery && searchResults.length === 0 && !isSearching" class="no-results">
+         <div class="no-results-content">
+-          <h3>­ƒæñ Socio non trovato</h3>
++          <BaseIcon name="user" size="32" color="muted" />
++          <h3>Socio non trovato</h3>
+           <p>
+-            "<strong>{{ searchQuery }}</strong
+-            >" non corrisponde a nessun socio esistente.
++            "<strong>{{ searchQuery }}</strong>" non corrisponde a nessun socio censito in anagrafica.
+           </p>
+-          <button @click="showNewSocioForm = true" class="new-socio-btn" :disabled="isProcessing">
+-            Ô×ò Registra Nuovo Socio
++          <button
++            @click="openNewSocioForm"
++            class="new-socio-btn"
++            :disabled="isProcessing"
++            type="button"
++          >
++            <BaseIcon name="user-plus" size="18" color="white" />
++            <span>Registra Nuovo Socio con Quota 25Ôé¼</span>
+           </button>
+         </div>
+       </div>
+ 
+-      <!-- Form Nuovo Socio -->
+-      <div v-if="showNewSocioForm" class="new-socio-form">
+-        <h3>­ƒôØ Registra Nuovo Socio</h3>
++      <!-- Form / Drawer Nuovo Socio Inline con Quota 25Ôé¼ Pre-impostata -->
++      <div v-if="showNewSocioForm" class="new-socio-drawer">
++        <div class="drawer-header">
++          <div class="drawer-title">
++            <BaseIcon name="user-plus" size="22" color="primary" />
++            <div>
++              <h3>Registrazione Nuovo Socio Inline</h3>
++              <small>Il socio verr├á aggiunto direttamente sulla ricevuta #{{ currentReceipt.numero }} con quota 25,00 Ôé¼</small>
++            </div>
++          </div>
++          <button @click="cancelNewSocio" class="close-drawer-btn" type="button" title="Chiudi modulo">
++            <BaseIcon name="x" size="20" />
++          </button>
++        </div>
++
++        <div class="quota-notice-card">
++          <BaseIcon name="coins" size="20" color="gold" />
++          <div>
++            <strong>Quota Prima Iscrizione: Ôé¼ {{ formatCurrency(config.newMemberQuota) }}</strong>
++            <p>Come da statuto, per i nuovi tesserati ├¿ applicata la quota annuale di 25Ôé¼.</p>
++          </div>
++        </div>
++
+         <div class="mini-form-grid">
+           <div class="form-group">
+             <label for="new-cognome">Cognome *</label>
+@@ -232,10 +433,12 @@
+               class="form-input"
+               :class="{ error: newSocioErrors.cognome }"
+               :disabled="isProcessing"
++              placeholder="es. Rossi"
++              required
+             />
+-            <span v-if="newSocioErrors.cognome" class="error-message">{{
+-              newSocioErrors.cognome
+-            }}</span>
++            <span v-if="newSocioErrors.cognome" class="error-message">
++              {{ newSocioErrors.cognome }}
++            </span>
+           </div>
+ 
+           <div class="form-group">
+@@ -247,8 +450,12 @@
+               class="form-input"
+               :class="{ error: newSocioErrors.nome }"
+               :disabled="isProcessing"
++              placeholder="es. Mario"
++              required
+             />
+-            <span v-if="newSocioErrors.nome" class="error-message">{{ newSocioErrors.nome }}</span>
++            <span v-if="newSocioErrors.nome" class="error-message">
++              {{ newSocioErrors.nome }}
++            </span>
+           </div>
+ 
+           <div class="form-group">
+@@ -261,10 +468,11 @@
+               :class="{ error: newSocioErrors.data_nascita }"
+               :max="today"
+               :disabled="isProcessing"
++              required
+             />
+-            <span v-if="newSocioErrors.data_nascita" class="error-message">{{
+-              newSocioErrors.data_nascita
+-            }}</span>
++            <span v-if="newSocioErrors.data_nascita" class="error-message">
++              {{ newSocioErrors.data_nascita }}
++            </span>
+           </div>
+ 
+           <div class="form-group">
+@@ -280,7 +488,7 @@
+           </div>
+ 
+           <div class="form-group">
+-            <label for="new-gruppo">Manicchia</label>
++            <label for="new-gruppo">Manicchia (Gruppo)</label>
+             <select
+               id="new-gruppo"
+               v-model="newSocioData.gruppo_appartenenza"
+@@ -288,37 +496,44 @@
+               :disabled="isProcessing"
+               @change="handleGroupChange"
+             >
+-              <option value="">Seleziona manicchia</option>
++              <option value="">Seleziona manicchia...</option>
+               <option v-for="group in availableGroups" :key="group" :value="group">
+                 {{ group }}
+               </option>
+-              <option value="__NEW__">Ô×ò Nuova manicchia...</option>
++              <option value="__NEW__">+ Nuova manicchia...</option>
+             </select>
+           </div>
+ 
+           <div class="form-group">
+-            <label for="new-note">Note</label>
++            <label for="new-note">Note Aggiuntive</label>
+             <textarea
+               id="new-note"
+               v-model="newSocioData.note"
+               class="form-input"
+               rows="2"
+-              placeholder="Eventuali note aggiuntive..."
++              placeholder="Eventuali note anagrafiche o di recapito..."
+               :disabled="isProcessing"
+             ></textarea>
+           </div>
+         </div>
+ 
+         <div class="form-actions">
+-          <button @click="cancelNewSocio" class="cancel-btn" :disabled="isProcessing">
++          <button
++            @click="cancelNewSocio"
++            class="cancel-btn"
++            :disabled="isProcessing"
++            type="button"
++          >
+             Annulla
+           </button>
+           <button
+             @click="saveNewSocio"
+             class="save-btn"
+             :disabled="isProcessing || !canSaveNewSocio"
++            type="button"
+           >
+-            ­ƒÆ¥ Salva e Registra Pagamento {{ sessionData.annoRiferimento }}
++            <BaseIcon name="save" size="18" color="white" />
++            <span>Salva e Aggiungi alla Ricevuta #{{ currentReceipt.numero }} (25Ôé¼)</span>
+           </button>
+         </div>
+       </div>
+@@ -327,17 +542,17 @@
+     <!-- Modal Errore -->
+     <ErrorModal v-if="errorMessage" :message="errorMessage" @close="errorMessage = ''" />
+ 
+-    <!-- Modal Conferma Cancellazione -->
++    <!-- Modal Conferma Cancellazione Singolo Socio -->
+     <ConfirmDeleteModal
+       v-if="showDeleteConfirm"
+       :is-visible="showDeleteConfirm"
+-      title="Conferma eliminazione pagamento"
++      title="Conferma eliminazione socio dalla ricevuta"
+       :message="deleteConfirmMessage"
+       @close="cancelDelete"
+       @confirm="confirmRemoveFromReceipt"
+     />
+ 
+-    <!-- Modal Pagamento -->
++    <!-- Modal Pagamento Standard -->
+     <AddPaymentModal
+       :show="showPaymentModal"
+       :socio-id="selectedSocio?.id?.toString() || ''"
+@@ -354,6 +569,7 @@
+ <script setup>
+ import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
+ import { useToast } from 'vue-toastification'
++import BaseIcon from '@/components/common/BaseIcon.vue'
+ import {
+   searchSoci,
+   addSocio,
+@@ -373,13 +589,37 @@ import AddPaymentModal from '@/components/AddPaymentModal.vue'
+ 
+ const toast = useToast()
+ const searchInput = ref(null)
++const resultsListRef = ref(null)
+ 
+-// Dati di sessione
+-const sessionData = reactive({
+-  annoRiferimento: new Date().getFullYear(),
+-  numeroBlocchetto: 1,
+-  dataPagamento: new Date().toISOString().split('T')[0],
+-})
++// Dati di sessione con persistenza localStorage
++const STORAGE_KEY_SESSION = 'ceraiolo_batch_session'
++
++const getInitialSessionData = () => {
++  const currentYear = new Date().getFullYear()
++  const todayStr = new Date().toISOString().split('T')[0]
++
++  try {
++    const saved = localStorage.getItem(STORAGE_KEY_SESSION)
++    if (saved) {
++      const parsed = JSON.parse(saved)
++      return {
++        annoRiferimento: Number(parsed.annoRiferimento) || currentYear,
++        numeroBlocchetto: Number(parsed.numeroBlocchetto) || 1,
++        dataPagamento: parsed.dataPagamento || todayStr,
++      }
++    }
++  } catch (e) {
++    console.warn('Errore lettura sessione da localStorage:', e)
++  }
++
++  return {
++    annoRiferimento: currentYear,
++    numeroBlocchetto: 1,
++    dataPagamento: todayStr,
++  }
++}
++
++const sessionData = reactive(getInitialSessionData())
+ 
+ const sessionErrors = reactive({
+   annoRiferimento: '',
+@@ -393,9 +633,15 @@ const currentReceipt = reactive({
+   soci: [],
+ })
+ 
+-// Cache delle ricevute per mantenere i dati quando si naviga
++// Cache delle ricevute per mantenere i dati nella sessione corrente
+ const receiptsCache = new Map()
+ 
++// Mappa reattiva dei pagamenti del blocchetto caricati da Dexie (numeroRicevuta -> Array pagamenti)
++const bookletPaymentsMap = ref(new Map())
++
++// Totale cassa reattivo dell'intero libretto
++const bookletCashTotal = ref(0)
++
+ // Area di lavoro
+ const searchQuery = ref('')
+ const searchResults = ref([])
+@@ -405,12 +651,12 @@ const showNewSocioForm = ref(false)
+ const isProcessing = ref(false)
+ const turboMode = ref(false)
+ 
+-// Nuovo socio
++// Nuovo socio inline
+ const newSocioData = reactive({
+   cognome: '',
+   nome: '',
+   data_nascita: '',
+-  luogo_nascita: 'Gubbio', // Default value
++  luogo_nascita: 'Gubbio',
+   gruppo_appartenenza: '',
+   note: '',
+ })
+@@ -429,16 +675,15 @@ const paymentData = reactive({
+   selectedYears: [],
+ })
+ 
+-// Error handling
++// Error handling & Eliminazione
+ const errorMessage = ref('')
+ const showDeleteConfirm = ref(false)
+ const socioToDelete = ref(null)
+ 
+ const deleteConfirmMessage = computed(() => {
+   if (!socioToDelete.value) return ''
+-  if (!socioToDelete.value) return ''
+-  return `Sei sicuro di voler rimuovere ${socioToDelete.value.cognome} ${socioToDelete.value.nome} dalla ricevuta?
+-Questa operazione annuller├á il pagamento registrato per questa sessione.`
++  return `Sei sicuro di voler rimuovere ${socioToDelete.value.cognome} ${socioToDelete.value.nome} dalla ricevuta #${currentReceipt.numero}?
++Questa operazione canceller├á il pagamento registrato in questo blocchetto.`
+ })
+ 
+ // Configuration
+@@ -448,7 +693,7 @@ const config = ref({
+   newMemberQuota: 25.0,
+ })
+ 
+-// Audio
++// Audio feedback
+ const soundEnabled = ref(true)
+ 
+ const playSuccessSound = () => {
+@@ -495,7 +740,7 @@ const playErrorSound = () => {
+     oscillator.start()
+     oscillator.stop(audioCtx.currentTime + 0.25)
+   } catch (e) {
+-    console.error(e)
++    console.error('Audio error play failed:', e)
+   }
+ }
+ 
+@@ -504,7 +749,78 @@ const today = new Date().toISOString().split('T')[0]
+ const currentYear = new Date().getFullYear()
+ const availableGroups = ref([])
+ 
+-// Computed
++const formatCurrency = (amount) => {
++  return Number(amount || 0).toFixed(2)
++}
++
++const formatDate = (dateString) => {
++  if (!dateString) return ''
++  const date = new Date(dateString)
++  return date
++    .toLocaleDateString('it-IT', {
++      day: '2-digit',
++      month: '2-digit',
++      year: 'numeric',
++    })
++    .replace(/\//g, '-')
++}
++
++const isMinor = (socio) => {
++  if (!socio?.data_nascita) return false
++  return calculateAgeInYear(socio.data_nascita, sessionData.annoRiferimento) < 18
++}
++
++// Calcolo 10 Caselle Visuali del Blocchetto
++const bookletSlots = computed(() => {
++  const B = Number(sessionData.numeroBlocchetto) || 1
++  const rPerBlock = Number(config.value.receiptsPerBlock) || 10
++  const base = (B - 1) * rPerBlock
++
++  const slots = []
++  for (let i = 1; i <= rPerBlock; i++) {
++    const receiptNum = base + i
++    const isActive = currentReceipt.numero === receiptNum
++
++    let count = 0
++    if (isActive) {
++      count = currentReceipt.soci.length
++    } else if (receiptsCache.has(receiptNum)) {
++      count = receiptsCache.get(receiptNum).length
++    } else if (bookletPaymentsMap.value?.has(receiptNum)) {
++      const pList = bookletPaymentsMap.value.get(receiptNum)
++      count = new Set(pList.map((p) => p.id_socio)).size
++    }
++
++    slots.push({
++      index: i,
++      receiptNumber: receiptNum,
++      isActive,
++      isFilled: count > 0,
++      count,
++    })
++  }
++  return slots
++})
++
++const filledSlotsCount = computed(() => {
++  return bookletSlots.value.filter((s) => s.isFilled).length
++})
++
++const activeSlotIndex = computed(() => {
++  const B = Number(sessionData.numeroBlocchetto) || 1
++  const rPerBlock = Number(config.value.receiptsPerBlock) || 10
++  const offset = currentReceipt.numero - (B - 1) * rPerBlock
++  return offset >= 1 && offset <= rPerBlock ? offset : '?'
++})
++
++// Subtotale ricevuta corrente
++const receiptSubtotal = computed(() => {
++  return currentReceipt.soci.reduce((sum, s) => {
++    const amount = s.totale_versato !== undefined ? s.totale_versato : (s.quota_pagata || s.quota || 0)
++    return sum + Number(amount)
++  }, 0)
++})
++
+ const canSaveNewSocio = computed(() => {
+   return (
+     newSocioData.cognome.trim() &&
+@@ -514,7 +830,7 @@ const canSaveNewSocio = computed(() => {
+   )
+ })
+ 
+-// Methods
++// Metodi di caricamento dati e computazione Cassa
+ const validateSessionData = () => {
+   sessionErrors.annoRiferimento = !sessionData.annoRiferimento ? 'Anno obbligatorio' : ''
+   sessionErrors.numeroBlocchetto =
+@@ -524,6 +840,142 @@ const validateSessionData = () => {
+   sessionErrors.dataPagamento = !sessionData.dataPagamento ? 'Data pagamento obbligatoria' : ''
+ }
+ 
++const saveSessionToStorage = () => {
++  try {
++    localStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify(sessionData))
++  } catch (e) {
++    console.warn('Errore salvataggio sessione in localStorage:', e)
++  }
++}
++
++/**
++ * Ricalcola la cassa totale del blocchetto interrogando Dexie tesseramenti
++ */
++const updateBookletCashTotal = async () => {
++  const bNum = Number(sessionData.numeroBlocchetto)
++  if (!bNum || bNum < 1) {
++    bookletCashTotal.value = 0
++    bookletPaymentsMap.value = new Map()
++    return
++  }
++
++  try {
++    const payments = await db.tesseramenti
++      .where('numero_blocchetto')
++      .equals(bNum)
++      .toArray()
++
++    bookletCashTotal.value = payments.reduce(
++      (sum, p) => sum + (Number(p.quota_pagata) || 0),
++      0,
++    )
++
++    const map = new Map()
++    for (const p of payments) {
++      const rNum = Number(p.numero_ricevuta)
++      if (!map.has(rNum)) {
++        map.set(rNum, [])
++      }
++      map.get(rNum).push(p)
++    }
++    bookletPaymentsMap.value = map
++  } catch (error) {
++    console.error('Errore calcolo cassa blocchetto:', error)
++    bookletCashTotal.value = 0
++  }
++}
++
++/**
++ * Carica i dati dei soci registrati per una ricevuta (da cache memoria o Dexie)
++ */
++const loadReceiptData = async (receiptNumber) => {
++  if (receiptsCache.has(receiptNumber)) {
++    currentReceipt.soci = [...receiptsCache.get(receiptNumber)]
++    return
++  }
++
++  try {
++    const payments = await db.tesseramenti
++      .where('numero_ricevuta')
++      .equals(receiptNumber)
++      .and((t) => t.numero_blocchetto === Number(sessionData.numeroBlocchetto))
++      .toArray()
++
++    if (payments.length === 0) {
++      currentReceipt.soci = []
++      return
++    }
++
++    const socioMap = new Map()
++    for (const p of payments) {
++      if (!socioMap.has(p.id_socio)) {
++        socioMap.set(p.id_socio, {
++          id: p.id_socio,
++          anniPagati: [],
++          quota_pagata: Number(p.quota_pagata) || 0,
++          totale_versato: 0,
++          metodo_pagamento: p.metodo_pagamento || 'Contanti',
++        })
++      }
++      const item = socioMap.get(p.id_socio)
++      item.anniPagati.push(p.anno)
++      item.totale_versato += Number(p.quota_pagata) || 0
++    }
++
++    const socioIds = Array.from(socioMap.keys())
++    const sociRecords = await db.soci.where('id').anyOf(socioIds).toArray()
++    const sociById = new Map(sociRecords.map((s) => [s.id, s]))
++
++    const loadedSoci = []
++    for (const [id, item] of socioMap.entries()) {
++      const s = sociById.get(id)
++      loadedSoci.push({
++        id,
++        cognome: s ? s.cognome : 'Socio',
++        nome: s ? s.nome : `#${id}`,
++        data_nascita: s?.data_nascita,
++        gruppo_appartenenza: s?.gruppo_appartenenza || '',
++        anniPagati: item.anniPagati.sort((a, b) => a - b),
++        quota_pagata: item.quota_pagata,
++        totale_versato: item.totale_versato,
++        metodo_pagamento: item.metodo_pagamento,
++        is_nuovo: s?.data_prima_iscrizione === sessionData.annoRiferimento,
++      })
++    }
++
++    currentReceipt.soci = loadedSoci
++    receiptsCache.set(receiptNumber, loadedSoci)
++  } catch (error) {
++    console.error('Errore idratazione ricevuta da db:', error)
++    currentReceipt.soci = []
++  }
++}
++
++const saveCurrentReceiptToCache = () => {
++  receiptsCache.set(currentReceipt.numero, [...currentReceipt.soci])
++}
++
++const goToReceipt = async (targetReceiptNumber) => {
++  if (targetReceiptNumber === currentReceipt.numero) return
++  if (isProcessing.value) return
++
++  saveCurrentReceiptToCache()
++  currentReceipt.numero = targetReceiptNumber
++  await loadReceiptData(targetReceiptNumber)
++  clearSearch()
++  nextTick(() => searchInput.value?.focus())
++}
++
++const incrementReceipt = () => {
++  goToReceipt(currentReceipt.numero + 1)
++}
++
++const decrementReceipt = () => {
++  if (currentReceipt.numero > 1) {
++    goToReceipt(currentReceipt.numero - 1)
++  }
++}
++
+ const loadGroups = async () => {
+   try {
+     const groups = await getUniqueGroups()
+@@ -531,19 +983,18 @@ const loadGroups = async () => {
+   } catch (error) {
+     console.error('Errore caricamento gruppi:', error)
+     availableGroups.value = []
+-    // Non mostrare toast per evitare spam all'avvio
+   }
+ }
+ 
+ const handleGroupChange = async () => {
+   if (newSocioData.gruppo_appartenenza === '__NEW__') {
+-    const newGroup = prompt('Inserisci il nome del nuovo gruppo:')
++    const newGroup = prompt('Inserisci il nome del nuovo gruppo / manicchia:')
+     if (newGroup && newGroup.trim()) {
+       try {
+         await addCustomGroup(newGroup)
+         await loadGroups()
+         newSocioData.gruppo_appartenenza = newGroup.trim()
+-        toast.success(`Gruppo "${newGroup}" aggiunto!`)
++        toast.success(`Gruppo "${newGroup}" aggiunto con successo!`)
+       } catch (e) {
+         toast.error('Errore aggiunta gruppo: ' + e.message)
+         newSocioData.gruppo_appartenenza = ''
+@@ -558,59 +1009,91 @@ const handleGroupChange = async () => {
+ onMounted(async () => {
+   window.addEventListener('keydown', handleGlobalKeydown)
+   try {
+-    // Assicurati che il database sia aperto
+     await db.open()
+ 
+-    // Carica configurazioni
+     config.value.receiptsPerBlock = await getSetting('receiptsPerBlock', 10)
+     config.value.defaultQuota = await getSetting('defaultQuota', 10.0)
+     config.value.newMemberQuota = await getSetting('newMemberQuota', 25.0)
+ 
+     await loadGroups()
+     validateSessionData()
++
++    // Sincronizza numero ricevuta iniziale con il blocchetto attivo
++    const bNum = Number(sessionData.numeroBlocchetto) || 1
++    const baseReceipt = (bNum - 1) * config.value.receiptsPerBlock + 1
++    currentReceipt.numero = baseReceipt
++
++    await updateBookletCashTotal()
++    await loadReceiptData(currentReceipt.numero)
+   } catch (error) {
+-    console.error('Errore inizializzazione database:', error)
++    console.error('Errore inizializzazione BatchEntryView:', error)
+     toast.error("Errore nell'inizializzazione dell'applicazione")
+   }
+ })
+ 
++onUnmounted(() => {
++  window.removeEventListener('keydown', handleGlobalKeydown)
++})
++
+ // Watchers
+-watch(() => sessionData.annoRiferimento, validateSessionData)
+-watch(() => sessionData.numeroBlocchetto, validateSessionData)
++watch(
++  () => sessionData.annoRiferimento,
++  () => {
++    validateSessionData()
++    saveSessionToStorage()
++  },
++)
++
++watch(
++  () => sessionData.dataPagamento,
++  () => {
++    validateSessionData()
++    saveSessionToStorage()
++  },
++)
++
+ watch(
+   () => sessionData.numeroBlocchetto,
+-  (newVal) => {
++  async (newVal) => {
++    validateSessionData()
++    saveSessionToStorage()
+     if (newVal > 0) {
++      receiptsCache.clear()
+       const calculatedReceiptNumber = (newVal - 1) * config.value.receiptsPerBlock + 1
+       currentReceipt.numero = calculatedReceiptNumber
++      await updateBookletCashTotal()
++      await loadReceiptData(calculatedReceiptNumber)
+     }
+   },
+ )
+-watch(() => sessionData.dataPagamento, validateSessionData)
+-
+-onUnmounted(() => {
+-  window.removeEventListener('keydown', handleGlobalKeydown)
+-})
+ 
++// Gestione tastiera globale (Frecce orizzontali, Escape)
+ const handleGlobalKeydown = (e) => {
+   const activeElement = document.activeElement
+-  const isInput = ['INPUT', 'TEXTAREA'].includes(activeElement.tagName)
+-
+-  // Special exception: Allow navigation from search input if it's empty
+-  // This allows rapid skipping of receipts without leaving the search field
++  const isInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(activeElement?.tagName)
+   const isSearchInput = searchInput.value && activeElement === searchInput.value
+ 
+   if (isInput) {
+-    // If we are in the search input and it's empty, we allow the navigation keys
+     if (isSearchInput && !searchQuery.value) {
+-      // Allow execution
++      // Consenti frecce di navigazione se la barra di ricerca ├¿ vuota
+     } else {
+-      // Otherwise (other inputs, or search has text), we block to preserve cursor navigation/editing
+       return
+     }
+   }
+ 
+-  // Ignore if modals are open
++  // Se i modali o il form nuovo socio sono aperti, gestisci Escape
++  if (e.key === 'Escape') {
++    if (showNewSocioForm.value) {
++      cancelNewSocio()
++      return
++    }
++    if (searchQuery.value) {
++      clearSearch()
++      return
++    }
++    return
++  }
++
+   if (showPaymentModal.value || showDeleteConfirm.value || showNewSocioForm.value) return
+ 
+   switch (e.key) {
+@@ -623,72 +1106,7 @@ const handleGlobalKeydown = (e) => {
+   }
+ }
+ 
+-// Funzioni per gestire la cache delle ricevute
+-const saveCurrentReceiptToCache = () => {
+-  if (currentReceipt.soci.length > 0) {
+-    receiptsCache.set(currentReceipt.numero, [...currentReceipt.soci])
+-  }
+-}
+-
+-const loadReceiptFromCache = (receiptNumber) => {
+-  const cachedData = receiptsCache.get(receiptNumber)
+-  if (cachedData) {
+-    currentReceipt.soci = [...cachedData]
+-  } else {
+-    currentReceipt.soci = []
+-  }
+-}
+-
+-const incrementReceipt = () => {
+-  // Salva la ricevuta corrente prima di cambiarla
+-  saveCurrentReceiptToCache()
+-
+-  currentReceipt.numero++
+-  loadReceiptFromCache(currentReceipt.numero)
+-  clearSearch()
+-  nextTick(() => searchInput.value?.focus())
+-}
+-
+-const decrementReceipt = () => {
+-  if (currentReceipt.numero > 1) {
+-    // Salva la ricevuta corrente prima di cambiarla
+-    saveCurrentReceiptToCache()
+-
+-    currentReceipt.numero--
+-    loadReceiptFromCache(currentReceipt.numero)
+-    clearSearch()
+-    nextTick(() => searchInput.value?.focus())
+-  }
+-}
+-
+-const clearSearch = () => {
+-  searchQuery.value = ''
+-  searchResults.value = []
+-  showNewSocioForm.value = false
+-  resetNewSocioForm()
+-}
+-
+-const resetNewSocioForm = () => {
+-  newSocioData.cognome = ''
+-  newSocioData.nome = ''
+-  newSocioData.data_nascita = ''
+-  newSocioData.gruppo_appartenenza = ''
+-  Object.keys(newSocioErrors).forEach((key) => {
+-    newSocioErrors[key] = ''
+-  })
+-}
+-
+-const openNewSocioForm = () => {
+-  searchQuery.value = ''
+-  searchResults.value = []
+-  showNewSocioForm.value = true
+-  resetNewSocioForm()
+-  // Optional: Focus first field if we had a ref to it
+-  nextTick(() => {
+-    document.getElementById('new-cognome')?.focus()
+-  })
+-}
+-
++// Ricerca soci
+ let searchTimeout = null
+ const debouncedSearch = () => {
+   clearTimeout(searchTimeout)
+@@ -725,16 +1143,12 @@ const handleSearchKeydown = (e) => {
+       if (selectedResultIndex.value >= 0) {
+         selectSocio(searchResults.value[selectedResultIndex.value])
+       } else if (searchResults.value.length > 0) {
+-        // Turbo mode: Enter without arrow keys selects first result
+         selectSocio(searchResults.value[0])
+       }
+       break
+   }
+ }
+ 
+-// Add ref for the results container
+-const resultsListRef = ref(null)
+-
+ const scrollToSelected = () => {
+   nextTick(() => {
+     if (!resultsListRef.value || selectedResultIndex.value < 0) return
+@@ -751,7 +1165,6 @@ const performSearch = async () => {
+   isSearching.value = true
+   try {
+     const results = await searchSoci(searchQuery.value.trim())
+-    // Aggiungi informazioni sugli arretrati per ogni socio (con gestione errori migliorata)
+     const resultsWithArretrati = await Promise.all(
+       results.map(async (socio) => {
+         try {
+@@ -768,7 +1181,7 @@ const performSearch = async () => {
+     )
+     searchResults.value = resultsWithArretrati
+     showNewSocioForm.value = false
+-    selectedResultIndex.value = -1 // Reset selection
++    selectedResultIndex.value = -1
+   } catch (error) {
+     console.error('Errore ricerca:', error)
+     toast.error('Errore durante la ricerca')
+@@ -782,7 +1195,6 @@ const selectSocio = async (socio) => {
+   selectedSocio.value = socio
+ 
+   if (turboMode.value) {
+-    // Turbo Mode: Direct save with defaults
+     if (isProcessing.value) return
+     isProcessing.value = true
+ 
+@@ -799,9 +1211,6 @@ const selectSocio = async (socio) => {
+         socioId: socio.id,
+       })
+ 
+-      // Manual cleanup because closePaymentModal might skipped if isProcessing is true
+-      // Actually, handleSavePayments logic assumes it can close.
+-      // We will ensure cleanup here just in case.
+       selectedSocio.value = null
+       paymentData.selectedYears = []
+     } catch (e) {
+@@ -812,9 +1221,8 @@ const selectSocio = async (socio) => {
+       isProcessing.value = false
+     }
+   } else {
+-    // Classic Mode: Open Modal
+-    paymentData.selectedYears = [sessionData.annoRiferimento] // Default: anno di riferimento
+-    paymentData.quota = config.value.defaultQuota // Default quota da config
++    paymentData.selectedYears = [sessionData.annoRiferimento]
++    paymentData.quota = config.value.defaultQuota
+     showPaymentModal.value = true
+   }
+ }
+@@ -827,20 +1235,15 @@ const closePaymentModal = () => {
+   }
+ }
+ 
+-// This function is called by the payment component when user clicks "Save"
+ const handleSavePayments = async ({ details, years, socioId }) => {
+-  console.log('Saving payments:', { details, years, socioId })
+-
+-  // --- Security Check ---
++  // Controlla se l'anno ├¿ gi├á pagato
+   const existingYear = await findExistingPaymentYear(socioId, years)
+   if (existingYear) {
+     errorMessage.value = `ERRORE: L'anno ${existingYear} risulta gi├á pagato per questo socio. Operazione annullata.`
+-    return // Block the operation
++    return
+   }
+ 
+-  // If check passes, save all payments
+   try {
+-    console.log('Saving tesseramenti for years:', years)
+     for (const year of years) {
+       const tesseramentoData = {
+         id_socio: socioId,
+@@ -850,60 +1253,107 @@ const handleSavePayments = async ({ details, years, socioId }) => {
+         numero_ricevuta: currentReceipt.numero,
+         numero_blocchetto: sessionData.numeroBlocchetto,
+       }
+-      console.log('Saving tesseramento:', tesseramentoData)
+-
+-      const result = await addTesseramento(tesseramentoData)
+-      console.log('Tesseramento saved with ID:', result)
++      await addTesseramento(tesseramentoData)
+     }
+ 
+     // Aggiungi alla ricevuta corrente
+     currentReceipt.soci.push({
+       id: socioId,
+-      cognome: selectedSocio.value.cognome,
+-      nome: selectedSocio.value.nome,
++      cognome: selectedSocio.value?.cognome || '',
++      nome: selectedSocio.value?.nome || '',
++      gruppo_appartenenza: selectedSocio.value?.gruppo_appartenenza || '',
++      data_nascita: selectedSocio.value?.data_nascita,
+       anniPagati: [...years],
++      quota_pagata: Number(details.quota_pagata) || 0,
++      totale_versato: (Number(details.quota_pagata) || 0) * years.length,
++      metodo_pagamento: 'Contanti',
++      is_nuovo: false,
+     })
+ 
+-    // Aggiorna la cache globale del socio per riflettere i nuovi pagamenti
+-    // Questo assicura che quando si visita SocioDetailView, i dati siano aggiornati
+-    if (selectedSocio.value) {
+-      // Rimuovi il socio dalla cache per forzare un ricaricamento
+-      // Nota: Questo ├¿ un workaround, idealmente servirebbe un sistema di cache pi├╣ sofisticato
+-      const socioKey = `socio_${selectedSocio.value.id}`
+-      if (localStorage.getItem(socioKey)) {
+-        localStorage.removeItem(socioKey)
+-      }
+-    }
++    saveCurrentReceiptToCache()
++    await updateBookletCashTotal()
+ 
+     toast.success(
+-      `Pagamenti registrati per ${selectedSocio.value.cognome} ${selectedSocio.value.nome} (${years.join(', ')})`,
++      `Pagamento registrato per ${selectedSocio.value?.cognome} ${selectedSocio.value?.nome} su ricevuta #${currentReceipt.numero}`,
+     )
+ 
+     playSuccessSound()
+-
+     closePaymentModal()
+     clearSearch()
+     nextTick(() => {
+       if (searchInput.value) {
+         searchInput.value.focus()
+-        searchInput.value.select() // Select text to type over immediately
++        searchInput.value.select()
+       }
+     })
+   } catch (err) {
+-    console.error('Error saving payments:', err)
++    console.error('Errore salvataggio pagamenti:', err)
+     errorMessage.value = `Si ├¿ verificato un errore durante il salvataggio: ${err.message}`
++    playErrorSound()
+   }
+ }
+ 
+-const cancelNewSocio = () => {
++const clearSearch = () => {
++  searchQuery.value = ''
++  searchResults.value = []
+   showNewSocioForm.value = false
+   resetNewSocioForm()
+ }
+ 
++const resetNewSocioForm = () => {
++  newSocioData.cognome = ''
++  newSocioData.nome = ''
++  newSocioData.data_nascita = ''
++  newSocioData.gruppo_appartenenza = ''
++  newSocioData.luogo_nascita = 'Gubbio'
++  newSocioData.note = ''
++  Object.keys(newSocioErrors).forEach((key) => {
++    newSocioErrors[key] = ''
++  })
++}
++
++// Apertura form nuovo socio con auto-compilazione da query di ricerca fallita
++const openNewSocioForm = () => {
++  resetNewSocioForm()
++
++  if (searchQuery.value && searchQuery.value.trim()) {
++    const raw = searchQuery.value.trim()
++    const parts = raw.split(/\s+/)
++    if (parts.length >= 2) {
++      newSocioData.cognome = parts[0].charAt(0).toUpperCase() + parts[0].slice(1).toLowerCase()
++      newSocioData.nome = parts
++        .slice(1)
++        .map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())
++        .join(' ')
++    } else if (parts.length === 1) {
++      newSocioData.cognome = parts[0].charAt(0).toUpperCase() + parts[0].slice(1).toLowerCase()
++      newSocioData.nome = ''
++    }
++  }
++
++  showNewSocioForm.value = true
++  searchResults.value = []
++
++  nextTick(() => {
++    if (!newSocioData.cognome) {
++      document.getElementById('new-cognome')?.focus()
++    } else if (!newSocioData.nome) {
++      document.getElementById('new-nome')?.focus()
++    } else {
++      document.getElementById('new-data-nascita')?.focus()
++    }
++  })
++}
++
++const cancelNewSocio = () => {
++  showNewSocioForm.value = false
++  resetNewSocioForm()
++  nextTick(() => searchInput.value?.focus())
++}
++
+ const saveNewSocio = async () => {
+   if (!canSaveNewSocio.value || isProcessing.value) return
+ 
+-  // Validazione
+   newSocioErrors.cognome = !newSocioData.cognome.trim() ? 'Cognome obbligatorio' : ''
+   newSocioErrors.nome = !newSocioData.nome.trim() ? 'Nome obbligatorio' : ''
+   newSocioErrors.data_nascita = !newSocioData.data_nascita ? 'Data di nascita obbligatoria' : ''
+@@ -912,44 +1362,55 @@ const saveNewSocio = async () => {
+ 
+   isProcessing.value = true
+   try {
+-    // Crea il nuovo socio
+     const socioData = {
+-      nome: newSocioData.nome.trim(),
+       cognome: newSocioData.cognome.trim(),
++      nome: newSocioData.nome.trim(),
+       data_nascita: newSocioData.data_nascita,
+       luogo_nascita: newSocioData.luogo_nascita || 'Gubbio',
+       gruppo_appartenenza: newSocioData.gruppo_appartenenza || 'Non specificato',
++      data_prima_iscrizione: sessionData.annoRiferimento,
+       note: newSocioData.note || '',
+     }
+ 
+     const socioId = await addSocio(socioData)
++    const quotaAmount = Number(config.value.newMemberQuota) || 25.0
+ 
+-    // Registra il pagamento per l'anno corrente
++    // Registra quota 25Ôé¼ sul tesseramento
+     await addTesseramento({
+       id_socio: socioId,
+       anno: sessionData.annoRiferimento,
+-      quota_pagata: config.value.newMemberQuota, // Quota maggiorata per nuovi soci
++      quota_pagata: quotaAmount,
+       data_pagamento: sessionData.dataPagamento,
+       numero_ricevuta: currentReceipt.numero,
+       numero_blocchetto: sessionData.numeroBlocchetto,
+     })
+ 
+-    // Aggiungi alla ricevuta corrente
++    // Aggiungi immediatamente alla ricevuta corrente
+     currentReceipt.soci.push({
+       id: socioId,
+       cognome: newSocioData.cognome.trim(),
+       nome: newSocioData.nome.trim(),
++      data_nascita: newSocioData.data_nascita,
++      gruppo_appartenenza: newSocioData.gruppo_appartenenza || 'Non specificato',
+       anniPagati: [sessionData.annoRiferimento],
++      quota_pagata: quotaAmount,
++      totale_versato: quotaAmount,
++      metodo_pagamento: 'Contanti',
++      is_nuovo: true,
+     })
+ 
++    saveCurrentReceiptToCache()
++    await updateBookletCashTotal()
++
+     toast.success(
+-      `Nuovo socio ${newSocioData.cognome} ${newSocioData.nome} creato e pagamento ${sessionData.annoRiferimento} registrato`,
++      `Nuovo socio ${newSocioData.cognome} ${newSocioData.nome} creato e quota 25Ôé¼ registrata su ricevuta #${currentReceipt.numero}`,
+     )
+ 
++    playSuccessSound()
+     showNewSocioForm.value = false
+     resetNewSocioForm()
+-    resetNewSocioForm()
+     clearSearch()
++
+     nextTick(() => {
+       if (searchInput.value) {
+         searchInput.value.focus()
+@@ -958,7 +1419,8 @@ const saveNewSocio = async () => {
+     })
+   } catch (error) {
+     console.error('Errore creazione socio:', error)
+-    toast.error('Errore durante la creazione del socio')
++    toast.error('Errore durante la creazione del socio: ' + error.message)
++    playErrorSound()
+   } finally {
+     isProcessing.value = false
+   }
+@@ -981,70 +1443,45 @@ const confirmRemoveFromReceipt = async () => {
+   isProcessing.value = true
+ 
+   try {
+-    // Delete from DB
+     await deleteTesseramentiByReceipt(socio.id, currentReceipt.numero, socio.anniPagati)
+ 
+-    // Remove from UI
+     const index = currentReceipt.soci.findIndex((s) => s.id === socio.id)
+     if (index > -1) {
+       currentReceipt.soci.splice(index, 1)
+       saveCurrentReceiptToCache()
++      await updateBookletCashTotal()
+ 
+-      // Clear socio from search/details cache inside DB service (workaround)
+       const socioKey = `socio_${socio.id}`
+       if (localStorage.getItem(socioKey)) {
+         localStorage.removeItem(socioKey)
+       }
+ 
+-      toast.success(`${socio.cognome} ${socio.nome} rimosso e pagamenti eliminati`)
++      toast.success(`${socio.cognome} ${socio.nome} rimosso e quota stornata dalla ricevuta #${currentReceipt.numero}`)
++      playSuccessSound()
+     }
+   } catch (error) {
+-    console.error('Error deleting payments:', error)
++    console.error('Errore cancellazione pagamenti:', error)
+     toast.error("Errore durante l'eliminazione dei pagamenti")
++    playErrorSound()
+   } finally {
+     isProcessing.value = false
+     showDeleteConfirm.value = false
+     socioToDelete.value = null
+ 
+-    // Refresh search if active to update statuses
+     if (searchQuery.value) {
+       performSearch()
+     }
+   }
+ }
+ 
+-const formatDate = (dateString) => {
+-  if (!dateString) return ''
+-  const date = new Date(dateString)
+-  return date
+-    .toLocaleDateString('it-IT', {
+-      day: '2-digit',
+-      month: '2-digit',
+-      year: 'numeric',
+-    })
+-    .replace(/\//g, '-')
+-}
+-
+-const isMinor = (socio) => {
+-  return calculateAgeInYear(socio.data_nascita, currentYear) < 18
+-}
+-
+ const getSocioStatus = (socio) => {
+-  // 1. Check if already in current receipt
+   if (currentReceipt.soci.some((s) => s.id === socio.id)) {
+     return 'IN_RECEIPT'
+   }
+-
+-  // 2. Check if exempt or all paid
+-  // If minor, they are in order if they paid current year (optional? usually voluntary) OR we just hide pay button if paid
+-  // If adult, must have paid current year AND no arrears
+-  const hasArrears = socio.arretrati.length > 0 && !isMinor(socio)
+-
++  const hasArrears = socio.arretrati && socio.arretrati.length > 0 && !isMinor(socio)
+   if (socio.paidCurrentYear && !hasArrears) {
+     return 'IN_ORDER'
+   }
+-
+-  // 3. Otherwise, needs action
+   return 'TO_PAY'
+ }
+ </script>
+@@ -1056,366 +1493,669 @@ const getSocioStatus = (socio) => {
+   padding: 2rem;
+   display: flex;
+   flex-direction: column;
+-  gap: 2rem;
++  gap: 1.75rem;
+ }
+ 
+ .batch-header {
+   text-align: center;
+-  margin-bottom: 1rem;
++  margin-bottom: 0.5rem;
+ }
+ 
+ .batch-header h1 {
+-  color: var(--color-primary);
++  color: var(--color-primary, #1a1a1a);
+   margin-bottom: 0.5rem;
++  display: flex;
++  align-items: center;
++  justify-content: center;
++  gap: 0.75rem;
++  font-size: 2rem;
+ }
+ 
+ .batch-subtitle {
+-  color: var(--color-text-secondary);
++  color: var(--color-text-secondary, #5c6266);
+   font-size: 1.1rem;
+   margin: 0;
+ }
+ 
++/* Booklet Summary Banner (Live Cash Total) */
++.booklet-summary-banner {
++  background: var(--color-surface, #ffffff);
++  border: 2px solid var(--color-gold, #c59b27);
++  border-radius: 12px;
++  padding: 1.25rem 2rem;
++  display: flex;
++  justify-content: space-between;
++  align-items: center;
++  box-shadow: 0 4px 12px rgba(197, 155, 39, 0.15);
++  gap: 1.5rem;
++}
++
++.banner-title-row {
++  display: flex;
++  align-items: center;
++  gap: 1rem;
++}
++
++.banner-text h2 {
++  margin: 0;
++  color: var(--color-primary, #1a1a1a);
++  font-size: 1.5rem;
++}
++
++.banner-range {
++  color: var(--color-text-secondary, #5c6266);
++  font-size: 0.95rem;
++  font-weight: 500;
++}
++
++.banner-stats {
++  display: flex;
++  align-items: center;
++  gap: 1.5rem;
++}
++
++.stat-pill {
++  display: flex;
++  align-items: center;
++  gap: 0.5rem;
++  padding: 0.6rem 1rem;
++  background-color: var(--color-background, #f8f9fa);
++  border: 1px solid var(--color-border, #e0e0e0);
++  border-radius: 8px;
++  font-size: 0.95rem;
++}
++
++.stat-label {
++  color: var(--color-text-secondary, #5c6266);
++}
++
++.stat-value {
++  color: var(--color-primary, #1a1a1a);
++  font-weight: 700;
++  font-variant-numeric: tabular-nums;
++}
++
++.cash-total-card {
++  display: flex;
++  align-items: center;
++  gap: 0.85rem;
++  padding: 0.75rem 1.5rem;
++  background: linear-gradient(135deg, rgba(197, 155, 39, 0.12), rgba(197, 155, 39, 0.05));
++  border: 2px solid var(--color-gold, #c59b27);
++  border-radius: 10px;
++  min-width: 220px;
++}
++
++.cash-content {
++  display: flex;
++  flex-direction: column;
++  text-align: right;
++  flex: 1;
++}
++
++.cash-label {
++  font-size: 0.8rem;
++  text-transform: uppercase;
++  letter-spacing: 0.05em;
++  font-weight: 700;
++  color: var(--color-gold, #c59b27);
++}
++
++.cash-amount {
++  font-size: 1.6rem;
++  font-weight: 800;
++  color: var(--color-primary, #1a1a1a);
++  font-variant-numeric: tabular-nums;
++  line-height: 1.2;
++}
++
++/* 10-Slot Visual Receipt Bar */
++.receipt-slot-bar {
++  background: var(--color-surface, #ffffff);
++  border-radius: 12px;
++  padding: 1.25rem 1.5rem;
++  border: 1px solid var(--color-border, #e0e0e0);
++  box-shadow: var(--shadow-sm, 0 2px 4px rgba(0, 0, 0, 0.05));
++}
++
++.slot-bar-header {
++  display: flex;
++  justify-content: space-between;
++  align-items: center;
++  margin-bottom: 1rem;
++  padding-bottom: 0.5rem;
++  border-bottom: 1px solid var(--color-border, #e0e0e0);
++}
++
++.slot-bar-title {
++  display: flex;
++  align-items: center;
++  gap: 0.5rem;
++  font-weight: 600;
++  color: var(--color-primary, #1a1a1a);
++  font-size: 1rem;
++}
++
++.slot-bar-instructions {
++  display: flex;
++  align-items: center;
++  gap: 0.4rem;
++  color: var(--color-text-secondary, #5c6266);
++}
++
++.slot-grid {
++  display: grid;
++  grid-template-columns: repeat(10, 1fr);
++  gap: 0.5rem;
++}
++
++.slot-item {
++  position: relative;
++  display: flex;
++  flex-direction: column;
++  align-items: center;
++  justify-content: center;
++  padding: 0.75rem 0.25rem;
++  min-height: 72px;
++  border: 2px solid var(--color-border, #e0e0e0);
++  border-radius: 10px;
++  background-color: var(--color-background, #f8f9fa);
++  cursor: pointer;
++  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
++  user-select: none;
++}
++
++.slot-item:hover:not(:disabled) {
++  border-color: var(--color-gold, #c59b27);
++  transform: translateY(-2px);
++  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
++}
++
++.slot-item:disabled {
++  opacity: 0.5;
++  cursor: not-allowed;
++}
++
++.slot-bracket {
++  font-size: 0.85rem;
++  font-weight: 700;
++  color: var(--color-text-secondary, #5c6266);
++}
++
++.slot-receipt-num {
++  font-size: 1rem;
++  font-weight: 800;
++  font-variant-numeric: tabular-nums;
++  color: var(--color-primary, #1a1a1a);
++  margin: 0.15rem 0;
++}
++
++.slot-status-indicator {
++  display: flex;
++  align-items: center;
++  gap: 0.25rem;
++  font-size: 0.75rem;
++  border-radius: 12px;
++  padding: 0.1rem 0.4rem;
++}
++
++.slot-status-indicator.filled {
++  background-color: var(--color-success, #2e7d32);
++  color: white;
++  font-weight: 700;
++}
++
++.slot-status-indicator.empty {
++  height: 14px;
++}
++
++.empty-dot {
++  width: 6px;
++  height: 6px;
++  border-radius: 50%;
++  background-color: var(--color-border, #cccccc);
++}
++
++/* Active Slot State */
++.slot-item--active {
++  border-color: var(--color-gold, #c59b27);
++  background: linear-gradient(180deg, rgba(197, 155, 39, 0.15), rgba(197, 155, 39, 0.05));
++  box-shadow: 0 0 0 3px rgba(197, 155, 39, 0.25), 0 4px 10px rgba(0, 0, 0, 0.1);
++  transform: translateY(-3px);
++}
++
++.slot-item--active .slot-bracket {
++  color: var(--color-gold, #c59b27);
++}
++
++.slot-item--active .slot-receipt-num {
++  color: var(--color-gold, #c59b27);
++}
++
++/* Filled Slot State */
++.slot-item--filled:not(.slot-item--active) {
++  border-color: rgba(46, 125, 50, 0.5);
++  background-color: rgba(46, 125, 50, 0.04);
++}
++
+ /* Session Data */
+ .session-data {
+-  background-color: var(--color-surface);
++  background-color: var(--color-surface, #ffffff);
+   border-radius: 12px;
+-  padding: 2rem;
+-  box-shadow: var(--shadow-md);
++  padding: 1.75rem 2rem;
++  box-shadow: var(--shadow-sm, 0 2px 4px rgba(0, 0, 0, 0.05));
++  border: 1px solid var(--color-border, #e0e0e0);
+ }
+ 
+ .session-data h2 {
+   margin-top: 0;
+-  color: var(--color-primary);
+-  border-bottom: 2px solid var(--color-accent);
++  color: var(--color-primary, #1a1a1a);
++  border-bottom: 2px solid var(--color-accent, #b71c1c);
+   padding-bottom: 0.5rem;
++  display: flex;
++  align-items: center;
++  gap: 0.5rem;
++  font-size: 1.25rem;
+ }
+ 
+ .session-grid {
+   display: grid;
+-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
++  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+   gap: 1.5rem;
+-  margin-top: 1.5rem;
++  margin-top: 1.25rem;
+ }
+ 
+ /* Receipt Context */
+ .receipt-context {
+-  background-color: var(--color-surface);
++  background-color: var(--color-surface, #ffffff);
+   border-radius: 12px;
+-  padding: 2rem;
+-  box-shadow: var(--shadow-md);
++  padding: 1.75rem 2rem;
++  box-shadow: var(--shadow-md, 0 4px 6px rgba(0, 0, 0, 0.05));
++  border: 1px solid var(--color-border, #e0e0e0);
+ }
+ 
+ .receipt-header {
+   display: flex;
+   justify-content: space-between;
+   align-items: center;
+-  margin-bottom: 2rem;
++  margin-bottom: 1.5rem;
++  padding-bottom: 1rem;
++  border-bottom: 1px solid var(--color-border, #e0e0e0);
++}
++
++.receipt-title-group {
++  display: flex;
++  align-items: center;
++  gap: 0.75rem;
+ }
+ 
+-.receipt-header h2 {
++.receipt-title-group h2 {
+   margin: 0;
+-  color: var(--color-primary);
++  color: var(--color-primary, #1a1a1a);
++  display: flex;
++  align-items: center;
++  gap: 0.5rem;
++  font-size: 1.35rem;
++}
++
++.receipt-slot-indicator {
++  color: var(--color-text-secondary, #5c6266);
++  font-weight: 600;
++  font-size: 0.95rem;
+ }
+ 
+ .receipt-controls {
+   display: flex;
+   align-items: center;
+-  gap: 1rem;
++  gap: 0.75rem;
++}
++
++.receipt-controls-label {
++  display: flex;
++  align-items: center;
++  gap: 0.35rem;
++  font-size: 0.9rem;
++  font-weight: 600;
++  color: var(--color-text-secondary, #5c6266);
+ }
+ 
+ .receipt-number-controls {
+   display: flex;
+   align-items: center;
+-  gap: 0.5rem;
++  gap: 0.4rem;
+ }
+ 
+ .receipt-number-input {
+-  width: 80px;
++  width: 90px;
+   text-align: center;
+   padding: 0.5rem;
+-  border: 2px solid var(--color-border);
++  border: 2px solid var(--color-border, #e0e0e0);
+   border-radius: 8px;
+-  font-size: 1.1rem;
++  font-size: 1.15rem;
+   font-weight: bold;
++  background-color: var(--color-background, #f8f9fa);
++  color: var(--color-primary, #1a1a1a);
+ }
+ 
+-.receipt-btn {
+-  padding: 0.5rem 1rem;
+-  background-color: var(--color-accent);
++.receipt-nav-btn {
++  padding: 0.55rem 0.9rem;
++  background-color: var(--color-primary, #1a1a1a);
+   color: white;
+   border: none;
+   border-radius: 8px;
+   cursor: pointer;
+-  font-size: 1.1rem;
++  display: inline-flex;
++  align-items: center;
++  justify-content: center;
+   transition: all 0.2s;
+ }
+ 
+-.status-badge {
+-  padding: 0.5rem 1rem;
+-  border-radius: 20px;
+-  font-weight: bold;
+-  font-size: 0.9rem;
+-  display: flex;
+-  align-items: center;
+-  gap: 0.5rem;
++.receipt-nav-btn:hover:not(:disabled) {
++  background-color: var(--color-accent, #b71c1c);
++  transform: scale(1.05);
+ }
+ 
+-.status-badge.success {
+-  background-color: var(--color-success); /* Ensure you have this or use custom color */
+-  background-color: #e8f5e9;
+-  color: var(--color-success);
+-  border: 1px solid #a5d6a7;
++.receipt-nav-btn:disabled {
++  opacity: 0.4;
++  cursor: not-allowed;
+ }
+ 
+-.action-area {
++/* Receipt Summary & Multi-Socio List */
++.receipt-summary-header {
+   display: flex;
++  justify-content: space-between;
+   align-items: center;
+-  gap: 1rem;
++  margin-bottom: 1rem;
+ }
+ 
+-.receipt-btn:hover:not(:disabled) {
+-  background-color: var(--color-accent-hover);
+-  transform: scale(1.05);
++.receipt-summary-header h3 {
++  margin: 0;
++  color: var(--color-text-primary, #1a1a1a);
++  display: flex;
++  align-items: center;
++  gap: 0.5rem;
++  font-size: 1.15rem;
+ }
+ 
+-.receipt-btn:disabled {
+-  opacity: 0.5;
+-  cursor: not-allowed;
++.receipt-subtotal-badge {
++  display: flex;
++  align-items: center;
++  gap: 0.5rem;
++  padding: 0.5rem 1rem;
++  background-color: rgba(197, 155, 39, 0.12);
++  border: 1px solid var(--color-gold, #c59b27);
++  border-radius: 8px;
+ }
+ 
+-.receipt-summary h3 {
+-  margin-top: 0;
+-  color: var(--color-text-primary);
++.subtotal-label {
++  font-size: 0.9rem;
++  font-weight: 600;
++  color: var(--color-primary, #1a1a1a);
++}
++
++.subtotal-amount {
++  font-size: 1.15rem;
++  font-weight: 800;
++  color: var(--color-gold, #c59b27);
++  font-variant-numeric: tabular-nums;
+ }
+ 
+ .empty-receipt {
+   text-align: center;
+-  padding: 2rem;
+-  color: var(--color-text-secondary);
++  padding: 2.5rem 1.5rem;
++  color: var(--color-text-secondary, #5c6266);
++  background-color: var(--color-background, #f8f9fa);
++  border-radius: 8px;
++  border: 2px dashed var(--color-border, #e0e0e0);
+ }
+ 
+ .empty-receipt p {
+-  margin: 0 0 0.5rem 0;
+-  font-size: 1.2rem;
++  margin: 0.5rem 0 0.25rem 0;
++  font-size: 1.15rem;
++  font-weight: 600;
++}
++
++.empty-receipt small {
++  font-size: 0.9rem;
+ }
+ 
+ .receipt-soci-list {
+   display: flex;
+   flex-direction: column;
+-  gap: 0.5rem;
++  gap: 0.65rem;
+ }
+ 
+-.receipt-socio-item {
++.receipt-socio-card {
+   display: flex;
+   justify-content: space-between;
+   align-items: center;
+-  padding: 1rem;
+-  background-color: var(--color-background);
++  padding: 0.85rem 1.25rem;
++  min-height: 52px;
++  background-color: var(--color-background, #f8f9fa);
+   border-radius: 8px;
+-  border: 1px solid var(--color-border);
++  border: 1px solid var(--color-border, #e0e0e0);
++  transition: all 0.2s;
+ }
+ 
+-.socio-name {
+-  font-weight: 600;
++.receipt-socio-card:hover {
++  border-color: var(--color-gold, #c59b27);
++  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
++}
++
++.socio-card-identity {
++  display: flex;
++  align-items: center;
++  gap: 0.75rem;
+   flex: 1;
+ }
+ 
+-.socio-payment {
+-  color: var(--color-accent);
+-  font-weight: 500;
+-  margin-right: 1rem;
++.socio-name {
++  font-weight: 700;
++  font-size: 1.05rem;
++  color: var(--color-primary, #1a1a1a);
+ }
+ 
+-.remove-btn:hover {
+-  background-color: rgba(220, 53, 69, 0.1);
++.socio-group-tag {
++  font-size: 0.8rem;
++  padding: 0.2rem 0.5rem;
++  background-color: var(--color-surface, #ffffff);
++  border: 1px solid var(--color-border, #e0e0e0);
++  border-radius: 4px;
++  color: var(--color-text-secondary, #5c6266);
++  font-weight: 500;
+ }
+ 
+-.add-socio-btn {
+-  background: var(--color-surface);
+-  border: 2px solid var(--color-accent);
+-  color: var(--color-accent);
+-  width: 42px;
+-  height: 42px;
+-  border-radius: 8px;
++.socio-card-payment {
+   display: flex;
+   align-items: center;
++  gap: 1rem;
++}
++
++.badge {
++  padding: 0.3rem 0.65rem;
++  border-radius: 20px;
++  font-size: 0.8rem;
++  font-weight: 700;
++  text-transform: uppercase;
++  letter-spacing: 0.03em;
++}
++
++.badge-gold {
++  background-color: rgba(197, 155, 39, 0.15);
++  color: #947012;
++  border: 1px solid var(--color-gold, #c59b27);
++}
++
++.badge-success {
++  background-color: rgba(46, 125, 50, 0.12);
++  color: var(--color-success, #2e7d32);
++  border: 1px solid rgba(46, 125, 50, 0.3);
++}
++
++.badge-info {
++  background-color: rgba(3, 105, 161, 0.12);
++  color: var(--color-info, #0369a1);
++  border: 1px solid rgba(3, 105, 161, 0.3);
++}
++
++.socio-years {
++  font-size: 0.95rem;
++  font-weight: 600;
++  color: var(--color-text-secondary, #5c6266);
++}
++
++.socio-fee {
++  font-size: 1.15rem;
++  font-weight: 800;
++  color: var(--color-primary, #1a1a1a);
++  font-variant-numeric: tabular-nums;
++  min-width: 80px;
++  text-align: right;
++}
++
++.remove-socio-btn {
++  background: none;
++  border: none;
++  cursor: pointer;
++  padding: 0.4rem;
++  border-radius: 6px;
++  display: inline-flex;
++  align-items: center;
+   justify-content: center;
+-  cursor: pointer;
+-  font-size: 1.2rem;
+   transition: all 0.2s;
+   margin-left: 0.5rem;
+-  flex-shrink: 0;
+ }
+ 
+-.add-socio-btn:hover:not(:disabled) {
+-  background-color: var(--color-accent);
+-  color: white;
+-  transform: translateY(-2px);
+-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
++.remove-socio-btn:hover:not(:disabled) {
++  background-color: rgba(183, 28, 28, 0.1);
++  transform: scale(1.1);
+ }
+ 
+-.add-socio-btn:disabled {
+-  opacity: 0.5;
++.remove-socio-btn:disabled {
++  opacity: 0.4;
+   cursor: not-allowed;
+-  border-color: var(--color-border);
+-  color: var(--color-text-secondary);
++}
++
++/* Work Area */
++.work-area {
++  background-color: var(--color-surface, #ffffff);
++  border-radius: 12px;
++  padding: 1.75rem 2rem;
++  box-shadow: var(--shadow-md, 0 4px 6px rgba(0, 0, 0, 0.05));
++  border: 1px solid var(--color-border, #e0e0e0);
+ }
+ 
+ .work-area-header {
+   display: flex;
+   justify-content: space-between;
+   align-items: center;
+-  margin-bottom: 1rem;
++  margin-bottom: 1.25rem;
+ }
+ 
+ .work-area-header h2 {
+   margin: 0;
++  color: var(--color-primary, #1a1a1a);
++  display: flex;
++  align-items: center;
++  gap: 0.5rem;
++  font-size: 1.25rem;
+ }
+ 
+ .add-socio-header-btn {
+   display: flex;
+   align-items: center;
+   gap: 0.5rem;
+-  padding: 0.5rem 1rem;
+-  background-color: var(--color-primary);
++  padding: 0.6rem 1.15rem;
++  background-color: var(--color-primary, #1a1a1a);
+   color: white;
+   border: none;
+   border-radius: 8px;
+   font-weight: 600;
++  font-size: 0.95rem;
+   cursor: pointer;
+   transition: all 0.2s;
+-  box-shadow: var(--shadow-sm);
++  box-shadow: var(--shadow-sm, 0 2px 4px rgba(0, 0, 0, 0.05));
+ }
+ 
+ .add-socio-header-btn:hover:not(:disabled) {
+-  background-color: var(
+-    --color-primary-dark
+-  ); /* Fallback if var not defined, usually just darken */
+-  filter: brightness(1.1);
++  background-color: var(--color-accent, #b71c1c);
+   transform: translateY(-2px);
+-  box-shadow: var(--shadow-md);
++  box-shadow: var(--shadow-md, 0 4px 6px rgba(0, 0, 0, 0.1));
+ }
+ 
+ .add-socio-header-btn:disabled {
+-  opacity: 0.6;
++  opacity: 0.5;
+   cursor: not-allowed;
+   transform: none;
+ }
+ 
+-.remove-btn {
+-  background: none;
+-  border: none;
+-  color: var(--color-danger);
+-  cursor: pointer;
+-  font-size: 1.2rem;
+-  padding: 0.25rem;
+-  border-radius: 4px;
+-  transition: all 0.2s;
+-}
+-
+-.remove-btn:hover {
+-  background-color: var(--color-danger);
+-  color: white;
+-}
+-
+-/* Work Area */
+-.work-area {
+-  background-color: var(--color-surface);
+-  border-radius: 12px;
+-  padding: 2rem;
+-  box-shadow: var(--shadow-md);
+-}
+-
+-.work-area h2 {
+-  margin-top: 0;
+-  color: var(--color-primary);
+-  border-bottom: 2px solid var(--color-accent);
+-  padding-bottom: 0.5rem;
+-}
+-
+ /* Search */
+-.result-item.selected {
+-  background-color: var(--color-surface-hover, #e0e0e0); /* Fallback to a visible gray */
+-  border-left-color: var(--color-accent);
+-  border-left-width: 4px; /* Ensure border is visible */
+-  padding-left: calc(1rem - 3px); /* Adjust padding */
+-  transform: translateX(4px);
+-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+-}
+-
+-/* Ensure visibility in dark mode if vars aren't sufficient */
+-@media (prefers-color-scheme: dark) {
+-  .result-item.selected {
+-    background-color: rgba(255, 255, 255, 0.1);
+-  }
+-}
+-
+ .search-section {
+-  margin-bottom: 2rem;
++  margin-bottom: 1.5rem;
+   display: flex;
+   flex-direction: column;
+-  gap: 1rem;
++  gap: 0.75rem;
+ }
+ 
+ .search-controls {
+   display: flex;
+   justify-content: flex-end;
++  gap: 0.75rem;
+ }
+ 
+ .turbo-toggle {
+   display: flex;
+   align-items: center;
+   gap: 0.5rem;
+-  padding: 0.5rem 1rem;
+-  background-color: var(--color-surface);
+-  border: 1px solid var(--color-border);
++  padding: 0.45rem 0.9rem;
++  background-color: var(--color-background, #f8f9fa);
++  border: 1px solid var(--color-border, #e0e0e0);
+   border-radius: 20px;
+   cursor: pointer;
+   transition: all 0.2s;
+   user-select: none;
++  font-size: 0.9rem;
+ }
+ 
+ .turbo-toggle:hover {
+-  border-color: var(--color-accent);
++  border-color: var(--color-gold, #c59b27);
+ }
+ 
+ .turbo-toggle.active {
+-  background-color: #fff3e0; /* Pale orange/yellow */
+-  border-color: var(--color-warning);
+-  color: #e65100;
++  background-color: rgba(194, 65, 12, 0.1);
++  border-color: var(--color-warning, #c2410c);
++  color: var(--color-warning, #c2410c);
+ }
+ 
+ .turbo-toggle input {
+   display: none;
+ }
+ 
+-.toggle-icon {
+-  font-size: 1.2rem;
+-}
+-
+ .toggle-label {
+   font-weight: 600;
+-  font-size: 0.9rem;
+ }
+ 
+ .search-input-group {
+   position: relative;
+-  max-width: 500px;
++  max-width: 600px;
+ }
+ 
+ .search-input {
+   width: 100%;
+-  padding: 1rem 3rem 1rem 1rem;
+-  border: 2px solid var(--color-border);
++  padding: 0.9rem 3rem 0.9rem 1rem;
++  border: 2px solid var(--color-border, #e0e0e0);
+   border-radius: 8px;
+   font-size: 1.1rem;
+   transition: all 0.2s;
++  background-color: var(--color-background, #f8f9fa);
++  color: var(--color-text-primary, #1a1a1a);
+ }
+ 
+ .search-input:focus {
+   outline: none;
+-  border-color: var(--color-accent);
+-  box-shadow: 0 0 0 3px rgba(183, 28, 28, 0.1);
++  border-color: var(--color-gold, #c59b27);
++  box-shadow: 0 0 0 3px rgba(197, 155, 39, 0.15);
++  background-color: var(--color-surface, #ffffff);
+ }
+ 
+ .clear-search-btn {
+@@ -1423,13 +2163,12 @@ const getSocioStatus = (socio) => {
+   right: 12px;
+   top: 50%;
+   transform: translateY(-50%);
+-  background-color: var(--color-background);
+-  border: 1px solid var(--color-border);
+-  color: var(--color-text-secondary);
++  background-color: var(--color-surface, #ffffff);
++  border: 1px solid var(--color-border, #e0e0e0);
++  color: var(--color-text-secondary, #5c6266);
+   cursor: pointer;
+-  font-size: 0.9rem;
+-  width: 24px;
+-  height: 24px;
++  width: 26px;
++  height: 26px;
+   border-radius: 50%;
+   padding: 0;
+   display: flex;
+@@ -1440,361 +2179,305 @@ const getSocioStatus = (socio) => {
+ }
+ 
+ .clear-search-btn:hover {
+-  background-color: var(--color-surface-hover);
+-  color: var(--color-danger); /* Red color on hover */
+-  border-color: var(--color-danger);
++  color: var(--color-accent, #b71c1c);
++  border-color: var(--color-accent, #b71c1c);
+ }
+ 
+ /* Search Results */
+ .search-results h3 {
+   margin-top: 0;
+-  color: var(--color-text-primary);
++  color: var(--color-text-primary, #1a1a1a);
++  display: flex;
++  align-items: center;
++  gap: 0.5rem;
++  font-size: 1.1rem;
+ }
+ 
+ .results-list {
+   display: flex;
+   flex-direction: column;
+-  gap: 0.75rem;
+-  margin-top: 1rem;
++  gap: 0.65rem;
++  margin-top: 0.75rem;
+ }
+ 
+ .result-item {
+   display: flex;
+   justify-content: space-between;
+   align-items: center;
+-  padding: 1rem;
+-  background-color: var(--color-background);
++  padding: 1rem 1.25rem;
++  min-height: 52px;
++  background-color: var(--color-background, #f8f9fa);
+   border-radius: 8px;
+-  border: 1px solid var(--color-border);
++  border: 1px solid var(--color-border, #e0e0e0);
+   cursor: pointer;
+   transition: all 0.2s;
+ }
+ 
+-.result-item:hover {
+-  border-color: var(--color-accent);
+-  box-shadow: 0 2px 8px rgba(183, 28, 28, 0.1);
+-}
+-
+-.socio-info {
+-  flex: 1;
++.result-item:hover,
++.result-item.selected {
++  border-color: var(--color-gold, #c59b27);
++  border-left: 5px solid var(--color-gold, #c59b27);
++  background-color: var(--color-surface, #ffffff);
++  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
++  transform: translateX(3px);
+ }
+ 
+ .socio-info strong {
+   display: block;
+   font-size: 1.1rem;
+-  color: var(--color-text-primary);
++  color: var(--color-text-primary, #1a1a1a);
+ }
+ 
+ .socio-info small {
+   display: block;
+-  color: var(--color-text-secondary);
+-  margin-top: 0.25rem;
++  color: var(--color-text-secondary, #5c6266);
++  margin-top: 0.2rem;
+ }
+ 
+ .socio-status {
+   display: flex;
+-  flex-direction: column;
+-  align-items: flex-end;
+-  gap: 0.5rem;
++  align-items: center;
++  gap: 0.75rem;
++}
++
++.status-badge {
++  display: inline-flex;
++  align-items: center;
++  gap: 0.4rem;
++  padding: 0.4rem 0.85rem;
++  border-radius: 20px;
++  font-size: 0.85rem;
++  font-weight: 700;
++}
++
++.status-in-receipt {
++  background-color: rgba(197, 155, 39, 0.15);
++  color: #947012;
++  border: 1px solid var(--color-gold, #c59b27);
++}
++
++.status-in-order {
++  background-color: rgba(46, 125, 50, 0.12);
++  color: var(--color-success, #2e7d32);
++  border: 1px solid rgba(46, 125, 50, 0.3);
++}
++
++.action-area {
++  display: flex;
++  align-items: center;
++  gap: 0.75rem;
+ }
+ 
+ .arretrati-badge {
+-  background-color: #fff3cd;
+-  color: #856404;
+-  padding: 0.25rem 0.5rem;
+-  border-radius: 4px;
+-  font-size: 0.9rem;
+-  font-weight: 500;
++  display: inline-flex;
++  align-items: center;
++  gap: 0.35rem;
++  background-color: rgba(194, 65, 12, 0.1);
++  color: var(--color-warning, #c2410c);
++  padding: 0.35rem 0.75rem;
++  border-radius: 6px;
++  font-size: 0.85rem;
++  font-weight: 600;
++  border: 1px solid rgba(194, 65, 12, 0.3);
+ }
+ 
+ .pay-btn {
+-  padding: 0.5rem 1rem;
+-  background-color: var(--color-success);
++  display: inline-flex;
++  align-items: center;
++  gap: 0.4rem;
++  padding: 0.55rem 1.15rem;
++  background-color: var(--color-success, #2e7d32);
+   color: white;
+   border: none;
+   border-radius: 6px;
+   cursor: pointer;
+-  font-weight: 500;
++  font-weight: 600;
+   transition: all 0.2s;
+ }
+ 
+ .pay-btn:hover:not(:disabled) {
+-  background-color: var(--color-success-hover, #218838);
++  background-color: #256628;
+   transform: scale(1.05);
+ }
+ 
+ .pay-btn:disabled {
+-  opacity: 0.6;
++  opacity: 0.5;
+   cursor: not-allowed;
+ }
+ 
+ /* No Results */
+ .no-results {
+   text-align: center;
+-  padding: 3rem 2rem;
+-  background-color: var(--color-background);
++  padding: 2.5rem 1.5rem;
++  background-color: var(--color-background, #f8f9fa);
+   border-radius: 8px;
+-  border: 2px dashed var(--color-border);
++  border: 2px dashed var(--color-border, #e0e0e0);
+ }
+ 
+ .no-results-content h3 {
+-  color: var(--color-text-primary);
+-  margin-bottom: 1rem;
++  color: var(--color-text-primary, #1a1a1a);
++  margin: 0.5rem 0;
+ }
+ 
+ .no-results-content p {
+-  color: var(--color-text-secondary);
+-  margin-bottom: 2rem;
++  color: var(--color-text-secondary, #5c6266);
++  margin-bottom: 1.5rem;
+ }
+ 
+ .new-socio-btn {
+-  padding: 1rem 2rem;
+-  background-color: var(--color-accent);
++  display: inline-flex;
++  align-items: center;
++  gap: 0.6rem;
++  padding: 0.85rem 1.75rem;
++  background-color: var(--color-accent, #b71c1c);
+   color: white;
+   border: none;
+   border-radius: 8px;
+-  font-size: 1.1rem;
+-  font-weight: 600;
++  font-size: 1rem;
++  font-weight: 700;
+   cursor: pointer;
+   transition: all 0.2s;
+ }
+ 
+ .new-socio-btn:hover:not(:disabled) {
+-  background-color: #a22a2a;
+-  transform: scale(1.05);
++  background-color: var(--color-accent-hover, #c62828);
++  transform: scale(1.03);
+ }
+ 
+ .new-socio-btn:disabled {
+-  opacity: 0.6;
++  opacity: 0.5;
+   cursor: not-allowed;
+ }
+ 
+-/* New Socio Form */
+-.new-socio-form {
+-  margin-top: 2rem;
+-  padding: 2rem;
+-  background-color: var(--color-background);
+-  border-radius: 8px;
+-  border: 1px solid var(--color-border);
+-}
+-
+-.new-socio-form h3 {
+-  margin-top: 0;
+-  color: var(--color-primary);
+-}
+-
+-.mini-form-grid {
+-  display: grid;
+-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+-  gap: 1rem;
+-  margin: 1.5rem 0;
++/* Inline New Socio Drawer */
++.new-socio-drawer {
++  margin-top: 1.5rem;
++  padding: 1.75rem 2rem;
++  background-color: var(--color-surface, #ffffff);
++  border-radius: 10px;
++  border: 2px solid var(--color-gold, #c59b27);
++  box-shadow: 0 4px 16px rgba(197, 155, 39, 0.12);
+ }
+ 
+-.form-actions {
++.drawer-header {
+   display: flex;
+-  justify-content: flex-end;
+-  gap: 1rem;
+-  margin-top: 2rem;
+-  padding-top: 1rem;
+-  border-top: 1px solid var(--color-border);
+-}
+-
+-.cancel-btn {
+-  padding: 0.75rem 1.5rem;
+-  background-color: var(--color-text-secondary);
+-  color: white;
+-  border: none;
+-  border-radius: 8px;
+-  font-weight: 600;
+-  cursor: pointer;
+-  transition: all 0.2s;
+-}
+-
+-.cancel-btn:hover:not(:disabled) {
+-  background-color: #666;
+-  transform: scale(1.02);
+-}
+-
+-.save-btn {
+-  padding: 0.75rem 1.5rem;
+-  background-color: var(--color-accent);
+-  color: white;
+-  border: none;
+-  border-radius: 8px;
+-  font-weight: 600;
+-  cursor: pointer;
+-  transition: all 0.2s;
+-}
+-
+-.save-btn:hover:not(:disabled) {
+-  background-color: #a22a2a;
+-  transform: scale(1.02);
+-}
+-
+-.save-btn:disabled {
+-  opacity: 0.6;
+-  cursor: not-allowed;
++  justify-content: space-between;
++  align-items: flex-start;
++  margin-bottom: 1.25rem;
++  padding-bottom: 0.75rem;
++  border-bottom: 1px solid var(--color-border, #e0e0e0);
+ }
+ 
+-/* Modal */
+-.modal-overlay {
+-  position: fixed;
+-  top: 0;
+-  left: 0;
+-  right: 0;
+-  bottom: 0;
+-  background-color: rgba(0, 0, 0, 0.5);
++.drawer-title {
+   display: flex;
+-  justify-content: center;
+   align-items: center;
+-  z-index: 1000;
+-}
+-
+-.modal-content {
+-  background-color: white;
+-  border-radius: 12px;
+-  padding: 0;
+-  max-width: 500px;
+-  width: 90%;
+-  max-height: 90vh;
+-  overflow-y: auto;
+-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
++  gap: 0.75rem;
+ }
+ 
+-.modal-header {
+-  display: flex;
+-  justify-content: space-between;
+-  align-items: center;
+-  padding: 1.5rem 2rem;
+-  border-bottom: 1px solid var(--color-border);
++.drawer-title h3 {
++  margin: 0;
++  color: var(--color-primary, #1a1a1a);
++  font-size: 1.25rem;
+ }
+ 
+-.modal-header h3 {
+-  margin: 0;
+-  color: var(--color-primary);
++.drawer-title small {
++  color: var(--color-text-secondary, #5c6266);
++  font-size: 0.85rem;
+ }
+ 
+-.close-button {
++.close-drawer-btn {
+   background: none;
+   border: none;
+-  font-size: 1.5rem;
+   cursor: pointer;
+-  color: var(--color-text-secondary);
++  color: var(--color-text-secondary, #5c6266);
+   padding: 0.25rem;
+   border-radius: 50%;
++  display: inline-flex;
++  align-items: center;
++  justify-content: center;
+   transition: all 0.2s;
+ }
+ 
+-.close-button:hover {
+-  background-color: var(--color-border);
+-  color: var(--color-text-primary);
++.close-drawer-btn:hover {
++  color: var(--color-primary, #1a1a1a);
++  background-color: var(--color-background, #f8f9fa);
+ }
+ 
+-.payment-socio-info {
+-  padding: 1.5rem 2rem;
+-  border-bottom: 1px solid var(--color-border);
+-  background-color: var(--color-background);
+-}
+-
+-.payment-socio-info h4 {
+-  margin: 0 0 0.5rem 0;
+-  color: var(--color-text-primary);
+-}
+-
+-.payment-socio-info p {
+-  margin: 0;
+-  color: var(--color-text-secondary);
+-}
+-
+-.payment-form {
+-  padding: 2rem;
+-}
+-
+-.years-selection {
+-  margin: 1.5rem 0;
+-}
+-
+-.years-selection h4 {
+-  margin-bottom: 1rem;
+-  color: var(--color-text-primary);
+-}
+-
+-.year-option {
++.quota-notice-card {
+   display: flex;
+   align-items: center;
+-  gap: 0.75rem;
+-  margin-bottom: 0.75rem;
+-  padding: 0.75rem;
+-  background-color: var(--color-background);
+-  border-radius: 6px;
+-  border: 1px solid var(--color-border);
+-}
+-
+-.year-option input[type='checkbox'] {
+-  width: 18px;
+-  height: 18px;
++  gap: 0.85rem;
++  padding: 0.85rem 1.25rem;
++  background-color: rgba(197, 155, 39, 0.1);
++  border: 1px solid var(--color-gold, #c59b27);
++  border-radius: 8px;
++  margin-bottom: 1.25rem;
+ }
+ 
+-.year-option label {
+-  cursor: pointer;
+-  font-weight: 500;
+-  color: var(--color-text-primary);
++.quota-notice-card strong {
++  display: block;
++  color: var(--color-primary, #1a1a1a);
++  font-size: 0.95rem;
+ }
+ 
+-.arretrati-section {
+-  margin-top: 1.5rem;
+-  padding-top: 1.5rem;
+-  border-top: 1px solid var(--color-border);
++.quota-notice-card p {
++  margin: 0.2rem 0 0 0;
++  font-size: 0.85rem;
++  color: var(--color-text-secondary, #5c6266);
+ }
+ 
+-.arretrati-section h5 {
+-  margin-bottom: 1rem;
+-  color: var(--color-text-secondary);
++.mini-form-grid {
++  display: grid;
++  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
++  gap: 1.25rem;
++  margin: 1.25rem 0;
+ }
+ 
+-.modal-actions {
++.form-actions {
+   display: flex;
+   justify-content: flex-end;
+   gap: 1rem;
+-  margin-top: 2rem;
++  margin-top: 1.5rem;
+   padding-top: 1rem;
+-  border-top: 1px solid var(--color-border);
++  border-top: 1px solid var(--color-border, #e0e0e0);
+ }
+ 
+-.cancel-button {
++.cancel-btn {
+   padding: 0.75rem 1.5rem;
+-  background-color: var(--color-text-secondary);
+-  color: white;
+-  border: none;
++  background-color: var(--color-background, #f8f9fa);
++  color: var(--color-text-primary, #1a1a1a);
++  border: 1px solid var(--color-border, #e0e0e0);
+   border-radius: 8px;
+   font-weight: 600;
+   cursor: pointer;
+   transition: all 0.2s;
+ }
+ 
+-.cancel-button:hover:not(:disabled) {
+-  background-color: #666;
+-  transform: scale(1.02);
++.cancel-btn:hover:not(:disabled) {
++  background-color: var(--color-border, #e0e0e0);
+ }
+ 
+-.save-button {
+-  padding: 0.75rem 1.5rem;
+-  background-color: var(--color-accent);
++.save-btn {
++  display: inline-flex;
++  align-items: center;
++  gap: 0.5rem;
++  padding: 0.75rem 1.75rem;
++  background-color: var(--color-accent, #b71c1c);
+   color: white;
+   border: none;
+   border-radius: 8px;
+-  font-weight: 600;
++  font-weight: 700;
+   cursor: pointer;
+   transition: all 0.2s;
+ }
+ 
+-.save-button:hover:not(:disabled) {
+-  background-color: #a22a2a;
+-  transform: scale(1.02);
++.save-btn:hover:not(:disabled) {
++  background-color: var(--color-accent-hover, #c62828);
++  transform: translateY(-1px);
+ }
+ 
+-.save-button:disabled {
+-  opacity: 0.6;
++.save-btn:disabled {
++  opacity: 0.5;
+   cursor: not-allowed;
+ }
+ 
+@@ -1802,37 +2485,34 @@ const getSocioStatus = (socio) => {
+ .form-group {
+   display: flex;
+   flex-direction: column;
+-  gap: 0.5rem;
++  gap: 0.4rem;
+ }
+ 
+ .form-group label {
+   display: flex;
+   align-items: center;
+-  gap: 0.5rem;
+-  font-size: 0.95rem;
++  gap: 0.4rem;
++  font-size: 0.9rem;
+   font-weight: 600;
+-  color: var(--color-text-primary);
+-}
+-
+-.field-icon {
+-  font-size: 1.2rem;
++  color: var(--color-text-primary, #1a1a1a);
+ }
+ 
+ .form-input {
+   padding: 0.75rem;
+-  border: 2px solid var(--color-border);
++  border: 2px solid var(--color-border, #e0e0e0);
+   border-radius: 8px;
+   font-size: 1rem;
+-  font-family: var(--font-family-body);
++  font-family: inherit;
+   transition: all 0.2s;
+-  background-color: var(--color-background);
+-  color: var(--color-text-primary);
++  background-color: var(--color-background, #f8f9fa);
++  color: var(--color-text-primary, #1a1a1a);
+ }
+ 
+ .form-input:focus {
+   outline: none;
+-  border-color: var(--color-accent);
+-  box-shadow: 0 0 0 3px rgba(183, 28, 28, 0.1);
++  border-color: var(--color-gold, #c59b27);
++  box-shadow: 0 0 0 3px rgba(197, 155, 39, 0.15);
++  background-color: var(--color-surface, #ffffff);
+ }
+ 
+ .form-input:disabled {
+@@ -1840,106 +2520,118 @@ const getSocioStatus = (socio) => {
+   cursor: not-allowed;
+ }
+ 
+-.error-message {
+-  color: #dc3545;
+-  font-size: 0.875rem;
+-  font-weight: 500;
+-  margin-top: -0.25rem;
++.form-input.error {
++  border-color: var(--color-danger, #b71c1c);
++  box-shadow: 0 0 0 3px rgba(183, 28, 28, 0.15);
+ }
+ 
+-.form-input.error {
+-  border-color: #dc3545;
+-  box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
++.error-message {
++  color: var(--color-danger, #b71c1c);
++  font-size: 0.85rem;
++  font-weight: 600;
+ }
+ 
+ /* Responsive */
++@media (max-width: 1024px) {
++  .slot-grid {
++    grid-template-columns: repeat(5, 1fr);
++  }
++}
++
+ @media (max-width: 768px) {
+   .batch-entry {
+     padding: 1rem;
+   }
+ 
+-  .session-grid {
+-    grid-template-columns: 1fr;
++  .booklet-summary-banner {
++    flex-direction: column;
++    align-items: stretch;
+   }
+ 
+-  .receipt-header {
++  .banner-stats {
+     flex-direction: column;
+-    gap: 1rem;
+-    align-items: flex-start;
++    align-items: stretch;
+   }
+ 
+-  .mini-form-grid {
++  .cash-total-card {
++    justify-content: space-between;
++  }
++
++  .slot-grid {
++    grid-template-columns: repeat(5, 1fr);
++    gap: 0.35rem;
++  }
++
++  .session-grid {
+     grid-template-columns: 1fr;
+   }
+ 
+-  .result-item {
++  .receipt-header {
+     flex-direction: column;
+     align-items: flex-start;
+     gap: 1rem;
+   }
+ 
+-  .socio-status {
+-    align-items: flex-start;
++  .receipt-controls {
++    width: 100%;
++    justify-content: space-between;
+   }
+ 
+-  .receipt-socio-item {
++  .receipt-summary-header {
+     flex-direction: column;
+     align-items: flex-start;
+     gap: 0.5rem;
+   }
+ 
+-  /* Nuove correzioni mobili */
+-  .receipt-controls {
++  .receipt-socio-card {
++    flex-direction: column;
++    align-items: flex-start;
++    gap: 0.75rem;
++  }
++
++  .socio-card-payment {
+     width: 100%;
+-    margin-top: 1rem;
+     justify-content: space-between;
+   }
+ 
+-  .search-controls {
+-    flex-direction: column;
+-    align-items: stretch;
+-    gap: 0.5rem;
++  .mini-form-grid {
++    grid-template-columns: 1fr;
+   }
+ 
+-  .turbo-toggle {
+-    width: 100%;
+-    justify-content: center;
+-    padding: 0.75rem;
++  .form-actions {
++    flex-direction: column;
+   }
+ 
+   .cancel-btn,
+-  .save-btn,
+-  .cancel-button,
+-  .save-button {
++  .save-btn {
+     width: 100%;
+-    text-align: center;
++    justify-content: center;
+   }
+-  .cancel-button,
+-  .save-button {
+-    width: 100%;
+-    text-align: center;
++}
++
++@media (max-width: 480px) {
++  .slot-grid {
++    grid-template-columns: repeat(2, 1fr);
+   }
+ }
+ 
+ /* List Transitions */
+-.list-move, /* apply transition to moving elements */
++.list-move,
+ .list-enter-active,
+ .list-leave-active {
+-  transition: all 0.5s ease;
++  transition: all 0.3s ease;
+ }
+ 
+ .list-enter-from {
+   opacity: 0;
+-  transform: translateX(-30px);
++  transform: translateX(-20px);
+ }
+ 
+ .list-leave-to {
+   opacity: 0;
+-  transform: translateX(30px);
++  transform: translateX(20px);
+ }
+ 
+-/* ensure leaving items are taken out of layout flow so that moving
+-   animations can be calculated correctly. */
+ .list-leave-active {
+   position: absolute;
+ }
