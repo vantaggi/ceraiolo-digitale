@@ -159,9 +159,11 @@
 <script setup>
 import { ref, reactive, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { useToast } from 'vue-toastification'
 import { addSocio, getUniqueGroups, getSetting, addCustomGroup } from '@/services/db'
 
 const router = useRouter()
+const toast = useToast()
 const availableGroups = ref([])
 const newGroupName = ref('')
 const isSubmitting = ref(false)
@@ -240,27 +242,27 @@ watch(newGroupName, (newValue) => {
 
 const validateForm = () => {
   if (!formData.nome.trim()) {
-    alert('Inserire il nome')
+    toast.error('Inserire il nome')
     return false
   }
 
   if (!formData.cognome.trim()) {
-    alert('Inserire il cognome')
+    toast.error('Inserire il cognome')
     return false
   }
 
   if (!formData.data_nascita) {
-    alert('Selezionare una data di nascita valida')
+    toast.error('Selezionare una data di nascita valida')
     return false
   }
 
   if (!formData.luogo_nascita.trim()) {
-    alert('Inserire il luogo di nascita')
+    toast.error('Inserire il luogo di nascita')
     return false
   }
 
   if (!formData.gruppo_appartenenza || formData.gruppo_appartenenza === 'Nuovo') {
-    alert('Selezionare un gruppo valido')
+    toast.error('Selezionare un gruppo valido')
     return false
   }
 
@@ -268,7 +270,7 @@ const validateForm = () => {
   const birthDate = new Date(formData.data_nascita)
   const now = new Date()
   if (birthDate > now) {
-    alert('La data di nascita non può essere futura')
+    toast.error('La data di nascita non può essere futura')
     return false
   }
 
@@ -311,14 +313,14 @@ const submitSocio = async () => {
     // Salva il nuovo socio
     const socioId = await addSocio(socioData)
 
-    alert('Nuovo socio aggiunto con successo!')
+    toast.success('Nuovo socio aggiunto')
 
     // Reindirizza alla pagina di dettaglio del nuovo socio
     router.push({ name: 'socio-detail', params: { id: socioId } })
 
   } catch (error) {
     console.error('Errore nel salvataggio del socio:', error)
-    alert('Errore durante il salvataggio: ' + error.message)
+    toast.error('Errore durante il salvataggio: ' + error.message)
   } finally {
     isSubmitting.value = false
   }

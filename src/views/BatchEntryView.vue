@@ -354,6 +354,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useToast } from 'vue-toastification'
+import { askText } from '@/composables/useDialog'
 import {
   searchSoci,
   addSocio,
@@ -537,8 +538,12 @@ const loadGroups = async () => {
 
 const handleGroupChange = async () => {
   if (newSocioData.gruppo_appartenenza === '__NEW__') {
-    const newGroup = prompt('Inserisci il nome del nuovo gruppo:')
-    if (newGroup && newGroup.trim()) {
+    const newGroup = await askText({
+      title: 'Nuovo gruppo',
+      label: 'Nome del gruppo',
+      confirmLabel: 'Aggiungi gruppo',
+    })
+    if (newGroup) {
       try {
         await addCustomGroup(newGroup)
         await loadGroups()
