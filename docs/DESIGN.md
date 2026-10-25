@@ -1,6 +1,6 @@
 # Design: adattamento alla UI Constitution
 
-Il design system e' la UI Constitution del proprietario (<https://claude.ai/artifact/8DhrtZW85wiHTsfw1vmXSn>). La Constitution fissa ruoli e regole; i valori sono quelli di questo progetto. Qui c'e' la mappatura, le lacune e i conflitti dichiarati. Stato al 25 ottobre 2026, nessun codice ancora cambiato.
+Il design system e' la UI Constitution del proprietario (<https://claude.ai/artifact/8DhrtZW85wiHTsfw1vmXSn>). La Constitution fissa ruoli e regole; i valori sono quelli di questo progetto. Qui c'e' la mappatura, le lacune e i conflitti dichiarati. Aggiornato al 25 ottobre 2026, dopo G-1.
 
 ## Identita'
 
@@ -33,31 +33,41 @@ I valori restano quelli di `src/assets/main.css`. Il passo successivo rinomina o
 | --- | --- | --- | --- |
 | `background-canvas` | `--color-background` | `#f4f5f7` | `#121212` |
 | `background-surface` | `--color-surface` | `#ffffff` | `#1e1e1e` |
-| `background-elevated` | manca | default: `#ffffff` + `shadow-overlay` | da definire |
+| `background-elevated` | `--color-surface-elevated` | `#ffffff` | `#262626` |
 | `text-primary` | `--color-text-primary` | `#1a1a1a` | `#e0e0e0` |
 | `text-secondary` | `--color-text-secondary` | `#5c6266` | `#a0a0a0` |
-| `accent-default` | `--color-accent` | `#b71c1c` | `#e53935` |
-| `accent-hover` | `--color-accent-hover` | `#c62828` | `#ef5350` |
+| `accent-default` | `--color-accent` | `#b71c1c` | `#ef5350` |
+| `accent-hover` | `--color-accent-hover` | `#c62828` | `#ff7961` |
 | `on-accent` | `--color-text-inverse` | `#ffffff` | `#121212` |
 | `border-subtle` | `--color-border` | `#e1e4e8` | `#333333` |
+| `border-strong` (bordi dei controlli) | `--color-border-strong` | `#6b7178` | `#8a8a8a` |
 | `status-success` | `--color-success` | `#2e7d32` | `#66bb6a` |
-| `status-warning` | `--color-warning` | `#ed6c02` | `#ffa726` |
-| `status-info` | `--color-info` | `#0288d1` | `#29b6f6` |
-| `status-error` | manca (`--color-danger` e' usato 15 volte ma non definito) | da definire | da definire |
+| `status-warning` | `--color-warning` | `#b45309` | `#ffa726` |
+| `status-info` | `--color-info` | `#026aa7` | `#29b6f6` |
+| `status-error` | `--color-danger` (+ `-hover`) | `#c62828` | `#ef5350` |
+| `focus-ring` | `--focus-ring` | `#b71c1c` | `#ef5350` |
 | `shadow-*` | `--shadow-sm/md/lg` | definiti | definiti |
-| `space-*`, `radius-*`, ruoli tipografici, `focus-ring`, `z-*` | mancano | 8 raggi e 23 dimensioni di font diversi scritti a mano | |
+| `space-4` ... `space-64` | `--space-4` ... `--space-64` | 4, 8, 12, 16, 24, 32, 48, 64 px | |
+| `radius-control/surface/overlay/full` | `--radius-*` | 6, 8, 12, 999 px | |
+| ruoli tipografici | `--font-size-caption/label/body/section-heading/page-title/display` | 13, 14, 16, 20, 28, 36 px | |
+
+I nomi restano quelli con prefisso `--color-` gia' usati in ~600 punti: la tabella e' la corrispondenza con i ruoli. Spaziature, raggi e ruoli tipografici sono definiti da G-1 ma le viste li adotteranno in G-4.
 
 `--color-primary` e `--color-primary-light` sono testo, non un accento: confluiscono in `text-primary`.
 
-## Contrasti da correggere (WCAG, misurati sui valori attuali)
+## Contrasti
 
-| Coppia | Rapporto | Soglia |
+Corretti in G-1 (WCAG, prima -> dopo):
+
+| Coppia | Prima | Dopo |
 | --- | --- | --- |
-| `on-accent` scuro (`#121212`) su accento scuro (`#e53935`) | 4,43 | 4,5 |
-| accento scuro come testo su surface scura | 3,94 | 4,5 |
-| `status-warning` chiaro come testo su bianco | 3,11 | 4,5 |
-| `status-info` chiaro come testo su bianco | 3,86 | 4,5 |
-| bordi (chiaro 1,28, scuro 1,32) | | 3 per i bordi dei controlli |
+| accento scuro come testo su surface scura | 3,94 | 4,78 (`#ef5350`) |
+| `on-accent` scuro (`#121212`) su accento scuro | 4,43 | 5,37 |
+| `status-warning` chiaro su bianco | 3,11 | 5,02 (`#b45309`) |
+| `status-info` chiaro su canvas | 3,86 | 5,31 (`#026aa7`) |
+| bordo dei campi su bianco / su `#2c2c2c` | 1,28 / 1,32 | 4,9 / 4,05 (`border-strong`) |
+
+Restano da correggere in G-4, perche' dipendono da colori scritti a mano nelle viste: il testo `white` sui bottoni con fondo accento nel tema scuro (3,49 con `#ef5350`, era 4,23 con `#e53935`: va usato `--color-text-inverse`), e i bottoni con fondo `--color-primary` e testo bianco, illeggibili nel tema scuro (per esempio "Modifica" nella scheda socio).
 
 ## Conflitti dichiarati
 
@@ -74,7 +84,7 @@ I valori restano quelli di `src/assets/main.css`. Il passo successivo rinomina o
 
 ## Ordine dei passi
 
-1. G-1: token mancanti (`status-error`, `space-*`, `radius-*`, ruoli tipografici, `focus-ring`) e correzione dei contrasti, con un test statico che rifiuta `var(--x)` non definiti.
+1. G-1 (fatto): token mancanti (`status-error`, `space-*`, `radius-*`, ruoli tipografici, `focus-ring`, `surface-elevated`, `border-strong`) e correzione dei contrasti; `src/assets/__tests__/tokens.test.js` rifiuta `var(--x)` non definiti e colori senza valore scuro.
 2. G-2: `BaseModal` e `BaseButton`, poi via i `confirm()` nativi.
 3. G-3: tabella concetto -> icona Lucide, poi via le emoji schermata per schermata.
 4. G-4: colori scritti a mano sostituiti dai token, vista per vista.

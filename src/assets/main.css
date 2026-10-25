@@ -16,9 +16,17 @@
   --color-text-inverse: #ffffff;
   --color-border: #e1e4e8;
   --color-input-bg: #ffffff;
+  --color-surface-elevated: #ffffff; /* Dialoghi e pannelli sopra la pagina */
+  --color-border-strong: #6b7178; /* Bordi dei controlli: 3:1 sul fondo */
+  --color-secondary: #5c6266; /* Bottoni secondari pieni */
+  --color-secondary-hover: #43484c;
   --color-success: #2e7d32;
-  --color-warning: #ed6c02;
-  --color-info: #0288d1;
+  --color-success-hover: #1b5e20;
+  --color-warning: #b45309;
+  --color-info: #026aa7;
+  --color-danger: #c62828; /* Azioni distruttive ed errori */
+  --color-danger-hover: #b71c1c;
+  --focus-ring: #b71c1c;
 
   --font-family-heading: 'Merriweather', serif;
   --font-family-body: 'Inter', sans-serif;
@@ -26,14 +34,38 @@
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+
+  /* Spaziature: solo questi passi (UI Constitution, space-4 ... space-64) */
+  --space-4: 0.25rem;
+  --space-8: 0.5rem;
+  --space-12: 0.75rem;
+  --space-16: 1rem;
+  --space-24: 1.5rem;
+  --space-32: 2rem;
+  --space-48: 3rem;
+  --space-64: 4rem;
+
+  /* Raggi per ruolo */
+  --radius-control: 6px; /* bottoni, campi */
+  --radius-surface: 8px; /* gruppi e card */
+  --radius-overlay: 12px; /* modali e pannelli */
+  --radius-full: 999px; /* solo controlli a pillola */
+
+  /* Ruoli tipografici */
+  --font-size-caption: 0.8125rem;
+  --font-size-label: 0.875rem;
+  --font-size-body: 1rem;
+  --font-size-section-heading: 1.25rem;
+  --font-size-page-title: 1.75rem;
+  --font-size-display: 2.25rem;
 }
 
 /* Dark Theme Overrides */
 [data-theme='dark'] {
   --color-primary: #e0e0e0; /* Text Main (Inverted) */
   --color-primary-light: #b0b0b0;
-  --color-accent: #e53935; /* Brighter Red for Dark Mode */
-  --color-accent-hover: #ef5350;
+  --color-accent: #ef5350; /* Brighter Red for Dark Mode: 4.5:1 come testo */
+  --color-accent-hover: #ff7961;
   --color-background: #121212; /* Dark Background */
   --color-surface: #1e1e1e; /* Dark Surface */
   --color-surface-hover: #2c2c2c;
@@ -42,9 +74,17 @@
   --color-text-inverse: #121212;
   --color-border: #333333;
   --color-input-bg: #2c2c2c;
+  --color-surface-elevated: #262626;
+  --color-border-strong: #8a8a8a;
+  --color-secondary: #4a4f54;
+  --color-secondary-hover: #5c6266;
   --color-success: #66bb6a;
+  --color-success-hover: #81c784;
   --color-warning: #ffa726;
   --color-info: #29b6f6;
+  --color-danger: #ef5350;
+  --color-danger-hover: #e57373;
+  --focus-ring: #ef5350;
 
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.5);
@@ -91,8 +131,8 @@ textarea {
   padding: 0.8rem 1rem;
   font-size: 1rem;
   font-family: var(--font-family-body);
-  border-radius: 8px;
-  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  border: 1px solid var(--color-border-strong);
   background-color: var(--color-input-bg);
   color: var(--color-text-primary);
   box-shadow: var(--shadow-sm);
@@ -107,7 +147,6 @@ select:focus,
 textarea:focus {
   outline: none;
   border-color: var(--color-accent);
-  box-shadow: 0 0 0 3px rgba(183, 28, 28, 0.2);
 }
 
 /* Generic Button Reset & Base Style */
@@ -141,18 +180,12 @@ button:disabled {
 /* Focus Accessibility */
 button:focus-visible,
 a:focus-visible,
-[role='button']:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(183, 28, 28, 0.4);
-  border-radius: 4px; /* Ensure ring has radius */
-}
-
-/* Ensure inputs match the theme but maybe lighter ring */
+[role='button']:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 3px rgba(183, 28, 28, 0.25);
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 /* Common Utility Classes */

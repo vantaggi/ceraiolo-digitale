@@ -1288,9 +1288,7 @@ const getSocioStatus = (socio) => {
 }
 
 .add-socio-header-btn:hover:not(:disabled) {
-  background-color: var(
-    --color-primary-dark
-  ); /* Fallback if var not defined, usually just darken */
+  background-color: var(--color-primary-light);
   filter: brightness(1.1);
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
