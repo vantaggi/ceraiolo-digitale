@@ -4,6 +4,8 @@ name: Build Ceraiolo Digitale PWA
 on:
   push:
     branches: ['main']
+  pull_request:
+    branches: ['main']
   workflow_dispatch:
 
 jobs:
@@ -35,12 +37,13 @@ jobs:
         run: npm run lint
 
       - name: Run tests
-        run: npm run test -- --run || echo "No tests found, continuing..."
+        run: npm run test -- --run
 
       - name: Build application
         run: npm run build
 
       - name: Prepare release package
+        if: github.event_name != 'pull_request'
         run: |
           mkdir -p release/ceraiolo-digitale
           cp -r dist/* release/ceraiolo-digitale/
@@ -64,9 +67,11 @@ jobs:
           echo "- Connessione internet per la sincronizzazione iniziale" >> release/ceraiolo-digitale/DEPLOYMENT_README.md
 
       - name: Archive production artifacts
+        if: github.event_name != 'pull_request'
         run: cd release && zip -r ../ceraiolo-digitale-pwa.zip ceraiolo-digitale
 
       - name: Upload artifact
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: ceraiolo-digitale-pwa

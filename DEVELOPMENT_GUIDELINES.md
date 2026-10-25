@@ -120,7 +120,7 @@ npm run dev      # Avvia server di sviluppo
 npm run build    # Build per produzione
 npm run preview  # Preview build locale
 npm run test     # Esegui test
-npm run lint     # Linting e fix
+npm run lint     # Linting (lint:fix per correggere)
 npm run format   # Formattazione codice
 ```
 
