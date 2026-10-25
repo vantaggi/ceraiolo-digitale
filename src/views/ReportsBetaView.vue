@@ -48,7 +48,7 @@
              <div v-for="(preset, index) in savedPresets" :key="index" style="background: var(--color-background); border: 1px solid var(--color-border); padding: 8px 12px; border-radius: 6px; display: flex; align-items: center; gap: 10px;box-shadow: var(--shadow-sm);">
                 <span style="font-weight: 500; cursor: pointer; color: var(--color-primary);" @click="loadPreset(preset)" title="Clicca per applicare questo preset">{{ preset.name }}</span>
                 <div style="border-left: 1px solid var(--color-border); height: 15px; margin: 0 5px;"></div>
-                <button @click="deletePreset(index)" style="background: none; border: none; color: var(--color-error); cursor: pointer; font-size: 1rem; padding: 0;" title="Elimina Preset">🗑️</button>
+                <button @click="deletePreset(index)" style="background: none; border: none; color: var(--color-danger); cursor: pointer; font-size: 1rem; padding: 0;" title="Elimina Preset">🗑️</button>
              </div>
           </div>
           <div v-else style="margin-top: 15px; color: var(--color-text-secondary); font-size: 0.9rem;">
@@ -1089,7 +1089,7 @@ const handleExport = async () => {
 }
 
 .column-order-item:hover {
-  background: var(--color-surface-variant, #f8f9fa);
+  background: var(--color-surface-hover);
   border-color: var(--color-primary);
 }
 

@@ -20,6 +20,16 @@ export default defineConfig([
     },
   },
 
+  {
+    name: 'app/tests-node',
+    files: ['**/__tests__/**'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
+    },
+  },
+
   js.configs.recommended,
   ...pluginVue.configs['flat/essential'],
   skipFormatting,
