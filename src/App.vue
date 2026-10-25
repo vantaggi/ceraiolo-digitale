@@ -4,6 +4,7 @@ import logoSantantoniari from '@/assets/logo_santantoniari.jpg'
 import { useRouter } from 'vue-router'
 import { onMounted, onBeforeUnmount, ref } from 'vue'
 import KeyboardShortcutsModal from '@/components/KeyboardShortcutsModal.vue'
+import AppDialog from '@/components/AppDialog.vue'
 
 const themeStore = useThemeStore()
 const router = useRouter()
@@ -72,6 +73,7 @@ onBeforeUnmount(() => {
       <RouterView />
     </main>
     <KeyboardShortcutsModal :isVisible="showShortcutsModal" @close="showShortcutsModal = false" />
+    <AppDialog />
   </div>
 </template>
 

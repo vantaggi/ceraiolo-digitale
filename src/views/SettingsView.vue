@@ -416,6 +416,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useToast } from 'vue-toastification'
+import { askConfirm } from '@/composables/useDialog'
 import {
   getSetting,
   updateSetting,
@@ -553,11 +554,13 @@ const handleRestoreDatabase = async (event) => {
   const file = event.target.files[0]
   if (!file) return
 
-  if (
-    !confirm(
-      'ATTENZIONE: Questa operazione SOVRASCRIVERÀ tutti i dati attuali con quelli del backup. Continuare?',
-    )
-  ) {
+  const conferma = await askConfirm({
+    title: 'Ripristinare il backup?',
+    message: `I dati attuali vengono sostituiti da quelli di "${file.name}". L'operazione non si annulla.`,
+    confirmLabel: 'Ripristina backup',
+    danger: true,
+  })
+  if (!conferma) {
     event.target.value = '' // Reset input
     return
   }
@@ -769,11 +772,12 @@ const exportDatabase = async () => {
     auditStats.value = health
 
     if (health.summary.total_issues > 0) {
-      if (
-        !confirm(
-          `ATTENZIONE: Sono stati rilevati ${health.summary.total_issues} problemi nei dati (es. date mancanti).\nConsigliamo di risolvere i problemi prima del backup, ma puoi procedere comunque.\n\nProcedere con l'export?`,
-        )
-      ) {
+      const conferma = await askConfirm({
+        title: 'Esportare con dati incompleti?',
+        message: `Ci sono ${health.summary.total_issues} problemi nei dati (per esempio date mancanti). Conviene risolverli prima del backup, ma puoi esportare comunque.`,
+        confirmLabel: 'Esporta comunque',
+      })
+      if (!conferma) {
         return
       }
     }
@@ -877,11 +881,14 @@ const handleImportSettings = async (event) => {
  * Factory Reset
  */
 const confirmFactoryReset = async () => {
-  if (
-    !confirm(
-      'ATTENZIONE: Stai per CANCELLARE TUTTI I DATI e ripristinare le impostazioni di fabbrica. Questa operazione è IRREVERSIBILE.\n\nIl sistema tenterà un backup automatico prima di procedere.\n\nSei sicuro di voler continuare?',
-    )
-  ) {
+  const conferma = await askConfirm({
+    title: 'Cancellare tutti i dati?',
+    message:
+      "Soci, pagamenti e impostazioni vengono cancellati e l'app torna come appena installata. Prima viene tentato un backup automatico. L'operazione non si annulla.",
+    confirmLabel: 'Cancella tutti i dati',
+    danger: true,
+  })
+  if (!conferma) {
     return
   }
 
@@ -940,7 +947,14 @@ const addNewZone = async () => {
 }
 
 const deleteZone = async (zoneName) => {
-  if(!confirm(`Vuoi rimuovere "${zoneName}" dalla lista delle zone definite?\nNota: I soci che appartengono a questa zona manterranno la loro assegnazione, ma la zona non apparirà più come suggerimento se non ci sono soci assegnati.`)) return
+  const conferma = await askConfirm({
+    title: `Rimuovere la zona "${zoneName}"?`,
+    message:
+      'I soci di questa zona la mantengono, ma la zona non viene più suggerita se non ha soci.',
+    confirmLabel: 'Rimuovi zona',
+    danger: true,
+  })
+  if (!conferma) return
 
   try {
     await removeCustomGroup(zoneName)
@@ -969,7 +983,12 @@ const saveZoneRename = async (oldName) => {
 
   const newName = editingZoneName.value.trim()
 
-  if(!confirm(`Confermi di voler rinominare la zona "${oldName}" in "${newName}"?\nQuesta operazione aggiornerà tutti i soci appartenenti a questa zona.`)) return
+  const conferma = await askConfirm({
+    title: 'Rinominare la zona?',
+    message: `"${oldName}" diventa "${newName}" per tutti i soci di questa zona.`,
+    confirmLabel: 'Rinomina zona',
+  })
+  if (!conferma) return
 
   try {
     const count = await renameGroup(oldName, newName)

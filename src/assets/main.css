@@ -27,6 +27,7 @@
   --color-danger: #c62828; /* Azioni distruttive ed errori */
   --color-danger-hover: #b71c1c;
   --focus-ring: #b71c1c;
+  --color-scrim: rgba(0, 0, 0, 0.5); /* Sfondo dietro le modali */
 
   --font-family-heading: 'Merriweather', serif;
   --font-family-body: 'Inter', sans-serif;
@@ -50,6 +51,9 @@
   --radius-surface: 8px; /* gruppi e card */
   --radius-overlay: 12px; /* modali e pannelli */
   --radius-full: 999px; /* solo controlli a pillola */
+
+  /* Livelli */
+  --z-modal: 1000;
 
   /* Ruoli tipografici */
   --font-size-caption: 0.8125rem;
@@ -85,6 +89,7 @@
   --color-danger: #ef5350;
   --color-danger-hover: #e57373;
   --focus-ring: #ef5350;
+  --color-scrim: rgba(0, 0, 0, 0.7);
 
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.5);

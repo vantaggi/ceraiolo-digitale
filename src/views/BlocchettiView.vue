@@ -1,5 +1,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
+import { useToast } from 'vue-toastification'
+import { askConfirm } from '@/composables/useDialog'
 import {
   db,
   getAllBlocchetti,
@@ -8,6 +10,8 @@ import {
   deleteBlocchetto,
   exportAllTesseramenti
 } from '@/services/db'
+
+const toast = useToast()
 
 // Stato DB
 const blocchettiDB = ref([])
@@ -150,7 +154,7 @@ const totalAttivi = computed(() => blocchettiDinamici.value.filter(b => !b.data_
 
 async function handleAddBlocchetto() {
   if (!newBlocchetto.value.numero_blocchetto) {
-    alert("Inserisci il numero del blocchetto")
+    toast.error('Inserisci il numero del blocchetto')
     return
   }
 
@@ -174,19 +178,30 @@ async function handleAddBlocchetto() {
     }
     showAddForm.value = false
   } catch (error) {
-    alert(error.message)
+    toast.error(error.message)
   }
 }
 
-async function handleReturn(id) {
-  if (confirm('Vuoi segnare questo blocchetto come restituito oggi?')) {
+async function handleReturn(id, numero) {
+  const conferma = await askConfirm({
+    title: `Segnare il blocchetto ${numero} come restituito?`,
+    message: 'Come data di restituzione viene usata la data di oggi.',
+    confirmLabel: 'Segna restituito',
+  })
+  if (conferma) {
     await returnBlocchetto(id)
     await loadData()
   }
 }
 
-async function handleDelete(id) {
-  if (confirm('Sei sicuro di voler scollegare questo utente dal blocchetto? (I pagamenti NON verranno intaccati)')) {
+async function handleDelete(id, numero) {
+  const conferma = await askConfirm({
+    title: `Scollegare l'assegnatario dal blocchetto ${numero}?`,
+    message: "L'assegnazione viene tolta e il blocchetto resta nello storico. I pagamenti non cambiano.",
+    confirmLabel: 'Scollega',
+    danger: true,
+  })
+  if (conferma) {
     await deleteBlocchetto(id)
     await loadData()
   }
@@ -301,9 +316,9 @@ const formatDate = (dateString) => {
                  <span class="badge green">€ {{ b.totaleIncassato }}</span>
               </td>
               <td class="action-cell">
-                 <button v-if="b.isReal && !b.data_restituzione" @click="handleReturn(b.id)" class="action-btn ok-btn" title="Segna come Restituito">✅</button>
+                 <button v-if="b.isReal && !b.data_restituzione" @click="handleReturn(b.id, b.numero_blocchetto)" class="action-btn ok-btn" title="Segna come Restituito">✅</button>
                  <button @click="toggleDetails(b.numero_blocchetto)" class="action-btn info-btn" title="Esplora Ricevute in questo blocchetto">🔎</button>
-                 <button v-if="b.isReal" @click="handleDelete(b.id)" class="action-btn delete-btn" title="Elimina Assegnazione (Diventerà Storico)">🗑️</button>
+                 <button v-if="b.isReal" @click="handleDelete(b.id, b.numero_blocchetto)" class="action-btn delete-btn" title="Elimina Assegnazione (Diventerà Storico)">🗑️</button>
               </td>
             </tr>
             <!-- Dettaglio Espanso: Ricevute e Soci -->

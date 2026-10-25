@@ -157,6 +157,7 @@
 import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'vue-toastification'
+import { askConfirm } from '@/composables/useDialog'
 import {
   db,
   downloadDatabaseExport,
@@ -353,7 +354,13 @@ watch(searchResults, (results) => {
 
 // Database Actions
 const clearDatabase = async () => {
-  if (!confirm('Sei sicuro di voler cancellare tutto il database?')) return
+  const conferma = await askConfirm({
+    title: 'Cancellare tutto il database?',
+    message: "Tutti i soci e i pagamenti vengono cancellati da questo browser. L'operazione non si annulla.",
+    confirmLabel: 'Cancella database',
+    danger: true,
+  })
+  if (!conferma) return
   try {
     await db.delete()
     await db.open()
@@ -424,7 +431,13 @@ const generateSingleCard = async (socio) => {
 }
 
 const runNormalization = async () => {
-  if (!confirm('Vuoi scansionare il database e correggere automaticamente i blocchetti e ricevute invertite (vecchio errore storico)?')) return
+  const conferma = await askConfirm({
+    title: 'Correggere blocchetti e ricevute?',
+    message:
+      'Il database viene controllato e i numeri di blocchetto e ricevuta scambiati (vecchio errore) vengono corretti automaticamente.',
+    confirmLabel: 'Correggi',
+  })
+  if (!conferma) return
   try {
     const fixedCount = await normalizeDatabaseData()
     if (fixedCount > 0) {
@@ -441,7 +454,12 @@ const runNormalization = async () => {
 }
 
 const quickRenew = async (socio) => {
-  if (!confirm(`Rinnovare ${socio.nome} ${socio.cognome}?`)) return
+  const conferma = await askConfirm({
+    title: `Rinnovare ${socio.nome} ${socio.cognome}?`,
+    message: `Viene registrato il pagamento ${currentYear} con la quota predefinita.`,
+    confirmLabel: 'Rinnova',
+  })
+  if (!conferma) return
   try {
     const quota = await getSetting('defaultQuota', 10.0)
     await addTesseramento({

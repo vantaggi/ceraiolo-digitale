@@ -245,6 +245,7 @@
 import { ref, computed, onMounted, watch, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'vue-toastification'
+import { askConfirm } from '@/composables/useDialog'
 import {
   db,
   getSocioById,
@@ -620,7 +621,7 @@ const exportSocio = async () => {
     URL.revokeObjectURL(url)
   } catch (err) {
     console.error('Errore esportazione socio:', err)
-    alert("Errore nell'esportazione: " + err.message)
+    toast.error("Errore nell'esportazione: " + err.message)
   }
 }
 
@@ -677,9 +678,13 @@ const closeAddPaymentModal = () => {
  * Elimina un tesseramento
  */
 const deleteTesseramento = async (id) => {
-  if (!confirm('Sei sicuro di voler eliminare questo pagamento?')) {
-    return
-  }
+  const conferma = await askConfirm({
+    title: 'Eliminare il pagamento?',
+    message: "Il pagamento viene tolto dalla cronologia del socio. L'operazione non si annulla.",
+    confirmLabel: 'Elimina pagamento',
+    danger: true,
+  })
+  if (!conferma) return
 
   try {
     await db.tesseramenti.delete(id)

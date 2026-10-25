@@ -322,6 +322,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { useToast } from 'vue-toastification';
+import { askConfirm, askText } from '@/composables/useDialog';
 import { getAllSociWithTesseramenti, getUniqueGroups } from '@/services/db';
 import { generateBetaDynamicPDF } from '@/services/exportBeta';
 
@@ -470,10 +471,15 @@ const formatDate = (dateString) => {
 };
 
 // Preset Management
-const savePreset = () => {
-    const name = prompt('Scegli un nome per salvare l\'attuale configurazione (es: "Lista votanti 2024"):');
-    if (name && name.trim()) {
-        savedPresets.value.push({ name: name.trim(), state: JSON.parse(JSON.stringify(reportState.value)) });
+const savePreset = async () => {
+    const name = await askText({
+        title: 'Salva configurazione',
+        label: 'Nome della configurazione',
+        placeholder: 'Lista votanti 2024',
+        confirmLabel: 'Salva',
+    });
+    if (name) {
+        savedPresets.value.push({ name, state: JSON.parse(JSON.stringify(reportState.value)) });
         localStorage.setItem('reports_beta_presets', JSON.stringify(savedPresets.value));
         toast.success(`Preset "${name}" salvato!`);
     }
@@ -484,8 +490,14 @@ const loadPreset = (preset) => {
     toast.success(`Preset "${preset.name}" caricato con successo!`);
 };
 
-const deletePreset = (index) => {
-    if(confirm('Vuoi davvero cancellare definitivamente questo preset?')) {
+const deletePreset = async (index) => {
+    const conferma = await askConfirm({
+        title: `Eliminare la configurazione "${savedPresets.value[index].name}"?`,
+        message: 'La configurazione salvata viene tolta da questo browser.',
+        confirmLabel: 'Elimina configurazione',
+        danger: true,
+    });
+    if (conferma) {
         savedPresets.value.splice(index, 1);
         localStorage.setItem('reports_beta_presets', JSON.stringify(savedPresets.value));
     }
