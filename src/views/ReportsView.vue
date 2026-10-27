@@ -46,7 +46,7 @@
             class="nav-item"
             style="text-decoration: none; display: flex; align-items: center; gap: 8px;"
           >
-            <AppIcon name="personalizza" /> Report Builder Beta
+            <AppIcon name="personalizza" /> Report su misura
           </router-link>
         </nav>
       </aside>

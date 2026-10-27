@@ -115,3 +115,24 @@ describe('report su misura', () => {
     expect(sorgente).not.toContain('Generated on')
   })
 })
+
+describe('report su misura: contenuto del PDF', () => {
+  it("ha le colonne dell'anteprima, nello stesso ordine, con i colori degli stati", async () => {
+    const { tabellaReport } = await import('../exportBeta.js')
+    const { statoIniziale, filtraSoci, colonneReport } = await import('@/utils/reportSuMisura')
+    const stato = statoIniziale(2026)
+    stato.display.baseColumns = ['dirittoVoto', 'cognomeNome', 'firma']
+    stato.display.yearColumns = [2026]
+    const soci = [
+      { id: 1, cognome: 'Prova', nome: 'Uno', data_nascita: '1980-01-01', tesseramenti: [{ anno: 2025 }, { anno: 2026 }] },
+    ]
+    const colonne = colonneReport(stato)
+    const { headers, rows } = tabellaReport(filtraSoci(soci, stato), colonne)
+    expect(headers.map((h) => h.text)).toEqual(colonne.map((c) => c.label))
+    expect(headers.map((h) => h.text)).toEqual(['Diritto di voto', 'Socio', '2026', 'Firma'])
+    expect(headers[2].orientation).toBe('vertical')
+    expect(rows).toEqual([
+      [{ text: 'Sì', color: [0, 150, 0] }, 'Prova Uno', { text: 'V', color: expect.any(Array) }, ''],
+    ])
+  })
+})

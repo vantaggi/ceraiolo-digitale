@@ -185,7 +185,7 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 - [ ] Il menu mostra Soci, Incassi, Report PDF, Impostazioni
 - [ ] Da un socio aperto resta accesa la voce Soci
 - [ ] Incassi si apre su "Registra ricevute"; la scheda "Blocchetti" porta all'elenco dei blocchetti e la voce Incassi resta accesa
-- [ ] Report PDF apre i report; il link "Report Builder Beta" apre il report su misura e la voce Report PDF resta accesa
+- [ ] Report PDF apre i report; il link "Report su misura" apre il report su misura e la voce Report PDF resta accesa
 - [ ] Ctrl+K da qualsiasi pagina porta alla ricerca soci
 
 ### Test 9.2: Vecchi indirizzi e segnalibri
@@ -220,3 +220,28 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 - [ ] Impostazioni › Dati › Zona pericolosa: "Correggi" chiede conferma e corregge i blocchetti invertiti
 
 **Risultato atteso**: la Home serve solo a trovare i soci; tutto cio' che tocca il database sta in Impostazioni › Dati
+
+---
+
+## ✅ Test 11: Report PDF › Report su misura
+
+### Test 11.1: Pannello e anteprima
+
+- [ ] A sinistra il pannello con Anno di riferimento, Soci, Pagamenti, Elezioni e, sotto "Impaginazione", Colonne e Titolo e ordine; a destra l'anteprima con il numero di soci
+- [ ] Ogni sezione si apre e si chiude dal titolo (anche con Tab e Invio); chiusa, mostra quanti filtri ha attivi
+- [ ] Ogni filtro attivo compare come etichetta sopra l'anteprima; la X lo toglie, "Azzera filtri" li toglie tutti senza toccare anno e colonne
+- [ ] Cambiando l'anno di riferimento cambiano età, "Quota anno", diritto di voto e arretrati (un ragazzo nato 18 anni prima e' maggiorenne per tutto l'anno)
+- [ ] Con filtri che non trovano nessuno compare il messaggio vuoto e "Genera PDF" e' spento
+
+### Test 11.2: PDF uguale all'anteprima
+
+- [ ] Riordinate le colonne con le frecce, il PDF ha le stesse colonne nello stesso ordine dell'anteprima; gli anni dopo le colonne del socio, la firma in fondo
+- [ ] Titolo scritto a mano: e' il titolo del PDF; vuoto, il PDF usa il titolo proposto
+- [ ] Sotto il titolo del PDF c'e' il riassunto: anno, filtri, ordine
+
+### Test 11.3: Configurazioni salvate
+
+- [ ] Una configurazione salvata prima di questo cambio si carica ancora (l'anno viene dalla vecchia data delle elezioni)
+- [ ] Salva, ricarica la pagina, scegli la configurazione: filtri e colonne tornano; il cestino chiede conferma e la toglie
+
+**Risultato atteso**: si costruisce un elenco senza scorrere la pagina, e il PDF stampa quello che si vede
