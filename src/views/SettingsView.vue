@@ -427,6 +427,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { useToast } from 'vue-toastification'
 import { askConfirm } from '@/composables/useDialog'
 import {
@@ -460,7 +461,10 @@ const isExporting = ref(false)
 const isSavingBackup = ref(false)
 
 const isSavingConfig = ref(false)
-const currentTab = ref('generale')
+// ?tab=dati apre direttamente una scheda (es. dal pulsante "Backup automatico spento")
+const SCHEDE = ['generale', 'template', 'dati', 'zone']
+const route = useRoute()
+const currentTab = ref(SCHEDE.includes(route.query.tab) ? route.query.tab : 'generale')
 const isFileSystemSupported = ref(typeof window.showDirectoryPicker === 'function')
 
 const appConfig = ref({

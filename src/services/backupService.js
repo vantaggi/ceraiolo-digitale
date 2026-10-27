@@ -10,6 +10,7 @@ export const backupService = {
     const store = useBackupStore()
     const handle = await store.getDirectoryHandle()
 
+    store.hasDirectory = Boolean(handle)
     if (handle) {
       // We have a stored handle. We need to verify permission.
       // Note: Browsers might require user gesture to re-verify queryPermission
@@ -97,8 +98,7 @@ export const backupService = {
         await writable.close()
 
         // 4. Update Metadata
-        const timestamp = new Date().toLocaleString()
-        store.updateLastBackup(timestamp)
+        store.updateLastBackup(new Date().toISOString())
 
         if (manual) {
           toast.success(`Backup completato in: ${folderName}/ceraiolo_backup.sqlite`)
@@ -150,6 +150,18 @@ export const backupService = {
       }
       return false
     }
+  },
+
+  // Dopo una riapertura il browser puo' chiedere di nuovo il permesso sulla cartella:
+  // va chiesto da un clic (es. il pulsante "Riattiva backup" nell'intestazione).
+  async resume() {
+    const store = useBackupStore()
+    const handle = await store.getDirectoryHandle()
+    if (!handle) return false
+    const perm = await handle.requestPermission({ mode: 'readwrite' })
+    if (perm !== 'granted') return false
+    store.isAuthorized = true
+    return this.performBackup(false)
   },
 
   // Called by DB hooks

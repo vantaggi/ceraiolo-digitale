@@ -4,6 +4,8 @@ import { get, set, del } from 'idb-keyval'
 
 export const useBackupStore = defineStore('backup', () => {
   const isAuthorized = ref(false)
+  // C'e' una cartella salvata (anche se il browser ha ritirato il permesso)
+  const hasDirectory = ref(false)
   const lastBackup = ref(localStorage.getItem('lastBackup') || null)
   const autoBackupEnabled = ref(localStorage.getItem('autoBackupEnabled') === 'true')
   const backupPath = ref(localStorage.getItem('backupPath') || 'Non selezionato')
@@ -14,6 +16,7 @@ export const useBackupStore = defineStore('backup', () => {
   const setDirectoryHandle = async (handle) => {
     await set(DB_HANDLE_KEY, handle)
     isAuthorized.value = true
+    hasDirectory.value = true
     backupPath.value = handle.name
     localStorage.setItem('backupPath', handle.name)
   }
@@ -25,6 +28,7 @@ export const useBackupStore = defineStore('backup', () => {
   const clearDirectoryHandle = async () => {
     await del(DB_HANDLE_KEY)
     isAuthorized.value = false
+    hasDirectory.value = false
     backupPath.value = 'Non selezionato'
     localStorage.removeItem('backupPath')
     autoBackupEnabled.value = false
@@ -43,6 +47,7 @@ export const useBackupStore = defineStore('backup', () => {
 
   return {
     isAuthorized,
+    hasDirectory,
     lastBackup,
     autoBackupEnabled,
     backupPath,

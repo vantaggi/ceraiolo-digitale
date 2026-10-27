@@ -6,6 +6,7 @@ import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
 import KeyboardShortcutsModal from '@/components/KeyboardShortcutsModal.vue'
 import AppDialog from '@/components/AppDialog.vue'
 import AppIcon from '@/components/base/AppIcon.vue'
+import BackupStatus from '@/components/BackupStatus.vue'
 
 const themeStore = useThemeStore()
 const router = useRouter()
@@ -58,7 +59,10 @@ onBeforeUnmount(() => {
           class="logo app-logo"
           :class="{ 'logo-dark': themeStore.currentTheme === 'dark' }"
         />
-        <h1 class="app-title">Ceraiolo Digitale</h1>
+        <div class="app-identity">
+          <h1 class="app-title">Ceraiolo Digitale</h1>
+          <BackupStatus />
+        </div>
       </div>
       <nav>
         <RouterLink to="/" class="nav-link"><AppIcon name="ricerca" /> Ricerca</RouterLink>
@@ -135,6 +139,12 @@ onBeforeUnmount(() => {
   mix-blend-mode: screen;
 }
 
+.app-identity {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
 .app-title {
   font-size: 1.5rem;
   margin-bottom: 0;
