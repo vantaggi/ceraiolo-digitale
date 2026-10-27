@@ -1,6 +1,7 @@
 import Dexie from 'dexie'
 import initSqlJs from 'sql.js'
 import { calculatePaymentStatus } from '@/utils/payment'
+import { elencoRecupero } from '@/utils/recupero'
 import { calcolaStatisticheAnnuali } from '@/utils/statistiche'
 
 // Create a new Dexie database instance
@@ -2370,18 +2371,8 @@ export async function wipeDatabase() {
  * Reports: Get Churn List (Paid last year, not this year)
  */
 export async function getChurnList(year) {
-  const currentYear = parseInt(year)
-  const prevYear = currentYear - 1
-
-  const lastYearPayments = await db.tesseramenti.where('anno').equals(prevYear).toArray()
-  const lastYearIds = new Set(lastYearPayments.map((p) => p.id_socio))
-
-  const thisYearPayments = await db.tesseramenti.where('anno').equals(currentYear).toArray()
-  const thisYearIds = new Set(thisYearPayments.map((p) => p.id_socio))
-
-  const churnIds = [...lastYearIds].filter((id) => !thisYearIds.has(id))
-
-  return await db.soci.where('id').anyOf(churnIds).toArray()
+  const [soci, tesseramenti] = await Promise.all([db.soci.toArray(), db.tesseramenti.toArray()])
+  return elencoRecupero(soci, tesseramenti, parseInt(year))
 }
 
 /**
