@@ -156,3 +156,22 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 - [ ] Dovrebbe avere 2024 e 2025 come arretrati
 
 **Risultato atteso**: Tutti i dati vengono visualizzati
+
+---
+
+## ✅ Test 8: Backup automatico (Chrome o Edge sul PC)
+
+### Test 8.1: Stato nell'intestazione
+
+- [ ] Senza cartella scelta, sotto il titolo compare "Backup automatico spento"
+- [ ] Il clic apre Impostazioni sulla scheda "Dati & Backup"
+- [ ] Scegli una cartella e attiva l'auto-salvataggio: compare "Backup: adesso"
+- [ ] Modifica un socio, aspetta 5 secondi: nella cartella c'e' `backup_AAAA-MM-GG/ceraiolo_backup.sqlite` aggiornato
+
+### Test 8.2: Dopo la riapertura
+
+- [ ] Chiudi il browser e riapri l'app senza passare da Impostazioni
+- [ ] Se il browser ha tenuto il permesso, compare "Backup: ..." e una modifica aggiorna il file
+- [ ] Se il browser chiede di nuovo il permesso, compare "Riattiva backup": il clic chiede il permesso e fa subito un backup
+
+**Risultato atteso**: il backup funziona anche senza aprire Impostazioni, e quando e' fermo si vede
