@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { SCHEDE_IMPOSTAZIONI, SEZIONI, sezioneDi } from '../sezioni'
+import { SCHEDE_IMPOSTAZIONI, SCHEDE_INCASSI, SEZIONI, sezioneDi } from '../sezioni'
 import router from '../index'
 
 describe('menu a sezioni', () => {
@@ -9,6 +9,7 @@ describe('menu a sezioni', () => {
     expect(sezioneDi('/socio/nuovo')).toBe('Soci')
     expect(sezioneDi('/incassi/ricevute')).toBe('Incassi')
     expect(sezioneDi('/incassi/blocchetti')).toBe('Incassi')
+    expect(sezioneDi('/incassi/pagamenti')).toBe('Incassi')
     expect(sezioneDi('/report-pdf')).toBe('Report PDF')
     expect(sezioneDi('/report-pdf/su-misura')).toBe('Report PDF')
     expect(sezioneDi('/settings')).toBe('Impostazioni')
@@ -25,6 +26,12 @@ describe('menu a sezioni', () => {
 
   it('ogni voce del menu porta a una pagina che esiste', () => {
     for (const s of SEZIONI) {
+      expect(router.resolve(s.to).name, s.to).not.toBe('not-found')
+    }
+  })
+
+  it('ogni scheda di Incassi porta a una pagina che esiste', () => {
+    for (const s of SCHEDE_INCASSI) {
       expect(router.resolve(s.to).name, s.to).not.toBe('not-found')
     }
   })

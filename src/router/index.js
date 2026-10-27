@@ -66,6 +66,14 @@ const router = createRouter({
       },
     },
     {
+      path: '/incassi/pagamenti',
+      name: 'pagamenti',
+      component: () => import('../views/PagamentiView.vue'),
+      meta: {
+        title: 'Pagamenti - Ceraiolo Digitale',
+      },
+    },
+    {
       path: '/report-pdf',
       name: 'reports',
       component: ReportsView,

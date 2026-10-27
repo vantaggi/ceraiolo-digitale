@@ -29,6 +29,8 @@ defineProps({
   gap: var(--space-4);
   border-bottom: 1px solid var(--color-border);
   margin-bottom: var(--space-24);
+  /* Se le schede non stanno in larghezza scorrono di lato, senza tagliarne una */
+  overflow-x: auto;
 }
 
 .section-tabs__tab {
@@ -41,6 +43,8 @@ defineProps({
   font-weight: 600;
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
+  flex: none;
+  white-space: nowrap;
 }
 
 .section-tabs__tab:hover {
@@ -51,5 +55,17 @@ defineProps({
 .section-tabs__tab--active {
   color: var(--color-accent);
   border-bottom-color: var(--color-accent);
+}
+
+/* Sul telefono via le icone, cosi' tre schede stanno in una riga */
+@media (max-width: 600px) {
+  .section-tabs__tab {
+    padding: var(--space-8);
+    font-size: var(--font-size-label);
+  }
+
+  .section-tabs__tab :deep(.app-icon) {
+    display: none;
+  }
 }
 </style>
