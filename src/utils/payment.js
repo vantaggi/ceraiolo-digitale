@@ -30,57 +30,69 @@ export function isExemptFromPayment(socio, year) {
 }
 
 /**
- * Calculates the payment status and arrears for a member
- * Implements the "condono" logic: if the target year is paid, previous years are condoned
+ * Arretrati massimi: con piu' anni scoperti di fila il socio e' cancellato e deve
+ * reiscriversi (regola del proprietario, 27 ottobre 2026; la stessa di voto.js).
+ */
+export const MAX_ANNI_ARRETRATI = 3
+
+/**
+ * Calcola lo stato delle quote e gli arretrati di un socio per un anno.
+ * - Condono: se l'anno di riferimento e' pagato, il socio e' in regola.
+ * - Pagare un anno condona quelli prima: gli arretrati sono solo gli anni
+ *   dopo l'ultimo anno in regola (pagato o da minorenne esente).
+ * - Piu' di MAX_ANNI_ARRETRATI anni scoperti: nessun arretrato, va reiscritto.
  *
  * @param {object} socio - The member object
  * @param {Array<number>} paidYears - Array of years the member has paid
  * @param {number} targetYear - The reference year (usually current year)
- * @returns {object} { inRegola: boolean, arretrati: Array<number> }
+ * @returns {{ inRegola: boolean, arretrati: Array<number>, daReiscrivere: boolean }}
  */
 export function calculatePaymentStatus(socio, paidYears, targetYear) {
   const paidSet = new Set(paidYears)
-  const isTargetPaid = paidSet.has(targetYear)
+  const inRegola = { inRegola: true, arretrati: [], daReiscrivere: false }
 
-  // CONDONO LOGIC: If target year is paid, everything is good
-  if (isTargetPaid) {
-    return {
-      inRegola: true,
-      arretrati: []
+  if (paidSet.has(targetYear)) return inRegola
+
+  // Minorenne gia' iscritto: esente
+  if (
+    isExemptFromPayment(socio, targetYear) &&
+    socio.data_prima_iscrizione &&
+    socio.data_prima_iscrizione <= targetYear
+  ) {
+    return inRegola
+  }
+
+  const firstYear =
+    socio.data_prima_iscrizione || (paidYears.length ? Math.min(...paidYears) : targetYear)
+
+  // Ultimo anno in regola prima dell'anno di riferimento
+  let ultimoInRegola = null
+  for (let year = targetYear - 1; year >= firstYear; year--) {
+    if (paidSet.has(year) || isExemptFromPayment(socio, year)) {
+      ultimoInRegola = year
+      break
     }
   }
 
-  // If not paid in target year, check exemption
-  if (isExemptFromPayment(socio, targetYear)) {
-    // Check if valid registration
-    if (socio.data_prima_iscrizione && socio.data_prima_iscrizione <= targetYear) {
-      return {
-        inRegola: true,
-        arretrati: []
-      }
-    }
-  }
-
-  // Calculate arrears if not paid and not exempt (or not completely exempt)
   const arretrati = []
-  const firstYear = socio.data_prima_iscrizione || Math.min(...paidYears.length ? paidYears : [targetYear]) || targetYear
-
-  // Check from first year (or reasonable past) up to target year
-  // If we only care about "previous" years relative to targetYear being condoned if targetYear is paid,
-  // then if targetYear is NOT paid, we list all unpaid years.
-
-  for (let year = firstYear; year <= targetYear; year++) {
-    if (!paidSet.has(year)) {
-      if (!isExemptFromPayment(socio, year)) {
-        arretrati.push(year)
-      }
-    }
+  for (let year = (ultimoInRegola ?? firstYear - 1) + 1; year <= targetYear; year++) {
+    if (!isExemptFromPayment(socio, year)) arretrati.push(year)
   }
 
-  return {
-    inRegola: arretrati.length === 0,
-    arretrati
+  if (arretrati.length > MAX_ANNI_ARRETRATI) {
+    return { inRegola: false, arretrati: [], daReiscrivere: true }
   }
+  return { inRegola: arretrati.length === 0, arretrati, daReiscrivere: false }
+}
+
+/**
+ * Testo della colonna arretrati nei PDF
+ * @param {{ arretrati: Array<number>, daReiscrivere: boolean }} stato
+ * @returns {string}
+ */
+export function descriviArretrati(stato) {
+  if (stato.daReiscrivere) return 'Da reiscrivere'
+  return stato.arretrati.length > 0 ? stato.arretrati.join(', ') : '-'
 }
 
 /**

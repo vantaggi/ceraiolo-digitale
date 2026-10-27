@@ -1314,12 +1314,13 @@ export function isExemptFromPayment(socio, year) {
   return age < 18
 }
 
-// Get arretrati (anni non pagati) for a socio
-export async function getArretrati(socioId) {
+// Stato delle quote di un socio per l'anno in corso: arretrati e "da reiscrivere"
+export async function getStatoQuote(socioId) {
+  const nessuno = { arretrati: [], daReiscrivere: false }
   try {
     // Convert socioId to number if it's a string
     const numericId = typeof socioId === 'string' ? parseInt(socioId, 10) : socioId
-    if (isNaN(numericId)) return []
+    if (isNaN(numericId)) return nessuno
 
     const currentYear = new Date().getFullYear()
 
@@ -1328,15 +1329,15 @@ export async function getArretrati(socioId) {
     const paidYears = tesseramenti.map((t) => t.anno)
     const socio = await db.soci.get(numericId)
 
-    if (!socio) return []
+    if (!socio) return nessuno
 
     // Use shared utility for calculation
-    const status = calculatePaymentStatus(socio, paidYears, currentYear)
-    return status.arretrati
+    const { arretrati, daReiscrivere } = calculatePaymentStatus(socio, paidYears, currentYear)
+    return { arretrati, daReiscrivere }
   } catch (error) {
     console.error('Error getting arretrati:', error)
-    // Return empty array instead of throwing to prevent crashes
-    return []
+    // Return empty status instead of throwing to prevent crashes
+    return nessuno
   }
 }
 
