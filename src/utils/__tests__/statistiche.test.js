@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { calcolaStatisticheAnnuali } from '../statistiche'
+import { calcolaStatisticheAnnuali, andamentoTesseramento } from '../statistiche'
 
 // Soci inventati. Un adulto e' nato nel 1980; i tesseramenti sono { id_socio, anno }.
 const adulto = (id, extra = {}) => ({ id, data_nascita: '1980-01-01', ...extra })
@@ -57,5 +57,52 @@ describe('calcolaStatisticheAnnuali', () => {
   it('conta i non rinnovati anche nel primo anno mostrato', () => {
     const stats = calcolaStatisticheAnnuali([adulto(1)], paga(1, 2019), 2020, 2020)
     expect(stats).toEqual([{ year: 2020, total: 0, newMembers: 0, returningMembers: 0, lostMembers: 1 }])
+  })
+})
+
+describe('andamentoTesseramento', () => {
+  const riga = (year, total, newMembers = 0, returningMembers = 0, lostMembers = 0) => ({
+    year,
+    total,
+    newMembers,
+    returningMembers,
+    lostMembers,
+  })
+
+  it('toglie gli anni vuoti prima e dopo e confronta con l\'anno prima', () => {
+    const stats = [riga(2018, 0), riga(2019, 10, 10), riga(2020, 12, 3, 0, 1), riga(2021, 9, 1, 1, 5), riga(2022, 0)]
+    const { serie, ultimo, variazione } = andamentoTesseramento(stats)
+    expect(serie.map((s) => s.year)).toEqual([2019, 2020, 2021])
+    expect(ultimo.year).toBe(2021)
+    expect(variazione).toBe(-3)
+  })
+
+  it('nel primo anno della storia i nuovi non hanno barra, negli altri si', () => {
+    const stats = [riga(2019, 10, 10), riga(2020, 12, 3)]
+    const { serie } = andamentoTesseramento(stats)
+    expect(serie[0].newMembers).toBeNull()
+    expect(serie[1].newMembers).toBe(3)
+    expect(stats[0].newMembers).toBe(10)
+  })
+
+  it('mostra solo gli ultimi anni scelti, senza cambiare ultimo e variazione', () => {
+    const stats = [2015, 2016, 2017, 2018, 2019, 2020, 2021].map((a, i) => riga(a, 10 + i, 1))
+    const { serie, ultimo, variazione } = andamentoTesseramento(stats, 5)
+    expect(serie.map((s) => s.year)).toEqual([2017, 2018, 2019, 2020, 2021])
+    expect(serie[0].newMembers).toBe(1)
+    expect(ultimo.total).toBe(16)
+    expect(variazione).toBe(1)
+  })
+
+  it('senza iscritti non c\'e\' niente da mostrare', () => {
+    expect(andamentoTesseramento([riga(2020, 0), riga(2021, 0)])).toEqual({
+      serie: [],
+      ultimo: null,
+      variazione: null,
+    })
+  })
+
+  it('con un anno solo non c\'e\' variazione', () => {
+    expect(andamentoTesseramento([riga(2021, 4, 4)]).variazione).toBeNull()
   })
 })
