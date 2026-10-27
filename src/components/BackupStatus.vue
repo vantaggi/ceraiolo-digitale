@@ -12,7 +12,7 @@
   </button>
   <RouterLink
     v-else-if="stato === 'spento'"
-    :to="{ path: '/settings', query: { tab: 'dati' } }"
+    to="/settings/dati"
     class="backup-status backup-status--attenzione"
     title="Scegli una cartella in Impostazioni > Dati e attiva l'auto-salvataggio"
   >

@@ -1,1254 +1,850 @@
 <template>
-  <div class="reports-view">
-    <div class="container reports-layout">
-      <!-- Sidebar Nav for consistency -->
-      <aside class="reports-sidebar">
-        <h1 class="sidebar-title"><AppIcon name="report" /> Report</h1>
-        <nav class="reports-nav">
-          <!-- Link to normal reports page -->
-          <router-link to="/report-pdf" class="nav-item" style="text-decoration: none; color: inherit; display: block; margin-bottom: 15px;">
-            <AppIcon name="indietro" /> Torna a Reports Standard
-          </router-link>
-          <button class="nav-item active" style="width: 100%;">
-             <AppIcon name="personalizza" /> Report Beta
-          </button>
-        </nav>
-      </aside>
+  <div class="su-misura">
+    <PageHeader
+      title="Report su misura"
+      subtitle="Scegli a sinistra quali soci e quali colonne: l'anteprima a destra è il PDF che stampi."
+      back-to="/report-pdf"
+      back-label="Report PDF"
+    >
+      <template #actions>
+        <BaseButton
+          variant="primary"
+          :loading="generando"
+          :disabled="caricamento || righe.length === 0 || colonne.length === 0"
+          @click="generaPdf"
+        >
+          <AppIcon name="documento" /> Genera PDF
+        </BaseButton>
+      </template>
+    </PageHeader>
 
-      <main class="reports-content" style="flex: 1;">
-        <!-- UI Notification per Business Rules -->
-        <div class="report-section" style="background-color: #fff3cd; border-color: #ffeeba; margin-bottom: 2rem;">
-          <h4 style="color: #856404; margin-bottom: 5px;"><AppIcon name="attenzione" /> BETA VERSION</h4>
-          <p style="color: #856404; font-size: 0.95rem;">Use for testing layout and data structure. For official documents, use the standard Reports tab.</p>
+    <div class="su-misura__layout">
+      <!-- Pannello: configurazioni salvate, filtri, impaginazione -->
+      <aside class="pannello" aria-label="Filtri e impaginazione del report">
+        <div class="pannello__salvati">
+          <label for="config-salvata" class="campo__label">Configurazione salvata</label>
+          <div class="pannello__riga">
+            <select id="config-salvata" v-model="presetScelto" class="campo" @change="caricaPreset">
+              <option value="">Nessuna</option>
+              <option v-for="(p, i) in presets" :key="p.name + i" :value="String(i)">
+                {{ p.name }}
+              </option>
+            </select>
+            <button
+              v-if="presetScelto !== ''"
+              type="button"
+              class="icona-btn"
+              aria-label="Elimina la configurazione scelta"
+              title="Elimina la configurazione scelta"
+              @click="eliminaPreset"
+            >
+              <AppIcon name="elimina" />
+            </button>
+          </div>
+          <BaseButton variant="ghost" class="pannello__salva" @click="salvaPreset">
+            <AppIcon name="salva" /> Salva questa configurazione
+          </BaseButton>
         </div>
 
-        <section class="report-section header-section">
-          <div class="header-row">
-            <h2><AppIcon name="personalizza" /> Report Builder Personalizzato</h2>
-          </div>
-        </section>
-
-        <!-- Summary Badge / Natural Language Display -->
-        <section class="report-section" style="background: var(--color-background); border-left: 4px solid var(--color-primary); padding: 15px; margin-bottom: 2rem;">
-          <h4 style="margin-top: 0; color: var(--color-text-primary);">Riassunto Filtri Attivi:</h4>
-          <p style="margin-bottom: 0; font-style: italic; color: var(--color-text-secondary); line-height: 1.5;">
-            {{ activeFiltersSummary }}
+        <FilterSection titolo="Anno di riferimento" icona="data" :aperta-all-inizio="true">
+          <label for="anno-rif" class="sr-only">Anno di riferimento</label>
+          <input
+            id="anno-rif"
+            v-model.number="stato.anno"
+            type="number"
+            min="1950"
+            :max="annoCorrente + 5"
+            class="campo campo--anno"
+          />
+          <p class="aiuto">
+            Età, pagato o no, arretrati e diritto di voto si calcolano per questo anno.
           </p>
-        </section>
+        </FilterSection>
 
-        <!-- Presets section -->
-        <section class="report-section" style="margin-bottom: 2rem;">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <h3 style="margin: 0;"><AppIcon name="salva" /> Preset di Ricerca Salvati</h3>
-            <button @click="savePreset" class="action-button" style="width: auto; padding: 0.5rem 1rem; font-size: 0.9rem; background-color: var(--color-success);">
-              + Salva Nuova Vista
-            </button>
-          </div>
-          <div v-if="savedPresets.length > 0" style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
-             <div v-for="(preset, index) in savedPresets" :key="index" style="background: var(--color-background); border: 1px solid var(--color-border); padding: 8px 12px; border-radius: 6px; display: flex; align-items: center; gap: 10px;box-shadow: var(--shadow-sm);">
-                <span style="font-weight: 500; cursor: pointer; color: var(--color-primary);" @click="loadPreset(preset)" title="Clicca per applicare questo preset">{{ preset.name }}</span>
-                <div style="border-left: 1px solid var(--color-border); height: 15px; margin: 0 5px;"></div>
-                <button @click="deletePreset(index)" style="background: none; border: none; color: var(--color-danger); cursor: pointer; font-size: 1rem; padding: 0;" title="Elimina Preset" aria-label="Elimina preset"><AppIcon name="elimina" /></button>
-             </div>
-          </div>
-          <div v-else style="margin-top: 15px; color: var(--color-text-secondary); font-size: 0.9rem;">
-            Nessun preset salvato. Configura i filtri e clicca il tasto qui sopra per memorizzare la vista e riutilizzarla in futuro!
-          </div>
-        </section>
-
-        <!-- Filters section -->
-        <section class="report-section">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-            <h3 style="margin: 0;">Filtri Generali</h3>
-            <button @click="resetFilters" class="action-button" style="width: auto; padding: 0.5rem 1rem; font-size: 0.9rem; background-color: var(--color-surface); border: 1px solid var(--color-border); color: var(--color-text-primary);">
-              <AppIcon name="ripristina" /> Ripristina Filtri
-            </button>
-          </div>
-          <div class="filters-inline">
-            <label class="checkbox-label">
-              <input type="checkbox" v-model="reportState.filters.onlyActiveMembers" />
-              <span class="checkmark"></span>
-              Solo Soci Attivi (almeno 1 pagamento negli ultimi 5 anni)
+        <FilterSection titolo="Soci" icona="gruppo" :attivi="contaSoci" :aperta-all-inizio="true">
+          <fieldset class="gruppo">
+            <legend class="campo__label">
+              Manicchie <span class="aiuto">(nessuna spunta = tutte)</span>
+            </legend>
+            <label v-for="g in manicchie" :key="g" class="scelta">
+              <input v-model="stato.filters.groups" type="checkbox" :value="g" /> {{ g }}
             </label>
-          </div>
-
-          <div class="filters-inline" style="margin-top: 15px;">
-            <div class="f-group" style="margin-right: 20px;">
-              <label>Filtro Fascia d'Età:</label>
-              <select v-model="reportState.filters.ageGroup" class="small-input" style="width: auto;">
-                <option value="all">Tutti</option>
-                <option value="maggiorenni">Solo Maggiorenni (18+)</option>
-                <option value="minorenni">Solo Minorenni (&lt; 18)</option>
-              </select>
-            </div>
-            <div class="f-group">
-              <label>Stato Pagamento (Anno in corso):</label>
-              <select v-model="reportState.filters.paymentStatus" class="small-input" style="width: auto;">
-                <option value="all">Tutti i Soci</option>
-                <option value="in_regola">In Regola (Ha pagato il {{ currentYear }})</option>
-                <option value="morosi">Morosi (NON ha pagato il {{ currentYear }})</option>
-              </select>
-            </div>
-          </div>
-
-          <hr style="border: 0; border-top: 1px solid var(--color-border); margin: 15px 0;" />
-
-          <h4><AppIcon name="votazioni" /> Filtri Elezioni (Aventi Diritto)</h4>
-          <div class="filters-inline" style="margin-top: 10px; background: var(--color-background); padding: 10px; border-radius: 6px; border: 1px solid var(--color-border);">
-            <div class="f-group" style="margin-right: 20px;">
-              <label>Data di Riferimento Elezioni:</label>
-              <input type="date" v-model="reportState.filters.electionDate" class="small-input" style="width: auto;" />
-            </div>
-            <div class="f-group">
-              <label>Filtro Aventi Diritto:</label>
-              <select v-model="reportState.filters.electionEligibility" class="small-input" style="width: auto;">
-                <option value="all">Mostra Tutti</option>
-                <option value="aventi_diritto">Solo Aventi Diritto (Sì + Regolarizza)</option>
-                <option value="solo_si">Aventi Diritto (Solo 'Sì')</option>
-                <option value="solo_regolarizza">Da Regolarizzare (Solo 'Regolarizza')</option>
-                <option value="esclusi">Esclusi (Solo 'No')</option>
-              </select>
-            </div>
-          </div>
-
-          <hr style="border: 0; border-top: 1px solid var(--color-border); margin: 15px 0;" />
-
-          <h4>Filtri per Manicchia</h4>
-          <div class="filters-inline">
-            <label v-for="group in availableGroups" :key="'filter-group-'+group" class="checkbox-label">
-              <input type="checkbox" :value="group" v-model="reportState.filters.groups" />
-              <span class="checkmark"></span>
-              {{ group }}
+          </fieldset>
+          <fieldset class="gruppo">
+            <legend class="campo__label">Età nel {{ stato.anno }}</legend>
+            <label v-for="o in OPZIONI_ETA" :key="o.v" class="scelta">
+              <input v-model="stato.filters.ageGroup" type="radio" name="eta" :value="o.v" />
+              {{ o.t }}
             </label>
-          </div>
-          <div v-if="reportState.filters.groups.length === 0" style="color: var(--color-text-secondary); font-size: 0.9rem; margin-top: -10px; margin-bottom: 15px;">
-            Nessuna manicchia selezionata = Mostra Tutti
-          </div>
+          </fieldset>
+          <label class="scelta">
+            <input v-model="stato.filters.onlyActiveMembers" type="checkbox" />
+            Solo attivi (un pagamento dal {{ stato.anno - ANNI_ATTIVITA + 1 }} al {{ stato.anno }})
+          </label>
+        </FilterSection>
 
-          <hr style="border: 0; border-top: 1px solid var(--color-border); margin: 15px 0;" />
-
-          <h4>Filtri per Anni di Pagamento</h4>
-          <div class="filters-inline">
-            <label v-for="year in availableYears" :key="'filter-'+year" class="checkbox-label">
-              <input type="checkbox" :value="year" v-model="reportState.filters.paymentYears.list" />
-              <span class="checkmark"></span>
-              {{ year }}
+        <FilterSection titolo="Pagamenti" icona="pagamento" :attivi="contaPagamenti">
+          <fieldset class="gruppo">
+            <legend class="campo__label">Quota {{ stato.anno }}</legend>
+            <label v-for="o in OPZIONI_PAGATO" :key="o.v" class="scelta">
+              <input
+                v-model="stato.filters.paymentStatus"
+                type="radio"
+                name="pagato"
+                :value="o.v"
+              />
+              {{ o.t }}
             </label>
+          </fieldset>
+          <fieldset class="gruppo">
+            <legend class="campo__label">Ha pagato negli anni</legend>
+            <div class="griglia-anni">
+              <label v-for="a in anniScelta" :key="'f' + a" class="scelta">
+                <input v-model="stato.filters.paymentYears.list" type="checkbox" :value="a" />
+                {{ a }}
+              </label>
+            </div>
+            <div v-if="stato.filters.paymentYears.list.length > 1" class="gruppo gruppo--stretto">
+              <label class="scelta">
+                <input
+                  v-model="stato.filters.paymentYears.logic"
+                  type="radio"
+                  name="logica"
+                  value="AND"
+                />
+                in tutti gli anni spuntati
+              </label>
+              <label class="scelta">
+                <input
+                  v-model="stato.filters.paymentYears.logic"
+                  type="radio"
+                  name="logica"
+                  value="OR"
+                />
+                in almeno uno
+              </label>
+            </div>
+          </fieldset>
+        </FilterSection>
+
+        <FilterSection
+          titolo="Elezioni"
+          icona="votazioni"
+          :attivi="stato.filters.electionEligibility !== 'all' ? 1 : 0"
+        >
+          <fieldset class="gruppo">
+            <legend class="campo__label">Diritto di voto nel {{ stato.anno }}</legend>
+            <label v-for="o in OPZIONI_VOTO" :key="o.v" class="scelta">
+              <input
+                v-model="stato.filters.electionEligibility"
+                type="radio"
+                name="voto"
+                :value="o.v"
+              />
+              {{ o.t }}
+            </label>
+          </fieldset>
+        </FilterSection>
+
+        <p class="pannello__sezione">Impaginazione</p>
+
+        <FilterSection titolo="Colonne" icona="elenco">
+          <fieldset class="gruppo">
+            <legend class="campo__label">Dati del socio</legend>
+            <label v-for="(c, chiave) in COLONNE" :key="chiave" class="scelta">
+              <input v-model="stato.display.baseColumns" type="checkbox" :value="chiave" />
+              {{ c.label }}
+            </label>
+          </fieldset>
+          <div v-if="stato.display.baseColumns.length > 1" class="gruppo">
+            <p class="campo__label">Ordine (la firma resta in fondo)</p>
+            <ol class="ordine">
+              <li
+                v-for="(chiave, i) in stato.display.baseColumns"
+                :key="chiave"
+                class="ordine__voce"
+              >
+                <span>{{ COLONNE[chiave].label }}</span>
+                <button
+                  type="button"
+                  class="icona-btn"
+                  :disabled="i === 0"
+                  :aria-label="`Sposta ${COLONNE[chiave].label} prima`"
+                  @click="sposta(i, -1)"
+                >
+                  <AppIcon name="precedente" class="ruota" />
+                </button>
+                <button
+                  type="button"
+                  class="icona-btn"
+                  :disabled="i === stato.display.baseColumns.length - 1"
+                  :aria-label="`Sposta ${COLONNE[chiave].label} dopo`"
+                  @click="sposta(i, 1)"
+                >
+                  <AppIcon name="successivo" class="ruota" />
+                </button>
+              </li>
+            </ol>
           </div>
-
-          <div v-if="reportState.filters.paymentYears.list.length > 0" class="filters-inline" style="margin-top: 15px; background: var(--color-background); padding: 10px; border-radius: 6px; border: 1px solid var(--color-border);">
-              <label class="radio-label" style="margin-right: 20px;" title="Scegliendo AND, mostri SOLO i soci che hanno pagato in ENTRAMBI gli anni selezionati">
-                <input type="radio" value="AND" v-model="reportState.filters.paymentYears.logic" />
-                <span class="radiomark"></span>
-                And (ha pagato <strong>tutti</strong> gli anni selezionati)
-                <span style="font-size: 0.8rem; color: var(--color-primary); margin-left: 5px; cursor: help;" title="Scegliendo AND, mostri SOLO i soci che hanno pagato tutti gli anni spuntati"><AppIcon name="info" label="Informazioni" /></span>
-              </label>
-              <label class="radio-label" title="Scegliendo OR, mostri QUALSIASI socio che ha pagato ANCHE IN UNO SOLO degli anni scelti">
-                <input type="radio" value="OR" v-model="reportState.filters.paymentYears.logic" />
-                <span class="radiomark"></span>
-                Or (ha pagato <strong>almeno uno</strong> degli anni)
-                <span style="font-size: 0.8rem; color: var(--color-primary); margin-left: 5px; cursor: help;" title="Scegliendo OR, mostri i soci che hanno pagato in almeno uno degli anni spuntati"><AppIcon name="info" label="Informazioni" /></span>
+          <fieldset class="gruppo">
+            <legend class="campo__label">
+              Anni (V pagato, X non pagato, O minorenne esente, - non iscritto)
+            </legend>
+            <div class="griglia-anni">
+              <label v-for="a in anniScelta" :key="'c' + a" class="scelta">
+                <input v-model="stato.display.yearColumns" type="checkbox" :value="a" /> {{ a }}
               </label>
             </div>
-        </section>
-
-        <!-- Columns section -->
-        <section class="report-section">
-          <h3>Colonne da Mostrare nel PDF</h3>
-          <p style="font-size: 0.9rem; color: var(--color-text-secondary); margin-bottom: 20px;">
-            Componi liberamente la tabella che verrà esportata nel documento PDF selezionando i campi qui sotto.
-          </p>
-
-          <div style="margin-bottom: 25px;">
-            <h4>Dati Base:</h4>
-            <div class="filters-inline">
-              <label class="checkbox-label">
-                <input type="checkbox" value="cognomeNome" v-model="reportState.display.baseColumns" />
-                <span class="checkmark"></span>
-                Socio
-              </label>
-              <label class="checkbox-label">
-                <input type="checkbox" value="gruppo" v-model="reportState.display.baseColumns" />
-                <span class="checkmark"></span>
-                Manicchia
-              </label>
-              <label class="checkbox-label">
-                <input type="checkbox" value="dataNascita" v-model="reportState.display.baseColumns" />
-                <span class="checkmark"></span>
-                Data Nascita
-              </label>
-              <label class="checkbox-label" title="Mostra se il socio è Maggiorenne o Minorenne">
-                <input type="checkbox" value="eta" v-model="reportState.display.baseColumns" />
-                <span class="checkmark"></span>
-                Età (Mag/Min)
-              </label>
-              <label class="checkbox-label" title="Mostra se il socio ha diritto di voto">
-                <input type="checkbox" value="dirittoVoto" v-model="reportState.display.baseColumns" />
-                <span class="checkmark"></span>
-                Avente Diritto
-              </label>
-              <label class="checkbox-label" title="Mostra il motivo per cui il voto è negato">
-                <input type="checkbox" value="motivoEsclusione" v-model="reportState.display.baseColumns" />
-                <span class="checkmark"></span>
-                Motivo Esclusione
-              </label>
-              <label class="checkbox-label" title="Aggiunge una colonna vuota in cui gli utenti possono apporre una firma manuale">
-                <input type="checkbox" value="firma" v-model="reportState.display.baseColumns" />
-                <span class="checkmark"></span>
-                Firma (Spazio Vuoto)
-              </label>
+            <div class="pannello__riga">
+              <button
+                type="button"
+                class="link-btn"
+                @click="stato.display.yearColumns = [...anniScelta]"
+              >
+                Tutti
+              </button>
+              <button type="button" class="link-btn" @click="stato.display.yearColumns = []">
+                Nessuno
+              </button>
             </div>
+          </fieldset>
+        </FilterSection>
 
-            <div v-if="reportState.display.baseColumns.length > 1" class="column-order-container">
-              <h5 style="margin-top: 0; margin-bottom: 12px; color: var(--color-text-secondary); font-size: 0.9rem;">Ordina Colonne Base (da sinistra a destra):</h5>
-              <div class="column-order-grid">
-                <div v-for="(col, index) in reportState.display.baseColumns" :key="col" class="column-order-item">
-                  <button @click="moveColumn(index, -1)" :disabled="index === 0" class="col-move-btn" title="Sposta a sinistra" aria-label="Sposta colonna a sinistra"><AppIcon name="precedente" /></button>
-                  <span class="col-name">{{ colName(col) }}</span>
-                  <button @click="moveColumn(index, 1)" :disabled="index === reportState.display.baseColumns.length - 1" class="col-move-btn" title="Sposta a destra" aria-label="Sposta colonna a destra"><AppIcon name="successivo" /></button>
-                </div>
-              </div>
-            </div>
-
+        <FilterSection titolo="Titolo e ordine" icona="personalizza">
+          <div class="gruppo">
+            <label for="titolo-doc" class="campo__label">Titolo del PDF</label>
+            <input
+              id="titolo-doc"
+              v-model="stato.titolo"
+              type="text"
+              class="campo"
+              :placeholder="titoloAutomatico"
+            />
+            <p class="aiuto">Vuoto: si usa "{{ titoloAutomatico }}".</p>
           </div>
-
-          <div>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-              <h4 style="margin: 0;">Colonne Anni di Pagamento (V/X):</h4>
-              <div style="display: flex; gap: 10px;">
-                <button @click="selectAllYearColumns" style="background: none; border: none; color: var(--color-primary); cursor: pointer; font-size: 0.85rem; font-weight: bold;">[ Seleziona Tutti ]</button>
-                <button @click="deselectAllYearColumns" style="background: none; border: none; color: var(--color-text-secondary); cursor: pointer; font-size: 0.85rem;">[ Deseleziona ]</button>
-              </div>
-            </div>
-
-            <div class="filters-inline">
-              <label v-for="year in availableYears" :key="'col-'+year" class="checkbox-label">
-                <input type="checkbox" :value="year" v-model="reportState.display.yearColumns" />
-                <span class="checkmark"></span>
-                {{ year }}
-              </label>
-            </div>
-          </div>
-        </section>
-
-        <!-- Sorting section -->
-        <section class="report-section">
-          <h3>Ordinamento Risultati</h3>
-          <div class="filters-inline">
-            <label style="font-weight: 600; color: var(--color-text-secondary);">Ordina per:</label>
-            <select v-model="reportState.sort.by" class="small-input" style="width: auto;">
+          <div class="gruppo">
+            <label for="ordina" class="campo__label">Ordina per</label>
+            <select id="ordina" v-model="stato.sort.by" class="campo">
               <option value="cognome">Cognome</option>
-              <option value="gruppo">Manicchia</option>
-              <option value="anno_nascita">Anno di Nascita</option>
+              <option value="gruppo">Manicchia, poi cognome</option>
+              <option value="anno_nascita">Anno di nascita, poi cognome</option>
             </select>
-            <label class="checkbox-label">
-              <input type="checkbox" v-model="reportState.sort.descending" />
-              <span class="checkmark"></span>
-              Ordine Decrescente
+            <label class="scelta">
+              <input v-model="stato.sort.descending" type="checkbox" /> Dal più grande al più
+              piccolo
             </label>
           </div>
-        </section>
+        </FilterSection>
+      </aside>
 
-        <!-- Action & Data Preview -->
-        <section class="report-section">
-          <button @click="handleExport" class="action-button wide" style="margin-bottom: 2rem; font-size: 1.1rem; padding: 1rem;" :disabled="loading">
-            <AppIcon :name="loading ? 'caricamento' : 'documento'" :spin="loading" />
-            {{ loading ? 'Generazione PDF in corso...' : 'Genera PDF Dinamico' }}
-          </button>
+      <!-- Anteprima: le stesse righe e colonne del PDF -->
+      <section class="anteprima" aria-labelledby="anteprima-titolo">
+        <div class="anteprima__barra">
+          <h2 id="anteprima-titolo" class="anteprima__titolo">
+            {{ titoloStampa }}
+            <span class="anteprima__conta" aria-live="polite">
+              {{ caricamento ? '' : `${righe.length} ${righe.length === 1 ? 'socio' : 'soci'}` }}
+            </span>
+          </h2>
+          <ul v-if="etichette.length" class="chips" aria-label="Filtri attivi">
+            <li v-for="e in etichette" :key="e.id">
+              <button
+                type="button"
+                class="chip"
+                :aria-label="`Togli il filtro ${e.testo}`"
+                @click="togli(e.id)"
+              >
+                {{ e.testo }} <AppIcon name="chiudi" />
+              </button>
+            </li>
+            <li>
+              <button type="button" class="link-btn" @click="azzeraFiltri">Azzera filtri</button>
+            </li>
+          </ul>
+          <p v-else class="aiuto">Nessun filtro: nell'elenco ci sono tutti i soci.</p>
+        </div>
 
-          <div v-if="processedData.length > 0">
-            <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 10px;">
-              <h4 style="margin: 0;">Anteprima Dati Filtrati (Totale: {{ processedData.length }})</h4>
-              <div style="font-size: 0.85rem; color: var(--color-text-secondary); display: flex; gap: 10px; align-items: center;">
-                <span style="font-weight: 600;">Legenda Anni:</span>
-                <div><span class="status-badge badge-success" style="padding: 2px 6px;">V</span> Pagato</div>
-                <div><span class="status-badge badge-error" style="padding: 2px 6px;">X</span> Non Pagato</div>
-                <div><span class="status-badge badge-warning" style="padding: 2px 6px;">O</span> Minorenne / Esente</div>
-                <div><span class="status-badge badge-blue" style="padding: 2px 6px;">-</span> Non Iscritto</div>
-              </div>
-            </div>
-            <div class="audit-preview">
-              <table class="preview-table">
-                <thead>
-                  <tr>
-                    <th v-if="reportState.display.baseColumns.includes('cognomeNome')">Socio</th>
-                    <th v-if="reportState.display.baseColumns.includes('gruppo')">Manicchia</th>
-                    <th v-if="reportState.display.baseColumns.includes('dataNascita')">Nascita</th>
-                    <th v-if="reportState.display.baseColumns.includes('dirittoVoto')" style="text-align: center;">Diritto al Voto</th>
-                    <th v-if="reportState.display.baseColumns.includes('motivoEsclusione')">Motivo</th>
-                    <th v-for="year in sortedYearColumns" :key="'th-'+year" style="text-align: center;">{{ year }}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="member in processedData.slice(0, 30)" :key="member.id">
-                    <td v-if="reportState.display.baseColumns.includes('cognomeNome')" class="fw-500">{{ member.cognome }} {{ member.nome }}</td>
-                    <td v-if="reportState.display.baseColumns.includes('gruppo')">{{ member.gruppo_appartenenza || '-' }}</td>
-                    <td v-if="reportState.display.baseColumns.includes('dataNascita')">{{ formatDate(member.data_nascita) }}</td>
-                    <td v-if="reportState.display.baseColumns.includes('dirittoVoto')" style="text-align: center;">
-                      <span class="status-badge" :class="getEligibilityClass(member.aventeDiritto)">
-                        {{ member.dirittoLabel }}
-                      </span>
-                    </td>
-                    <td v-if="reportState.display.baseColumns.includes('motivoEsclusione')" class="text-secondary small-text">
-                      {{ member.motivoEsclusione }}
-                    </td>
-                    <td v-for="year in sortedYearColumns" :key="'td-'+year" style="text-align: center;">
-                      <span class="status-badge" :class="getYearBadgeClass(member, year)">
-                        {{ getYearBadgeText(member, year) }}
-                      </span>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-              <div v-if="processedData.length > 30" style="padding: 15px; color: var(--color-text-secondary); text-align: center; background: var(--color-background); font-weight: 500;">
-                ... e altri {{ processedData.length - 30 }} membri ...
-              </div>
-            </div>
-          </div>
-          <div v-else style="padding: 2rem; background: var(--color-background); border-radius: 8px; border: 1px dashed var(--color-border); text-align: center; color: var(--color-text-secondary);">
-            Nessun membro corrisponde ai criteri selezionati.
-          </div>
-        </section>
-      </main>
-
-      <!-- Loading Overlay -->
-      <div v-if="loading" class="loading-overlay">
-        <div class="spinner"></div>
-        <p>Generazione PDF in corso...</p>
-      </div>
+        <p v-if="caricamento" class="anteprima__stato">
+          <AppIcon name="caricamento" spin /> Carico i soci...
+        </p>
+        <p v-else-if="errore" class="anteprima__stato anteprima__stato--errore">
+          <AppIcon name="errore" /> {{ errore }}
+        </p>
+        <p v-else-if="colonne.length === 0" class="anteprima__stato">
+          Nessuna colonna scelta: aprile da Impaginazione › Colonne.
+        </p>
+        <p v-else-if="righe.length === 0" class="anteprima__stato">
+          Nessun socio con questi filtri. Togline qualcuno dalle etichette qui sopra.
+        </p>
+        <div v-else class="tabella-wrap" tabindex="0" aria-label="Anteprima del report, scorrevole">
+          <table class="tabella">
+            <thead>
+              <tr>
+                <th
+                  v-for="c in colonne"
+                  :key="c.chiave"
+                  scope="col"
+                  :class="{
+                    'is-centro': c.align === 'center' || c.anno,
+                    'is-firma': c.chiave === 'firma',
+                  }"
+                >
+                  {{ c.label }}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="r in righe" :key="r.socio.id">
+                <td
+                  v-for="(v, i) in celle(r)"
+                  :key="colonne[i].chiave"
+                  :class="{
+                    'is-centro': colonne[i].align === 'center' || colonne[i].anno,
+                    'is-firma': colonne[i].chiave === 'firma',
+                  }"
+                >
+                  <span v-if="v.stato" class="stato" :class="`stato--${CLASSI_STATO[v.stato]}`">{{
+                    v.testo
+                  }}</span>
+                  <template v-else>{{ v.testo }}</template>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
-import { useToast } from 'vue-toastification';
-import { askConfirm, askText } from '@/composables/useDialog';
-import AppIcon from '@/components/base/AppIcon.vue';
-import { getAllSociWithTesseramenti, getUniqueGroups } from '@/services/db';
-import { generateBetaDynamicPDF } from '@/services/exportBeta';
-import { valutaDirittoVoto } from '@/utils/voto';
-import { statoAnno } from '@/utils/payment';
+import { ref, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
+import { useToast } from 'vue-toastification'
+import { askConfirm, askText } from '@/composables/useDialog'
+import AppIcon from '@/components/base/AppIcon.vue'
+import BaseButton from '@/components/base/BaseButton.vue'
+import PageHeader from '@/components/base/PageHeader.vue'
+import FilterSection from '@/components/base/FilterSection.vue'
+import { getAllSociWithTesseramenti, getUniqueGroups } from '@/services/db'
+import { generateBetaDynamicPDF } from '@/services/exportBeta'
+import {
+  ANNI_ATTIVITA,
+  COLONNE,
+  TESTI_VOTO,
+  statoIniziale,
+  normalizzaStato,
+  filtraSoci,
+  colonneReport,
+  valoreCella,
+  filtriAttivi,
+  togliFiltro,
+  riassunto,
+  titoloReport,
+  manicchieDisponibili,
+  statoDaModello,
+} from '@/utils/reportSuMisura'
 
-const toast = useToast();
-const loading = ref(false);
-const allMembers = ref([]);
-const availableGroups = ref([]);
-const savedPresets = ref([]);
+const CHIAVE_PRESET = 'reports_beta_presets'
+const OPZIONI_ETA = [
+  { v: 'all', t: 'Tutti' },
+  { v: 'maggiorenni', t: 'Maggiorenni' },
+  { v: 'minorenni', t: 'Minorenni' },
+]
+const OPZIONI_PAGATO = [
+  { v: 'all', t: 'Tutti' },
+  { v: 'in_regola', t: 'Ha pagato' },
+  { v: 'morosi', t: 'Non ha pagato' },
+]
+const OPZIONI_VOTO = [
+  { v: 'all', t: 'Tutti' },
+  ...Object.entries(TESTI_VOTO).map(([v, t]) => ({ v, t: t[0].toUpperCase() + t.slice(1) })),
+]
+// Classi dei badge: stato del voto o dell'anno -> ruolo di colore
+const CLASSI_STATO = {
+  si: 'ok',
+  V: 'ok',
+  regolarizza: 'attenzione',
+  O: 'attenzione',
+  no: 'errore',
+  X: 'errore',
+  '-': 'neutro',
+}
 
-const currentYear = new Date().getFullYear();
-const statutoryMinYear = currentYear - 5;
+const toast = useToast()
+const route = useRoute()
+const annoCorrente = new Date().getFullYear()
 
-// Generate available years for UI constraints
-const availableYears = computed(() => {
-  const years = [];
-  for (let y = currentYear; y >= statutoryMinYear; y--) {
-    years.push(y);
-  }
-  return years;
-});
+// Aperta da "Personalizza" di un modello pronto: si parte da quel modello
+const statoDaIndirizzo = () => {
+  const { modello, anno, manicchia, eta, pagamento } = route.query
+  const annoScelto = Number.parseInt(anno, 10)
+  return statoDaModello(
+    String(modello || ''),
+    Number.isInteger(annoScelto) ? annoScelto : annoCorrente,
+    { manicchia: manicchia ? String(manicchia) : '', eta, pagamento },
+  )
+}
+const stato = ref(statoDaIndirizzo() || statoIniziale(annoCorrente))
+const soci = ref([])
+const gruppi = ref([])
+const caricamento = ref(true)
+const errore = ref('')
+const generando = ref(false)
+const presets = ref([])
+const presetScelto = ref('')
 
-const reportState = ref({
-  filters: {
-    onlyActiveMembers: false,
-    groups: [],
-    ageGroup: 'all',
-    paymentStatus: 'all',
-    electionDate: new Date().toISOString().split('T')[0],
-    electionEligibility: 'all',
-    paymentYears: {
-      list: [],
-      logic: 'AND'
-    }
-  },
-  display: {
-    baseColumns: ['cognomeNome', 'gruppo', 'dataNascita'],
-    yearColumns: [],
-  },
-  sort: {
-    by: 'cognome',
-    descending: false
-  }
-});
-
-// Stato di un anno (V/X/O/-): regola in utils/payment.js
-const getYearBadgeText = (member, year) =>
-  statoAnno(member, member.tesseramenti?.map(t => t.anno) || [], year);
-
-const CLASSI_STATO_ANNO = { '-': 'badge-blue', V: 'badge-success', O: 'badge-warning', X: 'badge-error' };
-const getYearBadgeClass = (member, year) => CLASSI_STATO_ANNO[getYearBadgeText(member, year)];
-
-const resetFilters = () => {
-  reportState.value.filters = {
-    onlyActiveMembers: false,
-    groups: [],
-    ageGroup: 'all',
-    paymentStatus: 'all',
-    electionDate: new Date().toISOString().split('T')[0],
-    electionEligibility: 'all',
-    paymentYears: {
-      list: [],
-      logic: 'AND'
-    }
-  };
-};
-
-const selectAllYearColumns = () => {
-  reportState.value.display.yearColumns = [...availableYears.value];
-};
-
-const deselectAllYearColumns = () => {
-  reportState.value.display.yearColumns = [];
-};
-
-const moveColumn = (index, direction) => {
-  const newIndex = index + direction;
-  if (newIndex >= 0 && newIndex < reportState.value.display.baseColumns.length) {
-    const arr = [...reportState.value.display.baseColumns];
-    const temp = arr[index];
-    arr[index] = arr[newIndex];
-    arr[newIndex] = temp;
-    reportState.value.display.baseColumns = arr;
-  }
-};
-
-const colName = (val) => {
-  if (val === 'cognomeNome') return 'Socio';
-  if (val === 'gruppo') return 'Manicchia';
-  if (val === 'dataNascita') return 'Data Nascita';
-  if (val === 'dirittoVoto') return 'Avente Diritto';
-  if (val === 'motivoEsclusione') return 'Motivo Esclusione';
-  if (val === 'eta') return 'Età';
-  if (val === 'firma') return 'Firma';
-  return val;
-};
-
-const getEligibilityClass = (status) => {
-  if (status === 'si') return 'badge-success';
-  if (status === 'regolarizza') return 'badge-warning';
-  return 'badge-error';
-};
-
-const formatDate = (dateString) => {
-  if (!dateString) return '-';
+const leggiPresets = () => {
   try {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('it-IT', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    }).replace(/\//g, '-');
+    const salvati = JSON.parse(localStorage.getItem(CHIAVE_PRESET) || '[]')
+    return Array.isArray(salvati) ? salvati.filter((p) => p && typeof p.name === 'string') : []
   } catch {
-    return dateString;
+    return []
   }
-};
-
-// Preset Management
-const savePreset = async () => {
-    const name = await askText({
-        title: 'Salva configurazione',
-        label: 'Nome della configurazione',
-        placeholder: 'Lista votanti 2024',
-        confirmLabel: 'Salva',
-    });
-    if (name) {
-        savedPresets.value.push({ name, state: JSON.parse(JSON.stringify(reportState.value)) });
-        localStorage.setItem('reports_beta_presets', JSON.stringify(savedPresets.value));
-        toast.success(`Preset "${name}" salvato!`);
-    }
-};
-
-const loadPreset = (preset) => {
-    reportState.value = JSON.parse(JSON.stringify(preset.state));
-    toast.success(`Preset "${preset.name}" caricato con successo!`);
-};
-
-const deletePreset = async (index) => {
-    const conferma = await askConfirm({
-        title: `Eliminare la configurazione "${savedPresets.value[index].name}"?`,
-        message: 'La configurazione salvata viene tolta da questo browser.',
-        confirmLabel: 'Elimina configurazione',
-        danger: true,
-    });
-    if (conferma) {
-        savedPresets.value.splice(index, 1);
-        localStorage.setItem('reports_beta_presets', JSON.stringify(savedPresets.value));
-    }
-};
+}
+const scriviPresets = () => {
+  try {
+    localStorage.setItem(CHIAVE_PRESET, JSON.stringify(presets.value))
+    return true
+  } catch {
+    toast.error('Non sono riuscito a salvare la configurazione in questo browser.')
+    return false
+  }
+}
 
 onMounted(async () => {
+  presets.value = leggiPresets()
   try {
-    const stored = localStorage.getItem('reports_beta_presets');
-    if (stored) savedPresets.value = JSON.parse(stored);
-
-    loading.value = true;
-    allMembers.value = await getAllSociWithTesseramenti();
-    availableGroups.value = await getUniqueGroups();
-  } catch (error) {
-    console.error('Failed to fetch members or groups:', error);
-    toast.error('Errore nel caricamento dei dati.');
+    ;[soci.value, gruppi.value] = await Promise.all([
+      getAllSociWithTesseramenti(),
+      getUniqueGroups(),
+    ])
+  } catch (e) {
+    console.error('Caricamento soci per il report fallito:', e)
+    errore.value = 'Non sono riuscito a leggere i soci dal database.'
   } finally {
-    loading.value = false;
+    caricamento.value = false
   }
-});
+})
 
-const activeFiltersSummary = computed(() => {
-  let summary = 'Stai visualizzando ';
+const anno = computed(() => (Number.isInteger(stato.value.anno) ? stato.value.anno : annoCorrente))
+// Lo stato con un anno sempre valido, anche mentre si sta scrivendo nel campo
+const statoValido = computed(() => ({ ...stato.value, anno: anno.value }))
 
-  // Age
-  if (reportState.value.filters.ageGroup === 'maggiorenni') summary += 'i soci maggiorenni ';
-  else if (reportState.value.filters.ageGroup === 'minorenni') summary += 'i soci minorenni ';
-  else summary += 'i soci ';
+const manicchie = computed(() => manicchieDisponibili(gruppi.value, soci.value))
+const anniScelta = computed(() => Array.from({ length: 10 }, (_, i) => anno.value - 9 + i))
+const righe = computed(() => filtraSoci(soci.value, statoValido.value))
+const colonne = computed(() => colonneReport(statoValido.value))
+const etichette = computed(() => filtriAttivi(statoValido.value))
+const titoloAutomatico = computed(() => titoloReport({ ...statoValido.value, titolo: '' }))
+const titoloStampa = computed(() => titoloReport(statoValido.value))
+const celle = (riga) => colonne.value.map((c) => valoreCella(riga, c))
 
-  // Active
-  if (reportState.value.filters.onlyActiveMembers) summary += "attivi (con almeno 1 pagamento begli ultimi 5 anni) ";
+const contaSoci = computed(() => {
+  const f = stato.value.filters
+  return (f.groups.length > 0) + (f.ageGroup !== 'all') + f.onlyActiveMembers
+})
+const contaPagamenti = computed(() => {
+  const f = stato.value.filters
+  return (f.paymentStatus !== 'all') + (f.paymentYears.list.length > 0)
+})
 
-  // Payment Status
-  if (reportState.value.filters.paymentStatus === 'in_regola') summary += `in regola con il ${currentYear} `;
-  else if (reportState.value.filters.paymentStatus === 'morosi') summary += `morosi per il ${currentYear} `;
+const togli = (id) => {
+  stato.value = togliFiltro(stato.value, id)
+}
+const azzeraFiltri = () => {
+  stato.value = { ...stato.value, filters: statoIniziale(anno.value).filters }
+}
+const sposta = (i, verso) => {
+  const elenco = [...stato.value.display.baseColumns]
+  ;[elenco[i], elenco[i + verso]] = [elenco[i + verso], elenco[i]]
+  stato.value.display.baseColumns = elenco
+}
 
-  // Groups
-  if (reportState.value.filters.groups.length > 0) {
-    summary += `appartenenti alle manicchie: [${reportState.value.filters.groups.join(', ')}] `;
-  } else {
-    summary += `di tutte le manicchie `;
+const caricaPreset = () => {
+  const preset = presets.value[Number(presetScelto.value)]
+  if (!preset) return
+  stato.value = normalizzaStato(preset.state, annoCorrente)
+  toast.info(`Configurazione "${preset.name}" caricata`)
+}
+
+const salvaPreset = async () => {
+  const nome = await askText({
+    title: 'Salva configurazione',
+    label: 'Nome della configurazione',
+    placeholder: `Aventi diritto ${anno.value}`,
+    confirmLabel: 'Salva',
+  })
+  if (!nome) return
+  presets.value.push({ name: nome, state: JSON.parse(JSON.stringify(statoValido.value)) })
+  if (scriviPresets()) {
+    presetScelto.value = String(presets.value.length - 1)
+    toast.success(`Configurazione "${nome}" salvata in questo browser`)
   }
+}
 
-  // Election Filters
-  if (reportState.value.filters.electionEligibility === 'aventi_diritto') {
-    summary += `che hanno diritto al voto (Sì + Regolarizza) alla data ${formatDate(reportState.value.filters.electionDate)} `;
-  } else if (reportState.value.filters.electionEligibility === 'solo_si') {
-    summary += `che hanno PIENO diritto al voto ('Sì') alla data ${formatDate(reportState.value.filters.electionDate)} `;
-  } else if (reportState.value.filters.electionEligibility === 'solo_regolarizza') {
-    summary += `da REGOLARIZZARE alla data ${formatDate(reportState.value.filters.electionDate)} `;
-  } else if (reportState.value.filters.electionEligibility === 'esclusi') {
-    summary += `che NON hanno diritto al voto ('No') alla data ${formatDate(reportState.value.filters.electionDate)} `;
-  }
+const eliminaPreset = async () => {
+  const i = Number(presetScelto.value)
+  const preset = presets.value[i]
+  if (!preset) return
+  const conferma = await askConfirm({
+    title: `Eliminare la configurazione "${preset.name}"?`,
+    message: 'Viene tolta da questo browser. I filtri sulla pagina restano come sono.',
+    confirmLabel: 'Elimina configurazione',
+    danger: true,
+  })
+  if (!conferma) return
+  presets.value.splice(i, 1)
+  presetScelto.value = ''
+  scriviPresets()
+}
 
-  // Payment Years
-  if (reportState.value.filters.paymentYears.list.length > 0) {
-    const years = [...reportState.value.filters.paymentYears.list].sort((a,b)=>b-a).join(', ');
-    const logicStr = reportState.value.filters.paymentYears.logic === 'AND' ? 'in tutti gli anni elencati' : 'in almeno uno di questi anni';
-    summary += `che hanno registrato pagamenti ${logicStr}: (${years}) `;
-  }
-
-  // Sort
-  const sortMap = { 'cognome': 'Cognome', 'gruppo': 'Manicchia', 'anno_nascita': 'Anno di Nascita' };
-  const sortDir = reportState.value.sort.descending ? 'decrescente' : 'crescente';
-  summary += `- Ordinati per ${sortMap[reportState.value.sort.by]} (${sortDir}).`;
-
-  return summary.charAt(0).toUpperCase() + summary.slice(1);
-});
-
-const sortedYearColumns = computed(() => {
-  return [...reportState.value.display.yearColumns].sort((a, b) => a - b);
-});
-
-const processedData = computed(() => {
-  let result = [...allMembers.value];
-
-  // Diritto di voto: regola in src/utils/voto.js (conta solo l'anno delle elezioni)
-  const targetYear = new Date(reportState.value.filters.electionDate).getFullYear();
-  const etichette = { si: 'Sì', regolarizza: 'Regolarizza', no: 'No' };
-
-  result.forEach(member => {
-    const paidYears = member.tesseramenti?.map(t => t.anno) || [];
-    const { stato, motivo } = valutaDirittoVoto(member, paidYears, targetYear);
-    member.aventeDiritto = stato;
-    member.dirittoLabel = etichette[stato];
-    member.motivoEsclusione = motivo;
-  });
-
-  // Active Members Filter
-  if (reportState.value.filters.onlyActiveMembers) {
-    result = result.filter(member => {
-      const paidYears = member.tesseramenti?.map(t => t.anno) || [];
-      return paidYears.some(year => year >= statutoryMinYear);
-    });
-  }
-
-  // Age Filter (Dynamic to today, keeping it for general filter use independent of elections)
-  if (reportState.value.filters.ageGroup !== 'all') {
-    const today = new Date();
-    result = result.filter(member => {
-      if (!member.data_nascita) return false;
-      const birthDate = new Date(member.data_nascita);
-      let age = today.getFullYear() - birthDate.getFullYear();
-      const m = today.getMonth() - birthDate.getMonth();
-      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-        age--;
-      }
-
-      if (reportState.value.filters.ageGroup === 'maggiorenni') return age >= 18;
-      if (reportState.value.filters.ageGroup === 'minorenni') return age < 18;
-      return true;
-    });
-  }
-
-  // Global Payment Status Filter
-  if (reportState.value.filters.paymentStatus !== 'all') {
-    result = result.filter(member => {
-      const paidYears = member.tesseramenti?.map(t => t.anno) || [];
-      const hasCurrentYear = paidYears.includes(currentYear);
-      if (reportState.value.filters.paymentStatus === 'in_regola') return hasCurrentYear;
-      if (reportState.value.filters.paymentStatus === 'morosi') return !hasCurrentYear;
-      return true;
-    });
-  }
-
-  // Groups Filter (If empty array, show all groups)
-  if (reportState.value.filters.groups.length > 0) {
-    result = result.filter(member => {
-      // Handles unassigned members or specific group matches
-      return reportState.value.filters.groups.includes(member.gruppo_appartenenza || 'Nessuna Manicchia');
-    });
-  }
-
-  // Election Eligibility Filter
-  if (reportState.value.filters.electionEligibility === 'aventi_diritto') {
-    result = result.filter(member => member.aventeDiritto === 'si' || member.aventeDiritto === 'regolarizza');
-  } else if (reportState.value.filters.electionEligibility === 'solo_si') {
-    result = result.filter(member => member.aventeDiritto === 'si');
-  } else if (reportState.value.filters.electionEligibility === 'solo_regolarizza') {
-    result = result.filter(member => member.aventeDiritto === 'regolarizza');
-  } else if (reportState.value.filters.electionEligibility === 'esclusi') {
-    result = result.filter(member => member.aventeDiritto === 'no');
-  }
-
-  // Specific Years Filter (AND/OR)
-  if (reportState.value.filters.paymentYears.list.length > 0) {
-    const { list, logic } = reportState.value.filters.paymentYears;
-    result = result.filter(member => {
-      const paidYears = member.tesseramenti?.map(t => t.anno) || [];
-      if (logic === 'AND') {
-        return list.every(reqYear => paidYears.includes(reqYear));
-      } else {
-        return list.some(reqYear => paidYears.includes(reqYear));
-      }
-    });
-  }
-
-  // Sorting Logic
-  result.sort((a, b) => {
-    let comparison = 0;
-    if (reportState.value.sort.by === 'cognome') {
-      comparison = (a.cognome || '').localeCompare(b.cognome || '');
-    } else if (reportState.value.sort.by === 'gruppo') {
-      comparison = (a.gruppo_appartenenza || '').localeCompare(b.gruppo_appartenenza || '');
-      if (comparison === 0) comparison = (a.cognome || '').localeCompare(b.cognome || '');
-    } else if (reportState.value.sort.by === 'anno_nascita') {
-      const yearA = a.data_nascita ? parseInt(a.data_nascita.split('-')[0]) : 9999;
-      const yearB = b.data_nascita ? parseInt(b.data_nascita.split('-')[0]) : 9999;
-      comparison = yearA - yearB;
-      if (comparison === 0) comparison = (a.cognome || '').localeCompare(b.cognome || '');
-    }
-    return reportState.value.sort.descending ? -comparison : comparison;
-  });
-
-  return result;
-});
-
-const handleExport = async () => {
-  if (processedData.value.length === 0) {
-    toast.warning('Nessun dato da esportare.');
-    return;
-  }
-  if (reportState.value.display.baseColumns.length === 0 && reportState.value.display.yearColumns.length === 0) {
-    toast.warning('Seleziona almeno una colonna da mostrare nel PDF.');
-    return;
-  }
-
+const generaPdf = async () => {
+  generando.value = true
   try {
-    loading.value = true;
-    await generateBetaDynamicPDF(processedData.value, reportState.value, activeFiltersSummary.value);
-    toast.success('PDF generato con successo!');
-  } catch (error) {
-    console.error('Export error:', error);
-    toast.error('Errore nella generazione del PDF: ' + error.message);
+    await generateBetaDynamicPDF({
+      righe: righe.value,
+      colonne: colonne.value,
+      titolo: titoloStampa.value,
+      riassunto: riassunto(statoValido.value),
+    })
+    toast.success('PDF generato')
+  } catch (e) {
+    console.error('Generazione PDF su misura fallita:', e)
+    toast.error('Errore nella generazione del PDF: ' + e.message)
   } finally {
-    loading.value = false;
+    generando.value = false
   }
-};
+}
 </script>
 
 <style scoped>
-.reports-view {
-  min-height: 100vh;
-  background-color: var(--color-background);
-  padding: 2rem 0;
-}
-
-.reports-layout {
-  display: grid;
-  grid-template-columns: 280px 1fr;
-  gap: 2rem;
-  min-height: calc(100vh - 100px);
-}
-
-.reports-sidebar {
-  padding-right: 1.5rem;
-  border-right: 1px solid var(--color-border);
-}
-
-.reports-sidebar .sidebar-title {
-  font-size: 1.1rem;
-  color: var(--color-primary);
-  margin-bottom: 2rem;
-  text-align: left;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.reports-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.nav-item {
-  text-align: left;
-  padding: 0.75rem 1rem;
-  border: none;
-  background: transparent;
-  color: var(--color-text-secondary);
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.2s;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  width: 100%;
-}
-
-.nav-item:hover {
-  background-color: var(--color-surface);
-  color: var(--color-text-primary);
-}
-
-.nav-item.active {
-  background-color: var(--color-accent);
-  color: white;
-}
-
-.reports-content {
-  padding-bottom: 3rem;
-}
-
-/* Sections */
-.report-section {
-  background-color: var(--color-surface);
-  padding: 1.5rem;
-  border-radius: 12px;
-  margin-bottom: 2rem;
-  box-shadow: var(--shadow-sm);
-  border: 1px solid var(--color-border);
-}
-
-.header-section {
-  background: var(--color-surface);
-  margin-bottom: 2rem;
-  border-left: 5px solid var(--color-primary);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1.5rem;
-}
-
-.header-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 1rem;
-}
-
-.header-row h2 {
-  margin: 0;
-  font-size: 1.5rem;
-  color: var(--color-primary);
-}
-
-.report-section h3, .report-section h4 {
-  margin-top: 0;
-  color: var(--color-primary);
-}
-
-/* Grid for Cards */
-.reports-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.5rem;
-}
-
-.report-card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 10px;
-  padding: 1.5rem;
-  box-shadow: var(--shadow-sm);
-}
-
-.report-card h3 {
-  margin-top: 0;
-  color: var(--color-text-primary);
-  font-size: 1.1rem;
-}
-
-.report-card p {
-  color: var(--color-text-secondary);
-  font-size: 0.9rem;
-  margin-bottom: 1.5rem;
-  min-height: 40px;
-}
-
-/* Inputs & Buttons */
-.year-selector-inline {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.year-input {
-  padding: 0.5rem;
-  width: 100px;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  font-weight: bold;
-}
-
-.action-button {
-  background-color: var(--color-accent);
-  color: white;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 8px;
-  font-weight: 600;
-  cursor: pointer;
-  width: 100%;
-  transition: all 0.2s;
-}
-
-.action-button:hover:not(:disabled) {
-  background-color: #a22a2a;
-  transform: translateY(-1px);
-}
-
-.action-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.action-button.wide {
-  width: auto;
-  min-width: 200px;
-}
-
-.primary-button {
-  background-color: var(--color-accent);
-  color: white;
-  border: none;
-  padding: 1rem 2rem;
-  border-radius: 8px;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: block;
-  width: 100%;
-  max-width: 300px;
+.su-misura {
+  max-width: var(--page-width-wide);
   margin: 0 auto;
+  padding: var(--space-32);
 }
 
-.primary-button:hover {
-  background-color: #a22a2a;
-  transform: translateY(-1px);
+.su-misura__layout {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: var(--space-24);
+  align-items: start;
 }
 
-/* Preview Area */
-.preview-wrapper {
-  display: flex;
-  gap: 2rem;
-  align-items: flex-start;
-}
-
-.preview-container {
-  background: white;
-  border-radius: 8px;
-  padding: 2rem;
-  box-shadow: var(--shadow-sm);
-  display: flex;
-  justify-content: center;
+/* Pannello */
+.pannello {
+  position: sticky;
+  top: var(--space-16);
+  max-height: calc(100vh - var(--space-32));
+  overflow-y: auto;
+  padding: var(--space-16);
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
+  border-radius: var(--radius-surface);
 }
 
-.preview-inputs {
+.pannello__salvati {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  flex: 1;
+  gap: var(--space-8);
+  padding-bottom: var(--space-16);
+  border-bottom: 1px solid var(--color-border);
 }
 
-.small-input {
-  padding: 0.5rem;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  width: 100%;
-}
-
-/* Filters */
-.filters-inline {
+.pannello__riga {
   display: flex;
-  gap: 1rem;
   align-items: center;
-  margin-bottom: 1.5rem;
-  flex-wrap: wrap;
+  gap: var(--space-8);
 }
 
-.filters-grid-compact {
+.pannello__salva {
+  align-self: flex-start;
+}
+
+.pannello__sezione {
+  margin: var(--space-24) 0 0;
+  padding-bottom: var(--space-4);
+  font-size: var(--font-size-caption);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.campo {
+  width: 100%;
+  min-height: 2.25rem;
+  padding: var(--space-4) var(--space-8);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  background: var(--color-input-bg);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-label);
+}
+
+.campo--anno {
+  width: 7rem;
+}
+
+.campo__label {
+  margin: 0;
+  font-size: var(--font-size-caption);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.gruppo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  border: none;
+  min-width: 0;
+}
+
+.gruppo--stretto {
+  margin-top: var(--space-8);
+}
+
+.gruppo legend {
+  margin-bottom: var(--space-4);
+}
+
+.scelta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  font-size: var(--font-size-label);
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.scelta input {
+  accent-color: var(--color-accent);
+}
+
+.griglia-anni {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
-  margin-bottom: 1.5rem;
+  gap: var(--space-4);
 }
 
-.f-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-}
-
-.f-group label {
-  font-size: 0.8rem;
+.aiuto {
+  margin: 0;
+  font-size: var(--font-size-caption);
+  font-weight: 400;
   color: var(--color-text-secondary);
-  font-weight: 600;
 }
 
-/* Progress Bar Mini */
-.progress-bar-mini {
-  height: 6px;
-  background: var(--color-border);
-  border-radius: 3px;
-  margin: 1rem 0;
-  overflow: hidden;
-}
-.fill {
-  height: 100%;
-  background: var(--color-success);
-  transition: width 0.3s;
-}
-
-/* Batch Box */
-.batch-box {
-  background: var(--color-background);
-  padding: 2rem;
-  border-radius: 8px;
-  text-align: center;
-}
-
-.batch-box ul {
-  list-style: none;
-  padding: 0;
-  margin-bottom: 2rem;
-  text-align: center;
-}
-
-.batch-box li {
-  display: inline-block;
-  background: var(--color-surface);
-  padding: 0.3rem 0.8rem;
-  margin: 0.3rem;
-  border-radius: 20px;
-  border: 1px solid var(--color-border);
-  font-size: 0.9rem;
-}
-
-/* UI readability enhancements */
-.column-order-container {
-  margin-top: 15px;
-  padding: 15px;
-  background: var(--color-background);
-  border-radius: 8px;
-  border: 1px solid var(--color-border);
-}
-
-.column-order-grid {
+.ordine {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-.column-order-item {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  padding: 8px 12px;
-  border-radius: 6px;
+.ordine__voce {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  font-size: 0.95rem;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-  transition: background-color 0.2s;
-}
-
-.column-order-item:hover {
-  background: var(--color-surface-hover);
-  border-color: var(--color-primary);
-}
-
-.col-move-btn {
-  background: var(--color-background);
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-8);
   border: 1px solid var(--color-border);
-  border-radius: 4px;
-  cursor: pointer;
-  padding: 4px 10px;
-  color: var(--color-primary);
-  font-size: 1rem;
-  transition: all 0.2s;
+  border-radius: var(--radius-control);
+  font-size: var(--font-size-label);
 }
 
-.col-move-btn:hover:not(:disabled) {
-  background: var(--color-primary);
-  color: white;
-}
-
-.col-move-btn:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-  background: none;
-  border-color: transparent;
-}
-
-.col-name {
-  font-weight: 600;
-  color: var(--color-text-primary);
+.ordine__voce span {
   flex: 1;
 }
 
-/* Enhanced Preview Table */
-.audit-preview {
-  max-height: 500px;
-  overflow-y: auto;
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+.ruota {
+  transform: rotate(90deg);
 }
 
-.preview-table {
-  width: 100%;
-  text-align: left;
-  border-collapse: collapse;
-  font-size: 0.95rem;
+.icona-btn {
+  min-height: 0;
+  padding: var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: none;
+  box-shadow: none;
+  color: var(--color-text-secondary);
 }
 
-.preview-table th {
-  padding: 14px 12px;
-  border-bottom: 2px solid var(--color-border);
-  background-color: var(--color-surface); /* Header background */
+.icona-btn:hover:not(:disabled) {
+  background: var(--color-surface-hover);
   color: var(--color-text-primary);
-  font-weight: 700;
+}
+
+.link-btn {
+  min-height: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  box-shadow: none;
+  color: var(--color-accent);
+  font-size: var(--font-size-caption);
+  font-weight: 600;
+}
+
+.link-btn:hover {
+  text-decoration: underline;
+}
+
+/* Anteprima */
+.anteprima {
+  min-width: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-surface);
+}
+
+.anteprima__barra {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-16);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.anteprima__titolo {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-12);
+  margin: 0;
+  font-size: var(--font-size-section-heading);
+}
+
+.anteprima__conta {
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-label);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chip {
+  min-height: 0;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-8) var(--space-4) var(--space-12);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  box-shadow: none;
+  color: var(--color-accent);
+  font-size: var(--font-size-caption);
+  white-space: normal;
+}
+
+.chip:hover {
+  background: var(--color-surface-hover);
+}
+
+.anteprima__stato {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  margin: 0;
+  padding: var(--space-32) var(--space-16);
+  color: var(--color-text-secondary);
+}
+
+.anteprima__stato--errore {
+  color: var(--color-danger);
+}
+
+.tabella-wrap {
+  max-height: calc(100vh - 220px);
+  overflow: auto;
+}
+
+.tabella {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-label);
+}
+
+.tabella th {
   position: sticky;
   top: 0;
-  z-index: 10;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  z-index: 1;
+  padding: var(--space-8);
+  background: var(--color-accent);
+  color: var(--color-text-inverse);
+  font-size: var(--font-size-caption);
+  text-align: left;
+  white-space: nowrap;
 }
 
-.preview-table td {
-  padding: 14px 12px;
+.tabella td {
+  padding: var(--space-4) var(--space-8);
   border-bottom: 1px solid var(--color-border);
   color: var(--color-text-primary);
 }
 
-.preview-table tbody tr {
-  transition: background-color 0.15s ease;
+.tabella tbody tr:hover td {
+  background: var(--color-surface-hover);
 }
 
-.preview-table tbody tr:hover {
-  background-color: rgba(128, 128, 128, 0.08) !important; /* Gentle neutral highlight on hover, safe for any theme */
+.tabella .is-centro {
+  text-align: center;
 }
 
-.fw-500 { font-weight: 500; }
-.text-secondary { color: var(--color-text-secondary); }
-.small-text { font-size: 0.85em; }
-
-/* Status Badges */
-.status-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4px 10px;
-  border-radius: 20px;
-  font-weight: bold;
-  font-size: 0.85rem;
-  letter-spacing: 0.3px;
-  min-width: 30px;
+.is-firma {
+  min-width: 8rem;
 }
 
-.badge-success {
-  background-color: #dcfce7;
-  color: #166534;
-  border: 1px solid #bbf7d0;
+.stato {
+  font-weight: 700;
 }
 
-.badge-error {
-  background-color: #fee2e2;
-  color: #991b1b;
-  border: 1px solid #fecaca;
+.stato--ok {
+  color: var(--color-success);
+}
+.stato--attenzione {
+  color: var(--color-warning);
+}
+.stato--errore {
+  color: var(--color-danger);
+}
+.stato--neutro {
+  color: var(--color-text-secondary);
 }
 
-.badge-warning {
-  background-color: #fef3c7;
-  color: #92400e;
-  border: 1px solid #fde68a;
-}
-
-.badge-blue {
-  background-color: #dbeafe;
-  color: #1e3a8a;
-  border: 1px solid #bfdbfe;
-}
-
-.primary-button.large {
-  font-size: 1.1rem;
-  padding: 1rem 3rem;
-}
-
-/* Loading Overlay */
-.loading-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.7);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  color: white;
-}
-
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid rgba(255, 255, 255, 0.3);
-  border-top-color: white;
-  border-radius: 50%;
-  animation: spin 1s infinite linear;
-  margin-bottom: 1rem;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* Checkbox */
-.checkbox-label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  cursor: pointer;
-  user-select: none;
-}
-.checkmark {
-  width: 18px;
-  height: 18px;
-  border: 2px solid var(--color-border);
-  background: var(--color-background);
-  display: inline-block;
-  border-radius: 3px;
-}
-input[type="checkbox"] {
-  display: none;
-}
-input:checked + .checkmark {
-  background: var(--color-success);
-  border-color: var(--color-success);
-  position: relative;
-}
-input:checked + .checkmark::after {
-  content: '';
+.sr-only {
   position: absolute;
-  left: 5px;
-  top: 2px;
-  width: 4px;
-  height: 8px;
-  border: solid white;
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
-/* Radio Button styling for consistency */
-.radio-label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  cursor: pointer;
-  user-select: none;
-}
-.radiomark {
-  width: 18px;
-  height: 18px;
-  border: 2px solid var(--color-border);
-  background: var(--color-background);
-  display: inline-block;
-  border-radius: 50%;
-}
-input[type="radio"] {
-  display: none;
-}
-input[type="radio"]:checked + .radiomark {
-  background: var(--color-success);
-  border-color: var(--color-success);
-  position: relative;
-}
-input[type="radio"]:checked + .radiomark::after {
-  content: '';
-  position: absolute;
-  left: 5px;
-  top: 5px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: white;
-}
-
-/* Responsive */
-@media (max-width: 900px) {
-  .reports-layout {
-    grid-template-columns: 1fr;
+@media (max-width: 960px) {
+  .su-misura {
+    padding: var(--space-16);
   }
-
-  .reports-sidebar {
-    border-right: none;
-    border-bottom: 1px solid var(--color-border);
-    padding-bottom: 1rem;
+  .su-misura__layout {
+    grid-template-columns: minmax(0, 1fr);
   }
-  .reports-nav {
-    flex-direction: row;
-    overflow-x: auto;
+  .pannello {
+    position: static;
+    max-height: none;
   }
-  .reports-grid,
-  .filters-grid-compact {
-    grid-template-columns: 1fr;
-  }
-  .preview-wrapper {
-    flex-direction: column;
-  }
-  .preview-container {
-    transform: scale(1);
-    width: 100%;
-  }
-}
-
-.container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 2rem;
 }
 </style>
