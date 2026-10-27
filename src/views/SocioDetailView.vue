@@ -18,71 +18,65 @@
     <!-- Main Content -->
     <div v-else-if="socio" class="detail-content">
       <!-- Header con nome e azioni -->
-      <!-- Header con nome e azioni -->
-      <div class="detail-header">
-        <div class="header-left">
-          <div class="nav-row">
-            <router-link to="/" class="back-link">
-              <AppIcon name="indietro" /> Lista
-            </router-link>
-            <div class="nav-buttons" v-if="prevSocioId || nextSocioId">
-              <router-link
-                v-if="prevSocioId"
-                :to="'/socio/' + prevSocioId"
-                class="nav-btn"
-                title="Precedente"
-                >
-                <AppIcon name="precedente" /> Prec</router-link
+      <PageHeader :title="`${socio.cognome} ${socio.nome}`" back-to="/" back-label="Lista">
+        <template #nav>
+          <div class="nav-buttons" v-if="prevSocioId || nextSocioId">
+            <router-link
+              v-if="prevSocioId"
+              :to="'/socio/' + prevSocioId"
+              class="nav-btn"
+              title="Precedente"
               >
-              <router-link
-                v-if="nextSocioId"
-                :to="'/socio/' + nextSocioId"
-                class="nav-btn"
-                title="Successivo"
-                >
-                Succ <AppIcon name="successivo" /></router-link
+              <AppIcon name="precedente" /> Prec</router-link
+            >
+            <router-link
+              v-if="nextSocioId"
+              :to="'/socio/' + nextSocioId"
+              class="nav-btn"
+              title="Successivo"
               >
-            </div>
+              Succ <AppIcon name="successivo" /></router-link
+            >
           </div>
-          <h1>{{ socio.cognome }} {{ socio.nome }}</h1>
-        </div>
+        </template>
+        <template #actions>
+          <div class="header-actions">
+            <!-- Quick Renew Button -->
+            <button
+              v-if="quickRenewTargetYear"
+              @click="payYear(quickRenewTargetYear)"
+              class="quick-renew-button"
+            >
+              <AppIcon name="pagamento" /> Paga {{ quickRenewTargetYear }}
+            </button>
 
-        <div class="header-actions">
-          <!-- Quick Renew Button -->
-          <button
-            v-if="quickRenewTargetYear"
-            @click="payYear(quickRenewTargetYear)"
-            class="quick-renew-button"
-          >
-            <AppIcon name="pagamento" /> Paga {{ quickRenewTargetYear }}
-          </button>
-
-          <button @click="exportSocio" class="export-button">
-            <AppIcon name="esporta" /> Export
-          </button>
-          <button
-            @click="toggleEditMode"
-            :disabled="isSaving"
-            class="edit-button"
-            title="Modifica rapida in questa pagina"
-          >
-            <AppIcon
-              :name="isSaving ? 'caricamento' : editMode ? 'conferma' : 'modifica'"
-              :spin="isSaving"
-            />
-            {{ isSaving ? 'Salvataggio...' : editMode ? 'Salva' : 'Modifica' }}
-          </button>
-          <button
-            @click="showDeleteModal"
-            class="delete-socio-button"
-            :disabled="isDeleting"
-            title="Elimina socio"
-            aria-label="Elimina socio"
-          >
-            <AppIcon name="elimina" />
-          </button>
-        </div>
-      </div>
+            <button @click="exportSocio" class="export-button">
+              <AppIcon name="esporta" /> Export
+            </button>
+            <button
+              @click="toggleEditMode"
+              :disabled="isSaving"
+              class="edit-button"
+              title="Modifica rapida in questa pagina"
+            >
+              <AppIcon
+                :name="isSaving ? 'caricamento' : editMode ? 'conferma' : 'modifica'"
+                :spin="isSaving"
+              />
+              {{ isSaving ? 'Salvataggio...' : editMode ? 'Salva' : 'Modifica' }}
+            </button>
+            <button
+              @click="showDeleteModal"
+              class="delete-socio-button"
+              :disabled="isDeleting"
+              title="Elimina socio"
+              aria-label="Elimina socio"
+            >
+              <AppIcon name="elimina" />
+            </button>
+          </div>
+        </template>
+      </PageHeader>
 
       <!-- Sezione Dati Anagrafici -->
       <section class="info-section">
@@ -283,6 +277,7 @@ import {
 import AddPaymentModal from '@/components/AddPaymentModal.vue'
 import ConfirmDeleteModal from '@/components/ConfirmDeleteModal.vue'
 import AppIcon from '@/components/base/AppIcon.vue'
+import PageHeader from '@/components/base/PageHeader.vue'
 
 const route = useRoute()
 
@@ -849,7 +844,7 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .socio-detail {
-  max-width: 1000px;
+  max-width: var(--page-width);
   margin: 0 auto;
   padding: 2rem;
 }
@@ -891,30 +886,6 @@ onBeforeUnmount(() => {
   margin-top: 1rem;
 }
 
-/* Header */
-.detail-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 2rem;
-  padding-bottom: 1rem;
-  border-bottom: 3px solid var(--color-accent);
-  flex-wrap: wrap;
-  gap: 1rem;
-}
-
-.header-left {
-  display: flex;
-  flex-direction: column;
-}
-
-.nav-row {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin-bottom: 0.5rem;
-}
-
 .nav-buttons {
   display: flex;
   gap: 4px;
@@ -936,26 +907,6 @@ onBeforeUnmount(() => {
   background: var(--color-primary);
   color: white;
   border-color: var(--color-primary);
-}
-
-.back-link {
-  display: inline-block;
-  color: var(--color-text-secondary);
-  text-decoration: none;
-  font-weight: 500;
-  transition: color 0.2s;
-  font-size: 0.9rem;
-}
-
-.back-link:hover {
-  color: var(--color-accent);
-}
-
-.detail-header h1 {
-  margin: 0;
-  font-size: 2rem;
-  color: var(--color-primary);
-  line-height: 1.2;
 }
 
 .header-actions {
@@ -1352,11 +1303,6 @@ onBeforeUnmount(() => {
 @media (max-width: 768px) {
   .socio-detail {
     padding: 1rem;
-  }
-
-  .detail-header {
-    flex-direction: column;
-    gap: 1rem;
   }
 
   .header-actions {

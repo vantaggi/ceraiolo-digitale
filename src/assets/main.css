@@ -52,6 +52,10 @@
   --radius-overlay: 12px; /* modali e pannelli */
   --radius-full: 999px; /* solo controlli a pillola */
 
+  /* Larghezza del contenuto delle pagine (PageHeader e corpo pagina) */
+  --page-width: 1200px;
+  --page-width-form: 800px; /* pagine che sono un solo modulo */
+
   /* Livelli */
   --z-modal: 1000;
 
