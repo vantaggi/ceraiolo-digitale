@@ -140,18 +140,20 @@
             <h3><AppIcon name="dettagli" /> Anteprima Tessera</h3>
             <div class="preview-wrapper">
               <div class="preview-container">
-                <TesseraTemplate
-                  :nome-cognome="previewData.nomeCognome"
-                  :data-nascita="previewData.dataNascita"
-                  :anno="renewalYear || currentYear + 1"
-                  :background-image="cardBackground"
-                />
+                <AnteprimaTessera :socio="previewData" :modello="modelloTessera" />
               </div>
               <div class="preview-inputs">
-                <label>Nome:</label>
-                <input v-model="previewData.nomeCognome" class="small-input" />
-                <label>Data:</label>
-                <input v-model="previewData.dataNascita" type="date" class="small-input" />
+                <label for="anteprima-cognome">Cognome:</label>
+                <input id="anteprima-cognome" v-model="previewData.cognome" class="small-input" />
+                <label for="anteprima-nome">Nome:</label>
+                <input id="anteprima-nome" v-model="previewData.nome" class="small-input" />
+                <label for="anteprima-data">Data di nascita:</label>
+                <input
+                  id="anteprima-data"
+                  v-model="previewData.data_nascita"
+                  type="date"
+                  class="small-input"
+                />
               </div>
             </div>
           </section>
@@ -638,10 +640,10 @@ import {
   getDataAuditStats,
   getVotingEligibleMembers,
   getActiveMembersLast5Years,
-  getSetting,
   getQuotaAuditList,
 } from '@/services/db'
-import TesseraTemplate from '@/components/TesseraTemplate.vue'
+import AnteprimaTessera from '@/components/AnteprimaTessera.vue'
+import { caricaModelloTessera } from '@/services/tessere'
 import { elencoAventiDiritto } from '@/utils/aventiDiritto'
 import AgeCategoryFilter from '@/components/AgeCategoryFilter.vue'
 
@@ -655,7 +657,7 @@ const auditResults = ref(null)
 const auditQuotaResults = ref(null)
 const demographics = ref(null)
 const economicStats = ref(null)
-const cardBackground = ref(null)
+const modelloTessera = ref(null)
 const excludeInactiveMembers = ref(false)
 const sociStats = reactive({
   total: 0,
@@ -668,8 +670,9 @@ const toast = useToast()
 
 // Dati per la preview della tessera
 const previewData = ref({
-  nomeCognome: 'Mario Rossi',
-  dataNascita: '1980-05-15',
+  cognome: 'Rossi',
+  nome: 'Mario',
+  data_nascita: '1980-05-15',
 })
 
 const currentYear = new Date().getFullYear()
@@ -698,7 +701,7 @@ const groupFilters = reactive({
 onMounted(async () => {
   try {
     availableGroups.value = await getUniqueGroups()
-    cardBackground.value = await getSetting('cardBackground')
+    modelloTessera.value = await caricaModelloTessera()
     await updateSociStats()
   } catch (error) {
     console.error('Errore caricamento dati:', error)
@@ -1363,12 +1366,6 @@ const getTabTitle = (tab) => {
       return 'Report'
   }
 }
-
-// Watchers
-watch(renewalYear, (newVal) => {
-  // Update preview data when year changes
-  previewData.value.anno = newVal
-})
 </script>
 
 <style scoped>
@@ -1588,9 +1585,9 @@ watch(renewalYear, (newVal) => {
 }
 
 .preview-container {
-  background: white;
-  border-radius: 8px;
-  padding: 2rem;
+  background: var(--color-surface);
+  border-radius: var(--radius-surface);
+  padding: var(--space-32);
   box-shadow: var(--shadow-sm);
   display: flex;
   justify-content: center;

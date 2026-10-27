@@ -223,9 +223,28 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 
 ---
 
-## ✅ Test 11: Report PDF › Report su misura
+## ✅ Test 11: Tessere
 
-### Test 11.1: Pannello e anteprima
+### Test 11.1: Sfondo e anteprima (Impostazioni › Template Tessera)
+
+- [ ] Carica lo sfondo vero (foto JPG/PNG o PDF): l'anteprima lo mostra subito, con la scritta "non ancora salvato"
+- [ ] Con una foto compare la risoluzione in dpi; sotto 250 dpi compare l'avviso "potrebbe sembrare sgranata"
+- [ ] "Salva sfondo", poi ricarica la pagina: l'anteprima mostra ancora lo sfondo salvato
+- [ ] In "Prova con un altro nome" scrivi un nome lungo (es. due cognomi e due nomi): l'anteprima va a capo come il PDF
+- [ ] "Rimuovi sfondo" chiede conferma; dopo, l'anteprima dice "Nessuno sfondo caricato"
+
+### Test 11.2: Il file e' uguale all'anteprima
+
+- [ ] Home: cerca un socio, "Genera Tessera", apri il PDF: nome, data, a capo e posizione sono quelli dell'anteprima con lo stesso nome
+- [ ] Report PDF › Rinnovi: "Genera Tessere" scarica un PDF con una pagina per socio, in ordine di cognome
+- [ ] Il PDF di tutte le tessere pesa piu' o meno quanto lo sfondo (non lo sfondo moltiplicato per il numero di soci)
+- [ ] Stampa una pagina di prova su carta: misure e margini vanno bene per la tipografia
+
+**Risultato atteso**: quello che si vede nell'anteprima e' esattamente la pagina del PDF che va in stampa
+
+## ✅ Test 12: Report PDF › Report su misura
+
+### Test 12.1: Pannello e anteprima
 
 - [ ] A sinistra il pannello con Anno di riferimento, Soci, Pagamenti, Elezioni e, sotto "Impaginazione", Colonne e Titolo e ordine; a destra l'anteprima con il numero di soci
 - [ ] Ogni sezione si apre e si chiude dal titolo (anche con Tab e Invio); chiusa, mostra quanti filtri ha attivi
@@ -233,13 +252,13 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 - [ ] Cambiando l'anno di riferimento cambiano età, "Quota anno", diritto di voto e arretrati (un ragazzo nato 18 anni prima e' maggiorenne per tutto l'anno)
 - [ ] Con filtri che non trovano nessuno compare il messaggio vuoto e "Genera PDF" e' spento
 
-### Test 11.2: PDF uguale all'anteprima
+### Test 12.2: PDF uguale all'anteprima
 
 - [ ] Riordinate le colonne con le frecce, il PDF ha le stesse colonne nello stesso ordine dell'anteprima; gli anni dopo le colonne del socio, la firma in fondo
 - [ ] Titolo scritto a mano: e' il titolo del PDF; vuoto, il PDF usa il titolo proposto
 - [ ] Sotto il titolo del PDF c'e' il riassunto: anno, filtri, ordine
 
-### Test 11.3: Configurazioni salvate
+### Test 12.3: Configurazioni salvate
 
 - [ ] Una configurazione salvata prima di questo cambio si carica ancora (l'anno viene dalla vecchia data delle elezioni)
 - [ ] Salva, ricarica la pagina, scegli la configurazione: filtri e colonne tornano; il cestino chiede conferma e la toglie

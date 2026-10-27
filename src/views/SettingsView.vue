@@ -118,61 +118,88 @@
         <!-- Tab: Template -->
         <section v-if="currentTab === 'template'" class="settings-section">
           <h2><AppIcon name="tessera" /> Template Tessera</h2>
-          <p>Personalizza l'aspetto delle tessere di iscrizione</p>
+          <p>
+            Lo sfondo su cui vengono scritti nome e data di nascita. L'anteprima e' la pagina del
+            PDF vero, generata come quella che va in stampa.
+          </p>
 
           <div class="template-section">
             <!-- Anteprima Tessera -->
             <div class="preview-section">
-              <h3>Anteprima Tessera</h3>
+              <h3>
+                {{
+                  modelloScelto ? 'Anteprima del file scelto (non ancora salvato)' : 'Anteprima tessera'
+                }}
+              </h3>
               <div class="card-preview">
-                <TesseraTemplate
-                  nome-cognome="Mario Rossi"
-                  data-nascita="1980-05-15"
-                  :anno="currentYear + 1"
-                  :background-image="previewBackground"
-                  :has-pdf-template="hasPdfTemplate"
-                />
+                <AnteprimaTessera :socio="socioProva" :modello="modelloScelto || modelloSalvato" />
+              </div>
+              <div class="prova-nome">
+                <label for="prova-cognome">Prova con un altro nome:</label>
+                <div class="prova-campi">
+                  <input
+                    id="prova-cognome"
+                    v-model="socioProva.cognome"
+                    placeholder="Cognome"
+                    aria-label="Cognome di prova"
+                  />
+                  <input v-model="socioProva.nome" placeholder="Nome" aria-label="Nome di prova" />
+                  <input
+                    v-model="socioProva.data_nascita"
+                    type="date"
+                    aria-label="Data di nascita di prova"
+                  />
+                </div>
               </div>
             </div>
 
             <!-- Controlli Template -->
             <div class="controls-section">
-              <h3>Impostazioni Template</h3>
+              <h3>Sfondo della tessera</h3>
 
               <div class="control-group">
-                <label for="background-upload">Template PDF Tessera:</label>
+                <label for="background-upload">Carica lo sfondo (foto o PDF):</label>
                 <input
                   id="background-upload"
                   type="file"
-                  accept=".pdf"
-                  @change="handlePDFUpload"
+                  accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                  @change="handleTemplateUpload"
                   :disabled="isSaving"
                 />
                 <small class="help-text">
-                  Carica un file PDF (singola pagina, dimensioni tessera). Max 5MB.
+                  Foto JPG o PNG: riempie la tessera di 80,77 x 122,17 mm, i bordi in eccesso
+                  vengono tagliati. PDF di una pagina: la tessera prende le misure della pagina.
+                  Max 10MB.
                 </small>
               </div>
 
-              <div class="control-group" v-if="selectedPDF">
-                <label>PDF selezionato:</label>
+              <div class="control-group" v-if="fileScelto">
+                <label>File scelto:</label>
                 <div class="pdf-info">
-                  <span class="pdf-name">{{ selectedPDF.name }}</span>
-                  <span class="pdf-size">({{ formatFileSize(selectedPDF.size) }})</span>
+                  <span class="pdf-name">{{ fileScelto.name }}</span>
+                  <span class="pdf-size">({{ formatFileSize(fileScelto.size) }})</span>
+                  <span
+                    v-if="infoScelto"
+                    class="pdf-size"
+                    :class="{ 'avviso-stampa': infoScelto.bassa }"
+                  >
+                    {{ infoScelto.testo }}
+                  </span>
                 </div>
               </div>
 
               <div class="action-buttons">
-                <button
-                  @click="saveTemplate"
-                  :disabled="(!selectedPDF && !selectedImage) || isSaving"
-                  class="save-button"
-                >
+                <button @click="saveTemplate" :disabled="!modelloScelto || isSaving" class="save-button">
                   <AppIcon :name="isSaving ? 'caricamento' : 'salva'" :spin="isSaving" />
-                  {{ isSaving ? 'Salvataggio...' : 'Salva Template' }}
+                  {{ isSaving ? 'Salvataggio...' : 'Salva sfondo' }}
                 </button>
 
-                <button @click="resetTemplate" :disabled="isSaving" class="reset-button">
-                  <AppIcon name="ripristina" /> Ripristina Default
+                <button
+                  @click="resetTemplate"
+                  :disabled="isSaving || (!modelloSalvato && !modelloScelto)"
+                  class="reset-button"
+                >
+                  <AppIcon name="elimina" /> Rimuovi sfondo
                 </button>
               </div>
             </div>
@@ -465,17 +492,25 @@ import {
 import { exportDataToExcel, exportSettingsToJson, importSettingsFromJson } from '@/services/export'
 import { useBackupStore } from '@/stores/backupStore'
 import { backupService } from '@/services/backupService'
-import TesseraTemplate from '@/components/TesseraTemplate.vue'
+import { PDFDocument } from 'pdf-lib'
+import AnteprimaTessera from '@/components/AnteprimaTessera.vue'
+import {
+  caricaModelloTessera,
+  LARGHEZZA_TESSERA_MM,
+  ALTEZZA_TESSERA_MM,
+} from '@/services/tessere'
 import AppIcon from '@/components/base/AppIcon.vue'
 
 const toast = useToast()
 const currentYear = new Date().getFullYear()
 
 // Stato del componente
-const selectedImage = ref(null)
-const selectedPDF = ref(null)
-const previewBackground = ref(null)
-const hasPdfTemplate = ref(false)
+// Sfondo della tessera: quello salvato e quello scelto ma non ancora salvato
+const modelloSalvato = ref(null)
+const modelloScelto = ref(null)
+const fileScelto = ref(null)
+const infoScelto = ref(null)
+const socioProva = ref({ cognome: 'Rossi', nome: 'Mario', data_nascita: '1980-05-15' })
 const isSaving = ref(false)
 const isExporting = ref(false)
 const isSavingBackup = ref(false)
@@ -503,20 +538,7 @@ onMounted(async () => {
   await backupService.initialize()
 
   try {
-    const savedBackground = await getSetting('cardBackground')
-    const savedPdfTemplate = await getSetting('cardTemplatePDF')
-
-    if (savedPdfTemplate) {
-      hasPdfTemplate.value = true
-      // Mostra l'immagine di anteprima se disponibile
-      previewBackground.value = savedBackground
-    } else if (savedBackground) {
-      previewBackground.value = savedBackground
-      hasPdfTemplate.value = false
-    } else {
-      previewBackground.value = null
-      hasPdfTemplate.value = false
-    }
+    modelloSalvato.value = await caricaModelloTessera()
   } catch (error) {
     console.error('Errore caricamento template:', error)
     toast.error('Errore nel caricamento del template attuale')
@@ -625,32 +647,68 @@ const handleRestoreDatabase = async (event) => {
 }
 
 /**
- * Gestisce l'upload del PDF template
+ * Legge il file scelto per lo sfondo, senza salvarlo: l'anteprima lo mostra subito
  */
-
-/**
- * Gestisce l'upload del PDF template
- */
-const handlePDFUpload = (event) => {
+const handleTemplateUpload = async (event) => {
   const file = event.target.files[0]
+  event.target.value = ''
   if (!file) return
 
-  // Controlla il tipo di file
-  if (file.type !== 'application/pdf') {
-    toast.error('Seleziona un file PDF valido')
+  if (file.size > 10 * 1024 * 1024) {
+    toast.error('Il file è troppo grande. Dimensione massima: 10MB')
     return
   }
 
-  // Controlla la dimensione (max 5MB)
-  if (file.size > 5 * 1024 * 1024) {
-    toast.error('Il PDF è troppo grande. Dimensione massima: 5MB')
-    return
+  try {
+    if (file.type === 'application/pdf' || /\.pdf$/i.test(file.name)) {
+      const dati = new Uint8Array(await file.arrayBuffer())
+      // Un PDF illeggibile si scarta subito, non al momento di stampare
+      const pdf = await PDFDocument.load(dati)
+      fileScelto.value = file
+      modelloScelto.value = { tipo: 'pdf', dati }
+      infoScelto.value =
+        pdf.getPageCount() > 1
+          ? { testo: `Il PDF ha ${pdf.getPageCount()} pagine: si usa solo la prima.`, bassa: true }
+          : null
+    } else if (['image/jpeg', 'image/png'].includes(file.type)) {
+      const dati = await leggiComeDataUrl(file)
+      const { width, height } = await misuraImmagine(dati)
+      // Risoluzione che avra' la foto stampata sulla tessera
+      const dpi = Math.round(
+        Math.min(width / LARGHEZZA_TESSERA_MM, height / ALTEZZA_TESSERA_MM) * 25.4,
+      )
+      fileScelto.value = file
+      modelloScelto.value = { tipo: 'immagine', dati }
+      infoScelto.value = {
+        testo:
+          `${width} x ${height} pixel, circa ${dpi} dpi sulla tessera` +
+          (dpi < 250 ? ': in stampa potrebbe sembrare sgranata.' : '.'),
+        bassa: dpi < 250,
+      }
+    } else {
+      toast.error('Scegli una foto JPG o PNG oppure un PDF')
+    }
+  } catch (error) {
+    console.error('File sfondo non leggibile:', error)
+    toast.error('Il file non si riesce a leggere. Prova a esportarlo di nuovo.')
   }
-
-  selectedPDF.value = file
-  selectedImage.value = null // Reset immagine se presente
-  toast.success('PDF caricato con successo!')
 }
+
+const leggiComeDataUrl = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result)
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(file)
+  })
+
+const misuraImmagine = (src) =>
+  new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight })
+    img.onerror = () => reject(new Error('Immagine non leggibile'))
+    img.src = src
+  })
 
 /**
  * Formatta la dimensione del file in formato leggibile
@@ -664,136 +722,64 @@ const formatFileSize = (bytes) => {
 }
 
 /**
- * Crea un'immagine di anteprima dal PDF
- */
-const createPDFPreview = async (pdfFile) => {
-  return new Promise((resolve, reject) => {
-    try {
-      // Crea un iframe nascosto per renderizzare il PDF
-      const iframe = document.createElement('iframe')
-      iframe.style.display = 'none'
-      iframe.style.width = '80.77mm'
-      iframe.style.height = '122.17mm'
-
-      // Converti il file in URL blob
-      const pdfUrl = URL.createObjectURL(pdfFile)
-
-      iframe.onload = () => {
-        // Aspetta un po' per il rendering
-        setTimeout(() => {
-          try {
-            // Crea un canvas per catturare l'immagine
-            const canvas = document.createElement('canvas')
-            canvas.width = 227 // 80.77mm a 72 DPI
-            canvas.height = 345 // 122.17mm a 72 DPI
-            const ctx = canvas.getContext('2d')
-
-            // Disegna uno sfondo bianco
-            ctx.fillStyle = 'white'
-            ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-            // Aggiungi testo placeholder
-            ctx.fillStyle = '#666'
-            ctx.font = '16px Arial'
-            ctx.textAlign = 'center'
-            ctx.fillText('PDF Template', canvas.width / 2, canvas.height / 2 - 20)
-            ctx.fillText('Anteprima', canvas.width / 2, canvas.height / 2 + 20)
-
-            // Converti in immagine
-            const imageData = canvas.toDataURL('image/png')
-
-            // Pulisci
-            document.body.removeChild(iframe)
-            URL.revokeObjectURL(pdfUrl)
-
-            resolve(imageData)
-          } catch (error) {
-            reject(error)
-          }
-        }, 1000)
-      }
-
-      iframe.onerror = () => {
-        document.body.removeChild(iframe)
-        URL.revokeObjectURL(pdfUrl)
-        reject(new Error('Errore caricamento PDF'))
-      }
-
-      iframe.src = pdfUrl
-      document.body.appendChild(iframe)
-    } catch (error) {
-      reject(error)
-    }
-  })
-}
-
-/**
- * Salva il template nel database
+ * Salva lo sfondo scelto: o un PDF o una foto, mai tutti e due
  */
 const saveTemplate = async () => {
-  if (!selectedPDF.value && !selectedImage.value) return
+  if (!modelloScelto.value) return
 
   try {
     isSaving.value = true
-    toast.info('Salvataggio template in corso...')
-
-    if (selectedPDF.value) {
-      // Converti il PDF in ArrayBuffer per salvarlo
-      const arrayBuffer = await selectedPDF.value.arrayBuffer()
-      const uint8Array = new Uint8Array(arrayBuffer)
-
-      // Salva il PDF template
-      await updateSetting('cardTemplatePDF', Array.from(uint8Array))
-
-      // Crea anche un'immagine di anteprima dal PDF
-      try {
-        const previewImage = await createPDFPreview(selectedPDF.value)
-        await updateSetting('cardBackground', previewImage)
-        previewBackground.value = previewImage
-      } catch (previewError) {
-        console.warn('Errore creazione anteprima PDF:', previewError)
-        // Se fallisce l'anteprima, almeno salva il PDF
-        await updateSetting('cardBackground', null)
-        previewBackground.value = null
-      }
-    } else if (selectedImage.value) {
-      // Salva immagine come prima (per retrocompatibilità)
-      await updateSetting('cardBackground', selectedImage.value)
-      await updateSetting('cardTemplatePDF', null) // Rimuovi PDF se presente
-      previewBackground.value = selectedImage.value
+    const { tipo, dati } = modelloScelto.value
+    if (tipo === 'pdf') {
+      await updateSetting('cardTemplatePDF', Array.from(dati))
+      await updateSetting('cardBackground', null)
+    } else {
+      await updateSetting('cardBackground', dati)
+      await updateSetting('cardTemplatePDF', null)
     }
-
-    toast.success('Template salvato con successo!')
-    selectedPDF.value = null
-    selectedImage.value = null
+    modelloSalvato.value = await caricaModelloTessera()
+    modelloScelto.value = null
+    fileScelto.value = null
+    infoScelto.value = null
+    toast.success('Sfondo della tessera salvato')
   } catch (error) {
     console.error('Errore salvataggio template:', error)
-    toast.error('Errore durante il salvataggio del template')
+    toast.error('Errore durante il salvataggio dello sfondo')
   } finally {
     isSaving.value = false
   }
 }
 
 /**
- * Ripristina il template di default
+ * Rimuove lo sfondo: senza, le tessere non si possono generare
  */
 const resetTemplate = async () => {
+  if (modelloScelto.value) {
+    // Il file scelto non e' ancora salvato: basta scartarlo
+    modelloScelto.value = null
+    fileScelto.value = null
+    infoScelto.value = null
+    return
+  }
+  const conferma = await askConfirm({
+    title: 'Rimuovere lo sfondo della tessera?',
+    message: 'Senza sfondo le tessere non si possono generare finché non ne carichi un altro.',
+    confirmLabel: 'Rimuovi sfondo',
+    danger: true,
+  })
+  if (!conferma) return
+
   try {
     isSaving.value = true
-    toast.info('Ripristino template di default...')
-
     await updateSetting('cardBackground', null)
     await updateSetting('cardTemplatePDF', null)
     await updateSetting('cardWidth', null)
     await updateSetting('cardHeight', null)
-    previewBackground.value = null
-    selectedImage.value = null
-    selectedPDF.value = null
-
-    toast.success('Template ripristinato al default!')
+    modelloSalvato.value = null
+    toast.success('Sfondo rimosso')
   } catch (error) {
     console.error('Errore ripristino template:', error)
-    toast.error('Errore durante il ripristino del template')
+    toast.error('Errore durante la rimozione dello sfondo')
   } finally {
     isSaving.value = false
   }
@@ -1264,12 +1250,43 @@ const saveZoneRename = async (oldName) => {
 }
 
 .card-preview {
-  background: white;
-  border-radius: 8px;
-  padding: 2rem;
+  background: var(--color-surface);
+  border-radius: var(--radius-surface);
+  padding: var(--space-32);
   box-shadow: var(--shadow-sm);
   display: flex;
   justify-content: center;
+}
+
+.prova-nome {
+  margin-top: var(--space-16);
+}
+
+.prova-nome label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: var(--space-8);
+}
+
+.prova-campi {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: var(--space-8);
+}
+
+.prova-campi input {
+  min-width: 0;
+  padding: var(--space-8);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-input-bg);
+  color: var(--color-text-primary);
+  font: inherit;
+}
+
+.avviso-stampa {
+  color: var(--color-warning);
+  font-weight: 600;
 }
 
 .control-group {
