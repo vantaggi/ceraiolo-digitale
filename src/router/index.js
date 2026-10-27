@@ -7,6 +7,7 @@ import BatchEntryView from '../views/BatchEntryView.vue'
 import ReportsView from '../views/ReportsView.vue'
 import SettingsView from '../views/SettingsView.vue'
 import { isDatabaseEmpty } from '@/services/db'
+import { VECCHIE_SCHEDE } from './sezioni'
 
 const router = createRouter({
   history: createWebHashHistory(import.meta.env.BASE_URL),
@@ -83,10 +84,20 @@ const router = createRouter({
       path: '/settings',
       name: 'settings',
       component: SettingsView,
+      props: { scheda: 'generale' },
       meta: {
         title: 'Impostazioni - Ceraiolo Digitale',
       },
+      // I vecchi link /settings?tab=dati portano alla scheda nuova
+      beforeEnter: (to) => (VECCHIE_SCHEDE[to.query.tab] ? { path: VECCHIE_SCHEDE[to.query.tab] } : true),
     },
+    ...['tessera', 'manicchie', 'dati'].map((scheda) => ({
+      path: `/settings/${scheda}`,
+      name: `settings-${scheda}`,
+      component: SettingsView,
+      props: { scheda },
+      meta: { title: 'Impostazioni - Ceraiolo Digitale' },
+    })),
     // Indirizzi di prima del menu attuale: restano validi
     { path: '/registrazione-seriale', redirect: '/incassi/ricevute' },
     { path: '/blocchetti', redirect: '/incassi/blocchetti' },

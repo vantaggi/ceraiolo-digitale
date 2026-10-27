@@ -1,47 +1,14 @@
 <template>
   <div class="settings-view">
-    <div class="container settings-layout">
-      <!-- Sidebar Navigation -->
-      <aside class="settings-sidebar">
-        <h1 class="sidebar-title"><AppIcon name="impostazioni" /> Impostazioni</h1>
-        <nav class="settings-nav">
-          <button
-            @click="currentTab = 'generale'"
-            :class="{ active: currentTab === 'generale' }"
-            class="nav-item"
-          >
-            <AppIcon name="ripara" /> Generale
-          </button>
-          <button
-            @click="currentTab = 'template'"
-            :class="{ active: currentTab === 'template' }"
-            class="nav-item"
-          >
-            <AppIcon name="tessera" /> Template Tessera
-          </button>
-          <button
-            @click="currentTab = 'dati'"
-            :class="{ active: currentTab === 'dati' }"
-            class="nav-item"
-          >
-            <AppIcon name="salva" /> Dati & Backup
-          </button>
-          <button
-            @click="currentTab = 'zone'"
-            :class="{ active: currentTab === 'zone' }"
-            class="nav-item"
-          >
-            <AppIcon name="gruppo" /> Gestione Zone
-          </button>
-        </nav>
-      </aside>
+    <div class="container">
+      <PageHeader title="Impostazioni" />
+      <SectionTabs :tabs="SCHEDE_IMPOSTAZIONI" label="Schede delle impostazioni" />
 
-      <!-- Main Content Area -->
-      <main class="settings-content">
+      <div class="settings-content">
         <!-- Tab: Generale -->
-        <section v-if="currentTab === 'generale'" class="settings-section">
-          <h2><AppIcon name="ripara" /> Configurazione Applicazione</h2>
-          <p>Parametri globali per il funzionamento dell'applicazione</p>
+        <section v-if="scheda === 'generale'" class="settings-section">
+          <h2><AppIcon name="configurazione" /> Generale</h2>
+          <p>Valori proposti quando si inseriscono soci e pagamenti.</p>
 
           <div class="config-grid">
             <!-- Nuovi Parametri -->
@@ -79,7 +46,12 @@
                 min="1"
                 max="100"
                 class="form-input"
+                aria-describedby="receipts-per-block-aiuto"
               />
+              <small id="receipts-per-block-aiuto" class="help-text">
+                I numeri delle ricevute sono progressivi: con 10, il blocchetto 1 va da 1 a 10 e il 2
+                da 11 a 20. Lo usa Incassi › Registra ricevute.
+              </small>
             </div>
 
             <div class="control-group">
@@ -116,8 +88,8 @@
         </section>
 
         <!-- Tab: Template -->
-        <section v-if="currentTab === 'template'" class="settings-section">
-          <h2><AppIcon name="tessera" /> Template Tessera</h2>
+        <section v-if="scheda === 'tessera'" class="settings-section">
+          <h2><AppIcon name="tessera" /> Sfondo della tessera</h2>
           <p>
             Lo sfondo su cui vengono scritti nome e data di nascita. L'anteprima e' la pagina del
             PDF vero, generata come quella che va in stampa.
@@ -206,48 +178,23 @@
           </div>
         </section>
 
-        <section v-if="currentTab === 'dati'" class="settings-section">
-          <h2><AppIcon name="salva" /> Gestione Dati & Backup</h2>
-
-          <!-- Health Status -->
-          <div class="data-health-banner" v-if="auditStats">
-            <div
-              class="health-indicator"
-              :class="{
-                good: auditStats.summary.total_issues === 0,
-                warning: auditStats.summary.total_issues > 0,
-              }"
-            >
-              <AppIcon
-                class="health-icon"
-                :name="auditStats.summary.total_issues === 0 ? 'ok' : 'attenzione'"
-              />
-              <div class="health-text">
-                <h3>Stato Salute Dati</h3>
-                <p v-if="auditStats.summary.total_issues === 0">Tutti i dati sono corretti.</p>
-                <p v-else>
-                  Rilevati <strong>{{ auditStats.summary.total_issues }}</strong> problemi
-                  potenziali (dati mancanti).
-                </p>
-              </div>
-            </div>
-          </div>
+        <section v-if="scheda === 'dati'" class="settings-section">
+          <h2><AppIcon name="salva" /> Dati e backup</h2>
+          <p>Dall'alto in basso: copie di sicurezza, esportazioni, ripristino, controllo dei dati. Le operazioni che cancellano dati stanno in fondo.</p>
 
           <!-- Sezione Backup Automatico -->
           <div class="subsection">
-            <h3><AppIcon name="automatico" /> Backup Automatico su PC</h3>
+            <h3><AppIcon name="automatico" /> Backup</h3>
             <div class="backup-grid">
               <div class="backup-card">
                 <h4><AppIcon name="cartella" /> Cartella di Backup</h4>
                 <p class="path-text">{{ backupStore.backupPath }}</p>
-                <button
-                  @click="selectBackupFolder"
-                  class="action-button small"
-                  :class="{ 'btn-success': backupStore.isAuthorized }"
+                <BaseButton
                   :disabled="!isFileSystemSupported"
                   :title="
                     !isFileSystemSupported ? 'Il tuo browser non supporta questa funzionalità' : ''
                   "
+                  @click="selectBackupFolder"
                 >
                   <AppIcon
                     :name="
@@ -261,7 +208,7 @@
                         ? 'Cambia Cartella'
                         : 'Seleziona Cartella'
                   }}
-                </button>
+                </BaseButton>
               </div>
 
               <div class="backup-card">
@@ -281,24 +228,10 @@
               <div class="backup-card highlight">
                 <h4><AppIcon name="salva" /> Backup Manuale</h4>
                 <p>Crea subito una copia.</p>
-                <button
-                  @click="forceBackup"
-                  :disabled="isSavingBackup"
-                  class="manual-backup-button"
-                  :class="{ 'btn-loading': isSavingBackup }"
-                >
-                  <AppIcon
-                    :name="isSavingBackup ? 'caricamento' : backupStore.isAuthorized ? 'salva' : 'esporta'"
-                    :spin="isSavingBackup"
-                  />
-                  {{
-                    isSavingBackup
-                      ? 'In corso...'
-                      : backupStore.isAuthorized
-                        ? 'Esegui Backup Ora'
-                        : 'Scarica Backup'
-                  }}
-                </button>
+                <BaseButton variant="primary" :loading="isSavingBackup" @click="forceBackup">
+                  <AppIcon :name="backupStore.isAuthorized ? 'salva' : 'esporta'" />
+                  {{ backupStore.isAuthorized ? 'Esegui Backup Ora' : 'Scarica Backup' }}
+                </BaseButton>
               </div>
             </div>
           </div>
@@ -307,65 +240,75 @@
 
           <!-- Sezione Export/Import -->
           <div class="subsection">
-            <h3><AppIcon name="archivio" /> Esportazione & Ripristino</h3>
+            <h3><AppIcon name="archivio" /> Esporta</h3>
             <div class="data-section">
               <div class="export-options">
                 <div class="export-option">
                   <h4><AppIcon name="esporta" /> Esporta Database Completo</h4>
                   <p>File .sqlite per migrazione o backup manuale (include Impostazioni).</p>
-                  <button @click="exportDatabase" :disabled="isExporting" class="export-button">
-                    {{ isExporting ? 'Esportazione...' : 'Scarica SQLite' }}
-                  </button>
+                  <BaseButton :disabled="isExporting" @click="exportDatabase">
+                    <AppIcon name="esporta" /> Scarica SQLite
+                  </BaseButton>
                 </div>
 
                 <div class="export-option">
                   <h4><AppIcon name="foglio-calcolo" /> Esporta Excel</h4>
                   <p>Tabelle per Maggiorenni e Minorenni.</p>
-                  <button @click="exportExcel" :disabled="isExporting" class="export-button">
-                    {{ isExporting ? 'Esportazione...' : 'Scarica Excel' }}
-                  </button>
+                  <BaseButton :disabled="isExporting" @click="exportExcel">
+                    <AppIcon name="esporta" /> Scarica Excel
+                  </BaseButton>
                 </div>
 
                 <div class="export-option">
                   <h4><AppIcon name="changelog" /> Registro modifiche</h4>
                   <p>Le modifiche fatte da questo browser, da allegare quando si passano i dati.</p>
-                  <button @click="exportChangeLogData" :disabled="isExporting" class="export-button">
-                    Scarica registro
-                  </button>
+                  <BaseButton :disabled="isExporting" @click="exportChangeLogData">
+                    <AppIcon name="esporta" /> Scarica registro
+                  </BaseButton>
                 </div>
 
                 <div class="export-option">
                   <h4><AppIcon name="configurazione" /> Configurazione JSON</h4>
                   <p>Export/Import solo impostazioni.</p>
                   <div class="button-group-small">
-                    <button @click="exportSettings" :disabled="isExporting" class="action-button">
-                      Esporta JSON
-                    </button>
-                    <label class="action-button secondary clickable">
+                    <BaseButton :disabled="isExporting" @click="exportSettings">
+                      <AppIcon name="esporta" /> Esporta JSON
+                    </BaseButton>
+                    <label class="file-button">
                       Importa JSON
                       <input
                         type="file"
                         accept=".json"
                         @change="handleImportSettings"
-                        style="display: none"
+                        class="file-button__input"
                         :disabled="isExporting"
                       />
                     </label>
                   </div>
                 </div>
 
-                <div class="export-option danger">
-                  <h4><AppIcon name="ripristina" /> Ripristina Database</h4>
-                  <p>Carica un backup .sqlite (Sovrascrive tutto!).</p>
-                  <input
-                    type="file"
-                    accept=".sqlite,.db"
-                    @change="handleRestoreDatabase"
-                    :disabled="isExporting"
-                    class="file-input-compact"
-                  />
-                </div>
               </div>
+            </div>
+          </div>
+
+          <hr class="divider" />
+
+          <div class="subsection">
+            <h3><AppIcon name="ripristina" /> Ripristina da un file</h3>
+            <div class="restore-card">
+              <p>
+                Carica un backup <code>.sqlite</code>: <strong>sostituisce tutti i dati</strong> di
+                questo browser con quelli del file. Prima chiede conferma.
+              </p>
+              <label for="restore-file" class="restore-label">Scegli il file di backup</label>
+              <input
+                id="restore-file"
+                type="file"
+                accept=".sqlite,.db"
+                @change="handleRestoreDatabase"
+                :disabled="isExporting"
+                class="file-input-compact"
+              />
             </div>
           </div>
 
@@ -380,16 +323,17 @@
 
           <!-- DANGER ZONE -->
           <div class="subsection danger-zone">
-            <h3><AppIcon name="pericolo" /> Zona Pericolosa</h3>
+            <h3><AppIcon name="pericolo" /> Zona pericolosa</h3>
+            <p class="danger-intro">Operazioni che modificano o cancellano i dati di tutti i soci. Fai prima un backup.</p>
             <div class="danger-card">
               <h4><AppIcon name="ripara" /> Correggi blocchetti e ricevute invertiti</h4>
               <p>
                 Corregge i numeri di blocchetto e ricevuta scambiati nei dati storici (vecchio
                 errore di importazione).
               </p>
-              <button @click="runNormalization" :disabled="isExporting" class="action-button secondary">
+              <BaseButton :disabled="isExporting" @click="runNormalization">
                 <AppIcon name="ripara" /> Correggi
-              </button>
+              </BaseButton>
             </div>
             <div class="danger-card">
               <h4><AppIcon name="ripristina" /> Ripristino Impostazioni di Fabbrica</h4>
@@ -397,89 +341,94 @@
                 Cancella TUTTI i dati (Soci, Pagamenti, Impostazioni) e riporta l'applicazione allo
                 stato iniziale.
               </p>
-              <button
-                @click="confirmFactoryReset"
-                :disabled="isExporting"
-                class="danger-button-large"
-              >
-                <AppIcon name="elimina" /> CANCELLA TUTTO E RIPRISTINA
-              </button>
+              <BaseButton variant="danger" :disabled="isExporting" @click="confirmFactoryReset">
+                <AppIcon name="elimina" /> Cancella tutto e ripristina
+              </BaseButton>
             </div>
           </div>
         </section>
 
-        <!-- Tab: Zone (Gestione Manicchie) -->
-        <section v-if="currentTab === 'zone'" class="settings-section">
-          <h2><AppIcon name="gruppo" /> Gestione Zone (Gruppi)</h2>
+        <!-- Tab: Manicchie -->
+        <section v-if="scheda === 'manicchie'" class="settings-section">
+          <h2><AppIcon name="gruppo" /> Manicchie</h2>
           <p>
-            Gestisci le zone di appartenenza. Puoi rinominare zone esistenti (aggiornando tutti i soci)
-            o aggiungerne di nuove per averle pronte nel menu a tendina.
+            Le manicchie dei soci. Rinominandone una si aggiornano tutti i suoi soci; quelle aggiunte
+            qui compaiono subito nei menu, anche prima di avere soci.
           </p>
 
-          <div class="zone-actions">
-            <div class="add-zone-form">
-              <input
-                v-model="newZoneName"
-                placeholder="Nome nuova zona..."
-                class="form-input"
-                @keyup.enter="addNewZone"
-              />
-              <button @click="addNewZone" :disabled="!newZoneName.trim()" class="save-button">
-                <AppIcon name="aggiungi" /> Aggiungi
-              </button>
-            </div>
-          </div>
+          <form class="add-zone-form" @submit.prevent="addNewZone">
+            <label for="nuova-manicchia" class="sr-only">Nome della nuova manicchia</label>
+            <input
+              id="nuova-manicchia"
+              v-model="newZoneName"
+              type="text"
+              placeholder="Nome della nuova manicchia"
+              class="form-input"
+            />
+            <BaseButton type="submit" variant="primary" :disabled="!newZoneName.trim()">
+              <AppIcon name="aggiungi" /> Aggiungi
+            </BaseButton>
+          </form>
 
-          <div class="zones-list-container">
-            <div v-if="isLoadingZones" class="loading-spinner-large">
-              <AppIcon name="caricamento" spin /> Caricamento...
-            </div>
-            <div v-else-if="zones.length === 0" class="empty-state">Nessuna zona definita.</div>
-            <ul v-else class="zones-list">
-              <li v-for="zone in zones" :key="zone" class="zone-item">
-                <div class="zone-info">
-                  <span v-if="editingZone !== zone" class="zone-name">{{ zone }}</span>
-                  <input
-                    v-else
-                    v-model="editingZoneName"
-                    class="form-input edit-input"
-                    @keyup.enter="saveZoneRename(zone)"
-                    @keyup.esc="cancelRename"
-                    ref="editInput"
-                  />
-                </div>
+          <p v-if="isLoadingZones" class="empty-state">
+            <AppIcon name="caricamento" spin /> Caricamento...
+          </p>
+          <p v-else-if="zones.length === 0" class="empty-state">Nessuna manicchia definita.</p>
+          <ul v-else class="zones-list">
+            <li v-for="zone in zones" :key="zone" class="zone-item">
+              <span v-if="editingZone !== zone" class="zone-name">{{ zone }}</span>
+              <template v-else>
+                <label :for="`rinomina-${zone}`" class="sr-only">Nuovo nome di {{ zone }}</label>
+                <input
+                  :id="`rinomina-${zone}`"
+                  v-model="editingZoneName"
+                  type="text"
+                  class="form-input edit-input"
+                  @keyup.enter="saveZoneRename(zone)"
+                  @keyup.esc="cancelRename"
+                  ref="editInput"
+                />
+              </template>
 
-                <div class="zone-buttons">
-                  <template v-if="editingZone !== zone">
-                    <button @click="startRename(zone)" class="action-button small secondary" title="Rinomina" aria-label="Rinomina zona">
-                      <AppIcon name="modifica" />
-                    </button>
-                    <!-- Delete button just removes from defined list, doesn't delete users -->
-                    <button @click="deleteZone(zone)" class="action-button small danger" title="Rimuovi dalla lista (non cancella i soci)" aria-label="Rimuovi zona dalla lista">
-                      <AppIcon name="elimina" />
-                    </button>
-                  </template>
-                  <template v-else>
-                     <button @click="saveZoneRename(zone)" class="action-button small success" title="Salva" aria-label="Salva nome zona">
-                      <AppIcon name="salva" />
-                    </button>
-                    <button @click="cancelRename" class="action-button small secondary" title="Annulla" aria-label="Annulla rinomina">
-                      <AppIcon name="chiudi" />
-                    </button>
-                  </template>
-                </div>
-              </li>
-            </ul>
-          </div>
+              <div class="zone-buttons">
+                <template v-if="editingZone !== zone">
+                  <button
+                    type="button"
+                    class="icona-btn"
+                    title="Rinomina"
+                    :aria-label="`Rinomina ${zone}`"
+                    @click="startRename(zone)"
+                  >
+                    <AppIcon name="modifica" />
+                  </button>
+                  <!-- Toglie solo dalla lista delle manicchie definite: i soci restano -->
+                  <button
+                    type="button"
+                    class="icona-btn icona-btn--pericolo"
+                    title="Rimuovi dalla lista (i soci restano)"
+                    :aria-label="`Rimuovi ${zone} dalla lista`"
+                    @click="deleteZone(zone)"
+                  >
+                    <AppIcon name="elimina" />
+                  </button>
+                </template>
+                <template v-else>
+                  <BaseButton variant="primary" @click="saveZoneRename(zone)">
+                    <AppIcon name="salva" /> Salva
+                  </BaseButton>
+                  <BaseButton variant="ghost" @click="cancelRename">Annulla</BaseButton>
+                </template>
+              </div>
+            </li>
+          </ul>
         </section>
-      </main>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref, onMounted, watch } from 'vue'
 import { useToast } from 'vue-toastification'
 import { askConfirm } from '@/composables/useDialog'
 import {
@@ -507,6 +456,10 @@ import {
   ALTEZZA_TESSERA_MM,
 } from '@/services/tessere'
 import AppIcon from '@/components/base/AppIcon.vue'
+import BaseButton from '@/components/base/BaseButton.vue'
+import PageHeader from '@/components/base/PageHeader.vue'
+import SectionTabs from '@/components/base/SectionTabs.vue'
+import { SCHEDE_IMPOSTAZIONI } from '@/router/sezioni'
 import ControlloQualitaDati from '@/components/ControlloQualitaDati.vue'
 
 const toast = useToast()
@@ -524,10 +477,10 @@ const isExporting = ref(false)
 const isSavingBackup = ref(false)
 
 const isSavingConfig = ref(false)
-// ?tab=dati apre direttamente una scheda (es. dal pulsante "Backup automatico spento")
-const SCHEDE = ['generale', 'template', 'dati', 'zone']
-const route = useRoute()
-const currentTab = ref(SCHEDE.includes(route.query.tab) ? route.query.tab : 'generale')
+// La scheda arriva dall'indirizzo (/settings, /settings/tessera, /settings/dati, ...)
+const props = defineProps({
+  scheda: { type: String, default: 'generale' },
+})
 const isFileSystemSupported = ref(typeof window.showDirectoryPicker === 'function')
 
 const appConfig = ref({
@@ -800,7 +753,6 @@ const exportDatabase = async () => {
   try {
     // 1. Health Check
     const health = await getDataAuditStats()
-    auditStats.value = health
 
     if (health.summary.total_issues > 0) {
       const conferma = await askConfirm({
@@ -867,8 +819,6 @@ const saveAppConfig = async () => {
 }
 
 // --- NEW FEATURES ---
-
-const auditStats = ref(null)
 
 /**
  * Esporta Configurazione JSON
@@ -994,25 +944,26 @@ const loadZones = async () => {
     zones.value = await getUniqueGroups()
   } catch (e) {
     console.error(e)
-    toast.error("Errore caricamento zone")
+    toast.error('Errore nel caricamento delle manicchie')
   } finally {
     isLoadingZones.value = false
   }
 }
 
-import { watch } from 'vue'
-watch(currentTab, (newTab) => {
-  if (newTab === 'zone') {
-    loadZones()
-  }
-})
+watch(
+  () => props.scheda,
+  (scheda) => {
+    if (scheda === 'manicchie') loadZones()
+  },
+  { immediate: true },
+)
 
 const addNewZone = async () => {
   if (!newZoneName.value.trim()) return
   try {
     await addCustomGroup(newZoneName.value)
     newZoneName.value = ''
-    toast.success("Zona aggiunta!")
+    toast.success('Manicchia aggiunta')
     await loadZones()
   } catch (e) {
     toast.error(e.message)
@@ -1021,17 +972,17 @@ const addNewZone = async () => {
 
 const deleteZone = async (zoneName) => {
   const conferma = await askConfirm({
-    title: `Rimuovere la zona "${zoneName}"?`,
+    title: `Rimuovere la manicchia "${zoneName}"?`,
     message:
-      'I soci di questa zona la mantengono, ma la zona non viene più suggerita se non ha soci.',
-    confirmLabel: 'Rimuovi zona',
+      'I soci di questa manicchia la mantengono, ma non viene più proposta nei menu se non ha soci.',
+    confirmLabel: 'Rimuovi manicchia',
     danger: true,
   })
   if (!conferma) return
 
   try {
     await removeCustomGroup(zoneName)
-    toast.success("Zona rimossa dalle definizioni.")
+    toast.success('Manicchia rimossa dalla lista')
     await loadZones()
   } catch (e) {
     toast.error(e.message)
@@ -1057,15 +1008,15 @@ const saveZoneRename = async (oldName) => {
   const newName = editingZoneName.value.trim()
 
   const conferma = await askConfirm({
-    title: 'Rinominare la zona?',
-    message: `"${oldName}" diventa "${newName}" per tutti i soci di questa zona.`,
-    confirmLabel: 'Rinomina zona',
+    title: 'Rinominare la manicchia?',
+    message: `"${oldName}" diventa "${newName}" per tutti i soci di questa manicchia.`,
+    confirmLabel: 'Rinomina manicchia',
   })
   if (!conferma) return
 
   try {
     const count = await renameGroup(oldName, newName)
-    toast.success(`Zona rinominata! Aggiornati ${count} soci.`)
+    toast.success(`Manicchia rinominata: aggiornati ${count} soci`)
     cancelRename()
     await loadZones()
   } catch (e) {
@@ -1079,59 +1030,6 @@ const saveZoneRename = async (oldName) => {
   min-height: 100vh;
   background-color: var(--color-background);
   padding: 2rem 0;
-}
-
-.settings-layout {
-  display: grid;
-  grid-template-columns: 280px 1fr;
-  gap: 2rem;
-  min-height: calc(100vh - 100px);
-}
-
-.settings-sidebar {
-  padding-right: 1.5rem;
-  border-right: 1px solid var(--color-border);
-}
-
-.settings-sidebar .sidebar-title {
-  font-size: 1.1rem;
-  color: var(--color-primary);
-  margin-bottom: 2rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.settings-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.nav-item {
-  text-align: left;
-  padding: 0.75rem 1rem;
-  border: none;
-  background: transparent;
-  color: var(--color-text-secondary);
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.2s;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  width: 100%;
-}
-
-.nav-item:hover {
-  background-color: var(--color-surface);
-  color: var(--color-text-primary);
-}
-
-.nav-item.active {
-  background-color: var(--color-accent);
-  color: white;
 }
 
 .settings-content {
@@ -1182,34 +1080,145 @@ const saveZoneRename = async (oldName) => {
   font-size: 0.9rem;
 }
 
-/* Responsive Sidebar */
-@media (max-width: 768px) {
-  .settings-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .settings-sidebar {
-    border-right: none;
-    border-bottom: 1px solid var(--color-border);
-    padding-bottom: 1.5rem;
-    margin-bottom: 1.5rem;
-  }
-
-  .settings-nav {
-    flex-direction: row;
-    overflow-x: auto;
-    padding-bottom: 5px;
-  }
-
-  .nav-item {
-    white-space: nowrap;
-  }
+.container {
+  max-width: var(--page-width);
+  margin: 0 auto;
+  padding: 0 var(--space-32);
 }
 
-.container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 2rem;
+.restore-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-16) var(--space-24);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-warning);
+  border-radius: var(--radius-surface);
+  background: var(--color-surface);
+}
+
+.restore-card p {
+  margin: 0;
+}
+
+.file-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.5rem;
+  padding: var(--space-8) var(--space-16);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.file-button:hover {
+  background: var(--color-surface-hover);
+}
+
+.file-button__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+
+.file-button:focus-within {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.add-zone-form {
+  display: flex;
+  gap: var(--space-8);
+  max-width: 32rem;
+  margin-bottom: var(--space-24);
+}
+
+.zones-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--color-border);
+}
+
+.zone-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+  min-height: 3rem;
+  padding: var(--space-4) var(--space-8);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.zone-item:hover {
+  background: var(--color-surface-hover);
+}
+
+.zone-name {
+  font-weight: 600;
+}
+
+.zone-item .edit-input {
+  max-width: 24rem;
+}
+
+.zone-buttons {
+  display: flex;
+  gap: var(--space-4);
+}
+
+.icona-btn {
+  min-height: 2.25rem;
+  padding: var(--space-4) var(--space-8);
+  border: none;
+  border-radius: var(--radius-control);
+  background: none;
+  box-shadow: none;
+  color: var(--color-text-secondary);
+}
+
+.icona-btn:hover {
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+}
+
+.icona-btn--pericolo:hover {
+  color: var(--color-danger);
+}
+
+.empty-state {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  color: var(--color-text-secondary);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.restore-label {
+  font-weight: 600;
+  font-size: var(--font-size-label);
+}
+
+.danger-intro {
+  margin: 0 0 var(--space-16);
+  color: var(--color-text-secondary);
 }
 
 .settings-view h1 {
@@ -1402,26 +1411,6 @@ const saveZoneRename = async (oldName) => {
   filter: brightness(1.1);
 }
 
-.export-button {
-  width: 100%;
-  padding: 0.75rem 1rem;
-  background-color: var(--color-info);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-}
-
-.export-button:hover:not(:disabled) {
-  filter: brightness(1.1);
-}
-
 .backup-toggle-button:hover:not(:disabled) {
   background-color: var(--color-surface-hover);
   transform: scale(1.02);
@@ -1433,25 +1422,6 @@ const saveZoneRename = async (oldName) => {
 
 .backup-toggle-button.active:hover:not(:disabled) {
   filter: brightness(1.1);
-}
-
-.manual-backup-button {
-  padding: 0.75rem 1.5rem;
-  background-color: var(--color-accent);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.manual-backup-button:hover:not(:disabled) {
-  background-color: var(--color-accent-hover);
-  transform: scale(1.05);
 }
 
 .history-button {
@@ -1502,31 +1472,6 @@ const saveZoneRename = async (oldName) => {
   color: var(--color-text-secondary);
   font-size: 0.9rem;
   line-height: 1.4;
-}
-
-.export-button {
-  width: 100%;
-  padding: 0.75rem 1rem;
-  background-color: var(--color-info);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-}
-
-.export-button:hover:not(:disabled) {
-  filter: brightness(1.1);
-}
-
-.export-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
 }
 
 .export-info {
@@ -1669,30 +1614,6 @@ const saveZoneRename = async (oldName) => {
   justify-content: center;
 }
 
-.manual-backup-button {
-  padding: 0.75rem 1.5rem;
-  background-color: var(--color-accent);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.manual-backup-button:hover:not(:disabled) {
-  background-color: var(--color-accent-hover);
-  transform: scale(1.05);
-}
-
-.manual-backup-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
 .history-button {
   padding: 0.75rem 1.5rem;
   background-color: #9c27b0;
@@ -1754,51 +1675,10 @@ const saveZoneRename = async (oldName) => {
     text-align: center;
   }
 }
-/* Health Banner */
-.data-health-banner {
-  margin-bottom: 2rem;
-  padding: 1rem;
-  border-radius: 8px;
-  background-color: var(--color-surface);
-  border: 1px solid var(--color-border);
-}
-
-.health-indicator {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.health-indicator.good .health-icon {
-  font-size: 2rem;
-}
-
-.health-indicator.warning {
-  /* Using theme variables for consistency */
-  border: 1px solid var(--color-warning);
-  color: var(--color-warning);
-  /* Slight background tint if possible, otherwise transparent to be safe across themes */
-  background-color: transparent;
-  padding: 1rem;
-  border-radius: 6px;
-}
 
 /* Optional: Add a light tint locally if we really want it, handling themes */
 .health-indicator.warning {
   background-color: rgba(237, 108, 2, 0.05); /* Very subtle orange tint */
-}
-[data-theme='dark'] .health-indicator.warning {
-  background-color: rgba(255, 167, 38, 0.05);
-}
-
-.health-text h3 {
-  margin: 0 0 0.25rem 0;
-  font-size: 1.1rem;
-}
-
-.health-text p {
-  margin: 0;
-  font-size: 0.9rem;
 }
 
 /* Danger Zone */
@@ -1831,24 +1711,6 @@ const saveZoneRename = async (oldName) => {
   margin-top: var(--space-24);
   padding-top: var(--space-24);
   border-top: 1px solid var(--color-border);
-}
-
-.danger-button-large {
-  background-color: var(--color-accent); /* Was hardcoded #c53030 */
-  color: var(--color-text-inverse); /* Was white */
-  border: none;
-  padding: 1rem;
-  font-size: 1rem;
-  font-weight: bold;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  text-transform: uppercase;
-  margin-top: 1rem;
-}
-
-.danger-button-large:hover {
-  background-color: var(--color-accent-hover); /* Was hardcoded #9b2c2c */
 }
 
 .button-group-small {

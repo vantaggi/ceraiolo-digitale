@@ -268,7 +268,7 @@
         <ModelloReport titolo="Tessere di tutti i soci">
           <template #descrizione>
             Un PDF con una tessera per pagina, in ordine di cognome. Lo sfondo e l'anteprima sono
-            in <RouterLink to="/settings?tab=template">Impostazioni › Template tessera</RouterLink>.
+            in <RouterLink to="/settings/tessera">Impostazioni › Tessera</RouterLink>.
           </template>
           <template #opzioni>
             <label class="scelta">

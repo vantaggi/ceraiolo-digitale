@@ -164,7 +164,7 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 ### Test 8.1: Stato nell'intestazione
 
 - [ ] Senza cartella scelta, sotto il titolo compare "Backup automatico spento"
-- [ ] Il clic apre Impostazioni sulla scheda "Dati & Backup"
+- [ ] Il clic apre Impostazioni sulla scheda "Dati e backup"
 - [ ] Scegli una cartella e attiva l'auto-salvataggio: compare "Backup: adesso"
 - [ ] Modifica un socio, aspetta 5 secondi: nella cartella c'e' `backup_AAAA-MM-GG/ceraiolo_backup.sqlite` aggiornato
 
@@ -225,7 +225,7 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 
 ## ✅ Test 11: Tessere
 
-### Test 11.1: Sfondo e anteprima (Impostazioni › Template Tessera)
+### Test 11.1: Sfondo e anteprima (Impostazioni › Tessera)
 
 - [ ] Carica lo sfondo vero (foto JPG/PNG o PDF): l'anteprima lo mostra subito, con la scritta "non ancora salvato"
 - [ ] Con una foto compare la risoluzione in dpi; sotto 250 dpi compare l'avviso "potrebbe sembrare sgranata"
@@ -291,8 +291,34 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 
 ### Test 13.4: Cose spostate
 
-- [ ] L'anteprima della tessera non c'e' piu' in Report PDF: il link porta a Impostazioni › Template tessera
+- [ ] L'anteprima della tessera non c'e' piu' in Report PDF: il link porta a Impostazioni › Tessera
 - [ ] Impostazioni › Dati › Controllo qualita' dei dati: "Esegui il controllo" mostra quanti soci hanno dati da sistemare, i primi dieci (con link al socio) e il PDF delle anomalie
 - [ ] Le vecchie statistiche di Report (demografia, entrate per manicchia) non ci sono piu'
 
 **Risultato atteso**: ogni elenco che chiedono alla segreteria si trova per nome, con l'anno scelto una volta sola
+
+---
+
+## ✅ Test 17: Impostazioni a schede
+
+### Test 17.1: Schede
+
+- [ ] Sotto il titolo ci sono le schede Generale, Tessera, Manicchie, Dati e backup; il contenuto usa tutta la larghezza
+- [ ] Ogni scheda ha il suo indirizzo (es. `#/settings/dati`): ricaricando la pagina si resta sulla stessa scheda, e il tasto Indietro del browser torna alla scheda di prima
+- [ ] I vecchi indirizzi `#/settings?tab=dati` e `#/settings?tab=template` portano alla scheda giusta
+- [ ] "Backup automatico spento" in alto apre Dati e backup; il link di Report PDF › Tessere apre Tessera
+
+### Test 17.2: Dati e backup
+
+- [ ] Dall'alto: Backup, Esporta, Ripristina da un file, Controllo qualita' dei dati, Zona pericolosa
+- [ ] Non c'e' piu' il riquadro "Stato salute dati" in cima (lo dice il Controllo qualita')
+- [ ] "Importa JSON" si raggiunge anche con Tab e si apre con Invio
+- [ ] Ripristina da un file chiede conferma prima di sostituire i dati
+
+### Test 17.3: Manicchie
+
+- [ ] Aggiungi una manicchia (anche con Invio): compare nell'elenco e nel filtro Manicchia della pagina Soci
+- [ ] Matita: il nome diventa modificabile, Invio chiede conferma e rinomina per tutti i soci, Esc annulla
+- [ ] Cestino: chiede conferma e la toglie dalla lista; i soci restano con la loro manicchia
+
+**Risultato atteso**: ogni impostazione ha un posto solo, e cio' che cancella dati sta in fondo a Dati e backup
