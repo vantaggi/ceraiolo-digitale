@@ -1,6 +1,7 @@
 import Dexie from 'dexie'
 import initSqlJs from 'sql.js'
 import { calculatePaymentStatus } from '@/utils/payment'
+import { SENZA_MANICCHIA } from '@/utils/aventiDiritto'
 
 // Create a new Dexie database instance
 export const db = new Dexie('CeraioloDigitaleDB')
@@ -1641,9 +1642,10 @@ export async function getGroupCountsForYear(year) {
       }
 
       if (isEnrolled) {
-        let group = socio.gruppo_appartenenza || 'Non Assegnato'
-        // Normalize: trim and uppercase
-        group = group.trim().toUpperCase()
+        // Normalize: trim and uppercase; senza manicchia si chiama come negli altri PDF
+        const group = socio.gruppo_appartenenza
+          ? socio.gruppo_appartenenza.trim().toUpperCase()
+          : SENZA_MANICCHIA
         counts[group] = (counts[group] || 0) + 1
       }
     })
