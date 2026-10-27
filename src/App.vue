@@ -1,15 +1,18 @@
 <script setup>
 import { useThemeStore } from './stores/theme'
 import logoSantantoniari from '@/assets/logo_santantoniari.jpg'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
 import KeyboardShortcutsModal from '@/components/KeyboardShortcutsModal.vue'
 import AppDialog from '@/components/AppDialog.vue'
 import AppIcon from '@/components/base/AppIcon.vue'
 import BackupStatus from '@/components/BackupStatus.vue'
+import { SEZIONI, sezioneDi } from '@/router/sezioni'
 
 const themeStore = useThemeStore()
 const router = useRouter()
+const route = useRoute()
+const sezioneAttiva = computed(() => sezioneDi(route.path))
 const showShortcutsModal = ref(false)
 const themeLabel = computed(() =>
   themeStore.currentTheme === 'dark' ? 'Passa al tema chiaro' : 'Passa al tema scuro',
@@ -65,13 +68,16 @@ onBeforeUnmount(() => {
         </div>
       </div>
       <nav>
-        <RouterLink to="/" class="nav-link"><AppIcon name="ricerca" /> Ricerca</RouterLink>
-        <RouterLink to="/registrazione-seriale" class="nav-link"
-          ><AppIcon name="registrazione-seriale" /> Registrazione Seriale</RouterLink
+        <RouterLink
+          v-for="sezione in SEZIONI"
+          :key="sezione.nome"
+          :to="sezione.to"
+          class="nav-link"
+          :class="{ 'nav-link--active': sezioneAttiva === sezione.nome }"
+          :aria-current="sezioneAttiva === sezione.nome ? 'page' : undefined"
+          ><AppIcon :name="sezione.icona" /> {{ sezione.nome }}</RouterLink
         >
-        <RouterLink to="/blocchetti" class="nav-link"><AppIcon name="blocchetto" /> Blocchetti</RouterLink>
-        <RouterLink to="/reports" class="nav-link"><AppIcon name="report" /> Report</RouterLink>
-        <RouterLink to="/settings" class="nav-link"><AppIcon name="impostazioni" /> Impostazioni</RouterLink>
+        <span class="nav-hint" title="Cerca un socio da qualsiasi pagina"><kbd>Ctrl</kbd>+<kbd>K</kbd> cerca</span>
         <button
           type="button"
           @click="themeStore.toggleTheme"
@@ -180,10 +186,24 @@ nav {
   transform: translateY(-1px);
 }
 
-.nav-link.router-link-active {
+.nav-link.nav-link--active {
   background-color: var(--color-accent);
   color: white;
   border-color: var(--color-accent);
+}
+
+.nav-hint {
+  font-size: var(--font-size-caption);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.nav-hint kbd {
+  font-family: inherit;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background-color: var(--color-surface);
 }
 
 .theme-toggle {
@@ -221,6 +241,10 @@ nav {
     justify-content: center;
     gap: 0.5rem;
     width: 100%;
+  }
+
+  .nav-hint {
+    display: none;
   }
 
   .nav-link {

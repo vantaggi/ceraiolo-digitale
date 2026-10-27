@@ -126,11 +126,11 @@
 
           <div class="quick-links">
             <h4><AppIcon name="link" /> Link Rapidi</h4>
-            <router-link to="/registrazione-seriale" class="q-link"
+            <router-link to="/incassi/ricevute" class="q-link"
               >
               <AppIcon name="registrazione-seriale" /> Inserimento Rapido</router-link
             >
-            <router-link to="/reports" class="q-link">
+            <router-link to="/report-pdf" class="q-link">
               <AppIcon name="report" /> Report Annuali
             </router-link>
           </div>

@@ -44,27 +44,47 @@ const router = createRouter({
       },
     },
     {
-      path: '/registrazione-seriale',
+      path: '/incassi',
+      redirect: '/incassi/ricevute',
+    },
+    {
+      path: '/incassi/ricevute',
       name: 'batch-entry',
       component: BatchEntryView,
       meta: {
-        title: 'Registrazione Seriale - Ceraiolo Digitale',
+        title: 'Registra ricevute - Ceraiolo Digitale',
       },
     },
     {
-      path: '/reports',
+      path: '/incassi/blocchetti',
+      name: 'blocchetti',
+      component: () => import('../views/BlocchettiView.vue'),
+      meta: {
+        title: 'Blocchetti - Ceraiolo Digitale',
+      },
+    },
+    {
+      path: '/report-pdf',
       name: 'reports',
       component: ReportsView,
       meta: {
-        title: 'Report e Stampe - Ceraiolo Digitale',
+        title: 'Report PDF - Ceraiolo Digitale',
       },
     },
     {
-      path: '/reports-beta',
+      path: '/report-pdf/su-misura',
       name: 'reports-beta',
       component: () => import('../views/ReportsBetaView.vue'),
       meta: {
-        title: 'Report Builder Beta - Ceraiolo Digitale',
+        title: 'Report su misura - Ceraiolo Digitale',
+      },
+    },
+    {
+      path: '/statistiche',
+      name: 'statistiche',
+      component: () => import('../views/StatisticheView.vue'),
+      meta: {
+        title: 'Statistiche - Ceraiolo Digitale',
       },
     },
     {
@@ -75,14 +95,11 @@ const router = createRouter({
         title: 'Impostazioni - Ceraiolo Digitale',
       },
     },
-    {
-      path: '/blocchetti',
-      name: 'blocchetti',
-      component: () => import('../views/BlocchettiView.vue'),
-      meta: {
-        title: 'Gestione Blocchetti - Ceraiolo Digitale',
-      },
-    },
+    // Indirizzi di prima del menu a cinque sezioni: restano validi
+    { path: '/registrazione-seriale', redirect: '/incassi/ricevute' },
+    { path: '/blocchetti', redirect: '/incassi/blocchetti' },
+    { path: '/reports', redirect: '/report-pdf' },
+    { path: '/reports-beta', redirect: '/report-pdf/su-misura' },
     {
       path: '/:pathMatch(.*)*',
       name: 'not-found',
