@@ -25,15 +25,15 @@ vi.mock('vue-toastification', () => ({
 }))
 
 describe('BlocchettiView', () => {
-  it('i contatori contano gli stessi blocchetti della tabella', async () => {
+  it('mostra anche i blocchetti dello storico, ma non li conta tra i non restituiti', async () => {
     const wrapper = mount(BlocchettiView)
     await flushPromises()
 
     const righe = wrapper.findAll('tbody > tr')
-    const [registrati, nonRestituiti] = wrapper.findAll('.stat-value').map((el) => el.text())
+    const [totale, nonRestituiti] = wrapper.findAll('.stat-value').map((el) => el.text())
 
-    expect(righe).toHaveLength(2)
-    expect(registrati).toBe('2')
+    expect(righe).toHaveLength(4)
+    expect(totale).toBe('4')
     expect(nonRestituiti).toBe('1')
   })
 })

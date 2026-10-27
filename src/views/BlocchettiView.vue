@@ -128,13 +128,9 @@ const blocchettiDinamici = computed(() => {
    return sorted
 })
 
-// I contatori contano gli stessi blocchetti della tabella (solo quelli registrati):
-// quelli ricavati dallo storico non hanno data di restituzione e risultavano "non restituiti".
-const blocchettiRegistrati = computed(() => blocchettiDinamici.value.filter(b => b.isReal))
-
 const filteredBlocchetti = computed(() => {
-    // 1. Mostra SOLO i blocchetti realmente esistenti nel database (isReal === true)
-    let baseList = blocchettiRegistrati.value
+    // Tutti i blocchetti: quelli registrati e quelli ricavati dallo storico dei pagamenti
+    let baseList = blocchettiDinamici.value
 
     if (!searchQuery.value) return baseList
 
@@ -151,8 +147,10 @@ const filteredBlocchetti = computed(() => {
     })
 })
 
-const totalBlocchetti = computed(() => blocchettiRegistrati.value.length)
-const totalAttivi = computed(() => blocchettiRegistrati.value.filter(b => !b.data_restituzione).length)
+const totalBlocchetti = computed(() => blocchettiDinamici.value.length)
+// Solo un blocchetto registrato puo' essere "in giro": quelli dello storico non hanno
+// data di restituzione ma sono rientrati da tempo, e prima finivano tra i non restituiti.
+const totalAttivi = computed(() => blocchettiDinamici.value.filter(b => b.isReal && !b.data_restituzione).length)
 
 
 // ---- AZIONI MANUALI ----
@@ -280,7 +278,7 @@ const formatDate = (dateString) => {
        </div>
        <div class="stats-right">
           <div class="stat-item">
-             <span class="stat-label">Blocchetti Registrati</span>
+             <span class="stat-label">Totale Blocchetti</span>
              <span class="stat-value">{{ totalBlocchetti }}</span>
           </div>
           <div class="stat-item">
@@ -313,7 +311,7 @@ const formatDate = (dateString) => {
                  <span v-if="b.data_restituzione" class="status-badge valid">
                     {{ formatDate(b.data_restituzione) }}
                  </span>
-                 <span v-else-if="!b.isReal" class="status-badge dynamic" title="Esiste dai pagamenti ma non ha un'anagrafica">Sconosciuto</span>
+                 <span v-else-if="!b.isReal" class="status-badge dynamic" title="Esiste dai pagamenti ma non e' stato registrato con il pulsante">Storico</span>
                  <span v-else class="status-badge pending">In Circolazione</span>
               </td>
               <td>
