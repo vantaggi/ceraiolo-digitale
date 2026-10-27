@@ -236,3 +236,17 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 - [ ] Stampa una pagina di prova su carta: misure e margini vanno bene per la tipografia
 
 **Risultato atteso**: quello che si vede nell'anteprima e' esattamente la pagina del PDF che va in stampa
+
+---
+
+## ✅ Test 20: Incassi › Pagamenti
+
+- [ ] La terza scheda di Incassi, "Pagamenti", si apre sull'anno in corso (o sull'ultimo con pagamenti)
+- [ ] L'anno e' quello della quota: un arretrato 2025 pagato nel 2026 sta sotto il 2025, con la data in cui e' stato pagato
+- [ ] I numeri in alto (pagamenti, soci, incassato) cambiano con i filtri e corrispondono all'elenco
+- [ ] Filtro per blocchetto; ricerca per nome del socio (anche senza accenti) o per numero di ricevuta; "Azzera" toglie blocchetto e ricerca
+- [ ] Con "Tutti gli anni" o con molti soci si vedono 200 righe per volta e "Mostra altri 200"
+- [ ] Il nome apre la scheda del socio
+- [ ] Tema chiaro e scuro; sul telefono le tre schede di Incassi stanno in una riga e la tabella resta leggibile
+
+**Risultato atteso**: si ritrova a schermo chi ha pagato un certo anno, senza stampare il PDF della cronologia

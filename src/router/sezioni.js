@@ -12,6 +12,7 @@ export const SEZIONI = [
 export const SCHEDE_INCASSI = [
   { to: '/incassi/ricevute', label: 'Registra ricevute', icona: 'registrazione-seriale' },
   { to: '/incassi/blocchetti', label: 'Blocchetti', icona: 'blocchetto' },
+  { to: '/incassi/pagamenti', label: 'Pagamenti', icona: 'elenco' },
 ]
 
 /**
