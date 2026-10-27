@@ -175,3 +175,24 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 - [ ] Se il browser chiede di nuovo il permesso, compare "Riattiva backup": il clic chiede il permesso e fa subito un backup
 
 **Risultato atteso**: il backup funziona anche senza aprire Impostazioni, e quando e' fermo si vede
+
+---
+
+## ✅ Test 9: Menu a cinque sezioni
+
+### Test 9.1: Voci e pagine
+
+- [ ] Il menu mostra Soci, Incassi, Report PDF, Statistiche, Impostazioni
+- [ ] Da un socio aperto resta accesa la voce Soci
+- [ ] Incassi si apre su "Registra ricevute"; la scheda "Blocchetti" porta all'elenco dei blocchetti e la voce Incassi resta accesa
+- [ ] Report PDF apre i report; il link "Report Builder Beta" apre il report su misura e la voce Report PDF resta accesa
+- [ ] Statistiche mostra numeri e grafico dell'andamento
+- [ ] Ctrl+K da qualsiasi pagina porta alla ricerca soci
+
+### Test 9.2: Vecchi indirizzi e segnalibri
+
+- [ ] `#/registrazione-seriale` porta a Incassi › Registra ricevute
+- [ ] `#/blocchetti` porta a Incassi › Blocchetti
+- [ ] `#/reports` e `#/reports-beta` portano a Report PDF
+
+**Risultato atteso**: ogni pagina ha una sola voce di menu accesa, e i segnalibri di prima funzionano ancora

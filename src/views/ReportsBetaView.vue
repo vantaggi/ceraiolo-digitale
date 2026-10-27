@@ -6,7 +6,7 @@
         <h1 class="sidebar-title"><AppIcon name="report" /> Report</h1>
         <nav class="reports-nav">
           <!-- Link to normal reports page -->
-          <router-link to="/reports" class="nav-item" style="text-decoration: none; color: inherit; display: block; margin-bottom: 15px;">
+          <router-link to="/report-pdf" class="nav-item" style="text-decoration: none; color: inherit; display: block; margin-bottom: 15px;">
             <AppIcon name="indietro" /> Torna a Reports Standard
           </router-link>
           <button class="nav-item active" style="width: 100%;">
