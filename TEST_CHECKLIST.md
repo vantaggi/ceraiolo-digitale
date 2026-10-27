@@ -142,7 +142,7 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 
 - [ ] Verifica la tabella pagamenti di Mario Rossi
 - [ ] Dovrebbero esserci pagamenti per: 2022, 2023, 2025
-- [ ] Verifica che il 2024 compaia negli "Anni Non Pagati"
+- [ ] Verifica che il 2024 compaia come riga "X Da pagare" con il link "Paga 2024"
 
 ### Test 7.4: Arretrati
 
@@ -316,6 +316,34 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 - [ ] "Passa al blocchetto N+1" cambia blocchetto e rimette il cursore nella ricerca
 
 **Risultato atteso**: si ricopia un blocchetto di carta vedendo sempre a che punto si e' e cosa manca
+
+---
+
+## ✅ Test 15: Dettaglio socio
+
+### Test 15.1: Riepilogo in alto
+
+- [ ] Apri un socio in regola: Quota "Pagata", Arretrati "Nessuno", Voto "Sì"
+- [ ] Apri un socio con uno o due anni scoperti: Arretrati elenca gli anni, Voto "Dopo gli arretrati" con il motivo sotto
+- [ ] Apri un socio fermo da piu' di 3 anni: Arretrati "Da reiscrivere", Voto "No"
+- [ ] Apri un minorenne: Quota "Esente (minorenne)", Voto "No" con il motivo dell'eta'
+
+### Test 15.2: Pagamenti a tabella
+
+- [ ] La tabella parte dall'anno di iscrizione (o dal primo pagamento, se e' prima) e arriva all'anno corrente, dal piu' recente
+- [ ] Gli anni non pagati hanno la riga "X Da pagare" e un link "Paga ANNO"; il pulsante in alto "Paga ANNO" propone l'anno corrente (o il successivo se e' gia' pagato)
+- [ ] Matita su una quota: cambia l'importo, Invio salva, Esc annulla
+- [ ] Cestino su un pagamento: chiede conferma, poi la riga torna "Da pagare"
+
+### Test 15.3: Azioni
+
+- [ ] "Tessera ANNO" scarica la tessera del socio (serve lo sfondo in Impostazioni › Template Tessera)
+- [ ] "Modifica" apre i campi, "Salva" li salva; ricaricando la pagina i dati restano
+- [ ] In fondo, "Altre azioni": "Esporta JSON" scarica il file, "Elimina socio" chiede conferma
+- [ ] Da telefono (o finestra stretta) la tabella scorre di lato senza spostare la pagina
+- [ ] Tema chiaro e scuro leggibili
+
+**Risultato atteso**: in un colpo d'occhio si vede se il socio e' in regola, se puo' votare e cosa gli manca
 
 ---
 
