@@ -3,6 +3,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useToast } from 'vue-toastification'
 import { askConfirm } from '@/composables/useDialog'
 import AppIcon from '@/components/base/AppIcon.vue'
+import PageHeader from '@/components/base/PageHeader.vue'
 import {
   db,
   getAllBlocchetti,
@@ -229,17 +230,16 @@ const formatDate = (dateString) => {
 
 <template>
   <div class="view-container">
-    <div class="header-section">
-      <div class="header-titles">
-        <h2>Esplora Blocchetti e Ricevute</h2>
-        <p class="subtitle">Naviga i pagamenti raggruppati esattamente per Blocchetto e Ricevuta.</p>
-      </div>
-      <div class="header-actions">
+    <PageHeader
+      title="Esplora Blocchetti e Ricevute"
+      subtitle="Naviga i pagamenti raggruppati esattamente per Blocchetto e Ricevuta."
+    >
+      <template #actions>
         <button class="primary-button" @click="showAddForm = !showAddForm">
           {{ showAddForm ? 'Annulla' : '+ Registra Nuovo Blocchetto' }}
         </button>
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
     <!-- FORM INSERIMENTO -->
     <div v-if="showAddForm" class="form-panel shadow-panel">
@@ -359,8 +359,9 @@ const formatDate = (dateString) => {
 
 <style scoped>
 .view-container {
-  max-width: 1200px;
+  max-width: var(--page-width);
   margin: 0 auto;
+  padding: var(--space-32);
 }
 
 .shadow-panel {
@@ -369,22 +370,6 @@ const formatDate = (dateString) => {
   box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
   padding: 1.5rem;
   margin-bottom: 1.5rem;
-}
-
-.header-section {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
-}
-
-.header-titles h2 {
-  margin: 0 0 0.5rem 0;
-  color: var(--color-text-primary);
-}
-.subtitle {
-  color: var(--color-text-secondary);
-  margin: 0;
 }
 
 /* STATS BAR */

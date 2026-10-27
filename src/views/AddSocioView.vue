@@ -1,13 +1,7 @@
 <template>
   <div class="add-socio">
+    <PageHeader title="Nuovo Socio" back-to="/" back-label="Torna alla ricerca" />
     <div class="form-container">
-      <!-- Header -->
-      <div class="form-header">
-        <router-link to="/" class="back-link">
-          <AppIcon name="indietro" /> Torna alla ricerca
-        </router-link>
-        <h1>+ Nuovo Socio</h1>
-      </div>
 
       <!-- Form -->
       <form @submit.prevent="submitSocio" class="socio-form">
@@ -165,6 +159,7 @@ import { useRouter } from 'vue-router'
 import { useToast } from 'vue-toastification'
 import { addSocio, getUniqueGroups, getSetting, addCustomGroup } from '@/services/db'
 import AppIcon from '@/components/base/AppIcon.vue'
+import PageHeader from '@/components/base/PageHeader.vue'
 
 const router = useRouter()
 const toast = useToast()
@@ -338,7 +333,7 @@ onMounted(() => {
 
 <style scoped>
 .add-socio {
-  max-width: 800px;
+  max-width: var(--page-width-form);
   margin: 0 auto;
   padding: 2rem;
 }
@@ -348,33 +343,6 @@ onMounted(() => {
   border-radius: 12px;
   padding: 3rem;
   box-shadow: var(--shadow-md);
-}
-
-.form-header {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  margin-bottom: 2rem;
-  padding-bottom: 2rem;
-  border-bottom: 3px solid var(--color-accent);
-}
-
-.back-link {
-  color: var(--color-text-secondary);
-  text-decoration: none;
-  font-weight: 500;
-  align-self: flex-start;
-  transition: color 0.2s;
-}
-
-.back-link:hover {
-  color: var(--color-accent);
-}
-
-.form-header h1 {
-  margin: 0;
-  color: var(--color-primary);
-  font-size: 2rem;
 }
 
 .socio-form {
@@ -489,15 +457,6 @@ onMounted(() => {
 
   .form-container {
     padding: 2rem;
-  }
-
-  .form-header {
-    margin-bottom: 1.5rem;
-    padding-bottom: 1.5rem;
-  }
-
-  .form-header h1 {
-    font-size: 1.5rem;
   }
 
   .socio-form {

@@ -1,9 +1,9 @@
 <template>
   <div class="batch-entry">
-    <div class="batch-header">
-      <h1><AppIcon name="registrazione-seriale" /> Registrazione Seriale Pagamenti</h1>
-      <p class="batch-subtitle">Flusso ottimizzato per blocchetti cartacei</p>
-    </div>
+    <PageHeader
+      title="Registrazione Seriale Pagamenti"
+      subtitle="Flusso ottimizzato per blocchetti cartacei"
+    />
 
     <!-- Area 1: Dati di Sessione (Fissi) -->
     <div class="session-data">
@@ -394,6 +394,7 @@ import ErrorModal from '@/components/ErrorModal.vue'
 import ConfirmDeleteModal from '@/components/ConfirmDeleteModal.vue'
 import AddPaymentModal from '@/components/AddPaymentModal.vue'
 import AppIcon from '@/components/base/AppIcon.vue'
+import PageHeader from '@/components/base/PageHeader.vue'
 
 const toast = useToast()
 const searchInput = ref(null)
@@ -1079,28 +1080,12 @@ const getSocioStatus = (socio) => {
 
 <style scoped>
 .batch-entry {
-  max-width: 1400px;
+  max-width: var(--page-width);
   margin: 0 auto;
   padding: 2rem;
   display: flex;
   flex-direction: column;
   gap: 2rem;
-}
-
-.batch-header {
-  text-align: center;
-  margin-bottom: 1rem;
-}
-
-.batch-header h1 {
-  color: var(--color-primary);
-  margin-bottom: 0.5rem;
-}
-
-.batch-subtitle {
-  color: var(--color-text-secondary);
-  font-size: 1.1rem;
-  margin: 0;
 }
 
 /* Session Data */

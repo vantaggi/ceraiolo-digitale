@@ -1,12 +1,13 @@
 <template>
   <div class="home">
     <main class="dashboard">
-      <div class="header-section">
-        <h1>Cerca Socio</h1>
-        <router-link to="/socio/nuovo" class="add-socio-button accent">
-          + Aggiungi Nuovo Socio
-        </router-link>
-      </div>
+      <PageHeader title="Cerca Socio">
+        <template #actions>
+          <router-link to="/socio/nuovo" class="add-socio-button accent">
+            + Aggiungi Nuovo Socio
+          </router-link>
+        </template>
+      </PageHeader>
 
       <!-- Stats Cards -->
       <div class="stats-grid">
@@ -185,6 +186,7 @@ import SocioCard from '@/components/SocioCard.vue'
 import FilterPanel from '@/components/FilterPanel.vue'
 import DashboardCharts from '@/components/DashboardCharts.vue'
 import AppIcon from '@/components/base/AppIcon.vue'
+import PageHeader from '@/components/base/PageHeader.vue'
 
 // Stato dell'applicazione
 const searchTerm = ref('')
@@ -496,18 +498,9 @@ const quickRenew = async (socio) => {
 
 <style scoped>
 .dashboard {
-  max-width: 1200px;
+  max-width: var(--page-width);
   margin: 0 auto;
   padding: 2rem;
-}
-
-.header-section {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
-  padding-bottom: 1.5rem;
-  border-bottom: 3px solid var(--color-accent);
 }
 
 .stats-grid {
