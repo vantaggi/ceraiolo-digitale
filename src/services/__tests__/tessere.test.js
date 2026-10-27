@@ -155,10 +155,10 @@ describe('anteprima uguale al file generato', () => {
     expect(exportSorgente).not.toMatch(/from 'pdf-lib'/)
   })
 
-  it("le viste mostrano AnteprimaTessera, non un'imitazione in HTML", () => {
-    for (const vista of [settingsSorgente, reportsSorgente]) {
-      expect(vista).toMatch(/<AnteprimaTessera/)
-      expect(vista).not.toMatch(/TesseraTemplate/)
-    }
+  it("l'anteprima e' AnteprimaTessera, in un posto solo (Impostazioni)", () => {
+    expect(settingsSorgente).toMatch(/<AnteprimaTessera/)
+    // Report PDF rimanda a Impostazioni invece di ripetere l'anteprima
+    expect(reportsSorgente).not.toMatch(/AnteprimaTessera|TesseraTemplate/)
+    expect(reportsSorgente).toMatch(/to="\/settings\?tab=template"/)
   })
 })

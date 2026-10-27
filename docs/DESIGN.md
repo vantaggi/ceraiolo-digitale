@@ -114,8 +114,7 @@ Le lettere V, X, O e - dei badge di stato dei pagamenti restano: sono la stessa 
 ## Debiti
 
 - 5 modali con stili propri (`.modal-content` definito 8 volte): un `BaseModal` passa il test di creazione dei componenti.
-- ~120 colori scritti a mano nelle viste, soprattutto `BatchEntryView`, `ReportsBetaView`, `SettingsView`.
-- ~810 righe di CSS copiate fra `ReportsView` e `ReportsBetaView`.
+- Colori scritti a mano nelle viste, soprattutto `BatchEntryView` e `SettingsView` (`ReportsView` e `ReportsBetaView` riscritte solo con i token).
 
 ## Ordine dei passi
 

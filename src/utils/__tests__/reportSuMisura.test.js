@@ -10,6 +10,8 @@ import {
   riassunto,
   titoloReport,
   manicchieDisponibili,
+  statoDaModello,
+  MODELLI,
   SENZA_MANICCHIA,
 } from '../reportSuMisura'
 
@@ -159,7 +161,11 @@ describe('filtri attivi, riassunto e titolo', () => {
   })
 
   it('il titolo scritto vince su quello ricavato', () => {
-    expect(titoloReport(stato)).toBe('Soci della manicchia INTERNA - 2026')
+    expect(titoloReport(stato)).toBe('Aventi diritto al voto - INTERNA - 2026')
+    expect(titoloReport(conFiltri(2026, { groups: ['INTERNA'] }))).toBe(
+      'Soci della manicchia INTERNA - 2026',
+    )
+    expect(titoloReport(conFiltri(2026, { ageGroup: 'minorenni' }))).toBe('Minorenni - 2026')
     expect(titoloReport({ ...stato, titolo: '  Votazioni Interna ' })).toBe('Votazioni Interna')
     expect(titoloReport(statoIniziale(2025))).toBe('Elenco soci - 2025')
   })
@@ -209,5 +215,52 @@ describe('normalizzaStato', () => {
     expect(strano.filters.ageGroup).toBe('all')
     expect(strano.sort.by).toBe('cognome')
     expect(strano.anno).toBe(2026)
+  })
+})
+
+describe('statoDaModello (Personalizza dai modelli pronti)', () => {
+  const soci = [
+    socio(1, 'Bianchi', {}, [2022, 2026]),
+    socio(2, 'Azzurri', { gruppo_appartenenza: 'BRANCA' }, [2019]),
+    socio(3, 'Celesti', { data_nascita: '2010-06-01', data_prima_iscrizione: 2024 }, []),
+  ]
+  const scelti = (id, anno, opzioni) => cognomi(filtraSoci(soci, statoDaModello(id, anno, opzioni)))
+
+  it('ogni modello e\' uno stato valido, che si puo\' salvare e ricaricare uguale', () => {
+    for (const id of MODELLI) {
+      const stato = statoDaModello(id, 2026)
+      expect(normalizzaStato(stato, 2000)).toEqual(stato)
+    }
+    expect(statoDaModello('sconosciuto', 2026)).toBeNull()
+  })
+
+  it('i soci di ogni modello', () => {
+    expect(scelti('minorenni', 2026)).toEqual(['Celesti'])
+    expect(scelti('attivi', 2026)).toEqual(['Bianchi'])
+    expect(scelti('attivi', 2023)).toEqual(['Azzurri', 'Bianchi'])
+    expect(scelti('manicchia', 2026, { manicchia: 'BRANCA' })).toEqual(['Azzurri'])
+    expect(scelti('manicchia', 2026, { pagamento: 'morosi' })).toEqual(['Azzurri', 'Celesti'])
+  })
+
+  it('colonne, ordine e titolo adatti al modello', () => {
+    const voto = statoDaModello('aventi-diritto', 2026, { manicchia: 'INTERNA' })
+    expect(colonneReport(voto).map((c) => c.label)).toEqual([
+      'Socio',
+      'Manicchia',
+      'Diritto di voto',
+      'Arretrati',
+      'Firma',
+    ])
+    expect(voto.sort.by).toBe('gruppo')
+    expect(titoloReport(voto)).toBe('Aventi diritto al voto - INTERNA - 2026')
+    expect(statoDaModello('attivi', 2026).display.yearColumns).toEqual([
+      2026, 2025, 2024, 2023, 2022,
+    ])
+  })
+
+  it('scelte sconosciute (da un indirizzo scritto a mano) tornano a "tutti"', () => {
+    const stato = statoDaModello('manicchia', 2026, { eta: 'anziani', pagamento: undefined })
+    expect(stato.filters.ageGroup).toBe('all')
+    expect(stato.filters.paymentStatus).toBe('all')
   })
 })

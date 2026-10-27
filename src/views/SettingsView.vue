@@ -371,6 +371,13 @@
 
           <hr class="divider" />
 
+          <div class="subsection">
+            <h3><AppIcon name="qualita-dati" /> Controllo qualità dei dati</h3>
+            <ControlloQualitaDati />
+          </div>
+
+          <hr class="divider" />
+
           <!-- DANGER ZONE -->
           <div class="subsection danger-zone">
             <h3><AppIcon name="pericolo" /> Zona Pericolosa</h3>
@@ -500,6 +507,7 @@ import {
   ALTEZZA_TESSERA_MM,
 } from '@/services/tessere'
 import AppIcon from '@/components/base/AppIcon.vue'
+import ControlloQualitaDati from '@/components/ControlloQualitaDati.vue'
 
 const toast = useToast()
 const currentYear = new Date().getFullYear()

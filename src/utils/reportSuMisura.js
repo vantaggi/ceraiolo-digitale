@@ -306,9 +306,65 @@ export function riassunto(stato) {
  */
 export function titoloReport(stato) {
   if (stato.titolo && stato.titolo.trim()) return stato.titolo.trim()
-  const gruppi = stato.filters.groups
-  if (gruppi.length === 1) return `Soci della manicchia ${gruppi[0]} - ${stato.anno}`
-  return `Elenco soci - ${stato.anno}`
+  const f = stato.filters
+  const tipo =
+    f.electionEligibility === 'aventi_diritto'
+      ? 'Aventi diritto al voto'
+      : f.ageGroup === 'minorenni'
+        ? 'Minorenni'
+        : f.onlyActiveMembers
+          ? 'Soci attivi'
+          : null
+  if (f.groups.length === 1) {
+    return tipo
+      ? `${tipo} - ${f.groups[0]} - ${stato.anno}`
+      : `Soci della manicchia ${f.groups[0]} - ${stato.anno}`
+  }
+  return `${tipo || 'Elenco soci'} - ${stato.anno}`
+}
+
+/** Modelli pronti di Report PDF che si possono aprire nel Report su misura. */
+export const MODELLI = ['aventi-diritto', 'manicchia', 'minorenni', 'attivi']
+
+/**
+ * Stato di partenza del Report su misura per un modello pronto ("Personalizza"):
+ * gli stessi soci del modello, con colonne adatte, da cambiare poi a piacere.
+ * @param {string} id uno di MODELLI
+ * @param {number} anno anno di riferimento
+ * @param {{ manicchia?: string, eta?: string, pagamento?: string }} [opzioni]
+ *   le scelte fatte sul modello (eta' e pagamento con i valori del Report su misura)
+ * @returns {object|null} null se il modello non esiste
+ */
+export function statoDaModello(id, anno, opzioni = {}) {
+  const s = statoIniziale(anno)
+  const f = s.filters
+  const unaManicchia = opzioni.manicchia ? [opzioni.manicchia] : []
+  switch (id) {
+    case 'aventi-diritto':
+      f.electionEligibility = 'aventi_diritto'
+      f.groups = unaManicchia
+      s.display.baseColumns = ['cognomeNome', 'gruppo', 'dirittoVoto', 'arretrati', 'firma']
+      s.sort.by = 'gruppo'
+      break
+    case 'manicchia':
+      f.groups = unaManicchia
+      f.ageGroup = opzioni.eta
+      f.paymentStatus = opzioni.pagamento
+      s.display.yearColumns = [anno - 2, anno - 1, anno]
+      s.sort.by = 'gruppo'
+      break
+    case 'minorenni':
+      f.ageGroup = 'minorenni'
+      break
+    case 'attivi':
+      f.onlyActiveMembers = true
+      s.display.yearColumns = Array.from({ length: ANNI_ATTIVITA }, (_, i) => anno - i)
+      break
+    default:
+      return null
+  }
+  // valori sconosciuti (per esempio da un indirizzo scritto a mano) tornano a "tutti"
+  return normalizzaStato(s, anno)
 }
 
 /**
