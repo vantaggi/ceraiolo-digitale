@@ -8,9 +8,11 @@
 
     <!-- Error State -->
     <div v-else-if="error" class="error-container">
-      <h2>❌ Errore</h2>
+      <h2><AppIcon name="errore" /> Errore</h2>
       <p>{{ error }}</p>
-      <router-link to="/" class="back-button">← Torna alla ricerca</router-link>
+      <router-link to="/" class="back-button">
+        <AppIcon name="indietro" /> Torna alla ricerca
+      </router-link>
     </div>
 
     <!-- Main Content -->
@@ -20,21 +22,25 @@
       <div class="detail-header">
         <div class="header-left">
           <div class="nav-row">
-            <router-link to="/" class="back-link">← Lista</router-link>
+            <router-link to="/" class="back-link">
+              <AppIcon name="indietro" /> Lista
+            </router-link>
             <div class="nav-buttons" v-if="prevSocioId || nextSocioId">
               <router-link
                 v-if="prevSocioId"
                 :to="'/socio/' + prevSocioId"
                 class="nav-btn"
                 title="Precedente"
-                >← Prec</router-link
+                >
+                <AppIcon name="precedente" /> Prec</router-link
               >
               <router-link
                 v-if="nextSocioId"
                 :to="'/socio/' + nextSocioId"
                 class="nav-btn"
                 title="Successivo"
-                >Succ →</router-link
+                >
+                Succ <AppIcon name="successivo" /></router-link
               >
             </div>
           </div>
@@ -48,27 +54,39 @@
             @click="payYear(quickRenewTargetYear)"
             class="quick-renew-button"
           >
-            💳 Paga {{ quickRenewTargetYear }}
+            <AppIcon name="pagamento" /> Paga {{ quickRenewTargetYear }}
           </button>
 
-          <button @click="exportSocio" class="export-button">📥 Export</button>
+          <button @click="exportSocio" class="export-button">
+            <AppIcon name="esporta" /> Export
+          </button>
           <button
             @click="toggleEditMode"
             :disabled="isSaving"
             class="edit-button"
             title="Modifica rapida in questa pagina"
           >
-            {{ isSaving ? '💾...' : editMode ? '✓ Salva' : '✏️ Modifica' }}
+            <AppIcon
+              :name="isSaving ? 'caricamento' : editMode ? 'conferma' : 'modifica'"
+              :spin="isSaving"
+            />
+            {{ isSaving ? 'Salvataggio...' : editMode ? 'Salva' : 'Modifica' }}
           </button>
-          <button @click="showDeleteModal" class="delete-socio-button" :disabled="isDeleting">
-            🗑️
+          <button
+            @click="showDeleteModal"
+            class="delete-socio-button"
+            :disabled="isDeleting"
+            title="Elimina socio"
+            aria-label="Elimina socio"
+          >
+            <AppIcon name="elimina" />
           </button>
         </div>
       </div>
 
       <!-- Sezione Dati Anagrafici -->
       <section class="info-section">
-        <h2>📋 Dati Anagrafici</h2>
+        <h2><AppIcon name="anagrafica" /> Dati Anagrafici</h2>
         <div class="info-grid">
           <div class="info-item">
             <span class="label">Cognome</span>
@@ -122,7 +140,7 @@
 
         <!-- Note -->
         <div class="notes-section">
-          <span class="label">📝 Note</span>
+          <span class="label"><AppIcon name="nota" /> Note</span>
           <textarea
             v-if="editMode"
             v-model="socio.note"
@@ -139,7 +157,7 @@
       <!-- Sezione Cronologia Pagamenti -->
       <section class="payments-section">
         <div class="section-header">
-          <h2>💰 Cronologia Pagamenti</h2>
+          <h2><AppIcon name="quota" /> Cronologia Pagamenti</h2>
         </div>
 
         <div class="chronology-container">
@@ -165,47 +183,54 @@
                   @click="payYear(item.anno)"
                   class="pay-button accent"
                 >
-                  💳 Paga Ora
+                  <AppIcon name="pagamento" /> Paga Ora
                 </button>
                 <button
                   v-if="!item.isPagato && item.isEsente"
                   @click="payYear(item.anno)"
                   class="pay-button secondary"
                 >
-                  💳 Paga (Opzionale)
+                  <AppIcon name="pagamento" /> Paga (Opzionale)
                 </button>
                 <button
                   v-if="item.isPagato"
                   @click="deleteTesseramento(item.tesseramento.id_tesseramento)"
                   class="delete-btn"
                   title="Elimina pagamento"
+                  aria-label="Elimina pagamento"
                 >
-                  🗑️
+                  <AppIcon name="elimina" />
                 </button>
               </div>
             </div>
 
             <div v-if="item.isPagato" class="payment-details">
               <div class="detail-row">
-                <span class="detail-label">📅 Data Pagamento:</span>
+                <span class="detail-label"><AppIcon name="data" /> Data Pagamento:</span>
                 <span class="detail-value">{{ formatDate(item.tesseramento.data_pagamento) }}</span>
               </div>
               <div class="detail-row">
-                <span class="detail-label">💰 Quota:</span>
+                <span class="detail-label"><AppIcon name="quota" /> Quota:</span>
                 <span class="detail-value">
                   <span v-if="editingQuotaId === item.tesseramento.id_tesseramento">
                     € <input type="number" v-model="editQuotaValue" style="width: 60px; padding: 2px;" />
-                    <button @click="saveQuotaStatus(item.tesseramento.id_tesseramento)" class="save-quota-btn">✓</button>
-                    <button @click="cancelEditQuota" class="cancel-quota-btn">✗</button>
+                    <button @click="saveQuotaStatus(item.tesseramento.id_tesseramento)" class="save-quota-btn" aria-label="Salva quota">
+                      <AppIcon name="conferma" />
+                    </button>
+                    <button @click="cancelEditQuota" class="cancel-quota-btn" aria-label="Annulla modifica quota">
+                      <AppIcon name="chiudi" />
+                    </button>
                   </span>
                   <span v-else>
                     € {{ Number(item.tesseramento.quota_pagata || 0).toFixed(2) }}
-                    <button @click="startEditQuota(item.tesseramento)" class="edit-btn-small" title="Modifica quota">✏️</button>
+                    <button @click="startEditQuota(item.tesseramento)" class="edit-btn-small" title="Modifica quota" aria-label="Modifica quota">
+                      <AppIcon name="modifica" />
+                    </button>
                   </span>
                 </span>
               </div>
               <div class="detail-row">
-                <span class="detail-label">📄 Ricevuta:</span>
+                <span class="detail-label"><AppIcon name="ricevuta" /> Ricevuta:</span>
                 <span class="detail-value"
                   >{{ item.tesseramento.numero_ricevuta }} /
                   {{ item.tesseramento.numero_blocchetto }}</span
@@ -257,6 +282,7 @@ import {
 } from '@/services/db'
 import AddPaymentModal from '@/components/AddPaymentModal.vue'
 import ConfirmDeleteModal from '@/components/ConfirmDeleteModal.vue'
+import AppIcon from '@/components/base/AppIcon.vue'
 
 const route = useRoute()
 

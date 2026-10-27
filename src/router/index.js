@@ -118,7 +118,7 @@ router.beforeEach(async (to, from, next) => {
 
 router.afterEach((to, from) => {
   window.scrollTo(0, 0)
-  console.log(`Navigazione: ${from.name} → ${to.name}`)
+  console.log(`Navigazione: ${from.name} -> ${to.name}`)
 })
 
 export default router

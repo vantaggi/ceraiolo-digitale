@@ -1,0 +1,71 @@
+import { describe, it, expect } from 'vitest'
+import fs from 'node:fs'
+import path from 'node:path'
+import { icons } from '../base/icons'
+
+// Controlli statici della UI Constitution sulle icone: niente emoji o simboli usati
+// come icone, solo AppIcon (Lucide) con un nome presente in base/icons.js.
+
+const SRC = path.resolve(__dirname, '../..')
+
+const sourceFiles = (dir) =>
+  fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const full = path.join(dir, entry.name)
+    if (entry.isDirectory()) return entry.name === '__tests__' ? [] : sourceFiles(full)
+    return /\.(vue|js)$/.test(entry.name) ? [full] : []
+  })
+
+const rel = (file) => path.relative(SRC, file).split(path.sep).join('/')
+
+// Emoji e simboli che fanno da icona (frecce, spunte, croci). (C) (R) e TM restano testo.
+const ICONA_TESTUALE = /(?![©®™])\p{Extended_Pictographic}|[←-↓✓✕✗]/u
+
+// Eccezioni motivate. Le viste dei lotti successivi di G-3 escono dalla lista quando
+// vengono migrate; il test fallisce se un'eccezione non serve piu'.
+const ECCEZIONI = {
+  'components/KeyboardShortcutsModal.vue': 'le frecce sono i tasti da premere, non icone',
+  'views/SettingsView.vue': 'G-3 lotto 2',
+  'views/BatchEntryView.vue': 'G-3 lotto 2',
+  'views/ReportsView.vue': 'G-3 lotto 3, dopo la decisione su Report Beta',
+  'views/ReportsBetaView.vue': 'G-3 lotto 3, dopo la decisione su Report Beta',
+}
+
+const righeConIcone = (file) =>
+  fs
+    .readFileSync(file, 'utf8')
+    .split('\n')
+    .map((riga, i) => [riga, i + 1])
+    .filter(([riga]) => ICONA_TESTUALE.test(riga))
+
+describe('icone', () => {
+  it('nessuna emoji o simbolo usato come icona nei sorgenti', () => {
+    const trovati = []
+    for (const file of sourceFiles(SRC)) {
+      if (rel(file) in ECCEZIONI) continue
+      for (const [riga, n] of righeConIcone(file)) trovati.push(`${rel(file)}:${n}: ${riga.trim()}`)
+    }
+    expect(trovati).toEqual([])
+  })
+
+  it('ogni eccezione serve ancora', () => {
+    const inutili = Object.keys(ECCEZIONI).filter(
+      (f) => righeConIcone(path.join(SRC, f)).length === 0,
+    )
+    expect(inutili).toEqual([])
+  })
+
+  it('ogni AppIcon usa un nome definito in base/icons.js', () => {
+    const sconosciuti = []
+    for (const file of sourceFiles(SRC)) {
+      const testo = fs.readFileSync(file, 'utf8')
+      for (const [, attr] of testo.matchAll(/<AppIcon\b[^>]*?\s:?name="([^"]+)"/g)) {
+        // name="x" oppure :name="cond ? 'x' : 'y'": si controllano i risultati del ternario
+        const nomi = /^[\w-]+$/.test(attr)
+          ? [attr]
+          : [...attr.matchAll(/[?:]\s*'([^']+)'/g)].map((m) => m[1])
+        for (const nome of nomi) if (!(nome in icons)) sconosciuti.push(`${rel(file)}: ${nome}`)
+      }
+    }
+    expect(sconosciuti).toEqual([])
+  })
+})

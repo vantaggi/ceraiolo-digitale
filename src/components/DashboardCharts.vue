@@ -16,7 +16,7 @@
           <div class="stat-value">{{ currentYearStats.total }}</div>
           <div class="stat-label">Iscritti {{ currentYearStats.year }}</div>
           <div class="stat-trend" :class="getTrendClass(statsTrend.total)">
-             {{ getTrendSymbol(statsTrend.total) }} {{ Math.abs(statsTrend.total) }} vs anno scorso
+             <AppIcon :name="getTrendIcon(statsTrend.total)" /> {{ Math.abs(statsTrend.total) }} vs anno scorso
           </div>
         </div>
 
@@ -24,7 +24,7 @@
           <div class="stat-value">{{ currentYearStats.newMembers }}</div>
           <div class="stat-label">Nuovi Iscritti</div>
            <div class="stat-trend" :class="getTrendClass(statsTrend.new)">
-             {{ getTrendSymbol(statsTrend.new) }} {{ Math.abs(statsTrend.new) }}
+             <AppIcon :name="getTrendIcon(statsTrend.new)" /> {{ Math.abs(statsTrend.new) }}
           </div>
         </div>
 
@@ -73,6 +73,7 @@ import {
 } from 'chart.js'
 import { Bar } from 'vue-chartjs'
 import { getYearlyStats } from '@/services/db'
+import AppIcon from '@/components/base/AppIcon.vue'
 
 // Register ChartJS components
 ChartJS.register(
@@ -189,7 +190,7 @@ const displayedData = computed(() => {
 })
 
 const getTrendClass = (val) => val >= 0 ? 'trend-up' : 'trend-down'
-const getTrendSymbol = (val) => val > 0 ? '↑' : (val < 0 ? '↓' : '=')
+const getTrendIcon = (val) => (val > 0 ? 'in-aumento' : val < 0 ? 'in-calo' : 'stabile')
 
 // Chart Configuration
 const chartData = computed(() => {
