@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
+  elencoBlocchetti,
+  filtraBlocchetti,
   intervalloBlocchetto,
   pagamentiDelBlocchetto,
   ricevutaDaCuiRiprendere,
@@ -99,5 +101,62 @@ describe('blocchetto', () => {
     expect(ricevutaDaCuiRiprendere(completo)).toBe(20)
     // senza intervallo resta il comportamento di prima: dopo l'ultima inserita
     expect(ricevutaDaCuiRiprendere(riepilogoBlocchetto(pagamentiDelBlocchetto(pagamenti, 3)))).toBe(6)
+  })
+})
+
+describe('elenco dei blocchetti (pagina Blocchetti)', () => {
+  // Blocchetti da 10: il 3 va da 21 a 30. Pagamenti inventati.
+  const tesseramenti = [
+    [1, 2026, 21, 3, 10],
+    [2, 2026, 21, 3, 10],
+    [3, 2026, 23, '3', 25],
+    [4, 2025, 22, 3, 10],
+    [4, 2026, 22, 3, 10],
+    [5, 2026, 1, 1, 10],
+    [6, 2026, '', 0, 10], // senza blocchetto: non e' di nessun blocchetto
+  ].map(pagamento)
+  const registrati = [
+    { id: 7, numero_blocchetto: 3, assegnato_a: 'Zona Nord', data_restituzione: null },
+    { id: 8, numero_blocchetto: 5, assegnato_a: 'Zona Sud', data_restituzione: '2026-05-01' },
+  ]
+  const elenco = elencoBlocchetti(tesseramenti, registrati, 10)
+
+  it('un blocchetto per numero, dai pagamenti e dalle assegnazioni, in ordine', () => {
+    expect(elenco.map((b) => [b.numero, b.stato])).toEqual([
+      [1, 'storico'],
+      [3, 'in-giro'],
+      [5, 'rientrato'],
+    ])
+  })
+
+  it('ogni blocchetto ha il riepilogo del suo intervallo e le ricevute con i pagamenti', () => {
+    const b3 = elenco[1]
+    expect(b3.riepilogo).toMatchObject({
+      intervallo: { da: 21, a: 30 },
+      ricevute: 3,
+      mancanti: [],
+      daInserire: { da: 24, a: 30 },
+      incassato: 65,
+    })
+    expect(
+      b3.ricevute.map((r) => [r.numero, r.pagamenti.map((p) => `${p.id_socio}/${p.anno}`)]),
+    ).toEqual([
+      [21, ['1/2026', '2/2026']],
+      [22, ['4/2025', '4/2026']],
+      [23, ['3/2026']],
+    ])
+    // Il blocchetto 1 ha solo la ricevuta 1: niente saltate, da inserire 2-10
+    expect(elenco[0].riepilogo.daInserire).toEqual({ da: 2, a: 10 })
+    // Assegnato ma mai usato: tutto da inserire
+    expect(elenco[2].riepilogo).toMatchObject({ ricevute: 0, daInserire: { da: 41, a: 50 } })
+  })
+
+  it('cerca per numero di blocchetto, numero di ricevuta o assegnatario', () => {
+    const numeri = (testo) => filtraBlocchetti(elenco, testo).map((b) => b.numero)
+    expect(numeri('')).toEqual([1, 3, 5])
+    expect(numeri('3')).toEqual([3])
+    expect(numeri('22')).toEqual([3])
+    expect(numeri(' sud ')).toEqual([5])
+    expect(numeri('99')).toEqual([])
   })
 })

@@ -121,3 +121,74 @@ export function sociDellaRicevuta(pagamenti, numeroRicevuta) {
     importo: Math.round(v.importo * 100) / 100,
   }))
 }
+
+/**
+ * Tutti i blocchetti per la pagina Blocchetti: quelli con pagamenti registrati e quelli
+ * assegnati a mano, uno per numero, con lo stesso riepilogo di Registra ricevute.
+ * Contatori e tabella partono da questo elenco, cosi' contano la stessa cosa.
+ * @param {Array<object>} tesseramenti tutti i pagamenti
+ * @param {Array<object>} registrati blocchetti assegnati (tabella blocchetti)
+ * @param {number} ricevutePerBlocchetto
+ * @returns {Array<{ numero: number, registrato: object|null,
+ *   stato: 'storico'|'in-giro'|'rientrato', riepilogo: ReturnType<typeof riepilogoBlocchetto>,
+ *   ricevute: Array<{ numero: number, pagamenti: object[] }> }>} in ordine di numero
+ */
+export function elencoBlocchetti(tesseramenti, registrati, ricevutePerBlocchetto) {
+  const perNumero = new Map()
+  const voce = (n) => {
+    if (!perNumero.has(n)) perNumero.set(n, { numero: n, pagamenti: [], registrato: null })
+    return perNumero.get(n)
+  }
+  for (const t of tesseramenti) {
+    const n = numero(t.numero_blocchetto)
+    if (n !== null) voce(n).pagamenti.push(t)
+  }
+  for (const b of registrati) {
+    const n = numero(b.numero_blocchetto)
+    if (n !== null) voce(n).registrato = b
+  }
+
+  return [...perNumero.values()]
+    .sort((a, b) => a.numero - b.numero)
+    .map(({ numero: n, pagamenti, registrato }) => {
+      const perRicevuta = new Map()
+      for (const t of pagamenti) {
+        const r = numero(t.numero_ricevuta)
+        if (r === null) continue
+        if (!perRicevuta.has(r)) perRicevuta.set(r, [])
+        perRicevuta.get(r).push(t)
+      }
+      return {
+        numero: n,
+        registrato,
+        // Solo un blocchetto assegnato a mano puo' essere "in giro": quelli dello storico
+        // non hanno data di restituzione ma sono rientrati da tempo.
+        stato: !registrato ? 'storico' : registrato.data_restituzione ? 'rientrato' : 'in-giro',
+        riepilogo: riepilogoBlocchetto(pagamenti, intervalloBlocchetto(n, ricevutePerBlocchetto)),
+        ricevute: [...perRicevuta.entries()]
+          .sort(([a], [b]) => a - b)
+          .map(([r, lista]) => ({ numero: r, pagamenti: lista.sort((a, b) => a.anno - b.anno) })),
+      }
+    })
+}
+
+/**
+ * Filtra l'elenco dei blocchetti: numero del blocchetto o di una sua ricevuta (esatti),
+ * oppure parte del nome di chi lo ha in consegna.
+ * @param {ReturnType<typeof elencoBlocchetti>} elenco
+ * @param {string} testo
+ */
+export function filtraBlocchetti(elenco, testo) {
+  const q = String(testo ?? '')
+    .trim()
+    .toLowerCase()
+  if (!q) return elenco
+  return elenco.filter(
+    (b) =>
+      String(b.numero) === q ||
+      b.ricevute.some((r) => String(r.numero) === q) ||
+      String(b.registrato?.assegnato_a ?? '')
+        .toLowerCase()
+        .includes(q),
+  )
+}

@@ -326,6 +326,7 @@ import {
 } from '@/utils/blocchetto'
 import ErrorModal from '@/components/ErrorModal.vue'
 import ConfirmDeleteModal from '@/components/ConfirmDeleteModal.vue'
+import { useRoute } from 'vue-router'
 import AddPaymentModal from '@/components/AddPaymentModal.vue'
 import AppIcon from '@/components/base/AppIcon.vue'
 import PageHeader from '@/components/base/PageHeader.vue'
@@ -368,6 +369,11 @@ watch(sessionData, () => {
     // senza memoria del browser la pagina funziona lo stesso
   }
 })
+// Da Incassi › Blocchetti, "Registra" apre la pagina su quel blocchetto (?blocchetto=N)
+const bloccoRichiesto = Number(useRoute().query.blocchetto)
+if (Number.isInteger(bloccoRichiesto) && bloccoRichiesto > 0) {
+  sessionData.numeroBlocchetto = bloccoRichiesto
+}
 
 const sessionErrors = reactive({
   annoRiferimento: '',

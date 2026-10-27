@@ -1,8 +1,10 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
+import { RouterLink } from 'vue-router'
 import { useToast } from 'vue-toastification'
 import { askConfirm } from '@/composables/useDialog'
 import AppIcon from '@/components/base/AppIcon.vue'
+import BaseButton from '@/components/base/BaseButton.vue'
 import PageHeader from '@/components/base/PageHeader.vue'
 import SectionTabs from '@/components/base/SectionTabs.vue'
 import { SCHEDE_INCASSI } from '@/router/sezioni'
@@ -12,601 +14,797 @@ import {
   addBlocchetto,
   returnBlocchetto,
   deleteBlocchetto,
-  exportAllTesseramenti
+  exportAllTesseramenti,
+  getSetting,
 } from '@/services/db'
+import { elencoBlocchetti, filtraBlocchetti, intervalloBlocchetto } from '@/utils/blocchetto'
 
 const toast = useToast()
 
-// Stato DB
-const blocchettiDB = ref([])
-const allPayments = ref([])
-const allSoci = ref([])
+const registrati = ref([])
+const pagamenti = ref([])
+const nomiSoci = ref(new Map())
+const ricevutePerBlocchetto = ref(10)
+const caricamento = ref(true)
+const erroreCaricamento = ref('')
 
-// Form Add
-const showAddForm = ref(false)
-const newBlocchetto = ref({
-  numero_blocchetto: null,
-  assegnato_a: '',
-  data_assegnazione: new Date().toISOString().split('T')[0]
-})
+const ricerca = ref('')
+const aperto = ref(null)
 
-// Search
-const searchQuery = ref('')
-const expandedRowId = ref(null)
+onMounted(caricaDati)
 
-onMounted(async () => {
-  await loadData()
-})
-
-async function loadData() {
-  blocchettiDB.value = await getAllBlocchetti()
-  allPayments.value = await exportAllTesseramenti()
-  allSoci.value = await db.soci.toArray()
+async function caricaDati() {
+  erroreCaricamento.value = ''
+  try {
+    const [blocchetti, tesseramenti, soci, per] = await Promise.all([
+      getAllBlocchetti(),
+      exportAllTesseramenti(),
+      db.soci.toArray(),
+      getSetting('receiptsPerBlock', 10),
+    ])
+    registrati.value = blocchetti
+    pagamenti.value = tesseramenti
+    nomiSoci.value = new Map(soci.map((s) => [s.id, `${s.cognome} ${s.nome}`]))
+    ricevutePerBlocchetto.value = Number(per) || 10
+  } catch (error) {
+    console.error('Blocchetti non letti:', error)
+    erroreCaricamento.value = 'Non sono riuscito a leggere i blocchetti.'
+  } finally {
+    caricamento.value = false
+  }
 }
 
-// ---- LOGICA DINAMICA BLOCCHETTI ----
+// Contatori e tabella partono dallo stesso elenco: contano la stessa cosa
+const elenco = computed(() =>
+  elencoBlocchetti(pagamenti.value, registrati.value, ricevutePerBlocchetto.value),
+)
+const visibili = computed(() => filtraBlocchetti(elenco.value, ricerca.value))
+const contatori = computed(() => ({
+  totale: elenco.value.length,
+  inGiro: elenco.value.filter((b) => b.stato === 'in-giro').length,
+  conSaltate: elenco.value.filter((b) => b.riepilogo.mancanti.length > 0).length,
+}))
 
-const blocchettiDinamici = computed(() => {
-   const map = new Map()
+const euro = (valore) => Number(valore || 0).toFixed(2)
+const data = (iso) => (iso ? new Date(`${iso}T00:00:00`).toLocaleDateString('it-IT') : '')
+const nome = (id) => nomiSoci.value.get(id) || 'Socio non trovato'
+const elencoBreve = (numeri, max = 5) =>
+  numeri.length > max
+    ? `${numeri.slice(0, max).join(', ')} e altre ${numeri.length - max}`
+    : numeri.join(', ')
 
-   allPayments.value.forEach(p => {
-       // Leggiamo ESATTAMENTE quello che c'è nel Database, ora che abbiamo un Fixer.
-       // numero_blocchetto = N° del Blocchetto fisico (il libretto)
-       // numero_ricevuta  = N° della singola Ricevuta staccata in quel libretto
-       const bNum = Number(p.numero_blocchetto) || 0
-       const rNum = Number(p.numero_ricevuta) || 0
+/** Cosa guardare in un blocchetto; vuoto se e' tutto in ordine. */
+const daControllare = (b) => {
+  const r = b.riepilogo
+  const voci = []
+  if (r.mancanti.length) voci.push(`Saltate: ${elencoBreve(r.mancanti)}`)
+  if (r.daInserire) voci.push(`Non registrate: ${r.daInserire.da}–${r.daInserire.a}`)
+  if (r.fuori.length) voci.push(`${r.fuori.length} fuori dal blocchetto`)
+  if (r.senzaRicevuta) voci.push(`${r.senzaRicevuta} senza numero di ricevuta`)
+  return voci
+}
 
-       if (bNum <= 0) return;
+/** Ricevute del blocchetto da mostrare aperto: quelle registrate e quelle saltate. */
+const ricevuteAperte = (b) =>
+  [
+    ...b.ricevute.map((r) => ({
+      ...r,
+      saltata: false,
+      fuori: b.riepilogo.fuori.includes(r.numero),
+    })),
+    ...b.riepilogo.mancanti.map((n) => ({ numero: n, pagamenti: [], saltata: true, fuori: false })),
+  ].sort((x, y) => x.numero - y.numero)
 
-       if (!map.has(bNum)) {
-           map.set(bNum, {
-               numero_blocchetto: bNum,
-               ricevuteMap: new Map(),
-               countPagamenti: 0,
-               totaleIncassato: 0,
-               assegnato_a: 'Gestito dallo Storico',
-               data_assegnazione: null,
-               data_restituzione: null,
-               isReal: false
-           })
-       }
+const apriChiudi = (numero) => {
+  aperto.value = aperto.value === numero ? null : numero
+}
 
-       const blocco = map.get(bNum)
-       blocco.countPagamenti++
-       blocco.totaleIncassato += (Number(p.quota_pagata) || 0)
+// ---- Assegna un blocchetto ----
 
-       if (rNum > 0) {
-           if (!blocco.ricevuteMap.has(rNum)) {
-               blocco.ricevuteMap.set(rNum, [])
-           }
-           const socio = allSoci.value.find(s => s.id === p.id_socio)
-           const nomeSocio = socio ? `${socio.cognome} ${socio.nome}` : 'Socio Eliminato'
+const oggi = () => new Date().toISOString().split('T')[0]
+const mostraAssegna = ref(false)
+const tentato = ref(false)
+const salvataggio = ref(false)
+const campoNumero = ref(null)
+const nuovo = ref({ numero: '', assegnato_a: '', data: oggi() })
 
-           blocco.ricevuteMap.get(rNum).push({
-               ...p,
-               socioNome: nomeSocio
-           })
-       }
-   })
-
-   // 2. Uniamo/Sovrascriviamo con i Blocchetti inseriti manualmente (se esistono)
-   blocchettiDB.value.forEach(bDB => {
-       const bNum = bDB.numero_blocchetto;
-       if (!map.has(bNum)) {
-           map.set(bNum, {
-               numero_blocchetto: bNum,
-               ricevuteMap: new Map(),
-               countPagamenti: 0,
-               totaleIncassato: 0,
-               assegnato_a: bDB.assegnato_a,
-               data_assegnazione: bDB.data_assegnazione,
-               data_restituzione: bDB.data_restituzione,
-               isReal: true,
-               id: bDB.id
-           })
-       } else {
-           const existing = map.get(bNum)
-           existing.assegnato_a = bDB.assegnato_a
-           existing.data_assegnazione = bDB.data_assegnazione
-           existing.data_restituzione = bDB.data_restituzione
-           existing.isReal = true
-           existing.id = bDB.id
-       }
-   })
-
-   // Trasformiamo e Ordiniamo
-   const sorted = Array.from(map.values()).sort((a,b) => a.numero_blocchetto - b.numero_blocchetto)
-
-   sorted.forEach(b => {
-       const arr = []
-       for (const [rNum, payments] of b.ricevuteMap.entries()) {
-           arr.push({
-               numero_ricevuta: rNum,
-               payments: payments.sort((p1, p2) => p1.anno - p2.anno)
-           })
-       }
-       b.ricevuteList = arr.sort((a,b) => a.numero_ricevuta - b.numero_ricevuta)
-   })
-
-   return sorted
+const prossimoNumero = computed(() => (elenco.value.at(-1)?.numero ?? 0) + 1)
+const intervalloNuovo = computed(() =>
+  intervalloBlocchetto(nuovo.value.numero, ricevutePerBlocchetto.value),
+)
+const erroreNumero = computed(() => {
+  const n = Number(nuovo.value.numero)
+  if (nuovo.value.numero === '' || nuovo.value.numero === null)
+    return 'Scrivi il numero del blocchetto'
+  if (!Number.isInteger(n) || n < 1) return 'Il numero è un intero da 1 in su'
+  const gia = registrati.value.find((b) => Number(b.numero_blocchetto) === n)
+  if (gia)
+    return `Il blocchetto ${n} è già assegnato${gia.assegnato_a ? ` a ${gia.assegnato_a}` : ''}`
+  return ''
 })
 
-const filteredBlocchetti = computed(() => {
-    // Tutti i blocchetti: quelli registrati e quelli ricavati dallo storico dei pagamenti
-    let baseList = blocchettiDinamici.value
+const apriAssegna = () => {
+  nuovo.value = { numero: prossimoNumero.value, assegnato_a: '', data: oggi() }
+  tentato.value = false
+  mostraAssegna.value = true
+  nextTick(() => campoNumero.value?.focus())
+}
 
-    if (!searchQuery.value) return baseList
-
-    const q = searchQuery.value.toLowerCase()
-    return baseList.filter(b => {
-        if (b.numero_blocchetto.toString() === q) return true;
-        if (b.assegnato_a && b.assegnato_a.toLowerCase().includes(q)) return true;
-
-        // Cerca anche all'interno delle ricevute incassate
-        const hasRicevuta = b.ricevuteList?.some(r => r.numero_ricevuta.toString() === q)
-        if (hasRicevuta) return true;
-
-        return false;
-    })
-})
-
-const totalBlocchetti = computed(() => blocchettiDinamici.value.length)
-// Solo un blocchetto registrato puo' essere "in giro": quelli dello storico non hanno
-// data di restituzione ma sono rientrati da tempo, e prima finivano tra i non restituiti.
-const totalAttivi = computed(() => blocchettiDinamici.value.filter(b => b.isReal && !b.data_restituzione).length)
-
-
-// ---- AZIONI MANUALI ----
-
-async function handleAddBlocchetto() {
-  if (!newBlocchetto.value.numero_blocchetto) {
-    toast.error('Inserisci il numero del blocchetto')
+async function assegna() {
+  tentato.value = true
+  if (erroreNumero.value) {
+    campoNumero.value?.focus()
     return
   }
-
+  salvataggio.value = true
   try {
-    const dataToAdd = {
-      numero_blocchetto: Number(newBlocchetto.value.numero_blocchetto),
-      ricevute_da: 1, // Legacy non più vincolante
-      ricevute_a: 50, // Legacy non più vincolante
-      assegnato_a: newBlocchetto.value.assegnato_a.trim() || 'Pre-assegnato',
-      data_assegnazione: newBlocchetto.value.data_assegnazione || null,
-      data_restituzione: null
-    }
-
-    await addBlocchetto(dataToAdd)
-    await loadData() // Ricarica tutto
-
-    newBlocchetto.value = {
-      numero_blocchetto: null,
-      assegnato_a: '',
-      data_assegnazione: new Date().toISOString().split('T')[0]
-    }
-    showAddForm.value = false
+    const n = Number(nuovo.value.numero)
+    await addBlocchetto({
+      numero_blocchetto: n,
+      ricevute_da: intervalloNuovo.value.da,
+      ricevute_a: intervalloNuovo.value.a,
+      assegnato_a: nuovo.value.assegnato_a.trim(),
+      data_assegnazione: nuovo.value.data || null,
+      data_restituzione: null,
+    })
+    await caricaDati()
+    mostraAssegna.value = false
+    toast.success(`Blocchetto ${n} assegnato`)
   } catch (error) {
     toast.error(error.message)
+  } finally {
+    salvataggio.value = false
   }
 }
 
-async function handleReturn(id, numero) {
+// ---- Rientro e scollegamento ----
+
+async function segnaRientrato(b) {
   const conferma = await askConfirm({
-    title: `Segnare il blocchetto ${numero} come restituito?`,
-    message: 'Come data di restituzione viene usata la data di oggi.',
-    confirmLabel: 'Segna restituito',
+    title: `Segnare il blocchetto ${b.numero} come rientrato?`,
+    message: 'Come data di rientro viene usata la data di oggi.',
+    confirmLabel: 'Segna rientrato',
   })
-  if (conferma) {
-    await returnBlocchetto(id)
-    await loadData()
-  }
+  if (!conferma) return
+  await returnBlocchetto(b.registrato.id)
+  await caricaDati()
 }
 
-async function handleDelete(id, numero) {
+async function scollega(b) {
   const conferma = await askConfirm({
-    title: `Scollegare l'assegnatario dal blocchetto ${numero}?`,
-    message: "L'assegnazione viene tolta e il blocchetto resta nello storico. I pagamenti non cambiano.",
+    title: `Scollegare l'assegnatario dal blocchetto ${b.numero}?`,
+    message:
+      "L'assegnazione viene tolta e il blocchetto resta nello storico. I pagamenti non cambiano.",
     confirmLabel: 'Scollega',
     danger: true,
   })
-  if (conferma) {
-    await deleteBlocchetto(id)
-    await loadData()
-  }
+  if (!conferma) return
+  await deleteBlocchetto(b.registrato.id)
+  await caricaDati()
 }
-
-function toggleDetails(numero_blocchetto) {
-  if (expandedRowId.value === numero_blocchetto) {
-    expandedRowId.value = null
-  } else {
-    expandedRowId.value = numero_blocchetto
-  }
-}
-
-
-// Formatting Helper
-const formatDate = (dateString) => {
-  if (!dateString) return '-'
-  return new Date(dateString).toLocaleDateString('it-IT')
-}
-
 </script>
 
 <template>
-  <div class="view-container">
+  <div class="blocchetti">
     <PageHeader
       title="Incassi"
-      subtitle="Assegna e fai rientrare i blocchetti, esplora le ricevute di ciascuno"
+      subtitle="Assegna e fai rientrare i blocchetti, controlla le ricevute di ciascuno"
     >
       <template #actions>
-        <button class="primary-button" @click="showAddForm = !showAddForm">
-          {{ showAddForm ? 'Annulla' : '+ Registra Nuovo Blocchetto' }}
-        </button>
+        <BaseButton v-if="!mostraAssegna" @click="apriAssegna">
+          <AppIcon name="aggiungi" /> Assegna un blocchetto
+        </BaseButton>
       </template>
     </PageHeader>
     <SectionTabs :tabs="SCHEDE_INCASSI" label="Schede di Incassi" />
 
-    <!-- FORM INSERIMENTO -->
-    <div v-if="showAddForm" class="form-panel shadow-panel">
-      <h3>Dati Nuovo Blocchetto</h3>
-      <p class="help-text">Non occorre specificare il range "Da-A". Il sistema associerà automaticamente le ricevute inserite nei pagamenti.</p>
-      <form @submit.prevent="handleAddBlocchetto" class="add-form">
-        <div class="form-group grid-2">
-          <div>
-            <label>N° Seriale / N° Blocchetto</label>
-            <input type="number" v-model="newBlocchetto.numero_blocchetto" required placeholder="Es. 1" />
-          </div>
-          <div>
-             <label>Persona Incaricata / Assegnatario</label>
-             <input type="text" v-model="newBlocchetto.assegnato_a" placeholder="Es. Ceraiolo, Mario Rossi..." />
-          </div>
+    <form v-if="mostraAssegna" class="pannello assegna" novalidate @submit.prevent="assegna">
+      <h2>Assegna un blocchetto</h2>
+      <div class="assegna__campi">
+        <div class="campo">
+          <label for="nuovo-blocchetto-numero">Numero del blocchetto</label>
+          <input
+            id="nuovo-blocchetto-numero"
+            ref="campoNumero"
+            v-model.number="nuovo.numero"
+            type="number"
+            min="1"
+            :disabled="salvataggio"
+            :aria-invalid="tentato && erroreNumero ? 'true' : undefined"
+            :aria-describedby="
+              tentato && erroreNumero ? 'nuovo-blocchetto-errore' : 'nuovo-blocchetto-aiuto'
+            "
+          />
+          <p v-if="tentato && erroreNumero" id="nuovo-blocchetto-errore" class="campo__errore">
+            {{ erroreNumero }}
+          </p>
+          <p v-else id="nuovo-blocchetto-aiuto" class="campo__aiuto">
+            <template v-if="intervalloNuovo">
+              Ricevute {{ intervalloNuovo.da }}–{{ intervalloNuovo.a }}
+            </template>
+          </p>
         </div>
-
-        <div class="form-group">
-          <label>Data di Consegna (Opzionale)</label>
-          <input type="date" v-model="newBlocchetto.data_assegnazione" />
+        <div class="campo">
+          <label for="nuovo-blocchetto-a">
+            Consegnato a <span class="campo__facoltativo">(facoltativo)</span>
+          </label>
+          <input
+            id="nuovo-blocchetto-a"
+            v-model="nuovo.assegnato_a"
+            type="text"
+            :disabled="salvataggio"
+          />
         </div>
-
-        <div class="form-actions">
-          <button type="button" class="secondary-button" @click="showAddForm = false">Annulla</button>
-          <button type="submit" class="primary-button">Salva Anagrafica Blocchetto</button>
+        <div class="campo">
+          <label for="nuovo-blocchetto-data">Data di consegna</label>
+          <input
+            id="nuovo-blocchetto-data"
+            v-model="nuovo.data"
+            type="date"
+            :disabled="salvataggio"
+          />
         </div>
-      </form>
-    </div>
-
-    <!-- STATISTICHE E RICERCA -->
-    <div class="stats-bar shadow-panel">
-       <div class="stats-left">
-          <div class="search-box">
-             <input type="text" v-model="searchQuery" placeholder="Cerca Blocchetto n° o Ricevuta n°..." class="search-input" />
-          </div>
-       </div>
-       <div class="stats-right">
-          <div class="stat-item">
-             <span class="stat-label">Totale Blocchetti</span>
-             <span class="stat-value">{{ totalBlocchetti }}</span>
-          </div>
-          <div class="stat-item">
-             <span class="stat-label">Non Restituiti</span>
-             <span class="stat-value highlight-active">{{ totalAttivi }}</span>
-          </div>
-       </div>
-    </div>
-
-    <!-- TABELLA DATI DINAMICA -->
-    <div class="table-container shadow-panel">
-      <table v-if="filteredBlocchetti.length > 0" class="data-table">
-        <thead>
-          <tr>
-            <th>Blocchetto</th>
-            <th>Assegnato A</th>
-            <th>Consegna</th>
-            <th>Stato Restituzione</th>
-            <th>Volumi Trovati</th>
-            <th>Azioni</th>
-          </tr>
-        </thead>
-        <tbody>
-          <template v-for="b in filteredBlocchetti" :key="b.numero_blocchetto">
-            <tr :class="{ 'row-returned': b.data_restituzione, 'is-dynamic': !b.isReal }">
-              <td><strong>N° {{ b.numero_blocchetto }}</strong></td>
-              <td>{{ b.assegnato_a }}</td>
-              <td>{{ b.data_assegnazione ? formatDate(b.data_assegnazione) : '-' }}</td>
-              <td>
-                 <span v-if="b.data_restituzione" class="status-badge valid">
-                    {{ formatDate(b.data_restituzione) }}
-                 </span>
-                 <span v-else-if="!b.isReal" class="status-badge dynamic" title="Esiste dai pagamenti ma non e' stato registrato con il pulsante">Storico</span>
-                 <span v-else class="status-badge pending">In Circolazione</span>
-              </td>
-              <td>
-                 <span class="badge blue">{{ b.countPagamenti }} Quote</span>
-                 <span class="badge green">€ {{ b.totaleIncassato }}</span>
-              </td>
-              <td class="action-cell">
-                 <button v-if="b.isReal && !b.data_restituzione" @click="handleReturn(b.id, b.numero_blocchetto)" class="action-btn ok-btn" title="Segna come Restituito" aria-label="Segna come restituito"><AppIcon name="restituisci" /></button>
-                 <button @click="toggleDetails(b.numero_blocchetto)" class="action-btn info-btn" title="Esplora Ricevute in questo blocchetto" aria-label="Esplora le ricevute del blocchetto"><AppIcon name="dettagli" /></button>
-                 <button v-if="b.isReal" @click="handleDelete(b.id, b.numero_blocchetto)" class="action-btn delete-btn" title="Elimina Assegnazione (Diventerà Storico)" aria-label="Elimina assegnazione"><AppIcon name="elimina" /></button>
-              </td>
-            </tr>
-            <!-- Dettaglio Espanso: Ricevute e Soci -->
-            <tr v-if="expandedRowId === b.numero_blocchetto" class="expanded-row">
-               <td colspan="6" class="expanded-cell">
-                  <div class="receipts-header">
-                     <h4>Ricevute compilate per il Blocchetto N° {{ b.numero_blocchetto }}</h4>
-                  </div>
-                  <div v-if="!b.ricevuteList || b.ricevuteList.length === 0" class="empty-msg">Nessuna ricevuta individuata per questo blocchetto finora.</div>
-
-                  <div v-else class="receipts-grid">
-                     <div v-for="ric in b.ricevuteList" :key="ric.numero_ricevuta" class="receipt-card">
-                        <div class="receipt-title">Ricevuta N° {{ ric.numero_ricevuta }}</div>
-                        <ul class="persons-list">
-                           <li v-for="pay in ric.payments" :key="pay.id_tesseramento">
-                              <strong>{{ pay.socioNome }}</strong>
-                              <span class="pay-year">Anno {{ pay.anno }}</span>
-                              <span class="pay-amount">€ {{ pay.quota_pagata }}</span>
-                           </li>
-                        </ul>
-                     </div>
-                  </div>
-               </td>
-            </tr>
-          </template>
-        </tbody>
-      </table>
-      <div v-else class="empty-state">
-        <p>Nessun Blocchetto corrisponde alla tua ricerca o non ci sono ancora pagamenti registrati.</p>
       </div>
-    </div>
+      <div class="assegna__azioni">
+        <BaseButton variant="ghost" :disabled="salvataggio" @click="mostraAssegna = false">
+          Annulla
+        </BaseButton>
+        <BaseButton type="submit" variant="primary" :loading="salvataggio">
+          <AppIcon name="salva" /> Assegna
+        </BaseButton>
+      </div>
+    </form>
 
+    <section class="pannello" aria-labelledby="titolo-elenco">
+      <div class="barra">
+        <h2 id="titolo-elenco">Blocchetti</h2>
+        <dl class="contatori">
+          <div>
+            <dt>In elenco</dt>
+            <dd data-contatore="totale">{{ contatori.totale }}</dd>
+          </div>
+          <div>
+            <dt>In giro</dt>
+            <dd data-contatore="in-giro">{{ contatori.inGiro }}</dd>
+          </div>
+          <div>
+            <dt>Con ricevute saltate</dt>
+            <dd data-contatore="saltate">{{ contatori.conSaltate }}</dd>
+          </div>
+        </dl>
+      </div>
+
+      <div class="cerca">
+        <label for="cerca-blocchetti">Cerca</label>
+        <input
+          id="cerca-blocchetti"
+          v-model="ricerca"
+          type="search"
+          placeholder="Blocchetto, ricevuta o nome"
+        />
+        <p v-if="ricerca" class="cerca__esito" aria-live="polite">
+          {{ visibili.length }} su {{ elenco.length }}
+        </p>
+      </div>
+
+      <p v-if="caricamento" class="vuoto" role="status">
+        <AppIcon name="caricamento" /> Carico i blocchetti…
+      </p>
+      <p v-else-if="erroreCaricamento" class="vuoto vuoto--errore" role="alert">
+        <AppIcon name="errore" /> {{ erroreCaricamento }}
+        <BaseButton @click="caricaDati">Riprova</BaseButton>
+      </p>
+      <p v-else-if="elenco.length === 0" class="vuoto">
+        Nessun blocchetto: ne compare uno appena lo assegni o registri una ricevuta.
+      </p>
+      <p v-else-if="visibili.length === 0" class="vuoto">Nessun blocchetto per "{{ ricerca }}".</p>
+
+      <div v-else class="tabella-scorre">
+        <table class="tabella">
+          <thead>
+            <tr>
+              <th scope="col">Blocchetto</th>
+              <th scope="col" class="nascondi-stretto">Consegnato a</th>
+              <th scope="col">Ricevute</th>
+              <th scope="col">Da controllare</th>
+              <th scope="col" class="nascondi-stretto numero">Incassato</th>
+              <th scope="col">Stato</th>
+              <th scope="col"><span class="sr-only">Azioni</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <template v-for="b in visibili" :key="b.numero">
+              <tr :class="{ 'riga--aperta': aperto === b.numero }">
+                <th scope="row">
+                  {{ b.numero }}
+                  <span v-if="b.riepilogo.intervallo" class="sotto">
+                    {{ b.riepilogo.intervallo.da }}–{{ b.riepilogo.intervallo.a }}
+                  </span>
+                </th>
+                <td class="nascondi-stretto">
+                  <template v-if="b.registrato">
+                    {{ b.registrato.assegnato_a || 'Non indicato' }}
+                    <span v-if="b.registrato.data_assegnazione" class="sotto">
+                      dal {{ data(b.registrato.data_assegnazione) }}
+                    </span>
+                  </template>
+                  <span v-else class="sotto">—</span>
+                </td>
+                <td>
+                  {{ b.riepilogo.ricevute - b.riepilogo.fuori.length }} su
+                  {{ ricevutePerBlocchetto }}
+                </td>
+                <td>
+                  <ul v-if="daControllare(b).length" class="controlli">
+                    <li v-for="voce in daControllare(b)" :key="voce">{{ voce }}</li>
+                  </ul>
+                  <span v-else class="completo"><AppIcon name="ok" /> Completo</span>
+                </td>
+                <td class="nascondi-stretto numero">€ {{ euro(b.riepilogo.incassato) }}</td>
+                <td>
+                  <span v-if="b.stato === 'in-giro'" class="stato stato--giro">In giro</span>
+                  <span v-else-if="b.stato === 'rientrato'" class="stato">
+                    Rientrato
+                    <span class="sotto">il {{ data(b.registrato.data_restituzione) }}</span>
+                  </span>
+                  <span
+                    v-else
+                    class="stato stato--storico"
+                    title="Trovato nei pagamenti, mai assegnato da questa pagina"
+                  >
+                    Dallo storico
+                  </span>
+                </td>
+                <td class="azioni">
+                  <RouterLink
+                    :to="{ name: 'batch-entry', query: { blocchetto: b.numero } }"
+                    class="link-btn"
+                    :aria-label="`Registra ricevute del blocchetto ${b.numero}`"
+                  >
+                    <AppIcon name="registrazione-seriale" /><span class="link-btn__testo"
+                      >Registra</span
+                    >
+                  </RouterLink>
+                  <button
+                    type="button"
+                    class="icona-btn"
+                    :aria-expanded="aperto === b.numero ? 'true' : 'false'"
+                    :aria-controls="`ricevute-blocchetto-${b.numero}`"
+                    :aria-label="`Ricevute del blocchetto ${b.numero}`"
+                    :title="`Ricevute del blocchetto ${b.numero}`"
+                    @click="apriChiudi(b.numero)"
+                  >
+                    <AppIcon name="dettagli" />
+                  </button>
+                  <button
+                    v-if="b.stato === 'in-giro'"
+                    type="button"
+                    class="icona-btn"
+                    :aria-label="`Segna rientrato il blocchetto ${b.numero}`"
+                    title="Segna rientrato"
+                    @click="segnaRientrato(b)"
+                  >
+                    <AppIcon name="restituisci" />
+                  </button>
+                  <button
+                    v-if="b.registrato"
+                    type="button"
+                    class="icona-btn icona-btn--pericolo"
+                    :aria-label="`Scollega l'assegnatario dal blocchetto ${b.numero}`"
+                    title="Scollega l'assegnatario"
+                    @click="scollega(b)"
+                  >
+                    <AppIcon name="elimina" />
+                  </button>
+                </td>
+              </tr>
+              <tr
+                v-if="aperto === b.numero"
+                :id="`ricevute-blocchetto-${b.numero}`"
+                class="dettaglio"
+              >
+                <td colspan="7">
+                  <p v-if="ricevuteAperte(b).length === 0" class="sotto">
+                    Nessuna ricevuta registrata per questo blocchetto.
+                  </p>
+                  <ol v-else class="ricevute">
+                    <li
+                      v-for="r in ricevuteAperte(b)"
+                      :key="r.numero"
+                      class="ricevuta"
+                      :class="{ 'ricevuta--saltata': r.saltata, 'ricevuta--fuori': r.fuori }"
+                    >
+                      <span class="ricevuta__numero">
+                        Ricevuta {{ r.numero }}
+                        <span v-if="r.fuori" class="sotto">fuori dal blocchetto</span>
+                      </span>
+                      <span v-if="r.saltata" class="ricevuta__saltata">
+                        <AppIcon name="attenzione" /> Saltata
+                      </span>
+                      <ul v-else>
+                        <li
+                          v-for="p in r.pagamenti"
+                          :key="p.id_tesseramento ?? `${p.id_socio}-${p.anno}`"
+                        >
+                          <RouterLink :to="{ name: 'socio-detail', params: { id: p.id_socio } }">
+                            {{ nome(p.id_socio) }}
+                          </RouterLink>
+                          <span class="sotto">{{ p.anno }} · € {{ euro(p.quota_pagata) }}</span>
+                        </li>
+                      </ul>
+                    </li>
+                  </ol>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </section>
   </div>
 </template>
 
 <style scoped>
-.view-container {
+.blocchetti {
   max-width: var(--page-width);
   margin: 0 auto;
   padding: var(--space-32);
 }
 
-.shadow-panel {
+.pannello {
+  margin-bottom: var(--space-24);
+  padding: var(--space-24);
   background: var(--color-surface);
-  border-radius: 12px;
-  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-  padding: 1.5rem;
-  margin-bottom: 1.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-surface);
 }
 
-/* STATS BAR */
-.stats-bar {
-   display: flex;
-   justify-content: space-between;
-   align-items: center;
-   background: var(--color-surface-hover);
-}
-.stats-left {
-   flex: 1;
-}
-.search-input {
-   width: 100%;
-   max-width: 400px;
-   padding: 0.8rem 1rem;
-   border: 1px solid var(--color-border);
-   border-radius: 8px;
-   background: var(--color-background);
-   font-size: 1rem;
-}
-.stats-right {
-   display: flex;
-   gap: 2rem;
-}
-.stat-item {
-   display: flex;
-   flex-direction: column;
-}
-.stat-label {
-   font-size: 0.85rem;
-   text-transform: uppercase;
-   letter-spacing: 0.05em;
-   color: var(--color-text-secondary);
-}
-.stat-value {
-   font-size: 1.5rem;
-   font-weight: bold;
-}
-.highlight-active {
-   color: #eab308;
+.pannello h2 {
+  margin: 0;
+  font-size: var(--font-size-section-heading);
 }
 
-/* FORM ADD */
-.form-group {
-   margin-bottom: 1.2rem;
+/* Assegna */
+.assegna {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
 }
-.grid-2 {
-   display: grid;
-   grid-template-columns: 1fr 1fr;
-   gap: 1rem;
+
+.assegna__campi {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-16) var(--space-24);
 }
-label {
-   display: block;
-   margin-bottom: 0.5rem;
-   font-weight: 500;
-   color: var(--color-text-secondary);
-}
-input {
-   width: 100%;
-   padding: 0.75rem;
-   border: 1px solid var(--color-border);
-   border-radius: 6px;
-   background-color: var(--color-background);
-   color: var(--color-text-primary);
-}
-.form-actions {
+
+.assegna__azioni {
   display: flex;
   justify-content: flex-end;
-  gap: 1rem;
-  margin-top: 1.5rem;
-}
-.help-text {
-   color: var(--color-text-secondary);
-   font-size: 0.9rem;
-   margin-bottom: 1rem;
+  gap: var(--space-12);
 }
 
-/* TABLE */
-.table-container {
-  overflow-x: auto;
-  padding: 0;
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
 }
-.data-table {
+
+.campo label,
+.cerca label {
+  font-size: var(--font-size-label);
+  font-weight: 600;
+}
+
+.campo input,
+.cerca input {
+  margin: 0;
+}
+
+.campo [aria-invalid='true'] {
+  border-color: var(--color-danger);
+}
+
+.campo__facoltativo {
+  font-weight: 400;
+  color: var(--color-text-secondary);
+}
+
+.campo__errore,
+.campo__aiuto {
+  margin: 0;
+  min-height: 1.2em;
+  font-size: var(--font-size-caption);
+}
+
+.campo__errore {
+  color: var(--color-danger);
+  font-weight: 600;
+}
+
+.campo__aiuto {
+  color: var(--color-text-secondary);
+}
+
+/* Barra con contatori e ricerca */
+.barra {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-16);
+  margin-bottom: var(--space-16);
+}
+
+.contatori {
+  display: flex;
+  gap: var(--space-24);
+  margin: 0;
+}
+
+.contatori div {
+  display: flex;
+  flex-direction: column-reverse;
+}
+
+.contatori dt {
+  font-size: var(--font-size-caption);
+  color: var(--color-text-secondary);
+}
+
+.contatori dd {
+  margin: 0;
+  font-size: var(--font-size-section-heading);
+  font-weight: 700;
+}
+
+.cerca {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: 28rem;
+  margin-bottom: var(--space-16);
+}
+
+.cerca__esito {
+  margin: 0;
+  font-size: var(--font-size-caption);
+  color: var(--color-text-secondary);
+}
+
+.vuoto {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  margin: 0;
+  padding: var(--space-24) 0;
+  color: var(--color-text-secondary);
+}
+
+.vuoto--errore {
+  color: var(--color-danger);
+}
+
+/* Tabella */
+.tabella-scorre {
+  position: relative; /* tiene dentro anche le etichette nascoste (.sr-only) */
+  overflow-x: auto;
+}
+
+.tabella {
   width: 100%;
   border-collapse: collapse;
+  font-size: var(--font-size-label);
 }
-th, td {
-  padding: 1rem;
-  text-align: left;
+
+.tabella th,
+.tabella td {
+  padding: var(--space-8) var(--space-12);
   border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  vertical-align: top;
 }
-th {
-  background-color: var(--color-surface-hover);
+
+.tabella thead th {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-caption);
   font-weight: 600;
+  white-space: nowrap;
+}
+
+.tabella tbody th {
+  font-size: var(--font-size-body);
+  white-space: nowrap;
+}
+
+.tabella tbody tr:hover,
+.riga--aperta {
+  background: var(--color-surface-hover);
+}
+
+.tabella .numero {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.sotto {
+  display: block;
+  font-size: var(--font-size-caption);
+  font-weight: 400;
   color: var(--color-text-secondary);
 }
-.row-returned td {
-  opacity: 0.8;
+
+.controlli {
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
-.is-dynamic td {
+
+.controlli li + li {
+  margin-top: var(--space-4);
+}
+
+.completo {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  color: var(--color-success);
+  font-weight: 600;
+}
+
+.stato {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.stato--giro {
+  color: var(--color-warning);
+}
+
+.stato--storico {
+  font-weight: 400;
   color: var(--color-text-secondary);
 }
 
-.badge {
-  display: inline-block;
-  padding: 0.2rem 0.6rem;
-  border-radius: 12px;
-  font-weight: bold;
-  font-size: 0.85em;
-  margin-right: 0.5rem;
-}
-.badge.blue {
-   background: #e0f2fe;
-   color: #0369a1;
-}
-.badge.green {
-   background: #dcfce7;
-   color: #166534;
+.azioni {
+  text-align: right;
+  white-space: nowrap;
 }
 
-.status-badge {
-   padding: 0.3rem 0.8rem;
-   border-radius: 20px;
-   font-size: 0.8rem;
-   font-weight: 600;
-}
-.status-badge.valid { background: #dcfce7; color: #166534; }
-.status-badge.pending { background: #fef3c7; color: #92400e; }
-.status-badge.dynamic { background: var(--color-background); color: var(--color-text-secondary); border: 1px solid var(--color-border); }
-
-/* Azioni in tabella */
-.action-cell {
-   display: flex;
-   gap: 0.5rem;
-}
-.action-btn {
+.icona-btn,
+.link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-height: 2rem;
+  padding: var(--space-4) var(--space-8);
   border: none;
+  border-radius: var(--radius-control);
   background: none;
-  font-size: 1.2rem;
-  cursor: pointer;
-  padding: 0.3rem;
-  border-radius: 4px;
-  transition: transform 0.2s, background-color 0.2s;
-}
-.action-btn:hover {
-  transform: scale(1.1);
-  background-color: var(--color-border);
+  box-shadow: none;
+  vertical-align: middle;
 }
 
-/* Dettagli Espansi RICEVUTE */
-.expanded-row {
-   background-color: var(--color-background);
-}
-.expanded-cell {
-   padding: 1.5rem !important;
-   border-bottom: 2px solid var(--color-accent) !important;
-}
-.receipts-header h4 {
-   margin-top: 0;
-   margin-bottom: 1rem;
-   color: var(--color-accent);
-}
-.receipts-grid {
-   display: grid;
-   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-   gap: 1rem;
-}
-.receipt-card {
-   background: var(--color-surface);
-   border: 1px solid var(--color-border);
-   border-radius: 8px;
-   overflow: hidden;
-}
-.receipt-title {
-   background: var(--color-surface-hover);
-   padding: 0.8rem 1rem;
-   font-weight: bold;
-   border-bottom: 1px solid var(--color-border);
-}
-.persons-list {
-   list-style: none;
-   margin: 0;
-   padding: 0;
-}
-.persons-list li {
-   padding: 0.8rem 1rem;
-   border-bottom: 1px solid var(--color-border);
-   display: flex;
-   align-items: center;
-   justify-content: space-between;
-   font-size: 0.95rem;
-}
-.persons-list li:last-child {
-   border-bottom: none;
-}
-.pay-year {
-   color: var(--color-text-secondary);
-   font-size: 0.85rem;
-}
-.pay-amount {
-   font-weight: bold;
-   color: #16a34a;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 3rem;
+.icona-btn {
   color: var(--color-text-secondary);
 }
-.empty-msg {
-   color: var(--color-text-secondary);
-   font-style: italic;
+
+.link-btn {
+  color: var(--color-accent);
+  font-weight: 600;
+  text-decoration: none;
 }
 
-/* BUTTONS */
-.primary-button, .secondary-button {
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 6px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.primary-button {
-  background-color: var(--color-accent);
-  color: white;
-}
-.primary-button:hover { background-color: var(--color-accent-hover); }
-.secondary-button {
-  background-color: transparent;
-  border: 1px solid var(--color-border);
+.icona-btn:hover,
+.link-btn:hover {
+  background: var(--color-surface-elevated);
   color: var(--color-text-primary);
 }
-.secondary-button:hover { background-color: var(--color-surface-hover); }
 
+.icona-btn--pericolo:hover {
+  color: var(--color-danger);
+}
+
+.icona-btn[aria-expanded='true'] {
+  color: var(--color-accent);
+}
+
+/* Ricevute aperte */
+.dettaglio > td {
+  background: var(--color-background);
+}
+
+.ricevute {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: var(--space-12);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ricevuta {
+  padding: var(--space-8) var(--space-12);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+}
+
+.ricevuta--saltata,
+.ricevuta--fuori {
+  border-left: 3px solid var(--color-warning);
+}
+
+.ricevuta__numero {
+  display: block;
+  margin-bottom: var(--space-4);
+  font-weight: 600;
+}
+
+.ricevuta__saltata {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  color: var(--color-text-secondary);
+}
+
+.ricevuta ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ricevuta ul li + li {
+  margin-top: var(--space-4);
+}
+
+.ricevuta a {
+  color: var(--color-text-primary);
+}
+
+.ricevuta a:hover {
+  color: var(--color-accent);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 900px) {
+  .assegna__campi {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Su schermo stretto restano blocchetto, ricevute, controlli, stato e azioni */
+@media (max-width: 600px) {
+  .blocchetti {
+    padding: var(--space-16);
+  }
+
+  .pannello {
+    padding: var(--space-16);
+  }
+
+  .nascondi-stretto {
+    display: none;
+  }
+
+  .tabella th,
+  .tabella td {
+    padding: var(--space-8) var(--space-4);
+  }
+
+  .link-btn__testo {
+    display: none;
+  }
+}
 </style>
