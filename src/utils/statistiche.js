@@ -57,3 +57,30 @@ export function calcolaStatisticheAnnuali(soci, tesseramenti, primoAnno, ultimoA
   }
   return stats
 }
+
+/**
+ * Dati del riquadro "Andamento del tesseramento" della Home.
+ *
+ * Toglie gli anni vuoti prima del primo iscritto e dopo l'ultimo. Nel primo anno della
+ * storia tutti risultano nuovi: quel valore non dice nulla e diventa null (nessuna barra).
+ * @param {Array<{year: number, total: number, newMembers: number, returningMembers: number, lostMembers: number}>} stats
+ *   uscita di calcolaStatisticheAnnuali
+ * @param {number|null} quantiAnni anni da mostrare, dal piu' recente; null = tutti
+ * @returns {{ serie: Array<object>, ultimo: object|null, variazione: number|null }}
+ *   serie = anni del grafico; ultimo = anno piu' recente con iscritti;
+ *   variazione = iscritti dell'ultimo anno meno quelli dell'anno prima
+ */
+export function andamentoTesseramento(stats, quantiAnni = null) {
+  const primo = stats.findIndex((s) => s.total > 0)
+  if (primo === -1) return { serie: [], ultimo: null, variazione: null }
+  let fine = stats.length - 1
+  while (stats[fine].total === 0) fine--
+  const storia = stats.slice(primo, fine + 1)
+
+  const ultimo = storia[storia.length - 1]
+  const variazione = storia.length > 1 ? ultimo.total - storia[storia.length - 2].total : null
+
+  const scelti = quantiAnni ? storia.slice(-quantiAnni) : storia
+  const serie = scelti.map((s) => (s === storia[0] ? { ...s, newMembers: null } : { ...s }))
+  return { serie, ultimo, variazione }
+}

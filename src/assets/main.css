@@ -55,6 +55,7 @@
   /* Larghezza del contenuto delle pagine (PageHeader e corpo pagina) */
   --page-width: 1200px;
   --page-width-form: 800px; /* pagine che sono un solo modulo */
+  --page-width-wide: 1440px; /* pagine con pannello laterale e anteprima larga */
 
   /* Livelli */
   --z-modal: 1000;
