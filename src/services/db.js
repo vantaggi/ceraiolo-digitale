@@ -760,6 +760,10 @@ export async function exportDatabaseToSqlite(customFilename = null) {
       );
     `)
 
+    // Tutte le righe in una transazione: senza, ogni riga e' una scrittura a parte
+    // (10.000 soci finti: ~10 secondi di pagina ferma a ogni backup automatico)
+    sqliteDb.run('BEGIN')
+
     // --- EXPORT SOCI ---
     const sociData = await db.soci.toArray()
     const sociStmt = sqliteDb.prepare(
@@ -854,6 +858,8 @@ export async function exportDatabaseToSqlite(customFilename = null) {
     metadataStmt.run(['schema_version', '2.0'])
     metadataStmt.run(['export_timestamp', timestamp])
     metadataStmt.free()
+
+    sqliteDb.run('COMMIT')
 
     // Get binary data and create blob
     const binaryArray = sqliteDb.export()

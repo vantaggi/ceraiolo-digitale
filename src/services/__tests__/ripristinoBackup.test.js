@@ -69,6 +69,23 @@ describe('backup e ripristino', () => {
     expect((await db.soci.toArray()).map((s) => s.nome)).toEqual(['Anna'])
   })
 
+  it('il backup scrive le righe in una sola transazione (veloce anche con molti soci)', async () => {
+    const { caricaSqlJs } = await import('../sqljs.js')
+    const SQL = await caricaSqlJs()
+    const run = vi.spyOn(SQL.Database.prototype, 'run')
+    const prova = new SQL.Database().prepare('SELECT 1')
+    const insert = vi.spyOn(Object.getPrototypeOf(prova), 'run')
+
+    await exportDatabaseToSqlite()
+
+    const comandi = run.mock.calls.map(([sql]) => sql.trim())
+    expect(comandi).toContain('BEGIN')
+    expect(comandi.at(-1)).toBe('COMMIT')
+    // ogni riga scritta dopo BEGIN
+    const inizio = run.mock.invocationCallOrder[comandi.indexOf('BEGIN')]
+    expect(Math.min(...insert.mock.invocationCallOrder)).toBeGreaterThan(inizio)
+  })
+
   it('"Cancella tutti i dati" cancella anche i blocchetti', async () => {
     await wipeDatabase()
     expect(await db.blocchetti.count()).toBe(0)
