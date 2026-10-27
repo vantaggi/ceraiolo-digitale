@@ -10,21 +10,9 @@
  *
  * Gli anni da minorenne contano come anni in regola (esenzione, vedi payment.js).
  */
-import { isExemptFromPayment } from './payment'
+import { annoIscrizione, isExemptFromPayment } from './payment'
 
-/**
- * Anno di iscrizione: il primo tra l'anno dichiarato (data_prima_iscrizione)
- * e il primo pagamento registrato. Senza nessuno dei due, null.
- * @param {object} socio
- * @param {Array<number>} anniPagati
- * @returns {number|null}
- */
-export function annoIscrizione(socio, anniPagati) {
-  const candidati = [...anniPagati]
-  const dichiarato = Number(socio.data_prima_iscrizione)
-  if (Number.isInteger(dichiarato) && dichiarato > 1900) candidati.push(dichiarato)
-  return candidati.length > 0 ? Math.min(...candidati) : null
-}
+export { annoIscrizione }
 
 /**
  * Valuta il diritto di voto di un socio per le elezioni di un anno.

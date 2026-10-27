@@ -2,7 +2,7 @@ import jsPDF from 'jspdf'
 import { PDFDocument, rgb } from 'pdf-lib'
 import * as XLSX from 'xlsx'
 import { db, getSetting, updateSetting, exportAllSoci, exportAllTesseramenti } from './db'
-import { calculatePaymentStatus } from '@/utils/payment'
+import { calculatePaymentStatus, statoAnno } from '@/utils/payment'
 import logoUrl from '@/assets/logo_santantoniari.jpg'
 
 /**
@@ -515,30 +515,21 @@ export async function generateRenewalListPDF(soci, renewalYear) {
 }
 
 /**
- * Restituisce se in quell'anno il socio era minorenne
+ * Colori (RGB) dei 4 stati degli anni nei PDF: la regola sta in statoAnno (utils/payment.js)
  */
-const isMinorInYear = (member, year) => {
-  if (!member.data_nascita) return false
-  const birthYear = new Date(member.data_nascita).getFullYear()
-  return year - birthYear < 18
+export const COLORI_STATO_ANNO = {
+  '-': [0, 100, 200],
+  V: [0, 150, 0],
+  O: [217, 119, 6],
+  X: [200, 50, 50],
 }
 
 /**
- * Calcola l'anno di iscrizione del socio
+ * Cella PDF con lo stato di un anno (V, X, O, -) e il suo colore
  */
-const getEnrollmentYear = (member, paidYears = []) => {
-  if (member.data_iscrizione) {
-    return new Date(member.data_iscrizione).getFullYear()
-  }
-  if (paidYears && paidYears.length > 0) return Math.min(...paidYears)
-  return new Date().getFullYear() // Fallback
-}
-
-/**
- * Restituisce se il socio era iscritto in quell'anno
- */
-const isEnrolledInYear = (member, year, paidYears = []) => {
-  return year >= getEnrollmentYear(member, paidYears)
+export const cellaStatoAnno = (socio, anniPagati, anno) => {
+  const stato = statoAnno(socio, anniPagati, anno)
+  return { text: stato, color: COLORI_STATO_ANNO[stato] }
 }
 
 /**
@@ -626,21 +617,9 @@ export async function generateVotingListPDF(soci, votingYear) {
     const paidYears = socio.tesseramenti ? socio.tesseramenti.map((t) => t.anno) : []
     const history = socio.paymentHistory || {}
 
-    // Nuovo helper per status a 4 stati (V, X, O, -)
-    const getStatus = (year) => {
-      // Usiamo paidYears (dal tesseramento) o history (se generato dal componente)
-      const isPaid = history[year] || paidYears.includes(year)
-
-      if (!isEnrolledInYear(socio, year, paidYears)) {
-        return { text: '-', color: [0, 100, 200] } // Blu "-"
-      } else if (isPaid) {
-        return { text: 'V', color: [0, 150, 0] } // Verde "V"
-      } else if (isMinorInYear(socio, year)) {
-        return { text: 'O', color: [217, 119, 6] } // Arancio "O"
-      } else {
-        return { text: 'X', color: [200, 50, 50] } // Rosso "X"
-      }
-    }
+    // Anni pagati: dal tesseramento o dallo storico calcolato da db.js
+    const anniPagati = [...new Set([...paidYears, ...Object.keys(history).filter((y) => history[y]).map(Number)])]
+    const getStatus = (year) => cellaStatoAnno(socio, anniPagati, year)
 
     return [
       `${socio.cognome} ${socio.nome}`,
@@ -725,20 +704,9 @@ export async function generateActiveMembersPDF(soci, targetYear) {
     const paidYears = socio.tesseramenti ? socio.tesseramenti.map((t) => t.anno) : []
     const history = socio.paymentHistory || {}
 
-    // Nuovo helper per status a 4 stati (V, X, O, -)
-    const getStatus = (year) => {
-      const isPaid = history[year] || paidYears.includes(year)
-
-      if (!isEnrolledInYear(socio, year, paidYears)) {
-        return { text: '-', color: [0, 100, 200] } // Blu "-"
-      } else if (isPaid) {
-        return { text: 'V', color: [0, 150, 0] } // Verde "V"
-      } else if (isMinorInYear(socio, year)) {
-        return { text: 'O', color: [217, 119, 6] } // Arancio "O"
-      } else {
-        return { text: 'X', color: [200, 50, 50] } // Rosso "X"
-      }
-    }
+    // Anni pagati: dal tesseramento o dallo storico calcolato da db.js
+    const anniPagati = [...new Set([...paidYears, ...Object.keys(history).filter((y) => history[y]).map(Number)])]
+    const getStatus = (year) => cellaStatoAnno(socio, anniPagati, year)
 
     return [
       `${socio.cognome} ${socio.nome}`,
