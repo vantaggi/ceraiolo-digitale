@@ -1,10 +1,10 @@
-// Le cinque sezioni del menu, una per ogni lavoro della segreteria.
+// Le sezioni del menu, una per ogni lavoro della segreteria. L'andamento del
+// tesseramento sta nella Home (Soci), non ha una voce sua.
 // `percorsi` sono gli inizi di indirizzo che appartengono alla sezione.
 export const SEZIONI = [
   { nome: 'Soci', to: '/', icona: 'socio', percorsi: ['/socio'] },
   { nome: 'Incassi', to: '/incassi/ricevute', icona: 'quota', percorsi: ['/incassi'] },
   { nome: 'Report PDF', to: '/report-pdf', icona: 'documento', percorsi: ['/report-pdf'] },
-  { nome: 'Statistiche', to: '/statistiche', icona: 'statistiche', percorsi: ['/statistiche'] },
   { nome: 'Impostazioni', to: '/settings', icona: 'impostazioni', percorsi: ['/settings'] },
 ]
 

@@ -80,14 +80,6 @@ const router = createRouter({
       },
     },
     {
-      path: '/statistiche',
-      name: 'statistiche',
-      component: () => import('../views/StatisticheView.vue'),
-      meta: {
-        title: 'Statistiche - Ceraiolo Digitale',
-      },
-    },
-    {
       path: '/settings',
       name: 'settings',
       component: SettingsView,
@@ -95,11 +87,13 @@ const router = createRouter({
         title: 'Impostazioni - Ceraiolo Digitale',
       },
     },
-    // Indirizzi di prima del menu a cinque sezioni: restano validi
+    // Indirizzi di prima del menu attuale: restano validi
     { path: '/registrazione-seriale', redirect: '/incassi/ricevute' },
     { path: '/blocchetti', redirect: '/incassi/blocchetti' },
     { path: '/reports', redirect: '/report-pdf' },
     { path: '/reports-beta', redirect: '/report-pdf/su-misura' },
+    // La pagina Statistiche e' diventata il riquadro "Andamento" della Home
+    { path: '/statistiche', redirect: '/' },
     {
       path: '/:pathMatch(.*)*',
       name: 'not-found',

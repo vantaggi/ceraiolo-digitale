@@ -22,7 +22,7 @@
 
       <FilterPanel :initial-filters="filters" @filters-changed="onFiltersChanged" />
 
-      <!-- Numeri dell'anno: ognuno filtra l'elenco; il resto sta in Statistiche -->
+      <!-- Numeri dell'anno: ognuno filtra l'elenco; l'andamento sta sotto, a ricerca vuota -->
       <div class="numbers-row">
         <button
           type="button"
@@ -48,9 +48,6 @@
         >
           Pagamenti {{ currentYear + 1 }} <strong>{{ stats.renewalsNext }}</strong>
         </button>
-        <router-link to="/statistiche" class="numbers-link">
-          <AppIcon name="statistiche" /> Statistiche
-        </router-link>
       </div>
 
       <div class="dashboard-grid" :class="{ 'dashboard-grid--solo': hasSearchCriteria }">
@@ -80,7 +77,9 @@
               Nessun risultato trovato.
             </p>
 
-            <!-- Recent Members (Only when empty search) -->
+            <!-- A ricerca vuota: andamento del tesseramento e ultimi soci visitati -->
+            <AndamentoTesseramento v-if="!hasSearchCriteria" />
+
             <div v-if="!hasSearchCriteria && recentMembers.length > 0" class="recent-section">
               <h3><AppIcon name="recenti" /> Ultimi Soci Visitati</h3>
               <div class="results-list">
@@ -93,10 +92,6 @@
                 />
               </div>
             </div>
-
-            <p v-else-if="!hasSearchCriteria" class="help-text">
-              Usa i filtri o la barra di ricerca per trovare i soci.
-            </p>
           </div>
         </div>
 
@@ -147,6 +142,7 @@ import {
 import { generateAndDownloadSociPDF, generateSingleCardPDF } from '@/services/export'
 import SocioCard from '@/components/SocioCard.vue'
 import FilterPanel from '@/components/FilterPanel.vue'
+import AndamentoTesseramento from '@/components/AndamentoTesseramento.vue'
 import AppIcon from '@/components/base/AppIcon.vue'
 import PageHeader from '@/components/base/PageHeader.vue'
 import { leggiRicerca, salvaRicerca } from '@/utils/ricercaSoci'
@@ -452,20 +448,6 @@ const quickRenew = async (socio) => {
   color: var(--color-accent);
 }
 
-.numbers-link {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-4);
-  margin-left: auto;
-  font-size: var(--font-size-label);
-  color: var(--color-accent);
-  text-decoration: none;
-}
-
-.numbers-link:hover {
-  text-decoration: underline;
-}
-
 .add-socio-button {
   display: inline-flex;
   align-items: center;
@@ -488,6 +470,10 @@ const quickRenew = async (socio) => {
   display: grid;
   grid-template-columns: 1fr 320px;
   gap: 2rem;
+}
+
+.dashboard-grid > * {
+  min-width: 0;
 }
 
 .dashboard-grid--solo {
@@ -598,8 +584,7 @@ const quickRenew = async (socio) => {
   margin-bottom: 1rem;
 }
 
-.status-msg,
-.help-text {
+.status-msg {
   text-align: center;
   padding: 2rem;
   color: var(--color-text-secondary);

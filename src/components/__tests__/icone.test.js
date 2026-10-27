@@ -26,6 +26,9 @@ const ECCEZIONI = {
   'components/KeyboardShortcutsModal.vue': 'le frecce sono i tasti da premere, non icone',
 }
 
+// Componenti che passano ad AppIcon un nome ricevuto come prop: [file, prop, tag]
+const PROP_ICONA = [['components/base/FilterSection.vue', 'icona', 'FilterSection']]
+
 const righeConIcone = (file) =>
   fs
     .readFileSync(file, 'utf8')
@@ -55,11 +58,28 @@ describe('icone', () => {
     for (const file of sourceFiles(SRC)) {
       const testo = fs.readFileSync(file, 'utf8')
       for (const [, attr] of testo.matchAll(/<AppIcon\b[^>]*?\s:?name="([^"]+)"/g)) {
-        // name="x" oppure :name="cond ? 'x' : 'y'": si controllano i risultati del ternario
+        // name="x" oppure :name="cond ? 'x' : 'y'": si controllano i risultati del ternario.
+        // :name="icona" dentro un componente che lo riceve come prop si controlla sotto,
+        // dove il componente viene usato.
+        if (PROP_ICONA.some(([f, p]) => rel(file) === f && attr === p)) continue
         const nomi = /^[\w-]+$/.test(attr)
           ? [attr]
           : [...attr.matchAll(/[?:]\s*'([^']+)'/g)].map((m) => m[1])
         for (const nome of nomi) if (!(nome in icons)) sconosciuti.push(`${rel(file)}: ${nome}`)
+      }
+    }
+    expect(sconosciuti).toEqual([])
+  })
+
+  it('i componenti che ricevono il nome di un\'icona lo ricevono valido', () => {
+    const sconosciuti = []
+    for (const file of sourceFiles(SRC)) {
+      const testo = fs.readFileSync(file, 'utf8')
+      for (const [, prop, tag] of PROP_ICONA) {
+        const re = new RegExp(`<${tag}\\b[^>]*?\\s${prop}="([^"]+)"`, 'g')
+        for (const [, nome] of testo.matchAll(re)) {
+          if (!(nome in icons)) sconosciuti.push(`${rel(file)}: ${nome}`)
+        }
       }
     }
     expect(sconosciuti).toEqual([])
