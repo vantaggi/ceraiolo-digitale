@@ -7,6 +7,8 @@ import BatchEntryView from '../views/BatchEntryView.vue'
 import ReportsView from '../views/ReportsView.vue'
 import SettingsView from '../views/SettingsView.vue'
 import { isDatabaseEmpty } from '@/services/db'
+import { ricordaSocioAperto } from '@/utils/ricercaSoci'
+import { VECCHIE_SCHEDE } from './sezioni'
 
 const router = createRouter({
   history: createWebHashHistory(import.meta.env.BASE_URL),
@@ -88,26 +90,30 @@ const router = createRouter({
       },
     },
     {
-      path: '/statistiche',
-      name: 'statistiche',
-      component: () => import('../views/StatisticheView.vue'),
-      meta: {
-        title: 'Statistiche - Ceraiolo Digitale',
-      },
-    },
-    {
       path: '/settings',
       name: 'settings',
       component: SettingsView,
+      props: { scheda: 'generale' },
       meta: {
         title: 'Impostazioni - Ceraiolo Digitale',
       },
+      // I vecchi link /settings?tab=dati portano alla scheda nuova
+      beforeEnter: (to) => (VECCHIE_SCHEDE[to.query.tab] ? { path: VECCHIE_SCHEDE[to.query.tab] } : true),
     },
-    // Indirizzi di prima del menu a cinque sezioni: restano validi
+    ...['tessera', 'manicchie', 'dati'].map((scheda) => ({
+      path: `/settings/${scheda}`,
+      name: `settings-${scheda}`,
+      component: SettingsView,
+      props: { scheda },
+      meta: { title: 'Impostazioni - Ceraiolo Digitale' },
+    })),
+    // Indirizzi di prima del menu attuale: restano validi
     { path: '/registrazione-seriale', redirect: '/incassi/ricevute' },
     { path: '/blocchetti', redirect: '/incassi/blocchetti' },
     { path: '/reports', redirect: '/report-pdf' },
     { path: '/reports-beta', redirect: '/report-pdf/su-misura' },
+    // La pagina Statistiche e' diventata il riquadro "Andamento" della Home
+    { path: '/statistiche', redirect: '/' },
     {
       path: '/:pathMatch(.*)*',
       name: 'not-found',
@@ -143,6 +149,8 @@ router.beforeEach(async (to, from, next) => {
 
 router.afterEach((to, from) => {
   window.scrollTo(0, 0)
+  // La pagina Soci mostra gli ultimi soci aperti
+  if (to.name === 'socio-detail') ricordaSocioAperto(window.localStorage, to.params.id)
   console.log(`Navigazione: ${from.name} -> ${to.name}`)
 })
 

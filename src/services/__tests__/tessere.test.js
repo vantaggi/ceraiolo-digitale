@@ -138,7 +138,7 @@ describe('PDF delle tessere', () => {
   it('senza sfondo spiega dove caricarlo', async () => {
     impostazioni({})
     await expect(generateAllCardsPDF(soci.slice(0, 1), 2027)).rejects.toThrow(
-      /Impostazioni > Template Tessera/,
+      /Impostazioni > Tessera/,
     )
   })
 })
@@ -155,10 +155,10 @@ describe('anteprima uguale al file generato', () => {
     expect(exportSorgente).not.toMatch(/from 'pdf-lib'/)
   })
 
-  it("le viste mostrano AnteprimaTessera, non un'imitazione in HTML", () => {
-    for (const vista of [settingsSorgente, reportsSorgente]) {
-      expect(vista).toMatch(/<AnteprimaTessera/)
-      expect(vista).not.toMatch(/TesseraTemplate/)
-    }
+  it("l'anteprima e' AnteprimaTessera, in un posto solo (Impostazioni)", () => {
+    expect(settingsSorgente).toMatch(/<AnteprimaTessera/)
+    // Report PDF rimanda a Impostazioni invece di ripetere l'anteprima
+    expect(reportsSorgente).not.toMatch(/AnteprimaTessera|TesseraTemplate/)
+    expect(reportsSorgente).toMatch(/to="\/settings\/tessera"/)
   })
 })

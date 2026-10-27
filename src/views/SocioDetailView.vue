@@ -41,42 +41,56 @@
         </template>
         <template #actions>
           <div class="header-actions">
-            <!-- Quick Renew Button -->
-            <button
-              v-if="quickRenewTargetYear"
-              @click="payYear(quickRenewTargetYear)"
-              class="quick-renew-button"
+            <BaseButton :loading="stampaTessera" :disabled="editMode" @click="generaTessera">
+              <AppIcon name="tessera" /> Tessera {{ annoCorrente }}
+            </BaseButton>
+            <BaseButton :loading="isSaving" @click="toggleEditMode">
+              <AppIcon :name="editMode ? 'conferma' : 'modifica'" />
+              {{ editMode ? 'Salva' : 'Modifica' }}
+            </BaseButton>
+            <BaseButton
+              v-if="annoProposto"
+              variant="primary"
+              :disabled="editMode"
+              @click="payYear(annoProposto)"
             >
-              <AppIcon name="pagamento" /> Paga {{ quickRenewTargetYear }}
-            </button>
-
-            <button @click="exportSocio" class="export-button">
-              <AppIcon name="esporta" /> Export
-            </button>
-            <button
-              @click="toggleEditMode"
-              :disabled="isSaving"
-              class="edit-button"
-              title="Modifica rapida in questa pagina"
-            >
-              <AppIcon
-                :name="isSaving ? 'caricamento' : editMode ? 'conferma' : 'modifica'"
-                :spin="isSaving"
-              />
-              {{ isSaving ? 'Salvataggio...' : editMode ? 'Salva' : 'Modifica' }}
-            </button>
-            <button
-              @click="showDeleteModal"
-              class="delete-socio-button"
-              :disabled="isDeleting"
-              title="Elimina socio"
-              aria-label="Elimina socio"
-            >
-              <AppIcon name="elimina" />
-            </button>
+              <AppIcon name="pagamento" /> Paga {{ annoProposto }}
+            </BaseButton>
           </div>
         </template>
       </PageHeader>
+
+      <!-- Riepilogo: le tre domande che si fanno su un socio -->
+      <dl class="riepilogo" aria-label="Riepilogo del socio">
+        <div class="riepilogo__voce" :class="`riepilogo__voce--${CLASSI_QUOTA[riepilogo.quota]}`">
+          <dt>Quota {{ riepilogo.anno }}</dt>
+          <dd>{{ TESTI_QUOTA[riepilogo.quota] }}</dd>
+        </div>
+        <div
+          class="riepilogo__voce"
+          :class="`riepilogo__voce--${riepilogo.pagamento.inRegola ? 'ok' : riepilogo.pagamento.daReiscrivere ? 'errore' : 'attenzione'}`"
+        >
+          <dt>Arretrati</dt>
+          <dd>
+            <template v-if="riepilogo.pagamento.daReiscrivere">
+              Da reiscrivere: fermo da più di 3 anni
+            </template>
+            <template v-else-if="riepilogo.pagamento.arretrati.length > 0">
+              {{ riepilogo.pagamento.arretrati.join(', ') }}
+            </template>
+            <template v-else>Nessuno</template>
+          </dd>
+        </div>
+        <div class="riepilogo__voce" :class="`riepilogo__voce--${CLASSI_VOTO[riepilogo.voto.stato]}`">
+          <dt>Voto alle elezioni {{ riepilogo.anno }}</dt>
+          <dd>
+            {{ TESTI_VOTO[riepilogo.voto.stato] }}
+            <span v-if="riepilogo.voto.motivo" class="riepilogo__motivo">
+              {{ riepilogo.voto.motivo }}
+            </span>
+          </dd>
+        </div>
+      </dl>
 
       <!-- Sezione Dati Anagrafici -->
       <section class="info-section">
@@ -148,94 +162,129 @@
         </div>
       </section>
 
-      <!-- Sezione Cronologia Pagamenti -->
-      <section class="payments-section">
-        <div class="section-header">
-          <h2><AppIcon name="quota" /> Cronologia Pagamenti</h2>
-        </div>
-
-        <div class="chronology-container">
-          <div
-            v-for="item in paymentChronology"
-            :key="item.anno"
-            class="year-item"
-            :class="item.stato"
-          >
-            <div class="year-header">
-              <div class="year-info">
-                <span class="year-number">{{ item.anno }}</span>
-                <span class="year-status" :class="item.stato">
-                  <span v-if="item.stato === 'pagato'" class="badge badge-v">V Pagato</span>
-                  <span v-else-if="item.stato === 'esente'" class="badge badge-o">O Minorenne</span>
-                  <span v-else-if="item.stato === 'non-iscritto'" class="badge badge-minus">- Non iscritto</span>
-                  <span v-else class="badge badge-x">X Non Pagato</span>
-                </span>
-              </div>
-              <div class="year-actions">
-                <button
-                  v-if="!item.isPagato && !item.isEsente"
-                  @click="payYear(item.anno)"
-                  class="pay-button accent"
-                >
-                  <AppIcon name="pagamento" /> Paga Ora
-                </button>
-                <button
-                  v-if="!item.isPagato && item.isEsente"
-                  @click="payYear(item.anno)"
-                  class="pay-button secondary"
-                >
-                  <AppIcon name="pagamento" /> Paga (Opzionale)
-                </button>
-                <button
-                  v-if="item.isPagato"
-                  @click="deleteTesseramento(item.tesseramento.id_tesseramento)"
-                  class="delete-btn"
-                  title="Elimina pagamento"
-                  aria-label="Elimina pagamento"
-                >
-                  <AppIcon name="elimina" />
-                </button>
-              </div>
-            </div>
-
-            <div v-if="item.isPagato" class="payment-details">
-              <div class="detail-row">
-                <span class="detail-label"><AppIcon name="data" /> Data Pagamento:</span>
-                <span class="detail-value">{{ formatDate(item.tesseramento.data_pagamento) }}</span>
-              </div>
-              <div class="detail-row">
-                <span class="detail-label"><AppIcon name="quota" /> Quota:</span>
-                <span class="detail-value">
-                  <span v-if="editingQuotaId === item.tesseramento.id_tesseramento">
-                    € <input type="number" v-model="editQuotaValue" style="width: 60px; padding: 2px;" />
-                    <button @click="saveQuotaStatus(item.tesseramento.id_tesseramento)" class="save-quota-btn" aria-label="Salva quota">
-                      <AppIcon name="conferma" />
-                    </button>
-                    <button @click="cancelEditQuota" class="cancel-quota-btn" aria-label="Annulla modifica quota">
-                      <AppIcon name="chiudi" />
-                    </button>
+      <!-- Pagamenti: una riga per anno -->
+      <section class="payments-section" aria-labelledby="titolo-pagamenti">
+        <h2 id="titolo-pagamenti"><AppIcon name="quota" /> Pagamenti</h2>
+        <div class="tabella-scorre">
+          <table class="pagamenti">
+            <thead>
+              <tr>
+                <th scope="col">Anno</th>
+                <th scope="col">Stato</th>
+                <th scope="col">Data</th>
+                <th scope="col" class="pagamenti__numero">Quota</th>
+                <th scope="col">Ricevuta / blocchetto</th>
+                <th scope="col"><span class="sr-only">Azioni</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="riga in cronologia"
+                :key="riga.chiave"
+                :class="{ 'pagamenti__riga--futura': riga.anno > annoCorrente }"
+              >
+                <th scope="row">{{ riga.anno }}</th>
+                <td>
+                  <span class="stato" :class="`stato--${CLASSI_QUOTA[riga.stato]}`">
+                    <span aria-hidden="true">{{ riga.stato }}</span> {{ TESTI_QUOTA[riga.stato] }}
                   </span>
-                  <span v-else>
-                    € {{ Number(item.tesseramento.quota_pagata || 0).toFixed(2) }}
-                    <button @click="startEditQuota(item.tesseramento)" class="edit-btn-small" title="Modifica quota" aria-label="Modifica quota">
+                </td>
+                <template v-if="riga.pagamento">
+                  <td>{{ formatDate(riga.pagamento.data_pagamento) }}</td>
+                  <td class="pagamenti__numero">
+                    <span
+                      v-if="editingQuotaId === riga.pagamento.id_tesseramento"
+                      class="quota-modifica"
+                    >
+                      <label :for="`quota-${riga.chiave}`" class="sr-only">
+                        Quota {{ riga.anno }}
+                      </label>
+                      €
+                      <input
+                        :id="`quota-${riga.chiave}`"
+                        v-model="editQuotaValue"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        class="quota-modifica__input"
+                        @keydown.enter="saveQuotaStatus(riga.pagamento.id_tesseramento)"
+                        @keydown.esc="cancelEditQuota"
+                      />
+                      <button
+                        type="button"
+                        class="icona-btn"
+                        aria-label="Salva quota"
+                        :disabled="saveQuotaLoading"
+                        @click="saveQuotaStatus(riga.pagamento.id_tesseramento)"
+                      >
+                        <AppIcon name="conferma" />
+                      </button>
+                      <button
+                        type="button"
+                        class="icona-btn"
+                        aria-label="Annulla modifica quota"
+                        @click="cancelEditQuota"
+                      >
+                        <AppIcon name="chiudi" />
+                      </button>
+                    </span>
+                    <template v-else>€ {{ euro(riga.pagamento.quota_pagata) }}</template>
+                  </td>
+                  <td>
+                    {{ riga.pagamento.numero_ricevuta || '-' }} /
+                    {{ riga.pagamento.numero_blocchetto || '-' }}
+                  </td>
+                  <td class="pagamenti__azioni">
+                    <button
+                      v-if="editingQuotaId !== riga.pagamento.id_tesseramento"
+                      type="button"
+                      class="icona-btn"
+                      :aria-label="`Modifica la quota del ${riga.anno}`"
+                      :title="`Modifica la quota del ${riga.anno}`"
+                      @click="startEditQuota(riga.pagamento)"
+                    >
                       <AppIcon name="modifica" />
                     </button>
-                  </span>
-                </span>
-              </div>
-              <div class="detail-row">
-                <span class="detail-label"><AppIcon name="ricevuta" /> Ricevuta:</span>
-                <span class="detail-value"
-                  >{{ item.tesseramento.numero_ricevuta }} /
-                  {{ item.tesseramento.numero_blocchetto }}</span
-                >
-              </div>
-            </div>
-          </div>
+                    <button
+                      type="button"
+                      class="icona-btn icona-btn--pericolo"
+                      :aria-label="`Elimina il pagamento del ${riga.anno}`"
+                      :title="`Elimina il pagamento del ${riga.anno}`"
+                      @click="deleteTesseramento(riga.pagamento.id_tesseramento)"
+                    >
+                      <AppIcon name="elimina" />
+                    </button>
+                  </td>
+                </template>
+                <template v-else>
+                  <td colspan="3" class="pagamenti__vuoto">-</td>
+                  <td class="pagamenti__azioni">
+                    <button
+                      v-if="riga.stato !== '-' && riga.anno !== annoProposto"
+                      type="button"
+                      class="link-btn"
+                      @click="payYear(riga.anno)"
+                    >
+                      Paga {{ riga.anno }}
+                    </button>
+                  </td>
+                </template>
+              </tr>
+            </tbody>
+          </table>
         </div>
+      </section>
 
-        <div v-if="paymentChronology.length === 0" class="no-chronology">
-          <p>Nessuna cronologia pagamenti disponibile.</p>
+      <!-- Azioni rare, in fondo -->
+      <section class="altre-azioni" aria-labelledby="titolo-altre-azioni">
+        <h2 id="titolo-altre-azioni">Altre azioni</h2>
+        <div class="altre-azioni__elenco">
+          <BaseButton variant="ghost" @click="exportSocio">
+            <AppIcon name="esporta" /> Esporta i dati del socio (JSON)
+          </BaseButton>
+          <BaseButton variant="danger" :disabled="isDeleting || editMode" @click="showDeleteModal">
+            <AppIcon name="elimina" /> Elimina socio
+          </BaseButton>
         </div>
       </section>
 
@@ -271,9 +320,11 @@ import {
   getTesseramentiBySocioId,
   addTesseramento,
   deleteSocio,
-  isExemptFromPayment,
   updateTesseramentoQuota,
 } from '@/services/db'
+import { generateSingleCardPDF } from '@/services/export'
+import { annoDaPagare, cronologiaSocio, riepilogoSocio } from '@/utils/schedaSocio'
+import BaseButton from '@/components/base/BaseButton.vue'
 import AddPaymentModal from '@/components/AddPaymentModal.vue'
 import ConfirmDeleteModal from '@/components/ConfirmDeleteModal.vue'
 import AppIcon from '@/components/base/AppIcon.vue'
@@ -310,19 +361,31 @@ const router = useRouter()
 const prevSocioId = ref(null)
 const nextSocioId = ref(null)
 
-// Quick Renew Logic
-const quickRenewTargetYear = computed(() => {
-  if (!tesseramenti.value) return null
-  const currentYear = new Date().getFullYear()
+// Testi e colori degli stati, come nei report (V, X, O, -)
+const TESTI_QUOTA = { V: 'Pagata', X: 'Da pagare', O: 'Esente (minorenne)', '-': 'Non iscritto' }
+const CLASSI_QUOTA = { V: 'ok', X: 'errore', O: 'attenzione', '-': 'neutro' }
+const TESTI_VOTO = { si: 'Sì', regolarizza: 'Dopo gli arretrati', no: 'No' }
+const CLASSI_VOTO = { si: 'ok', regolarizza: 'attenzione', no: 'neutro' }
 
-  const paidCurrent = tesseramenti.value.some((t) => t.anno === currentYear)
-  if (!paidCurrent) return currentYear
+const annoCorrente = new Date().getFullYear()
+const annoProposto = computed(() => annoDaPagare(tesseramenti.value, annoCorrente))
+const riepilogo = computed(() => riepilogoSocio(socio.value, tesseramenti.value, annoCorrente))
+const cronologia = computed(() => cronologiaSocio(socio.value, tesseramenti.value, annoCorrente))
+const euro = (valore) => Number(valore || 0).toFixed(2)
 
-  const paidNext = tesseramenti.value.some((t) => t.anno === currentYear + 1)
-  if (!paidNext) return currentYear + 1
-
-  return null
-})
+// Tessera dell'anno in corso, come dalla scheda nella Home
+const stampaTessera = ref(false)
+const generaTessera = async () => {
+  stampaTessera.value = true
+  try {
+    await generateSingleCardPDF(socio.value, annoCorrente)
+  } catch (err) {
+    console.error('Tessera non generata:', err)
+    toast.error('Non sono riuscito a creare la tessera: ' + err.message)
+  } finally {
+    stampaTessera.value = false
+  }
+}
 
 /**
  * Calcola ID precedente/successivo basandosi sulla lista in localStorage
@@ -431,86 +494,6 @@ const primaIscrizioneDisplay = computed(() => {
 })
 
 /**
- * Calcola la cronologia completa dei pagamenti
- */
-const paymentChronology = computed(() => {
-  console.log('Calculating payment chronology...')
-  console.log('Socio:', socio.value)
-  console.log('Tesseramenti:', tesseramenti.value)
-
-  if (!socio.value || tesseramenti.value.length === 0) {
-    console.log('No socio or tesseramenti, returning empty chronology')
-    return []
-  }
-
-  const anniPagati = tesseramenti.value.map((t) => t.anno).sort((a, b) => a - b)
-  const primaIscrizioneEsplicita = socio.value.data_prima_iscrizione
-  const annoCorrente = new Date().getFullYear()
-
-  console.log('Anni pagati:', anniPagati)
-  console.log('Prima iscrizione esplicita:', primaIscrizioneEsplicita)
-  console.log('Anno corrente:', annoCorrente)
-
-  // Determina l'anno di prima iscrizione
-  let annoPrimaIscrizione
-
-  // Prima prova con la data esplicita se valida
-  if (
-    primaIscrizioneEsplicita &&
-    primaIscrizioneEsplicita >= 1900 &&
-    primaIscrizioneEsplicita <= annoCorrente
-  ) {
-    annoPrimaIscrizione = primaIscrizioneEsplicita
-  }
-  // Altrimenti usa il primo anno di pagamento registrato
-  else if (anniPagati.length > 0) {
-    annoPrimaIscrizione = anniPagati[0]
-  }
-  // Se non abbiamo nessuna informazione valida, partiamo dall'anno corrente
-  else {
-    annoPrimaIscrizione = annoCorrente
-  }
-
-  console.log('Anno prima iscrizione calcolato:', annoPrimaIscrizione)
-
-  // --- START OF FIX ---
-  // Determine the end year for the history view
-  // It should be the latest year between the current year and the most recent payment
-  const latestPaymentYear = tesseramenti.value.reduce((max, t) => (t.anno > max ? t.anno : max), 0)
-  const annoFinale = Math.max(annoCorrente, latestPaymentYear)
-
-  console.log('Latest payment year:', latestPaymentYear)
-  console.log('Anno finale calcolato:', annoFinale)
-  // --- END OF FIX ---
-
-  const chronology = []
-  // Genera la cronologia completa dall'anno di prima iscrizione all'anno finale
-  for (let anno = annoPrimaIscrizione; anno <= annoFinale; anno++) {
-    const isPagato = anniPagati.includes(anno)
-    const isEsente = !isPagato && isExemptFromPayment(socio.value, anno)
-    const isNonIscritto = anno < annoPrimaIscrizione && !isPagato
-    const tesseramento = tesseramenti.value.find((t) => t.anno === anno)
-
-    let stato = 'non-pagato'
-    if (isNonIscritto) stato = 'non-iscritto'
-    else if (isPagato) stato = 'pagato'
-    else if (isEsente) stato = 'esente'
-
-    chronology.push({
-      anno,
-      isPagato,
-      isEsente,
-      isNonIscritto,
-      tesseramento,
-      stato,
-    })
-  }
-
-  console.log('Final chronology:', chronology)
-  return chronology.reverse() // Mostra gli anni più recenti prima
-})
-
-/**
  * Formatta una data
  */
 const formatDate = (dateString) => {
@@ -553,7 +536,6 @@ const loadSocioData = async () => {
 
     calculateNavigation()
 
-    console.log('Dati caricati:', { socio: socio.value, tesseramenti: tesseramenti.value })
   } catch (err) {
     console.error('Errore nel caricamento:', err)
     error.value = 'Errore nel caricamento dei dati: ' + err.message
@@ -625,7 +607,7 @@ const exportSocio = async () => {
       metadata: {
         totale_tesseramenti: tesseramenti.value.length,
         anni_considerati: socio.value.data_prima_iscrizione,
-        anni_totali_cronologia: paymentChronology.value.length,
+        anni_totali_cronologia: cronologia.value.length,
       },
     }
 
@@ -916,99 +898,6 @@ onBeforeUnmount(() => {
   flex-wrap: wrap;
 }
 
-.quick-renew-button {
-  padding: 0.75rem 1.5rem;
-  background-color: var(--color-success); /* Green */
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 700;
-  transition: all 0.2s;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  margin-right: 0.5rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.quick-renew-button:hover {
-  background-color: var(--color-success-hover);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
-}
-
-.export-button {
-  padding: 0.75rem 1rem;
-  background-color: var(--color-secondary);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: all 0.2s;
-}
-
-.export-button:hover {
-  background-color: var(--color-secondary-hover);
-}
-
-.edit-button {
-  padding: 0.75rem 1.5rem;
-  background-color: var(--color-primary);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: all 0.2s;
-}
-
-.edit-button:hover {
-  background-color: var(--color-accent);
-}
-
-.edit-data-button {
-  padding: 0.75rem 1.5rem;
-  background-color: var(--color-info);
-  color: white;
-  text-decoration: none;
-  border-radius: 8px;
-  font-weight: 600;
-  transition: all 0.2s;
-  display: inline-block;
-  text-align: center;
-  margin-left: 0.5rem;
-}
-
-.edit-data-button:hover {
-  background-color: var(--color-info); /* Fallback or define hover */
-  filter: brightness(0.9);
-  text-decoration: none;
-  color: white;
-}
-
-.delete-socio-button {
-  padding: 0.75rem 1.5rem;
-  background-color: var(--color-danger);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: all 0.2s;
-  margin-left: 0.5rem;
-}
-
-.delete-socio-button:hover:not(:disabled) {
-  background-color: var(--color-danger-hover);
-}
-
-.delete-socio-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
 /* Info Section */
 .info-section {
   background-color: var(--color-surface);
@@ -1095,208 +984,235 @@ onBeforeUnmount(() => {
   font-style: italic;
 }
 
-/* Payments Section */
-.payments-section {
-  background-color: var(--color-surface);
-  padding: 2rem;
-  border-radius: 12px;
-  box-shadow: var(--shadow-md);
-}
-
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1.5rem;
-}
-
-.section-header h2 {
-  margin: 0;
-}
-
-.chronology-container {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  max-height: 600px;
-  overflow-y: auto;
-  padding-right: 0.5rem;
-}
-
-.chronology-container::-webkit-scrollbar {
-  width: 8px;
-}
-
-.chronology-container::-webkit-scrollbar-track {
-  background: var(--color-border);
-  border-radius: 4px;
-}
-
-.chronology-container::-webkit-scrollbar-thumb {
-  background: var(--color-primary);
-  border-radius: 4px;
-}
-
-.chronology-container::-webkit-scrollbar-thumb:hover {
-  background: var(--color-accent);
-}
-
-.year-item {
-  border: 2px solid transparent;
-  border-radius: 8px;
-  padding: 1.5rem;
-  background-color: var(--color-background);
-  transition: all 0.3s ease;
-  box-shadow: var(--shadow-sm);
-}
-
-.year-item.pagato {
-  border-color: var(--color-success);
-  background-color: rgba(76, 175, 80, 0.05);
-}
-
-.year-item.non-pagato {
-  border-color: var(--color-danger);
-  background-color: rgba(244, 67, 54, 0.05);
-}
-
-.year-item.esente {
-  border-color: var(--color-warning);
-  background-color: rgba(255, 167, 38, 0.05);
-}
-
-.year-heading {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-}
-
-.year-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.year-info {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.year-number {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--color-primary);
-}
-
-.year-status {
-  padding: 0.4rem 0.8rem;
-  border-radius: 20px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.year-status.pagato {
-  background-color: var(--color-success);
-  color: white;
-}
-
-.year-status.non-pagato {
-  background-color: var(--color-danger);
-  color: white;
-}
-
-.year-status.esente {
-  background-color: var(--color-warning);
-  color: white;
-}
-
-.year-actions {
-  display: flex;
-  gap: 0.75rem;
-}
-
-.pay-button {
-  padding: 0.6rem 1.2rem;
-  background-color: var(--color-accent);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-size: 0.9rem;
-}
-
-.pay-button:hover {
-  background-color: var(--color-accent-hover);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(183, 28, 28, 0.3);
-}
-
-.pay-button.secondary {
-  background-color: var(--color-text-secondary);
-}
-
-.pay-button.secondary:hover {
-  background-color: var(--color-primary-light);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-}
-
-.delete-btn {
-  padding: 0.5rem 0.75rem;
-  background: none;
-  border: 2px solid var(--color-danger);
-  border-radius: 6px;
-  color: var(--color-danger);
-  cursor: pointer;
-  font-size: 1rem;
-  transition: all 0.2s;
-}
-
-.delete-btn:hover {
-  background-color: var(--color-danger);
-  color: white;
-  transform: scale(1.1);
-}
-
-.payment-details {
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--color-border);
+/* Riepilogo: quota, arretrati, voto */
+.riepilogo {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: var(--space-12);
+  margin: 0 0 var(--space-24);
 }
 
-.detail-row {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+.riepilogo__voce {
+  padding: var(--space-12) var(--space-16);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-border-strong);
+  border-radius: var(--radius-surface);
 }
 
-.detail-label {
-  font-size: 0.8rem;
+.riepilogo__voce dt {
+  font-size: var(--font-size-caption);
   font-weight: 600;
   color: var(--color-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
-.detail-value {
-  font-size: 1.1rem;
-  font-weight: 500;
+.riepilogo__voce dd {
+  margin: var(--space-4) 0 0;
+  font-size: var(--font-size-body);
+  font-weight: 600;
   color: var(--color-text-primary);
 }
 
-.no-chronology {
-  text-align: center;
-  padding: 3rem;
+.riepilogo__motivo {
+  display: block;
+  font-size: var(--font-size-label);
+  font-weight: 400;
   color: var(--color-text-secondary);
-  font-style: italic;
+}
+
+.riepilogo__voce--ok {
+  border-left-color: var(--color-success);
+}
+
+.riepilogo__voce--attenzione {
+  border-left-color: var(--color-warning);
+}
+
+.riepilogo__voce--errore {
+  border-left-color: var(--color-danger);
+}
+
+/* Pagamenti */
+.payments-section {
+  background-color: var(--color-surface);
+  padding: var(--space-24);
+  border-radius: var(--radius-surface);
+  box-shadow: var(--shadow-md);
+}
+
+.payments-section h2 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  margin: 0 0 var(--space-16);
+}
+
+.tabella-scorre {
+  position: relative; /* tiene dentro anche le etichette nascoste (.sr-only) */
+  overflow-x: auto;
+}
+
+.pagamenti {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-label);
+}
+
+.pagamenti th,
+.pagamenti td {
+  padding: var(--space-8) var(--space-12);
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.pagamenti thead th {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-caption);
+  font-weight: 600;
+}
+
+.pagamenti tbody th {
+  font-size: var(--font-size-body);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.pagamenti tbody tr:hover {
+  background: var(--color-surface-hover);
+}
+
+.pagamenti__riga--futura {
+  color: var(--color-text-secondary);
+}
+
+.pagamenti__numero {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.pagamenti th.pagamenti__numero {
+  text-align: right;
+}
+
+.pagamenti__vuoto {
+  color: var(--color-text-secondary);
+}
+
+.pagamenti__azioni {
+  width: 1%;
+  text-align: right;
+}
+
+.stato {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  font-weight: 600;
+}
+
+.stato > span {
+  display: inline-grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: var(--radius-control);
+  color: var(--color-text-inverse);
+  background: var(--color-text-secondary);
+  font-size: var(--font-size-caption);
+}
+
+.stato--ok > span {
+  background: var(--color-success);
+}
+
+.stato--attenzione > span {
+  background: var(--color-warning);
+}
+
+.stato--errore > span {
+  background: var(--color-danger);
+}
+
+.stato--errore {
+  color: var(--color-danger);
+}
+
+.quota-modifica {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.quota-modifica__input {
+  width: 5.5rem;
+  padding: var(--space-4) var(--space-8);
+  box-shadow: none;
+  font-size: var(--font-size-label);
+  text-align: right;
+}
+
+.icona-btn {
+  min-height: 2rem;
+  padding: var(--space-4) var(--space-8);
+  border: none;
+  border-radius: var(--radius-control);
+  background: none;
+  box-shadow: none;
+  color: var(--color-text-secondary);
+}
+
+.icona-btn:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+
+.icona-btn--pericolo:hover:not(:disabled) {
+  color: var(--color-danger);
+}
+
+.link-btn {
+  min-height: 2rem;
+  padding: var(--space-4) var(--space-8);
+  border: none;
+  border-radius: var(--radius-control);
+  background: none;
+  box-shadow: none;
+  color: var(--color-accent);
+  font-size: var(--font-size-label);
+}
+
+.link-btn:hover {
+  background: var(--color-surface-hover);
+}
+
+/* Azioni rare */
+.altre-azioni {
+  margin-top: var(--space-32);
+  padding-top: var(--space-16);
+  border-top: 1px solid var(--color-border);
+}
+
+.altre-azioni h2 {
+  margin: 0 0 var(--space-12);
+  font-size: var(--font-size-label);
+  color: var(--color-text-secondary);
+}
+
+.altre-azioni__elenco {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-12);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 /* Responsive */
