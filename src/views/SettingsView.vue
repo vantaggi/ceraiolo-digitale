@@ -300,6 +300,14 @@
                 </div>
 
                 <div class="export-option">
+                  <h4><AppIcon name="changelog" /> Registro modifiche</h4>
+                  <p>Le modifiche fatte da questo browser, da allegare quando si passano i dati.</p>
+                  <button @click="exportChangeLogData" :disabled="isExporting" class="export-button">
+                    Scarica registro
+                  </button>
+                </div>
+
+                <div class="export-option">
                   <h4><AppIcon name="configurazione" /> Configurazione JSON</h4>
                   <p>Export/Import solo impostazioni.</p>
                   <div class="button-group-small">
@@ -339,6 +347,16 @@
           <!-- DANGER ZONE -->
           <div class="subsection danger-zone">
             <h3><AppIcon name="pericolo" /> Zona Pericolosa</h3>
+            <div class="danger-card">
+              <h4><AppIcon name="ripara" /> Correggi blocchetti e ricevute invertiti</h4>
+              <p>
+                Corregge i numeri di blocchetto e ricevuta scambiati nei dati storici (vecchio
+                errore di importazione).
+              </p>
+              <button @click="runNormalization" :disabled="isExporting" class="action-button secondary">
+                <AppIcon name="ripara" /> Correggi
+              </button>
+            </div>
             <div class="danger-card">
               <h4><AppIcon name="ripristina" /> Ripristino Impostazioni di Fabbrica</h4>
               <p>
@@ -434,6 +452,8 @@ import {
   getSetting,
   updateSetting,
   downloadDatabaseExport,
+  exportChangeLog,
+  normalizeDatabaseData,
   importDatabaseFromSqlite,
   wipeDatabase,
   getDataAuditStats,
@@ -922,6 +942,48 @@ const confirmFactoryReset = async () => {
   } catch (e) {
     toast.error('Reset fallito: ' + e.message)
     isExporting.value = false
+  }
+}
+
+// Registro modifiche e riparazione (prima stavano in fondo alla Home)
+const exportChangeLogData = async () => {
+  try {
+    const result = await exportChangeLog()
+    if (result.success) {
+      const url = URL.createObjectURL(result.blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = result.filename
+      a.click()
+      URL.revokeObjectURL(url)
+      toast.success('Changelog esportato!')
+    }
+  } catch (error) {
+    console.error('Export changelog failed:', error)
+    toast.error('Errore export changelog')
+  }
+}
+
+const runNormalization = async () => {
+  const conferma = await askConfirm({
+    title: 'Correggere blocchetti e ricevute?',
+    message:
+      'Il database viene controllato e i numeri di blocchetto e ricevuta scambiati (vecchio errore) vengono corretti automaticamente.',
+    confirmLabel: 'Correggi',
+  })
+  if (!conferma) return
+  try {
+    const fixedCount = await normalizeDatabaseData()
+    if (fixedCount > 0) {
+      toast.success(`Normalizzazione completata! Sistemati ${fixedCount} record.`)
+      // Ricarica per pulire cache locali
+      window.location.reload()
+    } else {
+      toast.info('Tutti i record sono già corretti! Non c\'era nulla da sistemare.')
+    }
+  } catch (error) {
+    console.error('Normalization error:', error)
+    toast.error('Errore durante la normalizzazione: ' + error.message)
   }
 }
 
@@ -1738,6 +1800,12 @@ const saveZoneRename = async (oldName) => {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+
+.danger-card + .danger-card {
+  margin-top: var(--space-24);
+  padding-top: var(--space-24);
+  border-top: 1px solid var(--color-border);
 }
 
 .danger-button-large {

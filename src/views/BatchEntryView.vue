@@ -1,9 +1,7 @@
 <template>
   <div class="batch-entry">
-    <PageHeader
-      title="Registrazione Seriale Pagamenti"
-      subtitle="Flusso ottimizzato per blocchetti cartacei"
-    />
+    <PageHeader title="Incassi" subtitle="Registra in fila le ricevute dei blocchetti di carta" />
+    <SectionTabs :tabs="SCHEDE_INCASSI" label="Schede di Incassi" />
 
     <!-- Area 1: Dati di Sessione (Fissi) -->
     <div class="session-data">
@@ -395,6 +393,8 @@ import ConfirmDeleteModal from '@/components/ConfirmDeleteModal.vue'
 import AddPaymentModal from '@/components/AddPaymentModal.vue'
 import AppIcon from '@/components/base/AppIcon.vue'
 import PageHeader from '@/components/base/PageHeader.vue'
+import SectionTabs from '@/components/base/SectionTabs.vue'
+import { SCHEDE_INCASSI } from '@/router/sezioni'
 
 const toast = useToast()
 const searchInput = ref(null)
