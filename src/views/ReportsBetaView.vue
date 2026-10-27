@@ -319,6 +319,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { useToast } from 'vue-toastification'
 import { askConfirm, askText } from '@/composables/useDialog'
 import AppIcon from '@/components/base/AppIcon.vue'
@@ -341,6 +342,7 @@ import {
   riassunto,
   titoloReport,
   manicchieDisponibili,
+  statoDaModello,
 } from '@/utils/reportSuMisura'
 
 const CHIAVE_PRESET = 'reports_beta_presets'
@@ -370,8 +372,20 @@ const CLASSI_STATO = {
 }
 
 const toast = useToast()
+const route = useRoute()
 const annoCorrente = new Date().getFullYear()
-const stato = ref(statoIniziale(annoCorrente))
+
+// Aperta da "Personalizza" di un modello pronto: si parte da quel modello
+const statoDaIndirizzo = () => {
+  const { modello, anno, manicchia, eta, pagamento } = route.query
+  const annoScelto = Number.parseInt(anno, 10)
+  return statoDaModello(
+    String(modello || ''),
+    Number.isInteger(annoScelto) ? annoScelto : annoCorrente,
+    { manicchia: manicchia ? String(manicchia) : '', eta, pagamento },
+  )
+}
+const stato = ref(statoDaIndirizzo() || statoIniziale(annoCorrente))
 const soci = ref([])
 const gruppi = ref([])
 const caricamento = ref(true)

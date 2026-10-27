@@ -162,7 +162,7 @@ function scriviDati(page, socio, font, larghezza, altezza) {
  */
 export async function creaPDFTessere(soci, modello, onProgress = () => {}) {
   if (!modello) {
-    throw new Error('Nessuno sfondo per le tessere. Caricalo in Impostazioni > Template Tessera.')
+    throw new Error('Nessuno sfondo per le tessere. Caricalo in Impostazioni > Tessera.')
   }
   const pdfDoc = await PDFDocument.create()
   const sfondo = await preparaSfondo(pdfDoc, modello)

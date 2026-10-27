@@ -160,7 +160,7 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 ### Test 8.1: Stato nell'intestazione
 
 - [ ] Senza cartella scelta, sotto il titolo compare "Backup automatico spento"
-- [ ] Il clic apre Impostazioni sulla scheda "Dati & Backup"
+- [ ] Il clic apre Impostazioni sulla scheda "Dati e backup"
 - [ ] Scegli una cartella e attiva l'auto-salvataggio: compare "Backup: adesso"
 - [ ] Modifica un socio, aspetta 5 secondi: nella cartella c'e' `backup_AAAA-MM-GG/ceraiolo_backup.sqlite` aggiornato
 
@@ -221,7 +221,7 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 
 ## ✅ Test 11: Tessere
 
-### Test 11.1: Sfondo e anteprima (Impostazioni › Template Tessera)
+### Test 11.1: Sfondo e anteprima (Impostazioni › Tessera)
 
 - [ ] Carica lo sfondo vero (foto JPG/PNG o PDF): l'anteprima lo mostra subito, con la scritta "non ancora salvato"
 - [ ] Con una foto compare la risoluzione in dpi; sotto 250 dpi compare l'avviso "potrebbe sembrare sgranata"
@@ -232,7 +232,7 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 ### Test 11.2: Il file e' uguale all'anteprima
 
 - [ ] Home: cerca un socio, "Genera Tessera", apri il PDF: nome, data, a capo e posizione sono quelli dell'anteprima con lo stesso nome
-- [ ] Report PDF › Rinnovi: "Genera Tessere" scarica un PDF con una pagina per socio, in ordine di cognome
+- [ ] Report PDF › Tessere: "Genera tessere" scarica un PDF con una pagina per socio, in ordine di cognome
 - [ ] Il PDF di tutte le tessere pesa piu' o meno quanto lo sfondo (non lo sfondo moltiplicato per il numero di soci)
 - [ ] Stampa una pagina di prova su carta: misure e margini vanno bene per la tipografia
 
@@ -263,6 +263,38 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 
 ---
 
+## ✅ Test 13: Report PDF a modelli pronti
+
+### Test 13.1: Pagina
+
+- [ ] Report PDF mostra un anno di riferimento in alto e quattro gruppi: Votazioni, Soci, Rinnovi e quote, Tessere; niente barra laterale, niente schede
+- [ ] Cambiando l'anno cambiano le descrizioni ("Soci che hanno pagato il 2025 ma non ancora il 2026"); con un anno impossibile (es. 19) compare l'avviso in rosso e i pulsanti si spengono
+- [ ] Mentre un PDF si genera il suo pulsante gira e gli altri aspettano
+
+### Test 13.2: I PDF di sempre
+
+- [ ] Aventi diritto (una sezione per manicchia, tutti in un elenco, una manicchia), Lista rinnovi, Lista recupero, Soci per manicchia, Conteggio, Nuovi iscritti, Soci attivi, Cronologia pagamenti: ognuno scarica lo stesso PDF di prima
+- [ ] "Report votazioni" ha l'etichetta "Vecchia regola" e scarica il vecchio elenco
+- [ ] Minorenni (nuovo): il PDF elenca i soci che nell'anno non hanno 18 anni, con il riassunto sotto il titolo
+- [ ] "Scarica 5 PDF" scarica i cinque documenti dei rinnovi con le scelte fatte nelle righe sopra
+- [ ] Controllo quote: "Controlla" mostra l'elenco sotto la riga (o il messaggio verde se va tutto bene); PDF ed Excel si scaricano
+
+### Test 13.3: Personalizza
+
+- [ ] Su Soci per manicchia scegli manicchia e "Non in regola", poi Personalizza: il Report su misura si apre con lo stesso anno, le stesse scelte come etichette e gli ultimi tre anni come colonne
+- [ ] Personalizza di Aventi diritto apre il Report su misura con Diritto di voto, Arretrati e Firma, ordinato per manicchia
+- [ ] Personalizza di Minorenni e Soci attivi apre il Report su misura con lo stesso elenco del PDF
+
+### Test 13.4: Cose spostate
+
+- [ ] L'anteprima della tessera non c'e' piu' in Report PDF: il link porta a Impostazioni › Tessera
+- [ ] Impostazioni › Dati › Controllo qualita' dei dati: "Esegui il controllo" mostra quanti soci hanno dati da sistemare, i primi dieci (con link al socio) e il PDF delle anomalie
+- [ ] Le vecchie statistiche di Report (demografia, entrate per manicchia) non ci sono piu'
+
+**Risultato atteso**: ogni elenco che chiedono alla segreteria si trova per nome, con l'anno scelto una volta sola
+
+---
+
 ## ✅ Test 16: Soci a righe compatte
 
 ### Test 16.1: Elenco
@@ -289,3 +321,29 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 - [ ] Tema chiaro e scuro leggibili; il fuoco con Tab si vede sulle etichette dei filtri
 
 **Risultato atteso**: si trova un socio e si vede subito se ha pagato, senza aprire la scheda
+
+---
+
+## ✅ Test 17: Impostazioni a schede
+
+### Test 17.1: Schede
+
+- [ ] Sotto il titolo ci sono le schede Generale, Tessera, Manicchie, Dati e backup; il contenuto usa tutta la larghezza
+- [ ] Ogni scheda ha il suo indirizzo (es. `#/settings/dati`): ricaricando la pagina si resta sulla stessa scheda, e il tasto Indietro del browser torna alla scheda di prima
+- [ ] I vecchi indirizzi `#/settings?tab=dati` e `#/settings?tab=template` portano alla scheda giusta
+- [ ] "Backup automatico spento" in alto apre Dati e backup; il link di Report PDF › Tessere apre Tessera
+
+### Test 17.2: Dati e backup
+
+- [ ] Dall'alto: Backup, Esporta, Ripristina da un file, Controllo qualita' dei dati, Zona pericolosa
+- [ ] Non c'e' piu' il riquadro "Stato salute dati" in cima (lo dice il Controllo qualita')
+- [ ] "Importa JSON" si raggiunge anche con Tab e si apre con Invio
+- [ ] Ripristina da un file chiede conferma prima di sostituire i dati
+
+### Test 17.3: Manicchie
+
+- [ ] Aggiungi una manicchia (anche con Invio): compare nell'elenco e nel filtro Manicchia della pagina Soci
+- [ ] Matita: il nome diventa modificabile, Invio chiede conferma e rinomina per tutti i soci, Esc annulla
+- [ ] Cestino: chiede conferma e la toglie dalla lista; i soci restano con la loro manicchia
+
+**Risultato atteso**: ogni impostazione ha un posto solo, e cio' che cancella dati sta in fondo a Dati e backup
