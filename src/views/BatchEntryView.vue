@@ -70,7 +70,7 @@
               <span class="toggle-label">Suoni</span>
             </label>
             <button
-              @click="openNewSocioForm"
+              @click="openNewSocioForm()"
               class="add-socio-header-btn"
               title="Registra Nuovo Socio"
               :disabled="isProcessing"
@@ -147,14 +147,21 @@
         </div>
 
         <!-- Nessun Risultato - Nuovo Socio -->
-        <div v-else-if="searchQuery && searchResults.length === 0 && !isSearching" class="no-results">
+        <div
+          v-else-if="searchQuery && searchResults.length === 0 && !isSearching && !showNewSocioForm"
+          class="no-results"
+        >
           <div class="no-results-content">
             <h3><AppIcon name="socio" /> Socio non trovato</h3>
             <p>
               "<strong>{{ searchQuery }}</strong
               >" non corrisponde a nessun socio esistente.
             </p>
-            <button @click="showNewSocioForm = true" class="new-socio-btn" :disabled="isProcessing">
+            <button
+              @click="openNewSocioForm({ daRicerca: true })"
+              class="new-socio-btn"
+              :disabled="isProcessing"
+            >
               <AppIcon name="nuovo-socio" /> Registra Nuovo Socio
             </button>
           </div>
@@ -163,105 +170,28 @@
         <!-- Form Nuovo Socio -->
         <div v-if="showNewSocioForm" class="new-socio-form">
           <h3><AppIcon name="nuovo-socio" /> Registra Nuovo Socio</h3>
-          <div class="mini-form-grid">
-            <div class="form-group">
-              <label for="new-cognome">Cognome *</label>
-              <input
-                id="new-cognome"
-                v-model="newSocioData.cognome"
-                type="text"
-                class="form-input"
-                :class="{ error: newSocioErrors.cognome }"
-                :disabled="isProcessing"
-              />
-              <span v-if="newSocioErrors.cognome" class="error-message">{{
-                newSocioErrors.cognome
-              }}</span>
+          <form novalidate @submit.prevent="saveNewSocio">
+            <ModuloSocio
+              ref="moduloNuovo"
+              v-model:dati="newSocioData"
+              id-prefisso="nuovo-socio-incassi"
+              :manicchie="availableGroups"
+              :soci="sociInArchivio"
+              :anno-predefinito="sessionData.annoRiferimento"
+              :mostra-errori="tentatoNuovo"
+              :disabilitato="isProcessing"
+              compatto
+            />
+            <div class="form-actions">
+              <BaseButton variant="ghost" :disabled="isProcessing" @click="cancelNewSocio">
+                Annulla
+              </BaseButton>
+              <BaseButton type="submit" variant="primary" :loading="isProcessing">
+                <AppIcon name="salva" /> Salva e registra il pagamento
+                {{ sessionData.annoRiferimento }}
+              </BaseButton>
             </div>
-
-            <div class="form-group">
-              <label for="new-nome">Nome *</label>
-              <input
-                id="new-nome"
-                v-model="newSocioData.nome"
-                type="text"
-                class="form-input"
-                :class="{ error: newSocioErrors.nome }"
-                :disabled="isProcessing"
-              />
-              <span v-if="newSocioErrors.nome" class="error-message">{{ newSocioErrors.nome }}</span>
-            </div>
-
-            <div class="form-group">
-              <label for="new-data-nascita">Data di Nascita *</label>
-              <input
-                id="new-data-nascita"
-                v-model="newSocioData.data_nascita"
-                type="date"
-                class="form-input"
-                :class="{ error: newSocioErrors.data_nascita }"
-                :max="today"
-                :disabled="isProcessing"
-              />
-              <span v-if="newSocioErrors.data_nascita" class="error-message">{{
-                newSocioErrors.data_nascita
-              }}</span>
-            </div>
-
-            <div class="form-group">
-              <label for="new-luogo-nascita">Luogo di Nascita</label>
-              <input
-                id="new-luogo-nascita"
-                v-model="newSocioData.luogo_nascita"
-                type="text"
-                class="form-input"
-                placeholder="Gubbio"
-                :disabled="isProcessing"
-              />
-            </div>
-
-            <div class="form-group">
-              <label for="new-gruppo">Manicchia</label>
-              <select
-                id="new-gruppo"
-                v-model="newSocioData.gruppo_appartenenza"
-                class="form-input"
-                :disabled="isProcessing"
-                @change="handleGroupChange"
-              >
-                <option value="">Seleziona manicchia</option>
-                <option v-for="group in availableGroups" :key="group" :value="group">
-                  {{ group }}
-                </option>
-                <option value="__NEW__">+ Nuova manicchia...</option>
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label for="new-note">Note</label>
-              <textarea
-                id="new-note"
-                v-model="newSocioData.note"
-                class="form-input"
-                rows="2"
-                placeholder="Eventuali note aggiuntive..."
-                :disabled="isProcessing"
-              ></textarea>
-            </div>
-          </div>
-
-          <div class="form-actions">
-            <button @click="cancelNewSocio" class="cancel-btn" :disabled="isProcessing">
-              Annulla
-            </button>
-            <button
-              @click="saveNewSocio"
-              class="save-btn"
-              :disabled="isProcessing || !canSaveNewSocio"
-            >
-              <AppIcon name="salva" /> Salva e Registra Pagamento {{ sessionData.annoRiferimento }}
-            </button>
-          </div>
+          </form>
         </div>
       </div>
 
@@ -372,7 +302,6 @@
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useToast } from 'vue-toastification'
-import { askText } from '@/composables/useDialog'
 import {
   searchSoci,
   addSocio,
@@ -402,6 +331,9 @@ import AppIcon from '@/components/base/AppIcon.vue'
 import PageHeader from '@/components/base/PageHeader.vue'
 import SectionTabs from '@/components/base/SectionTabs.vue'
 import RiquadroBlocchetto from '@/components/RiquadroBlocchetto.vue'
+import ModuloSocio from '@/components/ModuloSocio.vue'
+import BaseButton from '@/components/base/BaseButton.vue'
+import { datiDaSalvare } from '@/utils/socio'
 import { SCHEDE_INCASSI } from '@/router/sezioni'
 
 const toast = useToast()
@@ -470,16 +402,15 @@ const newSocioData = reactive({
   cognome: '',
   nome: '',
   data_nascita: '',
-  luogo_nascita: 'Gubbio', // Default value
+  luogo_nascita: '',
   gruppo_appartenenza: '',
+  data_prima_iscrizione: '',
   note: '',
 })
-
-const newSocioErrors = reactive({
-  cognome: '',
-  nome: '',
-  data_nascita: '',
-})
+const moduloNuovo = ref(null)
+const tentatoNuovo = ref(false)
+const sociInArchivio = ref([])
+const cittaPredefinita = ref('Gubbio')
 
 // Modal pagamento
 const showPaymentModal = ref(false)
@@ -565,14 +496,6 @@ const currentYear = new Date().getFullYear()
 const availableGroups = ref([])
 
 // Computed
-const canSaveNewSocio = computed(() => {
-  return (
-    newSocioData.cognome.trim() &&
-    newSocioData.nome.trim() &&
-    newSocioData.data_nascita &&
-    !isProcessing.value
-  )
-})
 
 const euro = (valore) => Number(valore || 0).toFixed(2)
 const totaleRicevuta = computed(() =>
@@ -660,29 +583,6 @@ const loadGroups = async () => {
   }
 }
 
-const handleGroupChange = async () => {
-  if (newSocioData.gruppo_appartenenza === '__NEW__') {
-    const newGroup = await askText({
-      title: 'Nuovo gruppo',
-      label: 'Nome del gruppo',
-      confirmLabel: 'Aggiungi gruppo',
-    })
-    if (newGroup) {
-      try {
-        await addCustomGroup(newGroup)
-        await loadGroups()
-        newSocioData.gruppo_appartenenza = newGroup.trim()
-        toast.success(`Gruppo "${newGroup}" aggiunto!`)
-      } catch (e) {
-        toast.error('Errore aggiunta gruppo: ' + e.message)
-        newSocioData.gruppo_appartenenza = ''
-      }
-    } else {
-      newSocioData.gruppo_appartenenza = ''
-    }
-  }
-}
-
 // Lifecycle
 onMounted(async () => {
   window.addEventListener('keydown', handleGlobalKeydown)
@@ -694,6 +594,8 @@ onMounted(async () => {
     config.value.receiptsPerBlock = await getSetting('receiptsPerBlock', 10)
     config.value.defaultQuota = await getSetting('defaultQuota', 10.0)
     config.value.newMemberQuota = await getSetting('newMemberQuota', 25.0)
+    cittaPredefinita.value = await getSetting('defaultCity', 'Gubbio')
+    newSocioData.luogo_nascita = cittaPredefinita.value
 
     await loadGroups()
     validateSessionData()
@@ -766,24 +668,39 @@ const clearSearch = () => {
 }
 
 const resetNewSocioForm = () => {
-  newSocioData.cognome = ''
-  newSocioData.nome = ''
-  newSocioData.data_nascita = ''
-  newSocioData.gruppo_appartenenza = ''
-  Object.keys(newSocioErrors).forEach((key) => {
-    newSocioErrors[key] = ''
+  Object.assign(newSocioData, {
+    cognome: '',
+    nome: '',
+    data_nascita: '',
+    luogo_nascita: cittaPredefinita.value,
+    gruppo_appartenenza: '',
+    data_prima_iscrizione: '',
+    note: '',
   })
+  tentatoNuovo.value = false
+  moduloNuovo.value?.azzera()
 }
 
-const openNewSocioForm = () => {
-  searchQuery.value = ''
-  searchResults.value = []
+/**
+ * Apre il modulo del nuovo socio. Da "Socio non trovato" porta con se' quello che
+ * si era cercato: la prima parola come cognome, il resto come nome.
+ */
+const openNewSocioForm = async ({ daRicerca = false } = {}) => {
+  const cercato = daRicerca ? searchQuery.value.trim().split(/\s+/) : []
+  if (!daRicerca) {
+    searchQuery.value = ''
+    searchResults.value = []
+  }
   showNewSocioForm.value = true
   resetNewSocioForm()
-  // Optional: Focus first field if we had a ref to it
-  nextTick(() => {
-    document.getElementById('new-cognome')?.focus()
-  })
+  newSocioData.cognome = cercato[0] || ''
+  newSocioData.nome = cercato.slice(1).join(' ')
+  nextTick(() => moduloNuovo.value?.primoCampo())
+  try {
+    sociInArchivio.value = await db.soci.toArray()
+  } catch (error) {
+    console.error('Soci per il controllo omonimi non letti:', error)
+  }
 }
 
 let searchTimeout = null
@@ -994,25 +911,19 @@ const cancelNewSocio = () => {
 }
 
 const saveNewSocio = async () => {
-  if (!canSaveNewSocio.value || isProcessing.value) return
-
-  // Validazione
-  newSocioErrors.cognome = !newSocioData.cognome.trim() ? 'Cognome obbligatorio' : ''
-  newSocioErrors.nome = !newSocioData.nome.trim() ? 'Nome obbligatorio' : ''
-  newSocioErrors.data_nascita = !newSocioData.data_nascita ? 'Data di nascita obbligatoria' : ''
-
-  if (Object.values(newSocioErrors).some((error) => error)) return
+  if (isProcessing.value) return
+  tentatoNuovo.value = true
+  if (moduloNuovo.value?.vaiAlPrimoErrore()) return
 
   isProcessing.value = true
   try {
-    // Crea il nuovo socio
-    const socioData = {
-      nome: newSocioData.nome.trim(),
-      cognome: newSocioData.cognome.trim(),
-      data_nascita: newSocioData.data_nascita,
-      luogo_nascita: newSocioData.luogo_nascita || 'Gubbio',
-      gruppo_appartenenza: newSocioData.gruppo_appartenenza || 'Non specificato',
-      note: newSocioData.note || '',
+    const socioData = datiDaSalvare(newSocioData)
+    // Senza anno di prima iscrizione vale l'anno che si sta incassando
+    socioData.data_prima_iscrizione ??= sessionData.annoRiferimento
+    const manicchia = socioData.gruppo_appartenenza
+    if (manicchia && !availableGroups.value.includes(manicchia)) {
+      await addCustomGroup(manicchia)
+      await loadGroups()
     }
 
     const socioId = await addSocio(socioData)
@@ -1031,12 +942,10 @@ const saveNewSocio = async () => {
     await caricaBlocchetto()
 
     toast.success(
-      `Nuovo socio ${newSocioData.cognome} ${newSocioData.nome} creato e pagamento ${sessionData.annoRiferimento} registrato`,
+      `Nuovo socio ${socioData.cognome} ${socioData.nome} creato e pagamento ${sessionData.annoRiferimento} registrato`,
     )
 
     showNewSocioForm.value = false
-    resetNewSocioForm()
-    resetNewSocioForm()
     clearSearch()
     nextTick(() => {
       if (searchInput.value) {
@@ -1740,13 +1649,6 @@ const getSocioStatus = (socio) => {
   color: var(--color-primary);
 }
 
-.mini-form-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
-  margin: 1.5rem 0;
-}
-
 .form-actions {
   display: flex;
   justify-content: flex-end;
@@ -1754,43 +1656,6 @@ const getSocioStatus = (socio) => {
   margin-top: 2rem;
   padding-top: 1rem;
   border-top: 1px solid var(--color-border);
-}
-
-.cancel-btn {
-  padding: 0.75rem 1.5rem;
-  background-color: var(--color-text-secondary);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.cancel-btn:hover:not(:disabled) {
-  background-color: #666;
-  transform: scale(1.02);
-}
-
-.save-btn {
-  padding: 0.75rem 1.5rem;
-  background-color: var(--color-accent);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.save-btn:hover:not(:disabled) {
-  background-color: #a22a2a;
-  transform: scale(1.02);
-}
-
-.save-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
 }
 
 /* Modal */
@@ -1955,58 +1820,8 @@ const getSocioStatus = (socio) => {
   cursor: not-allowed;
 }
 
-/* Form Styles */
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.form-group label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
 .field-icon {
   font-size: 1.2rem;
-}
-
-.form-input {
-  padding: 0.75rem;
-  border: 2px solid var(--color-border);
-  border-radius: 8px;
-  font-size: 1rem;
-  font-family: var(--font-family-body);
-  transition: all 0.2s;
-  background-color: var(--color-background);
-  color: var(--color-text-primary);
-}
-
-.form-input:focus {
-  outline: none;
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 3px rgba(183, 28, 28, 0.1);
-}
-
-.form-input:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.error-message {
-  color: #dc3545;
-  font-size: 0.875rem;
-  font-weight: 500;
-  margin-top: -0.25rem;
-}
-
-.form-input.error {
-  border-color: #dc3545;
-  box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
 }
 
 /* Responsive */
@@ -2019,10 +1834,6 @@ const getSocioStatus = (socio) => {
     flex-direction: column;
     gap: 1rem;
     align-items: flex-start;
-  }
-
-  .mini-form-grid {
-    grid-template-columns: 1fr;
   }
 
   .result-item {
