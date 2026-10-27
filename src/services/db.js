@@ -1,5 +1,5 @@
 import Dexie from 'dexie'
-import initSqlJs from 'sql.js'
+import { caricaSqlJs } from './sqljs'
 import { calculatePaymentStatus } from '@/utils/payment'
 import { SENZA_MANICCHIA } from '@/utils/aventiDiritto'
 import { elencoRecupero } from '@/utils/recupero'
@@ -701,10 +701,7 @@ export async function exportDatabaseToSqlite(customFilename = null) {
     const filename = customFilename || `ceraiolo_backup_${timestamp}.sqlite`
 
     // Initialize sql.js
-    const SQL = await initSqlJs({
-      // Resolve the wasm file relative to the current page. By using URL, we ensure it respects the correct GitHub Pages subfolder.
-      locateFile: (file) => new URL(import.meta.env.BASE_URL + file, window.location.href).href,
-    })
+    const SQL = await caricaSqlJs()
 
     // Create new SQLite database
     const sqliteDb = new SQL.Database()
@@ -1041,9 +1038,7 @@ export async function exportSocioToSqlite(socioId) {
     )
 
     // Initialize sql.js
-    const SQL = await initSqlJs({
-      locateFile: (file) => `/${file}`,
-    })
+    const SQL = await caricaSqlJs()
 
     // Create new SQLite database
     const sqliteDb = new SQL.Database()
@@ -2201,9 +2196,7 @@ export async function getDataAuditStats() {
 export async function importDatabaseFromSqlite(file) {
   try {
     const arrayBuffer = await file.arrayBuffer()
-    const SQL = await initSqlJs({
-      locateFile: (file) => `/${file}`,
-    })
+    const SQL = await caricaSqlJs()
 
     // Load DB from file
     const uInt8Array = new Uint8Array(arrayBuffer)

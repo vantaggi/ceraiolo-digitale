@@ -21,7 +21,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import initSqlJs from 'sql.js'
+import { caricaSqlJs } from '@/services/sqljs'
 import { db, isDatabaseEmpty } from '@/services/db'
 
 const selectedFile = ref(null)
@@ -70,10 +70,7 @@ const importDatabase = async () => {
     const fileBuffer = await selectedFile.value.arrayBuffer()
 
     // Initialize sql.js
-    const SQL = await initSqlJs({
-      // Resolve the wasm file relative to the current page, preventing 404s on GitHub Pages subdirectories
-      locateFile: (file) => new URL(import.meta.env.BASE_URL + file, window.location.href).href,
-    })
+    const SQL = await caricaSqlJs()
 
     const dbFile = new SQL.Database(new Uint8Array(fileBuffer))
 
