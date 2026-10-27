@@ -513,20 +513,20 @@ export async function getTesseramentiBySocioId(socioId) {
  * @returns {Promise<Array>} A promise that resolves to an array of member objects with tesseramenti
  */
 export async function getAllSociWithTesseramenti() {
-  const soci = await db.soci.toArray()
+  // Due letture in tutto: una lettura per socio richiedeva ~5 secondi con 3.000 soci
+  const [soci, tutti] = await Promise.all([db.soci.toArray(), db.tesseramenti.toArray()])
 
-  // Per ogni socio, carica i suoi tesseramenti
-  const sociWithTesseramenti = await Promise.all(
-    soci.map(async (socio) => {
-      const tesseramenti = await getTesseramentiBySocioId(socio.id)
-      return {
-        ...socio,
-        tesseramenti,
-      }
-    }),
-  )
+  const perSocio = new Map()
+  for (const t of tutti) {
+    if (!perSocio.has(t.id_socio)) perSocio.set(t.id_socio, [])
+    perSocio.get(t.id_socio).push(t)
+  }
 
-  return sociWithTesseramenti
+  // Come getTesseramentiBySocioId: dall'anno piu' recente
+  return soci.map((socio) => ({
+    ...socio,
+    tesseramenti: (perSocio.get(socio.id) || []).sort((a, b) => b.anno - a.anno),
+  }))
 }
 
 /**
