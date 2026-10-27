@@ -178,15 +178,14 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 
 ---
 
-## ✅ Test 9: Menu a cinque sezioni
+## ✅ Test 9: Menu a quattro sezioni
 
 ### Test 9.1: Voci e pagine
 
-- [ ] Il menu mostra Soci, Incassi, Report PDF, Statistiche, Impostazioni
+- [ ] Il menu mostra Soci, Incassi, Report PDF, Impostazioni
 - [ ] Da un socio aperto resta accesa la voce Soci
 - [ ] Incassi si apre su "Registra ricevute"; la scheda "Blocchetti" porta all'elenco dei blocchetti e la voce Incassi resta accesa
 - [ ] Report PDF apre i report; il link "Report Builder Beta" apre il report su misura e la voce Report PDF resta accesa
-- [ ] Statistiche mostra numeri e grafico dell'andamento
 - [ ] Ctrl+K da qualsiasi pagina porta alla ricerca soci
 
 ### Test 9.2: Vecchi indirizzi e segnalibri
@@ -194,6 +193,7 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 - [ ] `#/registrazione-seriale` porta a Incassi › Registra ricevute
 - [ ] `#/blocchetti` porta a Incassi › Blocchetti
 - [ ] `#/reports` e `#/reports-beta` portano a Report PDF
+- [ ] `#/statistiche` porta alla Home (Soci)
 
 **Risultato atteso**: ogni pagina ha una sola voce di menu accesa, e i segnalibri di prima funzionano ancora
 
@@ -205,7 +205,12 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 
 - [ ] Aprendo l'app il cursore e' gia' nel campo di ricerca, in cima alla pagina
 - [ ] Cerca un cognome, apri un socio, torna indietro: ricerca e filtri sono ancora li'
-- [ ] I numeri sotto i filtri (Soci, Pagamenti anno, Pagamenti anno prossimo) filtrano l'elenco; "Statistiche" apre la pagina del grafico
+- [ ] I numeri sotto i filtri (Soci, Pagamenti anno, Pagamenti anno prossimo) filtrano l'elenco
+- [ ] A ricerca vuota compare "Andamento del tesseramento": iscritti dell'ultimo anno con la differenza sull'anno prima, nuovi, rientri, non rinnovati e il grafico
+- [ ] I bottoni 5 anni / 10 anni / Tutto cambiano gli anni del grafico; la scelta resta dopo aver ricaricato la pagina
+- [ ] Il riquadro si chiude e si riapre dal titolo (anche con Tab e Invio) e resta chiuso dopo aver ricaricato la pagina
+- [ ] Con una ricerca attiva il riquadro sparisce e l'elenco dei soci parte subito sotto i numeri
+- [ ] Nel tema scuro colori del grafico, assi e legenda si leggono; cambiando tema il grafico cambia colori senza ricaricare
 - [ ] Con una ricerca attiva l'elenco usa tutta la larghezza; a ricerca vuota compare "Attivita' recente"
 
 ### Test 10.2: Manutenzione spostata
