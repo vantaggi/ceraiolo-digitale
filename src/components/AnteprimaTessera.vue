@@ -3,7 +3,7 @@
     <div v-if="!modello" class="anteprima-vuota" :style="dimensioni">
       <AppIcon name="tessera" size="24" />
       <p>Nessuno sfondo caricato.</p>
-      <p>Caricalo in Impostazioni &gt; Template Tessera.</p>
+      <p>Caricalo in Impostazioni &gt; Tessera.</p>
     </div>
     <div
       v-else-if="errore"

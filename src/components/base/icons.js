@@ -24,6 +24,7 @@ import {
   Calendar,
   ChartColumn,
   Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   CircleAlert,
@@ -84,6 +85,7 @@ export const icons = {
   indietro: ArrowLeft,
   precedente: ChevronLeft,
   successivo: ChevronRight,
+  espandi: ChevronDown,
   link: Link,
   // tema
   'tema-chiaro': Sun,
