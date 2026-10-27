@@ -3,347 +3,342 @@
     <PageHeader title="Incassi" subtitle="Registra in fila le ricevute dei blocchetti di carta" />
     <SectionTabs :tabs="SCHEDE_INCASSI" label="Schede di Incassi" />
 
-    <!-- Area 1: Dati di Sessione (Fissi) -->
-    <div class="session-data">
-      <h2><AppIcon name="impostazioni" /> Dati di Sessione</h2>
-      <div class="session-grid">
-        <div class="form-group">
-          <label for="anno-riferimento">
-            <AppIcon name="data" class="field-icon" />
-            Anno di Riferimento *
-          </label>
-          <input
-            id="anno-riferimento"
-            v-model.number="sessionData.annoRiferimento"
-            type="number"
-            class="form-input"
-            :class="{ error: sessionErrors.annoRiferimento }"
-            :min="currentYear"
-            :max="currentYear + 5"
-          />
-          <span v-if="sessionErrors.annoRiferimento" class="error-message">{{
-            sessionErrors.annoRiferimento
-          }}</span>
-        </div>
-
-        <div class="form-group">
-          <label for="numero-blocchetto">
-            <AppIcon name="blocchetto" class="field-icon" />
-            Numero Blocchetto *
-          </label>
-          <input
-            id="numero-blocchetto"
-            v-model.number="sessionData.numeroBlocchetto"
-            type="number"
-            class="form-input"
-            :class="{ error: sessionErrors.numeroBlocchetto }"
-            min="1"
-          />
-          <span v-if="sessionErrors.numeroBlocchetto" class="error-message">{{
-            sessionErrors.numeroBlocchetto
-          }}</span>
-        </div>
-
-        <div class="form-group">
-          <label for="data-pagamento">
-            <AppIcon name="data" class="field-icon" />
-            Data Pagamento *
-          </label>
-          <input
-            id="data-pagamento"
-            v-model="sessionData.dataPagamento"
-            type="date"
-            class="form-input"
-            :class="{ error: sessionErrors.dataPagamento }"
-            :max="today"
-          />
-          <span v-if="sessionErrors.dataPagamento" class="error-message">{{
-            sessionErrors.dataPagamento
-          }}</span>
-        </div>
+    <!-- Dati della sessione: si impostano una volta e si ricordano -->
+    <section class="sessione" aria-label="Dati della sessione">
+      <div class="sessione__campo">
+        <label for="anno-riferimento">Anno di riferimento</label>
+        <input
+          id="anno-riferimento"
+          v-model.number="sessionData.annoRiferimento"
+          type="number"
+          class="sessione__input"
+          :aria-invalid="!!sessionErrors.annoRiferimento"
+          :min="currentYear"
+          :max="currentYear + 5"
+        />
       </div>
-    </div>
+      <div class="sessione__campo">
+        <label for="numero-blocchetto">Blocchetto</label>
+        <input
+          id="numero-blocchetto"
+          v-model.number="sessionData.numeroBlocchetto"
+          type="number"
+          class="sessione__input"
+          :aria-invalid="!!sessionErrors.numeroBlocchetto"
+          min="1"
+        />
+      </div>
+      <div class="sessione__campo">
+        <label for="data-pagamento">Data delle ricevute</label>
+        <input
+          id="data-pagamento"
+          v-model="sessionData.dataPagamento"
+          type="date"
+          class="sessione__input sessione__input--data"
+          :aria-invalid="!!sessionErrors.dataPagamento"
+          :max="today"
+        />
+      </div>
+      <p v-if="erroriSessione" class="sessione__errore" role="alert">
+        <AppIcon name="errore" /> {{ erroriSessione }}
+      </p>
+    </section>
 
-    <!-- Area 2: Contesto Ricevuta Attuale -->
-    <div class="receipt-context">
-      <div class="receipt-header">
-        <h2><AppIcon name="ricevuta" /> Ricevuta Attuale</h2>
-        <div class="receipt-controls">
-          <label for="numero-ricevuta">
-            <AppIcon name="ricevuta" class="field-icon" />
-            Numero Ricevuta:
-          </label>
-          <div class="receipt-number-controls">
-            <button
-              @click="decrementReceipt"
-              class="receipt-btn"
-              :disabled="isProcessing"
-              aria-label="Ricevuta precedente"
+    <div class="lavoro">
+      <!-- Ricerca socio: la cosa che si usa a ogni ricevuta -->
+      <div class="work-area">
+        <div class="work-area-header">
+          <h2><AppIcon name="ricerca" /> Cerca il socio</h2>
+          <div class="search-controls">
+            <label
+              class="turbo-toggle"
+              :class="{ active: turboMode }"
+              title="Salta la conferma pagamento (Invio = Paga)"
             >
-              <AppIcon name="precedente" />
-            </button>
-            <input
-              id="numero-ricevuta"
-              v-model.number="currentReceipt.numero"
-              type="number"
-              class="receipt-number-input"
-              min="1"
-              readonly
-              :disabled="isProcessing"
-            />
-            <button
-              @click="incrementReceipt"
-              class="receipt-btn"
-              :disabled="isProcessing"
-              aria-label="Ricevuta successiva"
+              <input type="checkbox" v-model="turboMode" />
+              <AppIcon name="rapido" class="toggle-icon" />
+              <span class="toggle-label">Turbo Mode</span>
+            </label>
+
+            <label
+              class="turbo-toggle sound-toggle"
+              :class="{ active: soundEnabled }"
+              title="Attiva/Disattiva suoni di feedback"
             >
-              <AppIcon name="successivo" />
+              <input type="checkbox" v-model="soundEnabled" />
+              <AppIcon :name="soundEnabled ? 'audio-attivo' : 'audio-spento'" class="toggle-icon" />
+              <span class="toggle-label">Suoni</span>
+            </label>
+            <button
+              @click="openNewSocioForm"
+              class="add-socio-header-btn"
+              title="Registra Nuovo Socio"
+              :disabled="isProcessing"
+            >
+              <AppIcon name="aggiungi" class="icon" />
+              <span class="label">Nuovo Socio</span>
             </button>
           </div>
         </div>
-      </div>
 
-      <!-- Riepilogo Soci sulla Ricevuta -->
-      <div class="receipt-summary">
-        <h3><AppIcon name="gruppo" /> Soci su questa ricevuta ({{ currentReceipt.soci.length }})</h3>
-        <div v-if="currentReceipt.soci.length === 0" class="empty-receipt">
-          <p>Nessun socio aggiunto ancora</p>
-          <small>Inizia cercando un socio esistente o registrane uno nuovo</small>
-        </div>
-        <TransitionGroup name="list" tag="div" class="receipt-soci-list">
-          <div v-for="socio in currentReceipt.soci" :key="socio.id" class="receipt-socio-item">
-            <span class="socio-name">{{ socio.cognome }} {{ socio.nome }}</span>
-            <span class="socio-payment">{{ socio.anniPagati.join(', ') }}</span>
-            <button
-              @click="removeFromReceipt(socio)"
-              class="remove-btn"
+        <!-- Barra di Ricerca -->
+        <div class="search-section">
+          <div class="search-input-group">
+            <input
+              v-model="searchQuery"
+              type="text"
+              class="search-input"
+              placeholder="Cerca socio per cognome o nome..."
+              @input="debouncedSearch"
+              @keydown="handleSearchKeydown"
+              @focus="$event.target.select()"
               :disabled="isProcessing"
-              :aria-label="`Togli ${socio.cognome} ${socio.nome} dalla ricevuta`"
+              ref="searchInput"
+            />
+            <button
+              @click="clearSearch"
+              class="clear-search-btn"
+              v-if="searchQuery"
+              aria-label="Svuota ricerca"
             >
               <AppIcon name="chiudi" />
             </button>
           </div>
-        </TransitionGroup>
-      </div>
-    </div>
-
-    <!-- Area 3: L'Area di Lavoro -->
-    <div class="work-area">
-      <div class="work-area-header">
-        <h2><AppIcon name="ricerca" /> Area di Lavoro</h2>
-        <button
-          @click="openNewSocioForm"
-          class="add-socio-header-btn"
-          title="Registra Nuovo Socio"
-          :disabled="isProcessing"
-        >
-          <AppIcon name="aggiungi" class="icon" />
-          <span class="label">Nuovo Socio</span>
-        </button>
-      </div>
-
-      <!-- Barra di Ricerca -->
-      <div class="search-section">
-        <div class="search-controls">
-          <label
-            class="turbo-toggle"
-            :class="{ active: turboMode }"
-            title="Salta la conferma pagamento (Invio = Paga)"
-          >
-            <input type="checkbox" v-model="turboMode" />
-            <AppIcon name="rapido" class="toggle-icon" />
-            <span class="toggle-label">Turbo Mode</span>
-          </label>
-
-          <label
-            class="turbo-toggle sound-toggle"
-            :class="{ active: soundEnabled }"
-            title="Attiva/Disattiva suoni di feedback"
-          >
-            <input type="checkbox" v-model="soundEnabled" />
-            <AppIcon :name="soundEnabled ? 'audio-attivo' : 'audio-spento'" class="toggle-icon" />
-            <span class="toggle-label">Suoni</span>
-          </label>
         </div>
-        <div class="search-input-group">
-          <input
-            v-model="searchQuery"
-            type="text"
-            class="search-input"
-            placeholder="Cerca socio per cognome o nome..."
-            @input="debouncedSearch"
-            @keydown="handleSearchKeydown"
-            @focus="$event.target.select()"
-            :disabled="isProcessing"
-            ref="searchInput"
-          />
-          <button
-            @click="clearSearch"
-            class="clear-search-btn"
-            v-if="searchQuery"
-            aria-label="Svuota ricerca"
-          >
-            <AppIcon name="chiudi" />
-          </button>
-        </div>
-      </div>
 
-      <!-- Risultati Ricerca -->
-      <div v-if="searchResults.length > 0" class="search-results">
-        <h3><AppIcon name="ricerca" /> Risultati ({{ searchResults.length }})</h3>
-        <div class="results-list" ref="resultsListRef">
-          <div
-            v-for="(socio, index) in searchResults"
-            :key="socio.id"
-            class="result-item"
-            :class="{ selected: index === selectedResultIndex }"
-            @click="selectSocio(socio)"
-            @mouseenter="selectedResultIndex = index"
-          >
-            <div class="socio-info">
-              <strong>{{ socio.cognome }} {{ socio.nome }}</strong>
-              <small>Nato il {{ formatDate(socio.data_nascita) }}</small>
-              <small>Manicchia: {{ socio.gruppo_appartenenza }}</small>
-            </div>
-            <div class="socio-status">
-              <div v-if="getSocioStatus(socio) === 'IN_RECEIPT'" class="status-badge success">
-                <AppIcon name="ok" /> In Ricevuta
-              </div>
-              <div v-else-if="getSocioStatus(socio) === 'IN_ORDER'" class="status-badge success">
-                <AppIcon name="ok" /> In Regola
-              </div>
-              <div v-else class="action-area">
-                <div v-if="socio.daReiscrivere" class="arretrati-badge">
-                  <AppIcon name="attenzione" /> Da reiscrivere: fermo da più di 3 anni
-                </div>
-                <div v-else-if="socio.arretrati.length > 0 && !isMinor(socio)" class="arretrati-badge">
-                  <AppIcon name="attenzione" /> Arretrati: {{ socio.arretrati.join(', ') }}
-                </div>
-                <button class="pay-btn" :disabled="isProcessing" @click.stop="selectSocio(socio)">
-                  <AppIcon name="pagamento" /> Paga
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Nessun Risultato - Nuovo Socio -->
-      <div v-else-if="searchQuery && searchResults.length === 0 && !isSearching" class="no-results">
-        <div class="no-results-content">
-          <h3><AppIcon name="socio" /> Socio non trovato</h3>
-          <p>
-            "<strong>{{ searchQuery }}</strong
-            >" non corrisponde a nessun socio esistente.
-          </p>
-          <button @click="showNewSocioForm = true" class="new-socio-btn" :disabled="isProcessing">
-            <AppIcon name="nuovo-socio" /> Registra Nuovo Socio
-          </button>
-        </div>
-      </div>
-
-      <!-- Form Nuovo Socio -->
-      <div v-if="showNewSocioForm" class="new-socio-form">
-        <h3><AppIcon name="nuovo-socio" /> Registra Nuovo Socio</h3>
-        <div class="mini-form-grid">
-          <div class="form-group">
-            <label for="new-cognome">Cognome *</label>
-            <input
-              id="new-cognome"
-              v-model="newSocioData.cognome"
-              type="text"
-              class="form-input"
-              :class="{ error: newSocioErrors.cognome }"
-              :disabled="isProcessing"
-            />
-            <span v-if="newSocioErrors.cognome" class="error-message">{{
-              newSocioErrors.cognome
-            }}</span>
-          </div>
-
-          <div class="form-group">
-            <label for="new-nome">Nome *</label>
-            <input
-              id="new-nome"
-              v-model="newSocioData.nome"
-              type="text"
-              class="form-input"
-              :class="{ error: newSocioErrors.nome }"
-              :disabled="isProcessing"
-            />
-            <span v-if="newSocioErrors.nome" class="error-message">{{ newSocioErrors.nome }}</span>
-          </div>
-
-          <div class="form-group">
-            <label for="new-data-nascita">Data di Nascita *</label>
-            <input
-              id="new-data-nascita"
-              v-model="newSocioData.data_nascita"
-              type="date"
-              class="form-input"
-              :class="{ error: newSocioErrors.data_nascita }"
-              :max="today"
-              :disabled="isProcessing"
-            />
-            <span v-if="newSocioErrors.data_nascita" class="error-message">{{
-              newSocioErrors.data_nascita
-            }}</span>
-          </div>
-
-          <div class="form-group">
-            <label for="new-luogo-nascita">Luogo di Nascita</label>
-            <input
-              id="new-luogo-nascita"
-              v-model="newSocioData.luogo_nascita"
-              type="text"
-              class="form-input"
-              placeholder="Gubbio"
-              :disabled="isProcessing"
-            />
-          </div>
-
-          <div class="form-group">
-            <label for="new-gruppo">Manicchia</label>
-            <select
-              id="new-gruppo"
-              v-model="newSocioData.gruppo_appartenenza"
-              class="form-input"
-              :disabled="isProcessing"
-              @change="handleGroupChange"
+        <!-- Risultati Ricerca -->
+        <div v-if="searchResults.length > 0" class="search-results">
+          <h3><AppIcon name="ricerca" /> Risultati ({{ searchResults.length }})</h3>
+          <div class="results-list" ref="resultsListRef">
+            <div
+              v-for="(socio, index) in searchResults"
+              :key="socio.id"
+              class="result-item"
+              :class="{ selected: index === selectedResultIndex }"
+              @click="selectSocio(socio)"
+              @mouseenter="selectedResultIndex = index"
             >
-              <option value="">Seleziona manicchia</option>
-              <option v-for="group in availableGroups" :key="group" :value="group">
-                {{ group }}
-              </option>
-              <option value="__NEW__">+ Nuova manicchia...</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label for="new-note">Note</label>
-            <textarea
-              id="new-note"
-              v-model="newSocioData.note"
-              class="form-input"
-              rows="2"
-              placeholder="Eventuali note aggiuntive..."
-              :disabled="isProcessing"
-            ></textarea>
+              <div class="socio-info">
+                <strong>{{ socio.cognome }} {{ socio.nome }}</strong>
+                <small>Nato il {{ formatDate(socio.data_nascita) }}</small>
+                <small>Manicchia: {{ socio.gruppo_appartenenza }}</small>
+              </div>
+              <div class="socio-status">
+                <div v-if="getSocioStatus(socio) === 'IN_RECEIPT'" class="status-badge success">
+                  <AppIcon name="ok" /> In Ricevuta
+                </div>
+                <div v-else-if="getSocioStatus(socio) === 'IN_ORDER'" class="status-badge success">
+                  <AppIcon name="ok" /> In Regola
+                </div>
+                <div v-else class="action-area">
+                  <div v-if="socio.daReiscrivere" class="arretrati-badge">
+                    <AppIcon name="attenzione" /> Da reiscrivere: fermo da più di 3 anni
+                  </div>
+                  <div v-else-if="socio.arretrati.length > 0 && !isMinor(socio)" class="arretrati-badge">
+                    <AppIcon name="attenzione" /> Arretrati: {{ socio.arretrati.join(', ') }}
+                  </div>
+                  <button class="pay-btn" :disabled="isProcessing" @click.stop="selectSocio(socio)">
+                    <AppIcon name="pagamento" /> Paga
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div class="form-actions">
-          <button @click="cancelNewSocio" class="cancel-btn" :disabled="isProcessing">
-            Annulla
-          </button>
-          <button
-            @click="saveNewSocio"
-            class="save-btn"
-            :disabled="isProcessing || !canSaveNewSocio"
-          >
-            <AppIcon name="salva" /> Salva e Registra Pagamento {{ sessionData.annoRiferimento }}
-          </button>
+        <!-- Nessun Risultato - Nuovo Socio -->
+        <div v-else-if="searchQuery && searchResults.length === 0 && !isSearching" class="no-results">
+          <div class="no-results-content">
+            <h3><AppIcon name="socio" /> Socio non trovato</h3>
+            <p>
+              "<strong>{{ searchQuery }}</strong
+              >" non corrisponde a nessun socio esistente.
+            </p>
+            <button @click="showNewSocioForm = true" class="new-socio-btn" :disabled="isProcessing">
+              <AppIcon name="nuovo-socio" /> Registra Nuovo Socio
+            </button>
+          </div>
         </div>
+
+        <!-- Form Nuovo Socio -->
+        <div v-if="showNewSocioForm" class="new-socio-form">
+          <h3><AppIcon name="nuovo-socio" /> Registra Nuovo Socio</h3>
+          <div class="mini-form-grid">
+            <div class="form-group">
+              <label for="new-cognome">Cognome *</label>
+              <input
+                id="new-cognome"
+                v-model="newSocioData.cognome"
+                type="text"
+                class="form-input"
+                :class="{ error: newSocioErrors.cognome }"
+                :disabled="isProcessing"
+              />
+              <span v-if="newSocioErrors.cognome" class="error-message">{{
+                newSocioErrors.cognome
+              }}</span>
+            </div>
+
+            <div class="form-group">
+              <label for="new-nome">Nome *</label>
+              <input
+                id="new-nome"
+                v-model="newSocioData.nome"
+                type="text"
+                class="form-input"
+                :class="{ error: newSocioErrors.nome }"
+                :disabled="isProcessing"
+              />
+              <span v-if="newSocioErrors.nome" class="error-message">{{ newSocioErrors.nome }}</span>
+            </div>
+
+            <div class="form-group">
+              <label for="new-data-nascita">Data di Nascita *</label>
+              <input
+                id="new-data-nascita"
+                v-model="newSocioData.data_nascita"
+                type="date"
+                class="form-input"
+                :class="{ error: newSocioErrors.data_nascita }"
+                :max="today"
+                :disabled="isProcessing"
+              />
+              <span v-if="newSocioErrors.data_nascita" class="error-message">{{
+                newSocioErrors.data_nascita
+              }}</span>
+            </div>
+
+            <div class="form-group">
+              <label for="new-luogo-nascita">Luogo di Nascita</label>
+              <input
+                id="new-luogo-nascita"
+                v-model="newSocioData.luogo_nascita"
+                type="text"
+                class="form-input"
+                placeholder="Gubbio"
+                :disabled="isProcessing"
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="new-gruppo">Manicchia</label>
+              <select
+                id="new-gruppo"
+                v-model="newSocioData.gruppo_appartenenza"
+                class="form-input"
+                :disabled="isProcessing"
+                @change="handleGroupChange"
+              >
+                <option value="">Seleziona manicchia</option>
+                <option v-for="group in availableGroups" :key="group" :value="group">
+                  {{ group }}
+                </option>
+                <option value="__NEW__">+ Nuova manicchia...</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="new-note">Note</label>
+              <textarea
+                id="new-note"
+                v-model="newSocioData.note"
+                class="form-input"
+                rows="2"
+                placeholder="Eventuali note aggiuntive..."
+                :disabled="isProcessing"
+              ></textarea>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button @click="cancelNewSocio" class="cancel-btn" :disabled="isProcessing">
+              Annulla
+            </button>
+            <button
+              @click="saveNewSocio"
+              class="save-btn"
+              :disabled="isProcessing || !canSaveNewSocio"
+            >
+              <AppIcon name="salva" /> Salva e Registra Pagamento {{ sessionData.annoRiferimento }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="lavoro__lato">
+        <!-- Ricevuta in corso -->
+      <div class="receipt-context">
+        <div class="receipt-header">
+          <h2><AppIcon name="ricevuta" /> Ricevuta</h2>
+          <div class="receipt-controls">
+            <label for="numero-ricevuta" class="sr-only">Numero ricevuta</label>
+            <div class="receipt-number-controls">
+              <button
+                @click="decrementReceipt"
+                class="receipt-btn"
+                :disabled="isProcessing"
+                aria-label="Ricevuta precedente"
+              >
+                <AppIcon name="precedente" />
+              </button>
+              <input
+                id="numero-ricevuta"
+                v-model.number="currentReceipt.numero"
+                type="number"
+                class="receipt-number-input"
+                min="1"
+                readonly
+                :disabled="isProcessing"
+              />
+              <button
+                @click="incrementReceipt"
+                class="receipt-btn"
+                :disabled="isProcessing"
+                aria-label="Ricevuta successiva"
+              >
+                <AppIcon name="successivo" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Riepilogo Soci sulla Ricevuta -->
+        <div class="receipt-summary">
+          <h3><AppIcon name="gruppo" /> Soci su questa ricevuta ({{ currentReceipt.soci.length }})</h3>
+          <div v-if="currentReceipt.soci.length === 0" class="empty-receipt">
+            <p>Nessun socio aggiunto ancora</p>
+            <small>Inizia cercando un socio esistente o registrane uno nuovo</small>
+          </div>
+          <TransitionGroup name="list" tag="div" class="receipt-soci-list">
+            <div v-for="socio in currentReceipt.soci" :key="socio.id" class="receipt-socio-item">
+              <span class="socio-name">{{ socio.cognome }} {{ socio.nome }}</span>
+              <span class="socio-payment">{{ socio.anniPagati.join(', ') }}</span>
+              <span class="socio-importo">€ {{ euro(socio.importo) }}</span>
+              <button
+                @click="removeFromReceipt(socio)"
+                class="remove-btn"
+                :disabled="isProcessing"
+                :aria-label="`Togli ${socio.cognome} ${socio.nome} dalla ricevuta`"
+              >
+                <AppIcon name="chiudi" />
+              </button>
+            </div>
+          </TransitionGroup>
+          <p v-if="currentReceipt.soci.length > 0" class="receipt-total">
+            Totale ricevuta <strong>€ {{ euro(totaleRicevuta) }}</strong>
+          </p>
+        </div>
+      </div>
+
+        <RiquadroBlocchetto
+          :numero="sessionData.numeroBlocchetto || 0"
+          :riepilogo="riepilogoBlocco"
+          :errore="erroreBlocco"
+          :ricevuta-corrente="currentReceipt.numero"
+          :disabilitato="isProcessing"
+          @vai="vaiARicevuta"
+          @successivo="blocchettoSuccessivo"
+        />
       </div>
     </div>
 
@@ -389,24 +384,51 @@ import {
   calculateAgeInYear,
   deleteTesseramentiByReceipt,
   getSetting,
+  getPagamentiBlocchetto,
+  getNomiSoci,
   db,
 } from '@/services/db'
+import { pagamentiDelBlocchetto, riepilogoBlocchetto, sociDellaRicevuta } from '@/utils/blocchetto'
 import ErrorModal from '@/components/ErrorModal.vue'
 import ConfirmDeleteModal from '@/components/ConfirmDeleteModal.vue'
 import AddPaymentModal from '@/components/AddPaymentModal.vue'
 import AppIcon from '@/components/base/AppIcon.vue'
 import PageHeader from '@/components/base/PageHeader.vue'
 import SectionTabs from '@/components/base/SectionTabs.vue'
+import RiquadroBlocchetto from '@/components/RiquadroBlocchetto.vue'
 import { SCHEDE_INCASSI } from '@/router/sezioni'
 
 const toast = useToast()
 const searchInput = ref(null)
 
-// Dati di sessione
+// Dati di sessione: si ricordano tra una visita e l'altra (solo comodita', nel browser)
+const CHIAVE_SESSIONE = 'incassi_sessione'
+const sessioneSalvata = () => {
+  try {
+    const s = JSON.parse(localStorage.getItem(CHIAVE_SESSIONE) || '{}')
+    return {
+      ...(Number.isInteger(s.annoRiferimento) ? { annoRiferimento: s.annoRiferimento } : {}),
+      ...(Number.isInteger(s.numeroBlocchetto) && s.numeroBlocchetto > 0
+        ? { numeroBlocchetto: s.numeroBlocchetto }
+        : {}),
+      ...(/^\d{4}-\d{2}-\d{2}$/.test(s.dataPagamento || '') ? { dataPagamento: s.dataPagamento } : {}),
+    }
+  } catch {
+    return {}
+  }
+}
 const sessionData = reactive({
   annoRiferimento: new Date().getFullYear(),
   numeroBlocchetto: 1,
   dataPagamento: new Date().toISOString().split('T')[0],
+  ...sessioneSalvata(),
+})
+watch(sessionData, () => {
+  try {
+    localStorage.setItem(CHIAVE_SESSIONE, JSON.stringify(sessionData))
+  } catch {
+    // senza memoria del browser la pagina funziona lo stesso
+  }
 })
 
 const sessionErrors = reactive({
@@ -421,8 +443,12 @@ const currentReceipt = reactive({
   soci: [],
 })
 
-// Cache delle ricevute per mantenere i dati quando si naviga
-const receiptsCache = new Map()
+// Pagamenti gia' registrati sul blocchetto: da qui vengono il riquadro del blocchetto
+// e i soci della ricevuta in corso (anche quelli inseriti in un'altra sessione)
+const pagamentiBlocco = ref([])
+const riepilogoBlocco = ref(null)
+const erroreBlocco = ref('')
+const nomiSoci = new Map()
 
 // Area di lavoro
 const searchQuery = ref('')
@@ -542,6 +568,67 @@ const canSaveNewSocio = computed(() => {
   )
 })
 
+const euro = (valore) => Number(valore || 0).toFixed(2)
+const totaleRicevuta = computed(() =>
+  currentReceipt.soci.reduce((somma, s) => somma + (Number(s.importo) || 0), 0),
+)
+const erroriSessione = computed(() =>
+  [sessionErrors.annoRiferimento, sessionErrors.numeroBlocchetto, sessionErrors.dataPagamento]
+    .filter(Boolean)
+    .join(' · '),
+)
+
+/** Soci della ricevuta in corso, dai pagamenti del blocchetto. */
+const aggiornaRicevuta = async () => {
+  const soci = sociDellaRicevuta(pagamentiBlocco.value, currentReceipt.numero)
+  const daCercare = soci.map((s) => s.id).filter((id) => !nomiSoci.has(id))
+  if (daCercare.length > 0) {
+    for (const [id, nome] of await getNomiSoci(daCercare)) nomiSoci.set(id, nome)
+  }
+  currentReceipt.soci = soci.map((s) => ({
+    ...s,
+    cognome: nomiSoci.get(s.id)?.cognome || '(socio non trovato)',
+    nome: nomiSoci.get(s.id)?.nome || '',
+  }))
+}
+
+/**
+ * Rilegge i pagamenti del blocchetto. Con `riprendi` porta la ricevuta in corso
+ * subito dopo l'ultima inserita (o alla prima del blocchetto, se e' vuoto).
+ */
+const caricaBlocchetto = async ({ riprendi = false } = {}) => {
+  const numero = sessionData.numeroBlocchetto
+  erroreBlocco.value = ''
+  try {
+    const pagamenti = pagamentiDelBlocchetto(await getPagamentiBlocchetto(numero), numero)
+    if (numero !== sessionData.numeroBlocchetto) return // nel frattempo e' cambiato
+    pagamentiBlocco.value = pagamenti
+    riepilogoBlocco.value = riepilogoBlocchetto(pagamenti)
+  } catch (error) {
+    console.error('Lettura del blocchetto non riuscita:', error)
+    pagamentiBlocco.value = []
+    riepilogoBlocco.value = null
+    erroreBlocco.value = 'Non sono riuscito a leggere le ricevute di questo blocchetto.'
+  }
+  if (riprendi && numero > 0) {
+    const ultima = riepilogoBlocco.value?.ultima
+    currentReceipt.numero = ultima ? ultima + 1 : (numero - 1) * config.value.receiptsPerBlock + 1
+  }
+  await aggiornaRicevuta()
+}
+
+const vaiARicevuta = async (numero) => {
+  currentReceipt.numero = numero
+  clearSearch()
+  await aggiornaRicevuta()
+  nextTick(() => searchInput.value?.focus())
+}
+
+const blocchettoSuccessivo = () => {
+  sessionData.numeroBlocchetto = (sessionData.numeroBlocchetto || 0) + 1
+  nextTick(() => searchInput.value?.focus())
+}
+
 // Methods
 const validateSessionData = () => {
   sessionErrors.annoRiferimento = !sessionData.annoRiferimento ? 'Anno obbligatorio' : ''
@@ -600,6 +687,8 @@ onMounted(async () => {
 
     await loadGroups()
     validateSessionData()
+    await caricaBlocchetto({ riprendi: true })
+    nextTick(() => searchInput.value?.focus())
   } catch (error) {
     console.error('Errore inizializzazione database:', error)
     toast.error("Errore nell'inizializzazione dell'applicazione")
@@ -611,11 +700,9 @@ watch(() => sessionData.annoRiferimento, validateSessionData)
 watch(() => sessionData.numeroBlocchetto, validateSessionData)
 watch(
   () => sessionData.numeroBlocchetto,
-  (newVal) => {
-    if (newVal > 0) {
-      const calculatedReceiptNumber = (newVal - 1) * config.value.receiptsPerBlock + 1
-      currentReceipt.numero = calculatedReceiptNumber
-    }
+  () => {
+    riepilogoBlocco.value = null
+    caricaBlocchetto({ riprendi: true })
   },
 )
 watch(() => sessionData.dataPagamento, validateSessionData)
@@ -655,42 +742,10 @@ const handleGlobalKeydown = (e) => {
   }
 }
 
-// Funzioni per gestire la cache delle ricevute
-const saveCurrentReceiptToCache = () => {
-  if (currentReceipt.soci.length > 0) {
-    receiptsCache.set(currentReceipt.numero, [...currentReceipt.soci])
-  }
-}
-
-const loadReceiptFromCache = (receiptNumber) => {
-  const cachedData = receiptsCache.get(receiptNumber)
-  if (cachedData) {
-    currentReceipt.soci = [...cachedData]
-  } else {
-    currentReceipt.soci = []
-  }
-}
-
-const incrementReceipt = () => {
-  // Salva la ricevuta corrente prima di cambiarla
-  saveCurrentReceiptToCache()
-
-  currentReceipt.numero++
-  loadReceiptFromCache(currentReceipt.numero)
-  clearSearch()
-  nextTick(() => searchInput.value?.focus())
-}
+const incrementReceipt = () => vaiARicevuta(currentReceipt.numero + 1)
 
 const decrementReceipt = () => {
-  if (currentReceipt.numero > 1) {
-    // Salva la ricevuta corrente prima di cambiarla
-    saveCurrentReceiptToCache()
-
-    currentReceipt.numero--
-    loadReceiptFromCache(currentReceipt.numero)
-    clearSearch()
-    nextTick(() => searchInput.value?.focus())
-  }
+  if (currentReceipt.numero > 1) vaiARicevuta(currentReceipt.numero - 1)
 }
 
 const clearSearch = () => {
@@ -888,13 +943,9 @@ const handleSavePayments = async ({ details, years, socioId }) => {
       console.log('Tesseramento saved with ID:', result)
     }
 
-    // Aggiungi alla ricevuta corrente
-    currentReceipt.soci.push({
-      id: socioId,
-      cognome: selectedSocio.value.cognome,
-      nome: selectedSocio.value.nome,
-      anniPagati: [...years],
-    })
+    // Ricevuta e riquadro del blocchetto si rileggono dal database
+    nomiSoci.set(socioId, { cognome: selectedSocio.value.cognome, nome: selectedSocio.value.nome })
+    await caricaBlocchetto()
 
     // Aggiorna la cache globale del socio per riflettere i nuovi pagamenti
     // Questo assicura che quando si visita SocioDetailView, i dati siano aggiornati
@@ -966,13 +1017,8 @@ const saveNewSocio = async () => {
       numero_blocchetto: sessionData.numeroBlocchetto,
     })
 
-    // Aggiungi alla ricevuta corrente
-    currentReceipt.soci.push({
-      id: socioId,
-      cognome: newSocioData.cognome.trim(),
-      nome: newSocioData.nome.trim(),
-      anniPagati: [sessionData.annoRiferimento],
-    })
+    nomiSoci.set(socioId, { cognome: socioData.cognome, nome: socioData.nome })
+    await caricaBlocchetto()
 
     toast.success(
       `Nuovo socio ${newSocioData.cognome} ${newSocioData.nome} creato e pagamento ${sessionData.annoRiferimento} registrato`,
@@ -1014,21 +1060,21 @@ const confirmRemoveFromReceipt = async () => {
 
   try {
     // Delete from DB
-    await deleteTesseramentiByReceipt(socio.id, currentReceipt.numero, socio.anniPagati)
+    const tolti = await deleteTesseramentiByReceipt(socio.id, currentReceipt.numero, socio.anniPagati)
+    await caricaBlocchetto()
 
-    // Remove from UI
-    const index = currentReceipt.soci.findIndex((s) => s.id === socio.id)
-    if (index > -1) {
-      currentReceipt.soci.splice(index, 1)
-      saveCurrentReceiptToCache()
+    // Clear socio from search/details cache inside DB service (workaround)
+    const socioKey = `socio_${socio.id}`
+    if (localStorage.getItem(socioKey)) {
+      localStorage.removeItem(socioKey)
+    }
 
-      // Clear socio from search/details cache inside DB service (workaround)
-      const socioKey = `socio_${socio.id}`
-      if (localStorage.getItem(socioKey)) {
-        localStorage.removeItem(socioKey)
-      }
-
+    if (tolti > 0) {
       toast.success(`${socio.cognome} ${socio.nome} rimosso e pagamenti eliminati`)
+    } else {
+      toast.error(
+        `Non ho trovato i pagamenti di ${socio.cognome} ${socio.nome} su questa ricevuta: niente è stato tolto`,
+      )
     }
   } catch (error) {
     console.error('Error deleting payments:', error)
@@ -1091,33 +1137,105 @@ const getSocioStatus = (socio) => {
   gap: 2rem;
 }
 
-/* Session Data */
-.session-data {
-  background-color: var(--color-surface);
-  border-radius: 12px;
-  padding: 2rem;
-  box-shadow: var(--shadow-md);
+/* Dati della sessione: una riga sola */
+.sessione {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-12) var(--space-24);
+  padding: var(--space-12) var(--space-16);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-surface);
 }
 
-.session-data h2 {
-  margin-top: 0;
-  color: var(--color-primary);
-  border-bottom: 2px solid var(--color-accent);
-  padding-bottom: 0.5rem;
+.sessione__campo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
 }
 
-.session-grid {
+.sessione__campo label {
+  font-size: var(--font-size-caption);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.sessione__input {
+  width: 7rem;
+  padding: var(--space-4) var(--space-8);
+  box-shadow: none;
+  font-size: var(--font-size-body);
+  font-weight: 600;
+}
+
+.sessione__input--data {
+  width: 11rem;
+}
+
+.sessione__input[aria-invalid='true'] {
+  border-color: var(--color-danger);
+}
+
+.sessione__errore {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  margin: 0;
+  color: var(--color-danger);
+  font-size: var(--font-size-label);
+}
+
+/* Ricerca a sinistra, ricevuta e blocchetto a destra */
+.lavoro {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 1.5rem;
-  margin-top: 1.5rem;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: var(--space-24);
+  align-items: start;
+}
+
+.lavoro__lato {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  position: sticky;
+  top: var(--space-16);
+}
+
+.socio-importo {
+  margin-right: var(--space-8);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.receipt-total {
+  display: flex;
+  justify-content: space-between;
+  margin: var(--space-12) 0 0;
+  padding-top: var(--space-12);
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+.receipt-total strong {
+  color: var(--color-text-primary);
+}
+
+@media (max-width: 1100px) {
+  .lavoro {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .lavoro__lato {
+    position: static;
+  }
 }
 
 /* Receipt Context */
 .receipt-context {
   background-color: var(--color-surface);
-  border-radius: 12px;
-  padding: 2rem;
+  border-radius: var(--radius-surface);
+  padding: var(--space-24);
   box-shadow: var(--shadow-md);
 }
 
@@ -1125,7 +1243,8 @@ const getSocioStatus = (socio) => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 2rem;
+  gap: var(--space-12);
+  margin-bottom: var(--space-16);
 }
 
 .receipt-header h2 {
@@ -1279,9 +1398,11 @@ const getSocioStatus = (socio) => {
 
 .work-area-header {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
+  gap: var(--space-12);
+  margin-bottom: var(--space-16);
 }
 
 .work-area-header h2 {
@@ -1294,9 +1415,9 @@ const getSocioStatus = (socio) => {
   gap: 0.5rem;
   padding: 0.5rem 1rem;
   background-color: var(--color-primary);
-  color: white;
+  color: var(--color-text-inverse);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
@@ -1335,8 +1456,8 @@ const getSocioStatus = (socio) => {
 /* Work Area */
 .work-area {
   background-color: var(--color-surface);
-  border-radius: 12px;
-  padding: 2rem;
+  border-radius: var(--radius-surface);
+  padding: var(--space-24);
   box-shadow: var(--shadow-md);
 }
 
@@ -1365,7 +1486,7 @@ const getSocioStatus = (socio) => {
 }
 
 .search-section {
-  margin-bottom: 2rem;
+  margin-bottom: var(--space-16);
   display: flex;
   flex-direction: column;
   gap: 1rem;
@@ -1373,7 +1494,19 @@ const getSocioStatus = (socio) => {
 
 .search-controls {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-end;
+  gap: var(--space-8);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 .turbo-toggle {
@@ -1394,9 +1527,9 @@ const getSocioStatus = (socio) => {
 }
 
 .turbo-toggle.active {
-  background-color: #fff3e0; /* Pale orange/yellow */
+  background-color: var(--color-surface-hover);
   border-color: var(--color-warning);
-  color: #e65100;
+  color: var(--color-warning);
 }
 
 .turbo-toggle input {
@@ -1870,10 +2003,6 @@ const getSocioStatus = (socio) => {
 @media (max-width: 768px) {
   .batch-entry {
     padding: 1rem;
-  }
-
-  .session-grid {
-    grid-template-columns: 1fr;
   }
 
   .receipt-header {

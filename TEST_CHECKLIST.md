@@ -236,3 +236,23 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 - [ ] Stampa una pagina di prova su carta: misure e margini vanno bene per la tipografia
 
 **Risultato atteso**: quello che si vede nell'anteprima e' esattamente la pagina del PDF che va in stampa
+
+---
+
+## ✅ Test 14: Incassi › Registra ricevute
+
+### Test 14.1: Pagina
+
+- [ ] In alto una riga sola con anno, blocchetto e data delle ricevute; sotto, a sinistra "Cerca il socio" con il cursore gia' nel campo, a destra la ricevuta e il riquadro del blocchetto
+- [ ] Ricaricando la pagina anno, blocchetto e data restano quelli di prima
+- [ ] Blocchetto vuoto: errore in rosso nella riga dei dati
+
+### Test 14.2: Riquadro del blocchetto
+
+- [ ] Scelto un blocchetto gia' iniziato, la ricevuta riparte da quella dopo l'ultima inserita
+- [ ] Il riquadro dice quante ricevute, quanti soci e quanto incassato; se manca una ricevuta in mezzo la elenca, e un clic porta li'
+- [ ] Una ricevuta inserita in un altro giorno mostra i suoi soci (anche dopo aver ricaricato la pagina)
+- [ ] Dopo ogni pagamento (anche in Turbo e con "Nuovo socio") ricevuta, totale e riquadro si aggiornano; togliendo un socio dalla ricevuta il buco ricompare
+- [ ] "Passa al blocchetto N+1" cambia blocchetto e rimette il cursore nella ricerca
+
+**Risultato atteso**: si ricopia un blocchetto di carta vedendo sempre a che punto si e' e cosa manca
