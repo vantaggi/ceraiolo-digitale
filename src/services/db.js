@@ -2227,6 +2227,7 @@ export async function importDatabaseFromSqlite(file) {
       db.tesseramenti,
       db.local_changes,
       db.settings,
+      db.blocchetti,
       async () => {
         await db.soci.clear()
         await db.tesseramenti.clear()
@@ -2296,6 +2297,24 @@ export async function importDatabaseFromSqlite(file) {
           console.warn('Settings table not found in backup (Legacy backup?)')
         }
 
+        // --- IMPORT BLOCCHETTI ---
+        // Un backup vecchio senza la tabella lascia i blocchetti come sono
+        let blocchettiResult = null
+        try {
+          blocchettiResult = sqliteDb.exec('SELECT * FROM Blocchetti')
+        } catch {
+          console.warn('Blocchetti table not found in backup (Legacy backup?)')
+        }
+        if (blocchettiResult) {
+          await db.blocchetti.clear()
+          if (blocchettiResult.length > 0) {
+            const { columns, values } = blocchettiResult[0]
+            await db.blocchetti.bulkAdd(
+              values.map((row) => Object.fromEntries(columns.map((col, i) => [col, row[i]]))),
+            )
+          }
+        }
+
         // --- IMPORT LOCAL CHANGES ---
         try {
           const historyResult = sqliteDb.exec('SELECT * FROM LocalChanges')
@@ -2348,11 +2367,13 @@ export async function wipeDatabase() {
       db.tesseramenti,
       db.local_changes,
       db.settings,
+      db.blocchetti,
       async () => {
         await db.soci.clear()
         await db.tesseramenti.clear()
         await db.local_changes.clear()
         await db.settings.clear()
+        await db.blocchetti.clear()
       },
     )
     console.log('Database wiped successfully')
