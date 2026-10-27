@@ -21,21 +21,19 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 ### Test 2.1: Filtro "Tutti" (Default)
 
 - [ ] Apri la home `/`
-- [ ] Il filtro "Età" dovrebbe essere su "Tutti"
+- [ ] L'etichetta "Età" dovrebbe dire "tutte"
 - [ ] NON dovrebbe mostrare risultati (nessuna ricerca attiva)
 
 ### Test 2.2: Filtro "Minorenni"
 
-- [ ] Seleziona "Minorenni" dal menu Età
-- [ ] Verifica che compaia il badge "2 filtri attivi" (o simile)
-- [ ] Dovrebbero comparire: **Luca Bianchi** (2008) e **Paolo Neri** (2012)
-- [ ] Verifica che abbiano il badge arancione "Minorenne"
+- [ ] Scegli "minorenni" nell'etichetta Età: l'etichetta diventa rossa e compare "Azzera"
+- [ ] Compaiono solo i nati da 18 anni fa in poi (conta l'anno di nascita, come per la quota)
+- [ ] Nella colonna Quota hanno tutti "O Esente"
 
 ### Test 2.3: Filtro "Maggiorenni"
 
-- [ ] Seleziona "Maggiorenni"
-- [ ] Dovrebbero comparire: **Mario Rossi**, **Giulia Verdi**, **Anna Gialli**
-- [ ] Nessun badge "Minorenne" visibile
+- [ ] Scegli "maggiorenni"
+- [ ] Nessuno ha "O Esente" nella colonna Quota
 
 **Risultato atteso**: I filtri età funzionano correttamente.
 
@@ -45,13 +43,11 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 
 ### Test 3.1: Verifica caricamento gruppi
 
-- [ ] Apri DevTools Console
-- [ ] Cerca il log "Gruppi caricati: [...]
-- [ ] Dovrebbero esserci: INTERNA, PADULE, MADONNA DEL PONTE, BRANCA
+- [ ] Apri l'etichetta Manicchia: ci sono tutte le manicchie dei soci e quelle definite in Impostazioni
 
 ### Test 3.2: Seleziona gruppo specifico
 
-- [ ] Seleziona "INTERNA" dal menu Gruppo
+- [ ] Scegli "INTERNA" nell'etichetta Manicchia
 - [ ] Dovrebbero comparire: **Mario Rossi** e **Anna Gialli**
 - [ ] Seleziona "BRANCA"
 - [ ] Dovrebbe comparire solo: **Paolo Neri**
@@ -77,7 +73,7 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 ### Test 4.3: Ricerca senza risultati
 
 - [ ] Digita "xyz123nonEsiste"
-- [ ] Dovrebbe comparire: "Nessun risultato trovato"
+- [ ] Dovrebbe comparire: "Nessun socio trovato" con il link "azzera i filtri"
 
 **Risultato atteso**: La ricerca funziona con debouncing di 300ms.
 
@@ -103,9 +99,9 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 
 ## ✅ Test 6: Navigazione al Dettaglio
 
-### Test 6.1: Click su "Vedi Dettagli"
+### Test 6.1: Clic sul nome
 
-- [ ] Dalla home, clicca "Vedi Dettagli" su Mario Rossi
+- [ ] Dalla pagina Soci, clicca il nome di un socio nell'elenco
 - [ ] Verifica che l'URL cambi a `/socio/1` (o simile)
 - [ ] Verifica che compaia la pagina di dettaglio
 
@@ -164,7 +160,7 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 ### Test 8.1: Stato nell'intestazione
 
 - [ ] Senza cartella scelta, sotto il titolo compare "Backup automatico spento"
-- [ ] Il clic apre Impostazioni sulla scheda "Dati & Backup"
+- [ ] Il clic apre Impostazioni sulla scheda "Dati e backup"
 - [ ] Scegli una cartella e attiva l'auto-salvataggio: compare "Backup: adesso"
 - [ ] Modifica un socio, aspetta 5 secondi: nella cartella c'e' `backup_AAAA-MM-GG/ceraiolo_backup.sqlite` aggiornato
 
@@ -178,15 +174,14 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 
 ---
 
-## ✅ Test 9: Menu a cinque sezioni
+## ✅ Test 9: Menu a quattro sezioni
 
 ### Test 9.1: Voci e pagine
 
-- [ ] Il menu mostra Soci, Incassi, Report PDF, Statistiche, Impostazioni
+- [ ] Il menu mostra Soci, Incassi, Report PDF, Impostazioni
 - [ ] Da un socio aperto resta accesa la voce Soci
 - [ ] Incassi si apre su "Registra ricevute"; la scheda "Blocchetti" porta all'elenco dei blocchetti e la voce Incassi resta accesa
-- [ ] Report PDF apre i report; il link "Report Builder Beta" apre il report su misura e la voce Report PDF resta accesa
-- [ ] Statistiche mostra numeri e grafico dell'andamento
+- [ ] Report PDF apre i report; il link "Report su misura" apre il report su misura e la voce Report PDF resta accesa
 - [ ] Ctrl+K da qualsiasi pagina porta alla ricerca soci
 
 ### Test 9.2: Vecchi indirizzi e segnalibri
@@ -194,6 +189,7 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 - [ ] `#/registrazione-seriale` porta a Incassi › Registra ricevute
 - [ ] `#/blocchetti` porta a Incassi › Blocchetti
 - [ ] `#/reports` e `#/reports-beta` portano a Report PDF
+- [ ] `#/statistiche` porta alla Home (Soci)
 
 **Risultato atteso**: ogni pagina ha una sola voce di menu accesa, e i segnalibri di prima funzionano ancora
 
@@ -205,8 +201,13 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 
 - [ ] Aprendo l'app il cursore e' gia' nel campo di ricerca, in cima alla pagina
 - [ ] Cerca un cognome, apri un socio, torna indietro: ricerca e filtri sono ancora li'
-- [ ] I numeri sotto i filtri (Soci, Pagamenti anno, Pagamenti anno prossimo) filtrano l'elenco; "Statistiche" apre la pagina del grafico
-- [ ] Con una ricerca attiva l'elenco usa tutta la larghezza; a ricerca vuota compare "Attivita' recente"
+- [ ] Le etichette Pagamenti anno e Pagamenti anno prossimo filtrano l'elenco; "Azzera" toglie tutti i filtri
+- [ ] A ricerca vuota compare "Andamento del tesseramento": iscritti dell'ultimo anno con la differenza sull'anno prima, nuovi, rientri, non rinnovati e il grafico
+- [ ] I bottoni 5 anni / 10 anni / Tutto cambiano gli anni del grafico; la scelta resta dopo aver ricaricato la pagina
+- [ ] Il riquadro si chiude e si riapre dal titolo (anche con Tab e Invio) e resta chiuso dopo aver ricaricato la pagina
+- [ ] Con una ricerca attiva il riquadro sparisce e l'elenco dei soci parte subito sotto i filtri
+- [ ] Nel tema scuro colori del grafico, assi e legenda si leggono; cambiando tema il grafico cambia colori senza ricaricare
+- [ ] Con una ricerca attiva l'elenco usa tutta la larghezza; a ricerca vuota compare "Ultime modifiche"
 
 ### Test 10.2: Manutenzione spostata
 
@@ -220,7 +221,7 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 
 ## ✅ Test 11: Tessere
 
-### Test 11.1: Sfondo e anteprima (Impostazioni › Template Tessera)
+### Test 11.1: Sfondo e anteprima (Impostazioni › Tessera)
 
 - [ ] Carica lo sfondo vero (foto JPG/PNG o PDF): l'anteprima lo mostra subito, con la scritta "non ancora salvato"
 - [ ] Con una foto compare la risoluzione in dpi; sotto 250 dpi compare l'avviso "potrebbe sembrare sgranata"
@@ -231,11 +232,66 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 ### Test 11.2: Il file e' uguale all'anteprima
 
 - [ ] Home: cerca un socio, "Genera Tessera", apri il PDF: nome, data, a capo e posizione sono quelli dell'anteprima con lo stesso nome
-- [ ] Report PDF › Rinnovi: "Genera Tessere" scarica un PDF con una pagina per socio, in ordine di cognome
+- [ ] Report PDF › Tessere: "Genera tessere" scarica un PDF con una pagina per socio, in ordine di cognome
 - [ ] Il PDF di tutte le tessere pesa piu' o meno quanto lo sfondo (non lo sfondo moltiplicato per il numero di soci)
 - [ ] Stampa una pagina di prova su carta: misure e margini vanno bene per la tipografia
 
 **Risultato atteso**: quello che si vede nell'anteprima e' esattamente la pagina del PDF che va in stampa
+
+## ✅ Test 12: Report PDF › Report su misura
+
+### Test 12.1: Pannello e anteprima
+
+- [ ] A sinistra il pannello con Anno di riferimento, Soci, Pagamenti, Elezioni e, sotto "Impaginazione", Colonne e Titolo e ordine; a destra l'anteprima con il numero di soci
+- [ ] Ogni sezione si apre e si chiude dal titolo (anche con Tab e Invio); chiusa, mostra quanti filtri ha attivi
+- [ ] Ogni filtro attivo compare come etichetta sopra l'anteprima; la X lo toglie, "Azzera filtri" li toglie tutti senza toccare anno e colonne
+- [ ] Cambiando l'anno di riferimento cambiano età, "Quota anno", diritto di voto e arretrati (un ragazzo nato 18 anni prima e' maggiorenne per tutto l'anno)
+- [ ] Con filtri che non trovano nessuno compare il messaggio vuoto e "Genera PDF" e' spento
+
+### Test 12.2: PDF uguale all'anteprima
+
+- [ ] Riordinate le colonne con le frecce, il PDF ha le stesse colonne nello stesso ordine dell'anteprima; gli anni dopo le colonne del socio, la firma in fondo
+- [ ] Titolo scritto a mano: e' il titolo del PDF; vuoto, il PDF usa il titolo proposto
+- [ ] Sotto il titolo del PDF c'e' il riassunto: anno, filtri, ordine
+
+### Test 12.3: Configurazioni salvate
+
+- [ ] Una configurazione salvata prima di questo cambio si carica ancora (l'anno viene dalla vecchia data delle elezioni)
+- [ ] Salva, ricarica la pagina, scegli la configurazione: filtri e colonne tornano; il cestino chiede conferma e la toglie
+
+**Risultato atteso**: si costruisce un elenco senza scorrere la pagina, e il PDF stampa quello che si vede
+
+---
+
+## ✅ Test 13: Report PDF a modelli pronti
+
+### Test 13.1: Pagina
+
+- [ ] Report PDF mostra un anno di riferimento in alto e quattro gruppi: Votazioni, Soci, Rinnovi e quote, Tessere; niente barra laterale, niente schede
+- [ ] Cambiando l'anno cambiano le descrizioni ("Soci che hanno pagato il 2025 ma non ancora il 2026"); con un anno impossibile (es. 19) compare l'avviso in rosso e i pulsanti si spengono
+- [ ] Mentre un PDF si genera il suo pulsante gira e gli altri aspettano
+
+### Test 13.2: I PDF di sempre
+
+- [ ] Aventi diritto (una sezione per manicchia, tutti in un elenco, una manicchia), Lista rinnovi, Lista recupero, Soci per manicchia, Conteggio, Nuovi iscritti, Soci attivi, Cronologia pagamenti: ognuno scarica lo stesso PDF di prima
+- [ ] "Report votazioni" ha l'etichetta "Vecchia regola" e scarica il vecchio elenco
+- [ ] Minorenni (nuovo): il PDF elenca i soci che nell'anno non hanno 18 anni, con il riassunto sotto il titolo
+- [ ] "Scarica 5 PDF" scarica i cinque documenti dei rinnovi con le scelte fatte nelle righe sopra
+- [ ] Controllo quote: "Controlla" mostra l'elenco sotto la riga (o il messaggio verde se va tutto bene); PDF ed Excel si scaricano
+
+### Test 13.3: Personalizza
+
+- [ ] Su Soci per manicchia scegli manicchia e "Non in regola", poi Personalizza: il Report su misura si apre con lo stesso anno, le stesse scelte come etichette e gli ultimi tre anni come colonne
+- [ ] Personalizza di Aventi diritto apre il Report su misura con Diritto di voto, Arretrati e Firma, ordinato per manicchia
+- [ ] Personalizza di Minorenni e Soci attivi apre il Report su misura con lo stesso elenco del PDF
+
+### Test 13.4: Cose spostate
+
+- [ ] L'anteprima della tessera non c'e' piu' in Report PDF: il link porta a Impostazioni › Tessera
+- [ ] Impostazioni › Dati › Controllo qualita' dei dati: "Esegui il controllo" mostra quanti soci hanno dati da sistemare, i primi dieci (con link al socio) e il PDF delle anomalie
+- [ ] Le vecchie statistiche di Report (demografia, entrate per manicchia) non ci sono piu'
+
+**Risultato atteso**: ogni elenco che chiedono alla segreteria si trova per nome, con l'anno scelto una volta sola
 
 ---
 
@@ -263,6 +319,61 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 
 ---
 
+## ✅ Test 16: Soci a righe compatte
+
+### Test 16.1: Elenco
+
+- [ ] Cerca un cognome: ogni socio e' una riga con nome, data di nascita, manicchia e quota dell'anno (V Pagata, X Da pagare, O Esente, - Non iscritto)
+- [ ] L'elenco e' in ordine di cognome e nome
+- [ ] Con un solo socio trovato, Invio nel campo di ricerca apre il socio
+- [ ] "Esporta PDF" scarica esattamente i soci in elenco (prova con manicchia + una parola cercata)
+
+### Test 16.2: Azioni rapide
+
+- [ ] Su un socio "Da pagare", "Paga ANNO" apre il modulo di pagamento; dopo il salvataggio la riga diventa "Pagata" e il numero "Pagamenti ANNO" sale di uno
+- [ ] Sui soci gia' pagati o esenti "Paga" non c'e'
+- [ ] L'icona tessera scarica la tessera del socio (serve lo sfondo in Impostazioni › Template Tessera)
+
+### Test 16.3: Ultimi soci aperti
+
+- [ ] Apri tre soci e torna a Soci con la ricerca vuota: "Ultimi soci aperti" li mostra dal piu' recente, al massimo cinque
+- [ ] Riaprendo un socio gia' in lista, torna in cima senza doppioni
+
+### Test 16.4: Schermi e temi
+
+- [ ] Da telefono (o finestra stretta) restano nome, quota e azioni; la pagina non scorre di lato
+- [ ] Tema chiaro e scuro leggibili; il fuoco con Tab si vede sulle etichette dei filtri
+
+**Risultato atteso**: si trova un socio e si vede subito se ha pagato, senza aprire la scheda
+
+---
+
+## ✅ Test 17: Impostazioni a schede
+
+### Test 17.1: Schede
+
+- [ ] Sotto il titolo ci sono le schede Generale, Tessera, Manicchie, Dati e backup; il contenuto usa tutta la larghezza
+- [ ] Ogni scheda ha il suo indirizzo (es. `#/settings/dati`): ricaricando la pagina si resta sulla stessa scheda, e il tasto Indietro del browser torna alla scheda di prima
+- [ ] I vecchi indirizzi `#/settings?tab=dati` e `#/settings?tab=template` portano alla scheda giusta
+- [ ] "Backup automatico spento" in alto apre Dati e backup; il link di Report PDF › Tessere apre Tessera
+
+### Test 17.2: Dati e backup
+
+- [ ] Dall'alto: Backup, Esporta, Ripristina da un file, Controllo qualita' dei dati, Zona pericolosa
+- [ ] Non c'e' piu' il riquadro "Stato salute dati" in cima (lo dice il Controllo qualita')
+- [ ] "Importa JSON" si raggiunge anche con Tab e si apre con Invio
+- [ ] Ripristina da un file chiede conferma prima di sostituire i dati
+
+### Test 17.3: Manicchie
+
+- [ ] Aggiungi una manicchia (anche con Invio): compare nell'elenco e nel filtro Manicchia della pagina Soci
+- [ ] Matita: il nome diventa modificabile, Invio chiede conferma e rinomina per tutti i soci, Esc annulla
+- [ ] Cestino: chiede conferma e la toglie dalla lista; i soci restano con la loro manicchia
+
+**Risultato atteso**: ogni impostazione ha un posto solo, e cio' che cancella dati sta in fondo a Dati e backup
+
+---
+
 ## ✅ Test 18: Nuovo socio (pagina Soci e Incassi)
 
 Lo stesso modulo e le stesse regole nei due punti: Soci › Nuovo socio e Incassi › Registra ricevute › "Nuovo Socio".
@@ -279,3 +390,4 @@ Lo stesso modulo e le stesse regole nei due punti: Soci › Nuovo socio e Incass
 - [ ] Tema chiaro e scuro, e sul telefono i campi vanno uno sotto l'altro
 
 **Risultato atteso**: un nuovo socio si inserisce allo stesso modo da Soci e da Incassi, e non si salva senza i dati che servono alle tessere e ai report
+

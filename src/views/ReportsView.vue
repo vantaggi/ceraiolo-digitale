@@ -1,617 +1,319 @@
 <template>
-  <div class="reports-view">
-    <div class="container reports-layout">
-      <!-- Sidebar -->
-      <aside class="reports-sidebar">
-        <h1 class="sidebar-title"><AppIcon name="report" /> Report</h1>
-        <nav class="reports-nav">
-          <button
-            @click="currentTab = 'rinnovi'"
-            :class="{ active: currentTab === 'rinnovi' }"
-            class="nav-item"
-          >
-            <AppIcon name="data" /> Rinnovi & Tessere
-          </button>
-          <button
-            @click="currentTab = 'liste'"
-            :class="{ active: currentTab === 'liste' }"
-            class="nav-item"
-          >
-            <AppIcon name="elenco" /> Elenchi Dati
-          </button>
-          <button
-            @click="currentTab = 'export'"
-            :class="{ active: currentTab === 'export' }"
-            class="nav-item"
-          >
-            <AppIcon name="archivio" /> Export Batch
-          </button>
-          <button
-            @click="currentTab = 'stats'"
-            :class="{ active: currentTab === 'stats' }"
-            class="nav-item"
-          >
-            <AppIcon name="statistiche" /> Statistiche
-          </button>
-          <button
-            @click="currentTab = 'audit-quote'"
-            :class="{ active: currentTab === 'audit-quote' }"
-            class="nav-item"
-          >
-            <AppIcon name="audit" /> Audit Quote (Rientri)
-          </button>
-          <hr style="border: 0; border-top: 1px solid var(--color-border); margin: 10px 0;" />
-          <router-link
-            to="/report-pdf/su-misura"
-            class="nav-item"
-            style="text-decoration: none; display: flex; align-items: center; gap: 8px;"
-          >
-            <AppIcon name="personalizza" /> Report Builder Beta
-          </router-link>
-        </nav>
-      </aside>
-
-      <!-- Content -->
-      <main class="reports-content">
-        <!-- GLOBAL HEADER & CONTROLS -->
-        <section class="report-section header-section">
-          <div class="header-row">
-            <h2><AppIcon name="report" /> {{ getTabTitle(currentTab) }}</h2>
-            <div class="year-selector-inline">
-              <label for="renewalYear">Anno di Riferimento:</label>
-              <input
-                id="renewalYear"
-                v-model.number="renewalYear"
-                type="number"
-                :min="2000"
-                :max="currentYear + 5"
-                class="year-input"
-              />
-            </div>
-          </div>
-        </section>
-
-        <!-- TAB: RINNOVI & TESSERE -->
-        <div v-if="currentTab === 'rinnovi'">
-          <div class="reports-grid">
-            <!-- Lista Rinnovi -->
-            <section class="report-card">
-              <h3><AppIcon name="elenco" /> Lista Rinnovi {{ renewalYear }}</h3>
-              <p>Tabella PDF con soci e arretrati.</p>
-              <button
-                @click="generateRenewalList"
-                :disabled="!renewalYear || loading"
-                class="action-button"
-              >
-                <AppIcon :name="loading ? 'caricamento' : 'documento'" :spin="loading" />
-                {{ loading ? '...' : 'Genera Lista' }}
-              </button>
-            </section>
-
-            <!-- Recupero Crediti (Churn) -->
-            <section class="report-card">
-              <h3><AppIcon name="in-calo" /> Recupero Crediti</h3>
-              <p>Soci attivi nel {{ renewalYear - 1 }} ma NON nell'anno {{ renewalYear }}.</p>
-              <button
-                @click="generateChurnReport"
-                :disabled="!renewalYear || loading"
-                class="action-button"
-              >
-                <AppIcon name="documento" /> Genera Lista Recupero
-              </button>
-            </section>
-
-            <!-- Tessere -->
-            <section class="report-card">
-              <h3><AppIcon name="tessera" /> Tessere Annuali</h3>
-              <p>Stampa tessere per tutti i soci.</p>
-
-              <div class="filter-mini">
-                <label class="checkbox-label">
-                  <input type="checkbox" v-model="excludeInactiveMembers" :disabled="loading" />
-                  <span class="checkmark"></span>
-                  Escludi inattivi (>5 anni)
-                </label>
-                <small
-                  v-if="excludeInactiveMembers"
-                  style="display: block; margin-top: 5px; color: var(--color-text-secondary)"
-                >
-                  Attivi: {{ sociStats.active }} / {{ sociStats.total }}
-                </small>
-              </div>
-
-              <div v-if="cardProgress > 0" class="progress-bar-mini">
-                <div class="fill" :style="{ width: cardProgress + '%' }"></div>
-              </div>
-
-              <button
-                @click="generateCards"
-                :disabled="!renewalYear || loading"
-                class="action-button"
-              >
-                <AppIcon :name="loading ? 'caricamento' : 'tessera'" :spin="loading" />
-                {{ loading ? '...' : 'Genera Tessere' }}
-              </button>
-            </section>
-          </div>
-
-          <!-- Preview -->
-          <section class="report-section" style="margin-top: 2rem">
-            <h3><AppIcon name="dettagli" /> Anteprima Tessera</h3>
-            <div class="preview-wrapper">
-              <div class="preview-container">
-                <AnteprimaTessera :socio="previewData" :modello="modelloTessera" />
-              </div>
-              <div class="preview-inputs">
-                <label for="anteprima-cognome">Cognome:</label>
-                <input id="anteprima-cognome" v-model="previewData.cognome" class="small-input" />
-                <label for="anteprima-nome">Nome:</label>
-                <input id="anteprima-nome" v-model="previewData.nome" class="small-input" />
-                <label for="anteprima-data">Data di nascita:</label>
-                <input
-                  id="anteprima-data"
-                  v-model="previewData.data_nascita"
-                  type="date"
-                  class="small-input"
-                />
-              </div>
-            </div>
-          </section>
+  <div class="report-pdf">
+    <PageHeader
+      title="Report PDF"
+      subtitle="Elenchi pronti da stampare. Per un elenco diverso, Personalizza apre il modello nel Report su misura."
+    >
+      <template #actions>
+        <div class="anno">
+          <label for="anno-report" class="anno__label">Anno di riferimento</label>
+          <input
+            id="anno-report"
+            v-model.number="anno"
+            type="number"
+            min="1950"
+            :max="annoCorrente + 5"
+            class="campo campo--anno"
+            :aria-invalid="!annoValido"
+            aria-describedby="anno-report-aiuto"
+          />
         </div>
+        <RouterLink to="/report-pdf/su-misura" class="link-azione link-azione--primario">
+          <AppIcon name="personalizza" /> Report su misura
+        </RouterLink>
+      </template>
+    </PageHeader>
+    <p id="anno-report-aiuto" class="aiuto" :class="{ 'aiuto--errore': !annoValido }">
+      <template v-if="annoValido">
+        Tutti i modelli usano il {{ anno }}: età, pagato o no, arretrati e diritto di voto.
+      </template>
+      <template v-else>Scrivi un anno tra il 1950 e il {{ annoCorrente + 5 }}.</template>
+    </p>
 
-        <!-- TAB: STATISTICHE -->
-        <div v-if="currentTab === 'stats'">
-          <!-- Demografia -->
-          <section class="report-section">
-            <h2><AppIcon name="statistiche" /> Demografia Soci {{ renewalYear }}</h2>
-            <div class="stats-summary" v-if="demographics">
-              <div class="stat-card total">
-                <h3>Totale Soci</h3>
-                <div class="big-number">{{ demographics.total }}</div>
-              </div>
-
-              <div class="stat-card">
-                <h3>Distribuzione Età</h3>
-                <div class="chart-container">
-                  <div
-                    v-for="(count, label) in demographics.ageGroups"
-                    :key="label"
-                    class="chart-row"
-                  >
-                    <span class="chart-label">{{ label }}</span>
-                    <div class="chart-bar-bg">
-                      <div
-                        class="chart-bar-fill"
-                        :style="{ width: (count / demographics.total) * 100 + '%' }"
-                      ></div>
-                    </div>
-                    <span class="chart-value">{{ count }}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div class="stat-card">
-                <h3>Luogo di Nascita (Top 10)</h3>
-                <div class="chart-container">
-                  <div v-for="(count, label) in demographics.places" :key="label" class="chart-row">
-                    <span class="chart-label">{{ label }}</span>
-                    <div class="chart-bar-bg">
-                      <div
-                        class="chart-bar-fill"
-                        :style="{ width: (count / demographics.total) * 100 + '%' }"
-                      ></div>
-                    </div>
-                    <span class="chart-value">{{ count }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div v-else class="no-data">
-              <p>Clicca "Analizza" per generare le statistiche.</p>
-              <button @click="loadStats" class="action-button">
-                <AppIcon name="report" /> Analizza Dati {{ renewalYear }}
-              </button>
-            </div>
-          </section>
-
-          <!-- Andamento Economico -->
-          <section class="report-section" v-if="economicStats">
-            <h2><AppIcon name="quota" /> Andamento Economico {{ renewalYear }}</h2>
-            <div class="stats-summary">
-              <div class="stat-card totalHighlight">
-                <h3>Entrate Totali</h3>
-                <div class="big-number">€ {{ economicStats.totalRevenue.toFixed(2) }}</div>
-                <small>{{ economicStats.totalPayments }} pagamenti registrati</small>
-
-                <div style="margin-top: 1rem; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 1rem;">
-                  <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                     <span>Rinnovi Standard (10€):</span>
-                     <strong>€ {{ economicStats.totalStandardQuotas.toFixed(2) }}</strong>
-                  </div>
-                  <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                     <span>Nuovi / Rientri (25€+):</span>
-                     <strong>€ {{ economicStats.totalPenaltyQuotas.toFixed(2) }}</strong>
-                  </div>
-                  <div v-if="economicStats.otherQuotas > 0" style="display: flex; justify-content: space-between;">
-                     <span>Altre Quote:</span>
-                     <strong>€ {{ economicStats.otherQuotas.toFixed(2) }}</strong>
-                  </div>
-                </div>
-              </div>
-
-              <div class="stat-card">
-                <h3>Quota Media</h3>
-                <div class="big-number">€ {{ economicStats.averageQuota }}</div>
-              </div>
-
-              <div class="stat-card">
-                <h3>Entrate per Manicchia</h3>
-                <div class="chart-container">
-                  <div
-                    v-for="(revenue, group) in economicStats.groupBreakdown"
-                    :key="group"
-                    class="chart-row"
-                  >
-                    <span class="chart-label">{{ group }}</span>
-                    <div class="chart-bar-bg">
-                      <div
-                        class="chart-bar-fill money"
-                        :style="{
-                          width: (revenue / economicStats.totalRevenue) * 100 + '%',
-                        }"
-                      ></div>
-                    </div>
-                    <span class="chart-value">€ {{ revenue }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-        </div>
-
-        <!-- TAB: LISTE DATI -->
-        <div v-if="currentTab === 'liste'">
-          <h2><AppIcon name="elenco" /> Elenchi e Statistiche</h2>
-
-          <!-- Aventi diritto e arretrati (regola in utils/voto.js) -->
-          <section class="report-section">
-            <h3><AppIcon name="votazioni" /> Aventi diritto al voto e arretrati</h3>
-            <p>
-              Per le elezioni del <strong>{{ renewalYear }}</strong>: chi vota (Sì), chi può votare
-              dopo aver pagato gli arretrati (Regolarizza, con gli anni da pagare) e, se richiesto,
-              chi non ha diritto e perché.
-            </p>
-            <div class="filters-grid-compact">
-              <div class="f-group">
-                <label for="aventi-manicchia">Manicchie:</label>
-                <select id="aventi-manicchia" v-model="aventiFiltri.manicchia" class="small-input aventi-select">
-                  <option value="__sezioni">Tutte, una sezione per manicchia</option>
-                  <option value="">Tutte in un unico elenco</option>
-                  <option v-for="group in availableGroups" :key="group" :value="group">
-                    {{ group }}
-                  </option>
-                </select>
-              </div>
-            </div>
-            <label class="checkbox-label aventi-opzione">
-              <input v-model="aventiFiltri.includiNonAventi" type="checkbox" />
-              Includi chi non ha diritto (nuovi iscritti, rientri, minorenni)
+    <!-- Votazioni -->
+    <section class="gruppo" aria-labelledby="gruppo-votazioni">
+      <h2 id="gruppo-votazioni" class="gruppo__titolo">
+        <AppIcon name="votazioni" /> Votazioni
+      </h2>
+      <ul class="gruppo__modelli">
+        <ModelloReport
+          titolo="Aventi diritto al voto e arretrati"
+          :descrizione="`Chi vota alle elezioni del ${anno}, chi può votare dopo aver pagato gli arretrati e quali anni deve pagare.`"
+        >
+          <template #opzioni>
+            <label class="sr-only" for="voto-manicchia">Manicchie</label>
+            <select id="voto-manicchia" v-model="voto.manicchia" class="campo">
+              <option value="__sezioni">Una sezione per manicchia</option>
+              <option value="">Tutti in un elenco</option>
+              <option v-for="g in manicchie" :key="g" :value="g">{{ g }}</option>
+            </select>
+            <label class="scelta">
+              <input v-model="voto.includiNonAventi" type="checkbox" />
+              Anche chi non ha diritto
             </label>
-            <button @click="generaAventiDiritto" :disabled="loading" class="action-button wide">
-              <AppIcon name="documento" /> Genera PDF aventi diritto
-            </button>
-          </section>
-
-          <!-- Nuovi Soci -->
-          <section class="report-section">
-            <h3><AppIcon name="nuovo-socio" /> Nuovi Soci</h3>
-            <div class="filters-inline">
-              <label
-                >Anno: <strong>{{ renewalYear }}</strong></label
-              >
-              <AgeCategoryFilter v-model="newMembersFilters.ageCategory" />
-            </div>
-            <button @click="generateNewMembersList" :disabled="loading" class="action-button wide">
-              <AppIcon name="documento" /> Genera Report Nuovi Soci
-            </button>
-          </section>
-
-          <!-- Soci per Manicchia -->
-          <section class="report-section">
-            <h3><AppIcon name="gruppo" /> Soci per Manicchia</h3>
-            <div class="filters-grid-compact">
-              <div class="f-group">
-                <label>Manicchia:</label>
-                <select v-model="groupFilters.gruppo" class="small-input">
-                  <option value="">Tutti</option>
-                  <option v-for="group in availableGroups" :key="group" :value="group">
-                    {{ group }}
-                  </option>
-                </select>
-              </div>
-              <div class="f-group">
-                <label>Età:</label>
-                <AgeCategoryFilter v-model="groupFilters.ageCategory" />
-              </div>
-              <div class="f-group">
-                <label>Stato ({{ renewalYear }}):</label>
-                <select v-model="groupFilters.paymentStatus" class="small-input">
-                  <option value="tutti">Tutti</option>
-                  <option value="in_regola">In Regola</option>
-                  <option value="non_in_regola">Non in Regola</option>
-                </select>
-              </div>
-            </div>
-            <button @click="generateMembersByGroup" :disabled="loading" class="action-button wide">
-              <AppIcon name="documento" /> Genera Report Manicchie
-            </button>
-          </section>
-
-          <!-- Riepilogo Numerico Manicchie -->
-          <section class="report-section">
-            <h3><AppIcon name="numeri" /> Riepilogo Numerico Manicchie</h3>
-            <p>Genera un foglio unico con il conteggio degli iscritti per ogni manicchia.</p>
-            <div class="filters-inline">
-              <label
-                >Anno Riferimento: <strong>{{ renewalYear }}</strong></label
-              >
-            </div>
-            <button
-              @click="generateGroupCountsReport"
-              :disabled="loading"
-              class="action-button wide"
+          </template>
+          <template #azioni>
+            <RouterLink :to="personalizzaVoto" class="link-azione">
+              <AppIcon name="personalizza" /> Personalizza
+            </RouterLink>
+            <BaseButton
+              variant="primary"
+              :loading="inCorso === 'aventi'"
+              :disabled="bloccato"
+              @click="generaAventiDiritto"
             >
-              <AppIcon name="report" /> Genera Riepilogo Numerico
-            </button>
-          </section>
+              <AppIcon name="documento" /> Genera PDF
+            </BaseButton>
+          </template>
+        </ModelloReport>
 
-          <!-- Lista Recupero (Arretrati) -->
-          <section class="report-section">
-            <h3><AppIcon name="statistiche" /> Lista Recupero (Churn)</h3>
-            <p>
-              Soci che hanno pagato l'anno scorso ({{ renewalYear - 1 }}) ma non ancora quest'anno
-              ({{ renewalYear }}).
-            </p>
-            <button @click="generateChurnReport" :disabled="loading" class="action-button wide">
-              <AppIcon name="documento" /> Genera Lista Recupero
-            </button>
-          </section>
-
-          <!-- Report Votazioni -->
-          <section class="report-section">
-            <h3><AppIcon name="votazioni" /> Report Votazioni</h3>
-            <p>
-              Elenco soci aventi diritto al voto per l'anno <strong>{{ renewalYear }}</strong
-              >.
-              <br />
-              <small
-                >Requisiti: Maggiorenni nel {{ renewalYear }} (nati &lt;= {{ renewalYear - 18 }}) e
-                in regola con il {{ renewalYear - 1 }}.</small
-              >
-            </p>
-            <button @click="generateVotingReport" :disabled="loading" class="action-button wide">
-              <AppIcon name="documento" /> Genera Lista Votazioni
-            </button>
-          </section>
-
-          <!-- Report Soci Attivi 5 Anni -->
-          <section class="report-section">
-            <h3><AppIcon name="gruppo" /> Report Soci Attivi (5 Anni)</h3>
-            <p>
-              Elenco soci con <strong>almeno 1 pagamento</strong> negli ultimi 5 anni ({{
-                renewalYear - 4
-              }}
-              - {{ renewalYear }}).
-            </p>
-            <button
-              @click="generateActiveMembersReport"
-              :disabled="loading"
-              class="action-button wide"
+        <ModelloReport
+          titolo="Report votazioni"
+          etichetta="Vecchia regola"
+          :descrizione="`Maggiorenni in regola con il ${anno - 1}. Non conta i primi anni né gli arretrati: per le elezioni usa il modello qui sopra. Resta fino alla prova con la segreteria.`"
+        >
+          <template #azioni>
+            <BaseButton
+              :loading="inCorso === 'votazioni'"
+              :disabled="bloccato"
+              @click="generaVotazioniVecchio"
             >
-              <AppIcon name="documento" /> Genera Lista Attivi
-            </button>
-          </section>
+              <AppIcon name="documento" /> Genera PDF
+            </BaseButton>
+          </template>
+        </ModelloReport>
+      </ul>
+    </section>
 
-          <!-- Lista Pagamenti -->
-          <section class="report-section">
-            <h3><AppIcon name="quota" /> Cronologia Pagamenti</h3>
-            <div class="filters-inline">
-              <AgeCategoryFilter v-model="paymentsFilters.ageCategory" />
-            </div>
-            <button
-              @click="generateCompletePaymentsList"
-              :disabled="loading"
-              class="action-button wide"
+    <!-- Soci -->
+    <section class="gruppo" aria-labelledby="gruppo-soci">
+      <h2 id="gruppo-soci" class="gruppo__titolo"><AppIcon name="gruppo" /> Soci</h2>
+      <ul class="gruppo__modelli">
+        <ModelloReport
+          titolo="Soci per manicchia"
+          :descrizione="`Elenco dei soci divisi per manicchia, con chi ha pagato il ${anno}.`"
+        >
+          <template #opzioni>
+            <label class="sr-only" for="manicchia-gruppo">Manicchia</label>
+            <select id="manicchia-gruppo" v-model="perManicchia.gruppo" class="campo">
+              <option value="">Tutte le manicchie</option>
+              <option v-for="g in manicchie" :key="g" :value="g">{{ g }}</option>
+            </select>
+            <label class="sr-only" for="manicchia-eta">Età</label>
+            <select id="manicchia-eta" v-model="perManicchia.eta" class="campo">
+              <option v-for="o in OPZIONI_ETA" :key="o.v" :value="o.v">{{ o.t }}</option>
+            </select>
+            <label class="sr-only" for="manicchia-pagato">Pagato nell'anno</label>
+            <select id="manicchia-pagato" v-model="perManicchia.pagamento" class="campo">
+              <option value="tutti">Pagato o no</option>
+              <option value="in_regola">In regola</option>
+              <option value="non_in_regola">Non in regola</option>
+            </select>
+          </template>
+          <template #azioni>
+            <RouterLink :to="personalizzaManicchia" class="link-azione">
+              <AppIcon name="personalizza" /> Personalizza
+            </RouterLink>
+            <BaseButton
+              :loading="inCorso === 'manicchia'"
+              :disabled="bloccato"
+              @click="generaPerManicchia"
             >
-              <AppIcon name="documento" /> Genera Report Completo Pagamenti
-            </button>
-          </section>
+              <AppIcon name="documento" /> Genera PDF
+            </BaseButton>
+          </template>
+        </ModelloReport>
 
-          <!-- Audit Dati -->
-          <section class="report-section">
-            <h3><AppIcon name="qualita-dati" /> Audit Qualità Dati</h3>
-            <p>Verifica la completezza e coerenza dei dati anagrafici.</p>
+        <ModelloReport
+          titolo="Conteggio per manicchia"
+          :descrizione="`Un foglio con quanti iscritti ha ogni manicchia nel ${anno}.`"
+        >
+          <template #azioni>
+            <BaseButton
+              :loading="inCorso === 'conteggio'"
+              :disabled="bloccato"
+              @click="generaConteggio"
+            >
+              <AppIcon name="documento" /> Genera PDF
+            </BaseButton>
+          </template>
+        </ModelloReport>
 
-            <button @click="runDataAudit" class="action-button wide" :disabled="loading">
-              <AppIcon name="ricerca" /> Esegui Controllo
-            </button>
+        <ModelloReport
+          titolo="Nuovi iscritti"
+          :descrizione="`Soci iscritti per la prima volta nel ${anno}.`"
+        >
+          <template #opzioni>
+            <label class="sr-only" for="nuovi-eta">Età</label>
+            <select id="nuovi-eta" v-model="nuovi.eta" class="campo">
+              <option v-for="o in OPZIONI_ETA" :key="o.v" :value="o.v">{{ o.t }}</option>
+            </select>
+          </template>
+          <template #azioni>
+            <BaseButton :loading="inCorso === 'nuovi'" :disabled="bloccato" @click="generaNuovi">
+              <AppIcon name="documento" /> Genera PDF
+            </BaseButton>
+          </template>
+        </ModelloReport>
 
-            <div v-if="auditResults" class="audit-box">
-              <div v-if="auditResults.summary.total_issues === 0" class="success-message">
-                <AppIcon name="ok" /> Nessuna anomalia rilevata! Il database è perfetto.
-              </div>
-              <div v-else>
-                <div class="audit-stats">
-                  <span v-if="auditResults.summary.missing_dob" class="stat-tag"
-                    ><AppIcon name="attenzione" /> No Data Nascita: <b>{{ auditResults.summary.missing_dob }}</b></span
-                  >
-                  <span v-if="auditResults.summary.missing_pob" class="stat-tag"
-                    ><AppIcon name="attenzione" /> No Luogo Nascita: <b>{{ auditResults.summary.missing_pob }}</b></span
-                  >
-                  <span v-if="auditResults.summary.missing_reg_date" class="stat-tag"
-                    ><AppIcon name="attenzione" /> No Data Iscrizione: <b>{{ auditResults.summary.missing_reg_date }}</b></span
-                  >
-                  <span v-if="auditResults.summary.missing_group" class="stat-tag"
-                    ><AppIcon name="attenzione" /> No Manicchia: <b>{{ auditResults.summary.missing_group }}</b></span
-                  >
-                  <span v-if="auditResults.summary.future_reg" class="stat-tag"
-                    ><AppIcon name="attenzione" /> Date Future: <b>{{ auditResults.summary.future_reg }}</b></span
-                  >
-                  <span v-if="auditResults.summary.invalid_reg_date" class="stat-tag"
-                    ><AppIcon name="attenzione" /> Iscrizioni Illogiche: <b>{{ auditResults.summary.invalid_reg_date }}</b></span
-                  >
-                </div>
-                <p class="audit-info">
-                  Trovate <b>{{ auditResults.summary.total_issues }}</b> anomalie totali.
-                </p>
+        <ModelloReport
+          titolo="Minorenni"
+          :descrizione="`Soci che nel ${anno} non hanno ancora 18 anni (conta solo l'anno di nascita).`"
+        >
+          <template #azioni>
+            <RouterLink :to="suMisura('minorenni')" class="link-azione">
+              <AppIcon name="personalizza" /> Personalizza
+            </RouterLink>
+            <BaseButton
+              :loading="inCorso === 'minorenni'"
+              :disabled="bloccato"
+              @click="generaMinorenni"
+            >
+              <AppIcon name="documento" /> Genera PDF
+            </BaseButton>
+          </template>
+        </ModelloReport>
 
-                <!-- Simple table preview -->
-                <div class="audit-preview">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Socio</th>
-                        <th>Problemi</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr v-for="item in auditResults.details.slice(0, 5)" :key="item.id">
-                        <td>{{ item.cognome }} {{ item.nome }}</td>
-                        <td>{{ item.issues.join(', ') }}</td>
-                      </tr>
-                      <tr v-if="auditResults.details.length > 5">
-                        <td colspan="2">...e altri {{ auditResults.details.length - 5 }}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
+        <ModelloReport
+          titolo="Soci attivi"
+          :descrizione="`Soci con almeno un pagamento dal ${anno - 4} al ${anno}.`"
+        >
+          <template #azioni>
+            <RouterLink :to="suMisura('attivi')" class="link-azione">
+              <AppIcon name="personalizza" /> Personalizza
+            </RouterLink>
+            <BaseButton :loading="inCorso === 'attivi'" :disabled="bloccato" @click="generaAttivi">
+              <AppIcon name="documento" /> Genera PDF
+            </BaseButton>
+          </template>
+        </ModelloReport>
+      </ul>
+    </section>
 
-                <button
-                  @click="generateAuditPDFReport"
-                  class="action-button wide secondary"
-                  style="margin-top: 1rem"
-                >
-                  <AppIcon name="documento" /> Scarica Report Anomalie PDF
-                </button>
-              </div>
-            </div>
-          </section>
-        </div>
+    <!-- Rinnovi e quote -->
+    <section class="gruppo" aria-labelledby="gruppo-rinnovi">
+      <h2 id="gruppo-rinnovi" class="gruppo__titolo"><AppIcon name="quota" /> Rinnovi e quote</h2>
+      <ul class="gruppo__modelli">
+        <ModelloReport
+          titolo="Lista rinnovi"
+          :descrizione="`Tutti i soci con gli anni pagati e gli arretrati, da usare il giorno dei rinnovi ${anno}.`"
+        >
+          <template #azioni>
+            <BaseButton
+              variant="primary"
+              :loading="inCorso === 'rinnovi'"
+              :disabled="bloccato"
+              @click="generaRinnovi"
+            >
+              <AppIcon name="documento" /> Genera PDF
+            </BaseButton>
+          </template>
+        </ModelloReport>
 
-        <!-- TAB: EXPORT -->
-        <div v-if="currentTab === 'export'">
-          <section class="report-section">
-            <h2><AppIcon name="archivio" /> Esportazione Complessiva</h2>
-            <p>Genera e scarica tutti i report configurati in un'unica operazione.</p>
+        <ModelloReport
+          titolo="Lista recupero"
+          :descrizione="`Soci che hanno pagato il ${anno - 1} ma non ancora il ${anno}.`"
+        >
+          <template #azioni>
+            <BaseButton
+              :loading="inCorso === 'recupero'"
+              :disabled="bloccato"
+              @click="generaRecupero"
+            >
+              <AppIcon name="documento" /> Genera PDF
+            </BaseButton>
+          </template>
+        </ModelloReport>
 
-            <div class="batch-box">
-              <ul>
-                <li>Lista Rinnovi ({{ renewalYear }})</li>
-                <li>Nuovi Soci ({{ renewalYear }})</li>
-                <li>Lista Pagamenti</li>
-                <li>Soci per Manicchia ({{ renewalYear }})</li>
-                <li>Riepilogo Numerico Gruppi ({{ renewalYear }})</li>
-              </ul>
-              <button @click="generateAllReports" :disabled="loading" class="action-button wide">
-                <AppIcon :name="loading ? 'caricamento' : 'archivio'" :spin="loading" />
-                {{ loading ? 'Generazione in corso...' : 'SCARICA TUTTI I REPORT' }}
-              </button>
-            </div>
-          </section>
-        </div>
+        <ModelloReport
+          titolo="Cronologia pagamenti"
+          descrizione="Tutti i pagamenti registrati, di ogni anno, con ricevuta e blocchetto."
+        >
+          <template #opzioni>
+            <label class="sr-only" for="pagamenti-eta">Età</label>
+            <select id="pagamenti-eta" v-model="pagamenti.eta" class="campo">
+              <option v-for="o in OPZIONI_ETA" :key="o.v" :value="o.v">{{ o.t }}</option>
+            </select>
+          </template>
+          <template #azioni>
+            <BaseButton
+              :loading="inCorso === 'pagamenti'"
+              :disabled="bloccato"
+              @click="generaPagamenti"
+            >
+              <AppIcon name="documento" /> Genera PDF
+            </BaseButton>
+          </template>
+        </ModelloReport>
 
-        <!-- TAB: AUDIT QUOTE (RIENTRI) -->
-        <div v-if="currentTab === 'audit-quote'">
-          <section class="report-section">
-            <h2><AppIcon name="audit" /> Report Controllo Quote: Nuovi Iscritti & Rientri</h2>
-            <p>
-              I Nuovi Iscritti e chi riprende a pagare dopo aver saltato un anno (Rientri) devono versare una quota di <b>25€</b>.
-              Questo strumento controlla gli ultimi anni (e.g. 2024, 2025, 2026) per individuare chi è rientrato ma a cui sono stati erroneamente registrati solo 10€.
-            </p>
+        <ControlloQuote :anno="annoValido ? anno : null" :disabilitato="bloccato" />
 
-            <div class="filters-inline">
-              <label>Anno Base: <strong>{{ renewalYear }}</strong> <small>(Controlla pagamenti di quest'anno o degli anni passati)</small></label>
-            </div>
+        <ModelloReport
+          titolo="Tutti i documenti dei rinnovi"
+          descrizione="In un colpo: lista rinnovi, nuovi iscritti, cronologia pagamenti, soci per manicchia e conteggio, con le scelte fatte qui sopra."
+        >
+          <template #azioni>
+            <BaseButton :loading="inCorso === 'tutti'" :disabled="bloccato" @click="generaTutti">
+              <AppIcon name="archivio" /> Scarica 5 PDF
+            </BaseButton>
+          </template>
+        </ModelloReport>
+      </ul>
+    </section>
 
-            <button @click="runQuotaAuditTask" class="action-button wide" :disabled="loading">
-              <AppIcon name="ricerca" /> Esegui Controllo Quote
-            </button>
-
-            <!-- Risultati Audit Quote -->
-            <div v-if="auditQuotaResults" class="audit-box" style="margin-top: 2rem;">
-              <div v-if="auditQuotaResults.length === 0" class="success-message">
-                <AppIcon name="ok" /> Nessuna anomalia trovata! Tutte le quote dei rientri per l'anno {{ renewalYear }} sono corrette.
-              </div>
-              <div v-else>
-                <div class="audit-stats">
-                  <span class="stat-tag" style="background: var(--color-danger); color: white;">
-                    <AppIcon name="attenzione" /> Rilevate <b>{{ auditQuotaResults.length }}</b> anomalie di versamento
-                  </span>
-                </div>
-
-                <div class="audit-preview" style="margin-top: 1rem;">
-                  <table style="width: 100%; border-collapse: collapse;">
-                    <thead>
-                      <tr style="border-bottom: 2px solid var(--color-border); text-align: left;">
-                        <th style="padding: 10px;">Socio</th>
-                        <th style="padding: 10px;">Anno Rientro</th>
-                        <th style="padding: 10px;">Quota Pagata</th>
-                        <th style="padding: 10px;">Ricevuta / Blocchetto</th>
-                        <th style="padding: 10px;">Motivo</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr v-for="item in auditQuotaResults" :key="item.tesseramento.id" style="border-bottom: 1px solid var(--color-border);">
-                        <td style="padding: 10px;">
-                          <router-link :to="`/socio/${item.socio.id}`" style="color: var(--color-primary); font-weight: bold;">
-                            {{ item.socio.cognome }} {{ item.socio.nome }}
-                          </router-link>
-                        </td>
-                        <td style="padding: 10px; font-weight: bold;">{{ item.tesseramento.anno }}</td>
-                        <td style="padding: 10px; color: var(--color-danger); font-weight: bold;">
-                          € {{ Number(item.tesseramento.quota_pagata || 0).toFixed(2) }}
-                        </td>
-                        <td style="padding: 10px;">
-                          {{ item.tesseramento.numero_ricevuta || '-' }} / {{ item.tesseramento.numero_blocchetto || '-' }}
-                        </td>
-                        <td style="padding: 10px;">
-                          <span style="font-size: 0.85em; color: var(--color-text-secondary);">
-                            {{ item.reason }}
-                          </span>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-                <div class="audit-actions" style="margin-top: 1.5rem; display: flex; gap: 1rem;">
-                  <button @click="exportAuditQuotaPDF" class="action-button secondary" :disabled="loading">
-                    <AppIcon name="documento" /> Esporta PDF
-                  </button>
-                  <button @click="exportAuditQuotaExcel" class="action-button secondary" :disabled="loading">
-                    <AppIcon name="report" /> Esporta Excel
-                  </button>
-                </div>
-              </div>
-            </div>
-          </section>
-        </div>
-      </main>
-
-      <!-- Loading Overlay -->
-      <div v-if="loading" class="loading-overlay">
-        <div class="spinner"></div>
-        <p>{{ loadingMessage }}</p>
-      </div>
-    </div>
+    <!-- Tessere -->
+    <section class="gruppo" aria-labelledby="gruppo-tessere">
+      <h2 id="gruppo-tessere" class="gruppo__titolo"><AppIcon name="tessera" /> Tessere</h2>
+      <ul class="gruppo__modelli">
+        <ModelloReport titolo="Tessere di tutti i soci">
+          <template #descrizione>
+            Un PDF con una tessera per pagina, in ordine di cognome. Lo sfondo e l'anteprima sono
+            in <RouterLink to="/settings/tessera">Impostazioni › Tessera</RouterLink>.
+          </template>
+          <template #opzioni>
+            <label class="scelta">
+              <input v-model="tessere.escludiInattivi" type="checkbox" :disabled="occupato" />
+              Escludi chi non paga da più di 5 anni
+              <span v-if="tessere.escludiInattivi" class="scelta__nota">
+                ({{ conteggioSoci.attivi }} su {{ conteggioSoci.totale }})
+              </span>
+            </label>
+          </template>
+          <template #azioni>
+            <BaseButton
+              variant="primary"
+              :loading="inCorso === 'tessere'"
+              :disabled="bloccato"
+              @click="generaTessere"
+            >
+              <AppIcon name="tessera" /> Genera tessere
+            </BaseButton>
+          </template>
+          <div
+            v-if="inCorso === 'tessere'"
+            class="avanzamento"
+            role="progressbar"
+            aria-label="Tessere generate"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            :aria-valuenow="Math.round(tessere.avanzamento)"
+          >
+            <div class="avanzamento__barra" :style="{ width: tessere.avanzamento + '%' }"></div>
+          </div>
+        </ModelloReport>
+      </ul>
+    </section>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, watch } from 'vue'
-import AppIcon from '@/components/base/AppIcon.vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useToast } from 'vue-toastification'
+import AppIcon from '@/components/base/AppIcon.vue'
+import BaseButton from '@/components/base/BaseButton.vue'
+import PageHeader from '@/components/base/PageHeader.vue'
+import ModelloReport from '@/components/ModelloReport.vue'
+import ControlloQuote from '@/components/ControlloQuote.vue'
 import {
   generateRenewalListPDF,
   generateAllCardsPDF,
@@ -620,13 +322,11 @@ import {
   generateMembersByGroupPDF,
   generateGroupCountsPDF,
   generateChurnPDF,
-  generateAuditPDF,
   generateVotingListPDF,
   generateAventiDirittoPDF,
   generateActiveMembersPDF,
-  generateAuditQuotaPDF,
 } from '@/services/export'
-import { exportToExcel } from '@/services/excelExport'
+import { generateBetaDynamicPDF } from '@/services/exportBeta'
 import {
   getAllSociWithTesseramenti,
   getNewMembersByYear,
@@ -635,1141 +335,411 @@ import {
   getUniqueGroups,
   getGroupCountsForYear,
   getChurnList,
-  getDemographicStats,
-  getEconomicStats,
-  getDataAuditStats,
   getVotingEligibleMembers,
   getActiveMembersLast5Years,
-  getQuotaAuditList,
 } from '@/services/db'
-import AnteprimaTessera from '@/components/AnteprimaTessera.vue'
-import { caricaModelloTessera } from '@/services/tessere'
 import { elencoAventiDiritto } from '@/utils/aventiDiritto'
-import AgeCategoryFilter from '@/components/AgeCategoryFilter.vue'
+import {
+  colonneReport,
+  filtraSoci,
+  riassunto,
+  statoDaModello,
+  titoloReport,
+} from '@/utils/reportSuMisura'
+import { scaricaBlob } from '@/utils/scarica'
 
-// Stato del componente
-const currentTab = ref('rinnovi')
-const renewalYear = ref(new Date().getFullYear())
-const loading = ref(false)
-const loadingMessage = ref('')
-const cardProgress = ref(0)
-const auditResults = ref(null)
-const auditQuotaResults = ref(null)
-const demographics = ref(null)
-const economicStats = ref(null)
-const modelloTessera = ref(null)
-const excludeInactiveMembers = ref(false)
-const sociStats = reactive({
-  total: 0,
-  active: 0,
-  inactive: 0,
-})
+const OPZIONI_ETA = [
+  { v: 'tutti', t: 'Tutte le età' },
+  { v: 'maggiorenni', t: 'Maggiorenni' },
+  { v: 'minorenni', t: 'Minorenni' },
+]
+// Valori di eta' e pagamento del Report su misura, per "Personalizza"
+const ETA_SU_MISURA = { tutti: 'all', maggiorenni: 'maggiorenni', minorenni: 'minorenni' }
+const PAGAMENTO_SU_MISURA = { tutti: 'all', in_regola: 'in_regola', non_in_regola: 'morosi' }
 
-// Toast notifications
 const toast = useToast()
+const annoCorrente = new Date().getFullYear()
+const anno = ref(annoCorrente)
+const annoValido = computed(
+  () => Number.isInteger(anno.value) && anno.value >= 1950 && anno.value <= annoCorrente + 5,
+)
+// Il modello che sta generando: uno alla volta, gli altri pulsanti aspettano
+const inCorso = ref('')
+const occupato = computed(() => inCorso.value !== '')
+const bloccato = computed(() => occupato.value || !annoValido.value)
 
-// Dati per la preview della tessera
-const previewData = ref({
-  cognome: 'Rossi',
-  nome: 'Mario',
-  data_nascita: '1980-05-15',
-})
+const manicchie = ref([])
+const voto = reactive({ manicchia: '__sezioni', includiNonAventi: false })
+const perManicchia = reactive({ gruppo: '', eta: 'tutti', pagamento: 'tutti' })
+const nuovi = reactive({ eta: 'tutti' })
+const pagamenti = reactive({ eta: 'tutti' })
+const tessere = reactive({ escludiInattivi: false, avanzamento: 0 })
+const conteggioSoci = reactive({ totale: 0, attivi: 0 })
 
-const currentYear = new Date().getFullYear()
-
-// Filters for new members
-const newMembersFilters = reactive({
-  year: currentYear,
-  ageCategory: 'tutti',
-})
-
-// Filters for complete payments list
-const paymentsFilters = reactive({
-  ageCategory: 'tutti',
-})
-
-// Filters for members by group
-const groupFilters = reactive({
-  gruppo: '',
-  ageCategory: 'tutti',
-  paymentStatus: 'tutti',
-})
-
-// Year for group counts report
-// REPLACED BY GLOBAL RENEWAL YEAR
+/**
+ * Socio attivo per le tessere: un pagamento negli ultimi 5 anni di calendario.
+ */
+const isSocioActive = (socio) => {
+  if (!socio.tesseramenti || socio.tesseramenti.length === 0) return false
+  const ultimo = Math.max(...socio.tesseramenti.map((t) => t.anno))
+  return ultimo >= new Date().getFullYear() - 5
+}
 
 onMounted(async () => {
   try {
-    availableGroups.value = await getUniqueGroups()
-    modelloTessera.value = await caricaModelloTessera()
-    await updateSociStats()
+    const [gruppi, soci] = await Promise.all([getUniqueGroups(), getAllSociWithTesseramenti()])
+    manicchie.value = gruppi
+    conteggioSoci.totale = soci.length
+    conteggioSoci.attivi = soci.filter(isSocioActive).length
   } catch (error) {
     console.error('Errore caricamento dati:', error)
-    toast.error('Errore nel caricamento dei dati')
+    toast.error('Non sono riuscito a leggere i soci dal database.')
   }
 })
 
-/**
- * Determina se un socio è attivo (ha pagato negli ultimi 5 anni)
- * @param {Object} socio - Oggetto socio con tesseramenti
- * @returns {boolean} True se attivo, false se inattivo
- */
-const isSocioActive = (socio) => {
-  if (!socio.tesseramenti || socio.tesseramenti.length === 0) {
-    return false // Nessun pagamento mai fatto
-  }
+// Indirizzo del Report su misura che parte da un modello
+const suMisura = (modello, opzioni = {}) => ({
+  path: '/report-pdf/su-misura',
+  query: { modello, anno: annoValido.value ? anno.value : annoCorrente, ...opzioni },
+})
+const personalizzaVoto = computed(() =>
+  suMisura(
+    'aventi-diritto',
+    voto.manicchia && voto.manicchia !== '__sezioni' ? { manicchia: voto.manicchia } : {},
+  ),
+)
+const personalizzaManicchia = computed(() =>
+  suMisura('manicchia', {
+    ...(perManicchia.gruppo ? { manicchia: perManicchia.gruppo } : {}),
+    eta: ETA_SU_MISURA[perManicchia.eta],
+    pagamento: PAGAMENTO_SU_MISURA[perManicchia.pagamento],
+  }),
+)
 
-  const currentYear = new Date().getFullYear()
-  const fiveYearsAgo = currentYear - 5
-
-  // Trova l'anno più recente di pagamento
-  const latestPaymentYear = Math.max(...socio.tesseramenti.map((t) => t.anno))
-
-  return latestPaymentYear >= fiveYearsAgo
+const avviso = (testo) => {
+  toast.warning(testo)
+  return null
 }
 
 /**
- * Aggiorna le statistiche dei soci (totale, attivi, inattivi)
+ * Esegue un modello: un solo modello alla volta, errori mostrati a parole.
+ * @param {string} id
+ * @param {() => Promise<string|null>} lavoro restituisce il messaggio di riuscita
  */
-const updateSociStats = async () => {
+const genera = async (id, lavoro) => {
+  if (bloccato.value) return
+  inCorso.value = id
   try {
-    const allSoci = await getAllSociWithTesseramenti()
-    sociStats.total = allSoci.length
-    sociStats.active = allSoci.filter(isSocioActive).length
-    sociStats.inactive = sociStats.total - sociStats.active
+    const messaggio = await lavoro()
+    if (messaggio) toast.success(messaggio)
   } catch (error) {
-    console.error('Errore calcolo statistiche soci:', error)
-    sociStats.total = 0
-    sociStats.active = 0
-    sociStats.inactive = 0
-  }
-}
-
-/**
- * Genera la lista nuovi soci
- */
-const generateNewMembersList = async () => {
-  if (!renewalYear.value) return
-
-  try {
-    loading.value = true
-    loadingMessage.value = 'Caricamento dati nuovi soci...'
-    toast.info('Caricamento dati nuovi soci...')
-
-    const newMembers = await getNewMembersByYear(renewalYear.value, newMembersFilters.ageCategory)
-
-    loadingMessage.value = 'Generazione PDF...'
-    toast.info('Generazione PDF nuovi soci...')
-
-    const result = await generateNewMembersPDF(
-      newMembers,
-      renewalYear.value,
-      newMembersFilters.ageCategory,
-    )
-
-    if (result.success) {
-      toast.success(`PDF Nuovi Soci generato con successo! (${result.totalMembers} soci)`)
-    } else {
-      throw new Error(result.error)
-    }
-  } catch (error) {
-    console.error('Errore generazione lista nuovi soci:', error)
-    toast.error('Errore nella generazione del PDF: ' + error.message)
+    console.error(`Report "${id}" non generato:`, error)
+    toast.error('Non sono riuscito a creare il PDF: ' + error.message)
   } finally {
-    loading.value = false
-    loadingMessage.value = ''
+    inCorso.value = ''
   }
 }
 
-/**
- * Genera la lista completa pagamenti
- */
-const generateCompletePaymentsList = async () => {
-  try {
-    loading.value = true
-    loadingMessage.value = 'Caricamento dati pagamenti...'
-    toast.info('Caricamento dati pagamenti...')
-
-    const payments = await getCompletePaymentList(paymentsFilters.ageCategory)
-
-    loadingMessage.value = 'Generazione PDF...'
-    toast.info('Generazione PDF lista pagamenti...')
-
-    const result = await generateCompletePaymentListPDF(payments, paymentsFilters.ageCategory)
-
-    if (result.success) {
-      toast.success(
-        `PDF Lista Pagamenti generato con successo! (${result.totalPayments} pagamenti)`,
-      )
-    } else {
-      throw new Error(result.error)
-    }
-  } catch (error) {
-    console.error('Errore generazione lista completa pagamenti:', error)
-    toast.error('Errore nella generazione del PDF: ' + error.message)
-  } finally {
-    loading.value = false
-    loadingMessage.value = ''
-  }
+const verifica = (esito) => {
+  if (!esito.success) throw new Error(esito.error)
+  return esito
 }
 
-/**
- * Genera la lista soci per manicchia
- */
-const generateMembersByGroup = async () => {
-  try {
-    loading.value = true
-    loadingMessage.value = 'Caricamento dati soci per manicchia...'
-    toast.info('Caricamento dati soci per manicchia...')
-
-    const members = await getMembersByGroup(
-      groupFilters.gruppo || null,
-      groupFilters.ageCategory,
-      groupFilters.paymentStatus,
-      renewalYear.value,
-    )
-
-    console.log('Members found for PDF generation:', members.length, members)
-
-    loadingMessage.value = 'Generazione PDF...'
-    toast.info('Generazione PDF soci per manicchia...')
-
-    const result = await generateMembersByGroupPDF(
-      members,
-      groupFilters.gruppo,
-      groupFilters.ageCategory,
-      groupFilters.paymentStatus,
-      renewalYear.value,
-    )
-
-    if (result.success) {
-      toast.success(`PDF Soci per Manicchia generato con successo! (${result.totalMembers} soci)`)
-    } else {
-      throw new Error(result.error)
-    }
-  } catch (error) {
-    console.error('Errore generazione soci per manicchia:', error)
-    toast.error('Errore nella generazione del PDF: ' + error.message)
-  } finally {
-    loading.value = false
-    loadingMessage.value = ''
-  }
-}
-
-/**
- * Genera il report riepilogativo numerico per manicchie
- */
-const generateGroupCountsReport = async () => {
-  if (!renewalYear.value) return
-
-  try {
-    loading.value = true
-    loadingMessage.value = 'Calcolo totali per manicchia...'
-    toast.info('Calcolo dati in corso...')
-
-    const counts = await getGroupCountsForYear(renewalYear.value)
-
-    if (counts.length === 0) {
-      toast.warning(`Nessun tesseramento trovato per l'anno ${renewalYear.value}`)
-      return
-    }
-
-    loadingMessage.value = 'Generazione PDF...'
-    const result = await generateGroupCountsPDF(counts, renewalYear.value)
-
-    if (result.success) {
-      toast.success(`Report generato con successo! (${result.totalGroups} manicchie censite)`)
-    } else {
-      throw new Error(result.error)
-    }
-  } catch (error) {
-    console.error('Errore generazione riepilogo manicchie:', error)
-    toast.error('Errore: ' + error.message)
-  } finally {
-    loading.value = false
-    loadingMessage.value = ''
-  }
-}
-
-/**
- * Genera tutti i report in un'unica operazione
- */
-const generateAllReports = async () => {
-  try {
-    loading.value = true
-    loadingMessage.value = 'Generazione report multipli...'
-    toast.info('Inizio generazione report multipli...')
-
-    // Genera tutti i report in sequenza
-    const reports = []
-
-    // 1. Lista Rinnovi (se anno configurato)
-    if (renewalYear.value) {
-      loadingMessage.value = 'Generazione lista rinnovi...'
-      const soci = await getAllSociWithTesseramenti()
-      await generateRenewalListPDF(soci, renewalYear.value)
-      reports.push('Lista Rinnovi')
-    }
-
-    // 2. Nuovi Soci
-    loadingMessage.value = 'Generazione nuovi soci...'
-    const newMembers = await getNewMembersByYear(renewalYear.value, newMembersFilters.ageCategory)
-    const newMembersResult = await generateNewMembersPDF(
-      newMembers,
-      renewalYear.value,
-      newMembersFilters.ageCategory,
-    )
-    if (newMembersResult.success) reports.push('Nuovi Soci')
-
-    // 3. Lista Completa Pagamenti
-    loadingMessage.value = 'Generazione lista pagamenti...'
-    const payments = await getCompletePaymentList(paymentsFilters.ageCategory)
-    const paymentsResult = await generateCompletePaymentListPDF(
-      payments,
-      paymentsFilters.ageCategory,
-    )
-    if (paymentsResult.success) reports.push('Lista Pagamenti')
-
-    // 4. Soci per Manicchia
-    loadingMessage.value = 'Generazione soci per manicchia...'
-    const members = await getMembersByGroup(
-      groupFilters.gruppo || null,
-      groupFilters.ageCategory,
-      groupFilters.paymentStatus,
-      renewalYear.value,
-    )
-    const membersResult = await generateMembersByGroupPDF(
-      members,
-      groupFilters.gruppo,
-      groupFilters.ageCategory,
-      groupFilters.paymentStatus,
-      renewalYear.value,
-    )
-    if (membersResult.success) reports.push('Soci per Manicchia')
-
-    // 5. Riepilogo Manicchie
-    loadingMessage.value = 'Generazione riepilogo manicchie...'
-    const counts = await getGroupCountsForYear(renewalYear.value)
-    if (counts.length > 0) {
-      const countsResult = await generateGroupCountsPDF(counts, renewalYear.value)
-      if (countsResult.success) reports.push('Riepilogo Manicchie')
-    }
-
-    toast.success(`Generati ${reports.length} report: ${reports.join(', ')}`)
-  } catch (error) {
-    console.error('Errore generazione report multipli:', error)
-    toast.error('Errore nella generazione del PDF: ' + error.message)
-  } finally {
-    loading.value = false
-    loadingMessage.value = ''
-  }
-}
-// Gruppi disponibili
-const availableGroups = ref([])
-
-/**
- * Genera la lista rinnovi in formato PDF
- */
-const generateRenewalList = async () => {
-  if (!renewalYear.value) return
-
-  try {
-    loading.value = true
-    loadingMessage.value = 'Caricamento dati soci...'
-    toast.info('Caricamento dati soci...')
-
-    const soci = await getAllSociWithTesseramenti()
-
-    loadingMessage.value = 'Generazione PDF...'
-    toast.info('Generazione PDF in corso...')
-    await generateRenewalListPDF(soci, renewalYear.value)
-
-    toast.success('PDF Lista Rinnovi generato con successo!')
-  } catch (error) {
-    console.error('Errore generazione lista rinnovi:', error)
-    toast.error('Errore nella generazione del PDF: ' + error.message)
-  } finally {
-    loading.value = false
-    loadingMessage.value = ''
-  }
-}
-
-/**
- * Genera il report Recupero Crediti (Churn)
- */
-const generateChurnReport = async () => {
-  if (!renewalYear.value) return
-
-  try {
-    loading.value = true
-    loadingMessage.value = 'Analisi mancati rinnovi...'
-    toast.info('Calcolo lista recupero...')
-
-    const churnList = await getChurnList(renewalYear.value)
-
-    if (churnList.length === 0) {
-      toast.success(
-        `Nessun socio da recuperare per il ${renewalYear.value}! (Tutti hanno pagato o sono nuovi)`,
-      )
-      return
-    }
-
-    loadingMessage.value = 'Generazione PDF...'
-    const result = await generateChurnPDF(churnList, renewalYear.value)
-
-    if (result.success) {
-      toast.success(`Lista Recupero generata! (${result.count} soci da contattare)`)
-    } else {
-      throw new Error(result.error)
-    }
-  } catch (error) {
-    console.error('Errore generazione churn report:', error)
-    toast.error('Errore: ' + error.message)
-  } finally {
-    loading.value = false
-  }
-}
-
-/**
- * Aventi diritto al voto e arretrati, per manicchia o generale
- */
-const aventiFiltri = reactive({ manicchia: '__sezioni', includiNonAventi: false })
-
-const generaAventiDiritto = async () => {
-  if (!renewalYear.value) return
-  try {
-    loading.value = true
-    loadingMessage.value = 'Calcolo aventi diritto...'
-    const perManicchia = aventiFiltri.manicchia === '__sezioni'
-    const elenco = elencoAventiDiritto(await getAllSociWithTesseramenti(), renewalYear.value, {
-      includiNonAventi: aventiFiltri.includiNonAventi,
-      manicchia: perManicchia ? null : aventiFiltri.manicchia || null,
+const generaAventiDiritto = () =>
+  genera('aventi', async () => {
+    const sezioni = voto.manicchia === '__sezioni'
+    const elenco = elencoAventiDiritto(await getAllSociWithTesseramenti(), anno.value, {
+      includiNonAventi: voto.includiNonAventi,
+      manicchia: sezioni ? null : voto.manicchia || null,
     })
     if (elenco.gruppi.length === 0) {
-      toast.warning(`Nessun socio da elencare per le elezioni del ${renewalYear.value}`)
-      return
+      return avviso(`Nessun socio da elencare per le elezioni del ${anno.value}`)
     }
-    loadingMessage.value = 'Generazione PDF...'
-    await generateAventiDirittoPDF(elenco, renewalYear.value, { perManicchia })
+    await generateAventiDirittoPDF(elenco, anno.value, { perManicchia: sezioni })
     const { si, regolarizza } = elenco.totali
-    toast.success(`PDF generato: ${si} con diritto, ${regolarizza} da regolarizzare`)
-  } catch (error) {
-    console.error('Errore generazione aventi diritto:', error)
-    toast.error('Errore: ' + error.message)
-  } finally {
-    loading.value = false
-    loadingMessage.value = ''
-  }
-}
+    return `PDF generato: ${si} con diritto, ${regolarizza} da regolarizzare`
+  })
 
-/**
- * Genera il report per le votazioni
- */
-const generateVotingReport = async () => {
-  if (!renewalYear.value) return
+const generaVotazioniVecchio = () =>
+  genera('votazioni', async () => {
+    const elenco = await getVotingEligibleMembers(anno.value)
+    if (elenco.length === 0) return avviso(`Nessun avente diritto trovato per il ${anno.value}`)
+    await generateVotingListPDF(elenco, anno.value)
+    return `PDF generato: ${elenco.length} soci`
+  })
 
-  try {
-    loading.value = true
-    loadingMessage.value = 'Ricerca aventi diritto...'
-    toast.info('Calcolo aventi diritto al voto...')
+const generaPerManicchia = () =>
+  genera('manicchia', async () => {
+    const { gruppo, eta, pagamento } = perManicchia
+    const soci = await getMembersByGroup(gruppo || null, eta, pagamento, anno.value)
+    if (soci.length === 0) return avviso('Nessun socio con queste scelte')
+    const esito = verifica(
+      await generateMembersByGroupPDF(soci, gruppo, eta, pagamento, anno.value),
+    )
+    return `PDF generato: ${esito.totalMembers} soci`
+  })
 
-    const eligibleMembers = await getVotingEligibleMembers(renewalYear.value)
+const generaConteggio = () =>
+  genera('conteggio', async () => {
+    const conteggi = await getGroupCountsForYear(anno.value)
+    if (conteggi.length === 0) return avviso(`Nessun iscritto trovato nel ${anno.value}`)
+    const esito = verifica(await generateGroupCountsPDF(conteggi, anno.value))
+    return `PDF generato: ${esito.totalGroups} manicchie`
+  })
 
-    if (eligibleMembers.length === 0) {
-      toast.warning(`Nessun socio avente diritto trovato per il ${renewalYear.value}`)
-      return
-    }
+const generaNuovi = () =>
+  genera('nuovi', async () => {
+    const soci = await getNewMembersByYear(anno.value, nuovi.eta)
+    if (soci.length === 0) return avviso(`Nessun nuovo iscritto nel ${anno.value}`)
+    const esito = verifica(await generateNewMembersPDF(soci, anno.value, nuovi.eta))
+    return `PDF generato: ${esito.totalMembers} nuovi iscritti`
+  })
 
-    loadingMessage.value = 'Generazione PDF...'
-    await generateVotingListPDF(eligibleMembers, renewalYear.value)
-
-    toast.success(`Report Votazioni generato! (${eligibleMembers.length} aventi diritto)`)
-  } catch (error) {
-    console.error('Errore generazione report votazioni:', error)
-    toast.error('Errore: ' + error.message)
-  } finally {
-    loading.value = false
-    loadingMessage.value = ''
-  }
-}
-
-/**
- * Genera il report dei soci attivi (almeno 1 pagamento negli ultimi 5 anni)
- */
-const generateActiveMembersReport = async () => {
-  if (!renewalYear.value) return
-
-  try {
-    loading.value = true
-    loadingMessage.value = 'Ricerca soci attivi...'
-    toast.info('Calcolo soci attivi...')
-
-    const activeMembers = await getActiveMembersLast5Years(renewalYear.value)
-
-    if (activeMembers.length === 0) {
-      toast.warning(
-        `Nessun socio attivo trovato negli ultimi 5 anni (fino al ${renewalYear.value})`,
-      )
-      return
-    }
-
-    loadingMessage.value = 'Generazione PDF...'
-    await generateActiveMembersPDF(activeMembers, renewalYear.value)
-
-    toast.success(`Report Attivi generato! (${activeMembers.length} soci)`)
-  } catch (error) {
-    console.error('Errore generazione report attivi:', error)
-    toast.error('Errore: ' + error.message)
-  } finally {
-    loading.value = false
-    loadingMessage.value = ''
-  }
-}
-
-/**
- * Carica le statistiche demografiche ed economiche per l'anno selezionato
- */
-const loadStats = async () => {
-  if (!renewalYear.value) return
-
-  try {
-    loading.value = true
-    loadingMessage.value = 'Analisi dati in corso...'
-
-    // Esegui entrambi in parallelo
-    const [demoData, econData] = await Promise.all([
-      getDemographicStats(renewalYear.value),
-      getEconomicStats(renewalYear.value),
-    ])
-
-    demographics.value = demoData
-    economicStats.value = econData
-
-    toast.success('Statistiche aggiornate!')
-  } catch (error) {
-    console.error('Errore caricamento statistiche:', error)
-    toast.error('Errore nel calcolo delle statistiche')
-  } finally {
-    loading.value = false
-    loadingMessage.value = ''
-  }
-}
-
-// Watch per resettare stats se cambia anno
-watch(renewalYear, () => {
-  if (currentTab.value === 'stats') {
-    demographics.value = null
-    economicStats.value = null
-  }
-})
-
-const runDataAudit = async () => {
-  try {
-    loading.value = true
-    loadingMessage.value = 'Controllo qualità dati...'
-
-    // Simulate delay
-    await new Promise((r) => setTimeout(r, 500))
-
-    const results = await getDataAuditStats()
-    auditResults.value = results
-
-    if (results.summary.total_issues === 0) {
-      toast.success('Ottimo! Nessuna anomalia trovata.')
-    } else {
-      toast.warning(`Trovate ${results.summary.total_issues} anomalie nei dati.`)
-    }
-  } catch (error) {
-    console.error(error)
-    toast.error('Errore audit: ' + error.message)
-  } finally {
-    loading.value = false
-    loadingMessage.value = ''
-  }
-}
-
-const runQuotaAuditTask = async () => {
-  if (!renewalYear.value) return
-  try {
-    loading.value = true
-    loadingMessage.value = 'Ricerca anomalie quote (Rientri / Nuovi)...'
-
-    // Simulate delay per UX
-    await new Promise((r) => setTimeout(r, 500))
-
-    const results = await getQuotaAuditList(renewalYear.value)
-    auditQuotaResults.value = results
-
-    if (results.length === 0) {
-      toast.success('Nessuna anomalia trovata! Tutte le quote sono 25€ per i rientri.')
-    } else {
-      toast.warning(`Trovate ${results.length} quote potenzialmente errate.`)
-    }
-  } catch (error) {
-    console.error('Errore audit quote:', error)
-    toast.error('Errore audit quote: ' + error.message)
-  } finally {
-    loading.value = false
-    loadingMessage.value = ''
-  }
-}
-
-const exportAuditQuotaPDF = async () => {
-  if (!auditQuotaResults.value || auditQuotaResults.value.length === 0) return
-
-  try {
-    loading.value = true
-    loadingMessage.value = 'Generazione PDF Audit Quote...'
-
-    const result = await generateAuditQuotaPDF(auditQuotaResults.value, renewalYear.value)
-
-    if (result.success) {
-      const url = URL.createObjectURL(result.blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = result.filename
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-
-      toast.success('Report PDF scaricato!')
-    } else {
-      throw new Error(result.error)
-    }
-  } catch (error) {
-    console.error('Errore export PDF Audit Quote:', error)
-    toast.error('Errore generazione PDF: ' + error.message)
-  } finally {
-    loading.value = false
-    loadingMessage.value = ''
-  }
-}
-
-const exportAuditQuotaExcel = () => {
-  if (!auditQuotaResults.value || auditQuotaResults.value.length === 0) return
-
-  try {
-    const data = auditQuotaResults.value.map(item => ({
-      'Cognome e Nome': `${item.socio.cognome} ${item.socio.nome}`,
-      'Anno Rientro': item.tesseramento.anno,
-      'Quota Pagata': `€ ${Number(item.tesseramento.quota_pagata || 0).toFixed(2)}`,
-      'Ricevuta': item.tesseramento.numero_ricevuta || '-',
-      'Blocchetto': item.tesseramento.numero_blocchetto || '-',
-      'Motivazione': item.reason
-    }))
-
-    exportToExcel(data, `Audit_Quote_Rientri_${renewalYear.value}`);
-    toast.success('File Excel scaricato!')
-  } catch (error) {
-    console.error('Errore export Excel Audit Quote:', error)
-    toast.error('Errore durante l\'export Excel.')
-  }
-}
-
-const generateAuditPDFReport = async () => {
-  if (!auditResults.value) return
-
-  try {
-    loading.value = true
-    loadingMessage.value = 'Generazione PDF audit...'
-
-    const result = await generateAuditPDF(auditResults.value)
-
-    if (result.success) {
-      // Download
-      const url = URL.createObjectURL(result.blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = result.filename
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-
-      toast.success('Report Audit scaricato!')
-    } else {
-      throw new Error(result.error)
-    }
-  } catch (error) {
-    console.error('Errore generazione audit PDF:', error)
-    toast.error('Errore export audit: ' + error.message)
-  } finally {
-    loading.value = false
-    loadingMessage.value = ''
-  }
-}
-
-/**
- * Genera le tessere in formato PDF (divise per lettera alfabetica)
- */
-const generateCards = async () => {
-  if (!renewalYear.value) return
-
-  try {
-    loading.value = true
-    cardProgress.value = 0
-    loadingMessage.value = 'Caricamento dati soci...'
-    toast.info('Caricamento dati soci...')
-
-    let soci = await getAllSociWithTesseramenti()
-
-    // Applica filtro soci inattivi se selezionato
-    if (excludeInactiveMembers.value) {
-      soci = soci.filter(isSocioActive)
-      console.log(`Filtro applicato: ${soci.length} soci attivi su ${sociStats.total} totali`)
-    }
-
-    loadingMessage.value = 'Generazione tessere...'
-    toast.info('Generazione tessere in corso...')
-
-    const risultati = await generateAllCardsPDF(soci, renewalYear.value, (progress) => {
-      cardProgress.value = progress
+const generaMinorenni = () =>
+  genera('minorenni', async () => {
+    const stato = statoDaModello('minorenni', anno.value)
+    const righe = filtraSoci(await getAllSociWithTesseramenti(), stato)
+    if (righe.length === 0) return avviso(`Nessun minorenne nel ${anno.value}`)
+    await generateBetaDynamicPDF({
+      righe,
+      colonne: colonneReport(stato),
+      titolo: titoloReport(stato),
+      riassunto: riassunto(stato),
     })
+    return `PDF generato: ${righe.length} minorenni`
+  })
 
-    // Scarica tutti i PDF generati
-    let totalCards = 0
-    for (const risultato of risultati) {
-      // Crea un link temporaneo per il download
-      const url = URL.createObjectURL(risultato.blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = risultato.filename
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
+const generaAttivi = () =>
+  genera('attivi', async () => {
+    const soci = await getActiveMembersLast5Years(anno.value)
+    if (soci.length === 0) return avviso(`Nessun socio attivo dal ${anno.value - 4}`)
+    await generateActiveMembersPDF(soci, anno.value)
+    return `PDF generato: ${soci.length} soci attivi`
+  })
 
-      totalCards += risultato.count
+const generaRinnovi = () =>
+  genera('rinnovi', async () => {
+    await generateRenewalListPDF(await getAllSociWithTesseramenti(), anno.value)
+    return 'PDF della lista rinnovi generato'
+  })
+
+const generaRecupero = () =>
+  genera('recupero', async () => {
+    const soci = await getChurnList(anno.value)
+    if (soci.length === 0) {
+      return `Nessuno da recuperare: chi ha pagato il ${anno.value - 1} ha pagato anche il ${anno.value}`
+    }
+    const esito = verifica(await generateChurnPDF(soci, anno.value))
+    return `PDF generato: ${esito.count} soci da contattare`
+  })
+
+const generaPagamenti = () =>
+  genera('pagamenti', async () => {
+    const elenco = await getCompletePaymentList(pagamenti.eta)
+    if (elenco.length === 0) return avviso('Nessun pagamento registrato')
+    const esito = verifica(await generateCompletePaymentListPDF(elenco, pagamenti.eta))
+    return `PDF generato: ${esito.totalPayments} pagamenti`
+  })
+
+const generaTutti = () =>
+  genera('tutti', async () => {
+    const fatti = []
+    await generateRenewalListPDF(await getAllSociWithTesseramenti(), anno.value)
+    fatti.push('lista rinnovi')
+
+    const nuoviSoci = await getNewMembersByYear(anno.value, nuovi.eta)
+    if (nuoviSoci.length > 0) {
+      verifica(await generateNewMembersPDF(nuoviSoci, anno.value, nuovi.eta))
+      fatti.push('nuovi iscritti')
     }
 
-    const filterText = excludeInactiveMembers.value ? ' attivi' : ''
-    toast.success(`Generati ${risultati.length} PDF di tessere (${totalCards} soci${filterText})!`)
-  } catch (error) {
-    console.error('Errore generazione tessere:', error)
-    toast.error('Errore nella generazione del PDF: ' + error.message)
-  } finally {
-    loading.value = false
-    loadingMessage.value = ''
-    cardProgress.value = 0
-  }
-}
-const getTabTitle = (tab) => {
-  switch (tab) {
-    case 'rinnovi':
-      return 'Gestione Rinnovi & Tessere'
-    case 'liste':
-      return 'Elenchi Dati & Statistiche'
-    case 'export':
-      return 'Export & Backup'
-    default:
-      return 'Report'
-  }
-}
+    const elenco = await getCompletePaymentList(pagamenti.eta)
+    if (elenco.length > 0) {
+      verifica(await generateCompletePaymentListPDF(elenco, pagamenti.eta))
+      fatti.push('cronologia pagamenti')
+    }
+
+    const { gruppo, eta, pagamento } = perManicchia
+    const soci = await getMembersByGroup(gruppo || null, eta, pagamento, anno.value)
+    if (soci.length > 0) {
+      verifica(await generateMembersByGroupPDF(soci, gruppo, eta, pagamento, anno.value))
+      fatti.push('soci per manicchia')
+    }
+
+    const conteggi = await getGroupCountsForYear(anno.value)
+    if (conteggi.length > 0) {
+      verifica(await generateGroupCountsPDF(conteggi, anno.value))
+      fatti.push('conteggio')
+    }
+    return `Generati ${fatti.length} PDF: ${fatti.join(', ')}`
+  })
+
+const generaTessere = () =>
+  genera('tessere', async () => {
+    tessere.avanzamento = 0
+    let soci = await getAllSociWithTesseramenti()
+    if (tessere.escludiInattivi) soci = soci.filter(isSocioActive)
+    const risultati = await generateAllCardsPDF(soci, anno.value, (p) => {
+      tessere.avanzamento = p
+    })
+    let totale = 0
+    for (const r of risultati) {
+      scaricaBlob(r.blob, r.filename)
+      totale += r.count
+    }
+    return `Tessere generate: ${totale} soci`
+  })
 </script>
 
 <style scoped>
-.reports-view {
-  min-height: 100vh;
-  background-color: var(--color-background);
-  padding: 2rem 0;
-}
-
-.reports-layout {
-  display: grid;
-  grid-template-columns: 280px 1fr;
-  gap: 2rem;
-  min-height: calc(100vh - 100px);
-}
-
-.reports-sidebar {
-  padding-right: 1.5rem;
-  border-right: 1px solid var(--color-border);
-}
-
-.reports-sidebar .sidebar-title {
-  font-size: 1.1rem;
-  color: var(--color-primary);
-  margin-bottom: 2rem;
-  text-align: left;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.reports-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.nav-item {
-  text-align: left;
-  padding: 0.75rem 1rem;
-  border: none;
-  background: transparent;
-  color: var(--color-text-secondary);
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.2s;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  width: 100%;
-}
-
-.nav-item:hover {
-  background-color: var(--color-surface);
-  color: var(--color-text-primary);
-}
-
-.nav-item.active {
-  background-color: var(--color-accent);
-  color: white;
-}
-
-.reports-content {
-  padding-bottom: 3rem;
-}
-
-/* Sections */
-.report-section {
-  background-color: var(--color-surface);
-  padding: 1.5rem;
-  border-radius: 12px;
-  margin-bottom: 2rem;
-  box-shadow: var(--shadow-sm);
-  border: 1px solid var(--color-border);
-}
-
-.header-section {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: var(--color-surface);
-  padding: 1.5rem;
-}
-
-.header-section h2 {
-  margin: 0;
-  color: var(--color-primary);
-}
-
-/* Grid for Cards */
-.reports-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.5rem;
-}
-
-.report-card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 10px;
-  padding: 1.5rem;
-  box-shadow: var(--shadow-sm);
-}
-
-.report-card h3 {
-  margin-top: 0;
-  color: var(--color-text-primary);
-  font-size: 1.1rem;
-}
-
-.report-card p {
-  color: var(--color-text-secondary);
-  font-size: 0.9rem;
-  margin-bottom: 1.5rem;
-  min-height: 40px;
-}
-
-/* Inputs & Buttons */
-.year-selector-inline {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.year-input {
-  padding: 0.5rem;
-  width: 100px;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  font-weight: bold;
-}
-
-.action-button {
-  background-color: var(--color-accent);
-  color: white;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 8px;
-  font-weight: 600;
-  cursor: pointer;
-  width: 100%;
-  transition: all 0.2s;
-}
-
-.action-button:hover:not(:disabled) {
-  background-color: #a22a2a;
-  transform: translateY(-1px);
-}
-
-.action-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.action-button.wide {
-  width: auto;
-  min-width: 200px;
-}
-
-.primary-button {
-  background-color: var(--color-accent);
-  color: white;
-  border: none;
-  padding: 1rem 2rem;
-  border-radius: 8px;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: block;
-  width: 100%;
-  max-width: 300px;
+.report-pdf {
+  max-width: var(--page-width);
   margin: 0 auto;
-}
-
-.primary-button:hover {
-  background-color: #a22a2a;
-  transform: translateY(-1px);
-}
-
-.header-section {
-  background: var(--color-surface);
-  margin-bottom: 2rem;
-  border-left: 5px solid var(--color-primary);
-}
-
-.header-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 1rem;
-}
-
-.header-row h2 {
-  margin: 0;
-  font-size: 1.5rem;
-  color: var(--color-primary);
-}
-
-.year-selector-inline {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  background: var(--color-background);
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
-  border: 1px solid var(--color-border);
-}
-
-/* Preview Area */
-.preview-wrapper {
-  display: flex;
-  gap: 2rem;
-  align-items: flex-start;
-}
-
-.preview-container {
-  background: var(--color-surface);
-  border-radius: var(--radius-surface);
   padding: var(--space-32);
-  box-shadow: var(--shadow-sm);
-  display: flex;
-  justify-content: center;
-  border: 1px solid var(--color-border);
 }
 
-.preview-inputs {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  flex: 1;
+.report-pdf :deep(.page-header) {
+  margin-bottom: var(--space-8);
 }
 
-.small-input {
-  padding: 0.5rem;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  width: 100%;
-}
-
-/* Filters */
-.filters-inline {
-  display: flex;
-  gap: 1rem;
-  align-items: center;
-  margin-bottom: 1.5rem;
-  flex-wrap: wrap;
-}
-
-.filters-grid-compact {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-}
-
-.f-group {
+.anno {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: var(--space-4);
 }
 
-.f-group label {
-  font-size: 0.8rem;
-  color: var(--color-text-secondary);
+.anno__label {
+  font-size: var(--font-size-caption);
   font-weight: 600;
+  color: var(--color-text-secondary);
 }
 
-/* Progress Bar Mini */
-.progress-bar-mini {
-  height: 6px;
-  background: var(--color-border);
-  border-radius: 3px;
-  margin: 1rem 0;
+.campo {
+  width: auto;
+  min-height: 2.5rem;
+  padding: var(--space-4) var(--space-8);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  background: var(--color-input-bg);
+  box-shadow: none;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-label);
+}
+
+.campo--anno {
+  width: 7rem;
+}
+
+.campo[aria-invalid='true'] {
+  border-color: var(--color-danger);
+}
+
+.aiuto {
+  margin: 0 0 var(--space-24);
+  font-size: var(--font-size-label);
+  color: var(--color-text-secondary);
+}
+
+.aiuto--errore {
+  color: var(--color-danger);
+}
+
+.gruppo {
+  margin-bottom: var(--space-32);
+  padding: var(--space-8) var(--space-24);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-surface);
+}
+
+.gruppo__titolo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  margin: var(--space-16) 0 0;
+  font-size: var(--font-size-section-heading);
+}
+
+.gruppo__modelli {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.scelta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  font-size: var(--font-size-label);
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.scelta input {
+  accent-color: var(--color-accent);
+}
+
+.scelta__nota {
+  color: var(--color-text-secondary);
+}
+
+/* Link con l'aspetto di un pulsante: portano a un'altra pagina */
+.link-azione {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-height: 2.5rem;
+  padding: var(--space-8) var(--space-12);
+  border-radius: var(--radius-control);
+  color: var(--color-accent);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.link-azione:hover {
+  background: var(--color-surface-hover);
+}
+
+.link-azione--primario {
+  border: 1px solid var(--color-accent);
+}
+
+.avanzamento {
+  height: var(--space-8);
+  background: var(--color-surface-hover);
+  border-radius: var(--radius-full);
   overflow: hidden;
 }
-.fill {
+
+.avanzamento__barra {
   height: 100%;
-  background: var(--color-success);
-  transition: width 0.3s;
+  background: var(--color-accent);
+  transition: width 0.2s ease;
 }
 
-/* Batch Box */
-.batch-box {
-  background: var(--color-background);
-  padding: 2rem;
-  border-radius: 8px;
-  text-align: center;
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
-.batch-box ul {
-  list-style: none;
-  padding: 0;
-  margin-bottom: 2rem;
-}
+@media (max-width: 700px) {
+  .report-pdf {
+    padding: var(--space-16);
+  }
 
-.batch-box li {
-  display: inline-block;
-  background: var(--color-surface);
-  padding: 0.3rem 0.8rem;
-  margin: 0.3rem;
-  border-radius: 20px;
-  border: 1px solid var(--color-border);
-  font-size: 0.9rem;
-}
-
-.primary-button.large {
-  font-size: 1.1rem;
-  padding: 1rem 3rem;
-}
-
-/* Loading Overlay */
-.loading-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.7);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  color: white;
-}
-
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid rgba(255, 255, 255, 0.3);
-  border-top-color: white;
-  border-radius: 50%;
-  animation: spin 1s infinite linear;
-  margin-bottom: 1rem;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
+  .gruppo {
+    padding: var(--space-8) var(--space-16);
   }
 }
 
-.aventi-select {
-  width: auto;
-}
-
-.aventi-opzione {
-  margin: var(--space-12) 0 var(--space-16);
-}
-
-/* Checkbox */
-.checkbox-label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  cursor: pointer;
-  user-select: none;
-}
-.checkmark {
-  width: 18px;
-  height: 18px;
-  border: 2px solid var(--color-border);
-  background: var(--color-background);
-  display: inline-block;
-}
-input:checked + .checkmark {
-  background: var(--color-success);
-  border-color: var(--color-success);
-}
-
-/* Responsive */
-@media (max-width: 900px) {
-  .reports-layout {
-    grid-template-columns: 1fr;
+@media (prefers-reduced-motion: reduce) {
+  .avanzamento__barra {
+    transition: none;
   }
-
-  .reports-sidebar {
-    border-right: none;
-    border-bottom: 1px solid var(--color-border);
-    padding-bottom: 1rem;
-  }
-  .reports-nav {
-    flex-direction: row;
-    overflow-x: auto;
-  }
-  .reports-grid,
-  .filters-grid-compact {
-    grid-template-columns: 1fr;
-  }
-  .preview-wrapper {
-    flex-direction: column;
-  }
-  .preview-container {
-    transform: scale(1);
-    width: 100%;
-  }
-}
-
-.container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 2rem;
 }
 </style>

@@ -139,8 +139,7 @@ src/
 
 ### Componenti Principali
 
-- **FilterPanel.vue**: Filtri per ricerca soci
-- **SocioCard.vue**: Card per visualizzare socio
+- **ElencoSoci.vue**: Righe compatte dei soci (quota dell'anno, Paga, Tessera)
 - **TesseraTemplate.vue**: Template tessera socio
 - **ReportsView.vue**: Pagina report e PDF
 

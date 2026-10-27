@@ -1,10 +1,10 @@
-// Le cinque sezioni del menu, una per ogni lavoro della segreteria.
+// Le sezioni del menu, una per ogni lavoro della segreteria. L'andamento del
+// tesseramento sta nella Home (Soci), non ha una voce sua.
 // `percorsi` sono gli inizi di indirizzo che appartengono alla sezione.
 export const SEZIONI = [
   { nome: 'Soci', to: '/', icona: 'socio', percorsi: ['/socio'] },
   { nome: 'Incassi', to: '/incassi/ricevute', icona: 'quota', percorsi: ['/incassi'] },
   { nome: 'Report PDF', to: '/report-pdf', icona: 'documento', percorsi: ['/report-pdf'] },
-  { nome: 'Statistiche', to: '/statistiche', icona: 'statistiche', percorsi: ['/statistiche'] },
   { nome: 'Impostazioni', to: '/settings', icona: 'impostazioni', percorsi: ['/settings'] },
 ]
 
@@ -13,6 +13,22 @@ export const SCHEDE_INCASSI = [
   { to: '/incassi/ricevute', label: 'Registra ricevute', icona: 'registrazione-seriale' },
   { to: '/incassi/blocchetti', label: 'Blocchetti', icona: 'blocchetto' },
 ]
+
+// Schede della sezione Impostazioni.
+export const SCHEDE_IMPOSTAZIONI = [
+  { to: '/settings', label: 'Generale', icona: 'configurazione' },
+  { to: '/settings/tessera', label: 'Tessera', icona: 'tessera' },
+  { to: '/settings/manicchie', label: 'Manicchie', icona: 'gruppo' },
+  { to: '/settings/dati', label: 'Dati e backup', icona: 'archivio' },
+]
+
+// Vecchi indirizzi /settings?tab=... -> nuova scheda
+export const VECCHIE_SCHEDE = {
+  generale: '/settings',
+  template: '/settings/tessera',
+  zone: '/settings/manicchie',
+  dati: '/settings/dati',
+}
 
 /**
  * Sezione del menu a cui appartiene un indirizzo.
