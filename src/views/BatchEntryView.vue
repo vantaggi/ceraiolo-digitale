@@ -388,7 +388,13 @@ import {
   getNomiSoci,
   db,
 } from '@/services/db'
-import { pagamentiDelBlocchetto, riepilogoBlocchetto, sociDellaRicevuta } from '@/utils/blocchetto'
+import {
+  intervalloBlocchetto,
+  pagamentiDelBlocchetto,
+  ricevutaDaCuiRiprendere,
+  riepilogoBlocchetto,
+  sociDellaRicevuta,
+} from '@/utils/blocchetto'
 import ErrorModal from '@/components/ErrorModal.vue'
 import ConfirmDeleteModal from '@/components/ConfirmDeleteModal.vue'
 import AddPaymentModal from '@/components/AddPaymentModal.vue'
@@ -594,7 +600,7 @@ const aggiornaRicevuta = async () => {
 
 /**
  * Rilegge i pagamenti del blocchetto. Con `riprendi` porta la ricevuta in corso
- * subito dopo l'ultima inserita (o alla prima del blocchetto, se e' vuoto).
+ * alla prima ancora da inserire del blocchetto (impostazione "Ricevute per blocchetto").
  */
 const caricaBlocchetto = async ({ riprendi = false } = {}) => {
   const numero = sessionData.numeroBlocchetto
@@ -603,7 +609,10 @@ const caricaBlocchetto = async ({ riprendi = false } = {}) => {
     const pagamenti = pagamentiDelBlocchetto(await getPagamentiBlocchetto(numero), numero)
     if (numero !== sessionData.numeroBlocchetto) return // nel frattempo e' cambiato
     pagamentiBlocco.value = pagamenti
-    riepilogoBlocco.value = riepilogoBlocchetto(pagamenti)
+    riepilogoBlocco.value = riepilogoBlocchetto(
+      pagamenti,
+      intervalloBlocchetto(numero, config.value.receiptsPerBlock),
+    )
   } catch (error) {
     console.error('Lettura del blocchetto non riuscita:', error)
     pagamentiBlocco.value = []
@@ -611,8 +620,9 @@ const caricaBlocchetto = async ({ riprendi = false } = {}) => {
     erroreBlocco.value = 'Non sono riuscito a leggere le ricevute di questo blocchetto.'
   }
   if (riprendi && numero > 0) {
-    const ultima = riepilogoBlocco.value?.ultima
-    currentReceipt.numero = ultima ? ultima + 1 : (numero - 1) * config.value.receiptsPerBlock + 1
+    // La prima ricevuta ancora da inserire; se il blocchetto non si legge, la prima del blocchetto
+    const daRiprendere = riepilogoBlocco.value && ricevutaDaCuiRiprendere(riepilogoBlocco.value)
+    currentReceipt.numero = daRiprendere ?? (numero - 1) * config.value.receiptsPerBlock + 1
   }
   await aggiornaRicevuta()
 }

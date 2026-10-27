@@ -1,7 +1,9 @@
 /**
  * Conti di un blocchetto di ricevute, dai pagamenti registrati (tesseramenti).
  * Un blocchetto e' l'insieme dei pagamenti con lo stesso numero_blocchetto, come
- * nella pagina Blocchetti: le ricevute non hanno un intervallo fisso.
+ * nella pagina Blocchetti. I numeri sono progressivi e non ricominciano ogni anno:
+ * con 10 ricevute per blocchetto il blocchetto 1 va da 1 a 10, il 2 da 11 a 20
+ * (impostazione "Ricevute per blocchetto", la stessa che usa Registra ricevute).
  */
 
 const numero = (valore) => {
@@ -20,12 +22,30 @@ export function pagamentiDelBlocchetto(tesseramenti, numeroBlocchetto) {
 }
 
 /**
- * Riepilogo di un blocchetto: ricevute inserite, buchi nella numerazione, soci, incassato.
- * @param {Array<object>} pagamenti i tesseramenti del blocchetto
- * @returns {{ ricevute: number, prima: number|null, ultima: number|null,
- *   mancanti: number[], soci: number, incassato: number, senzaRicevuta: number }}
+ * Ricevute di un blocchetto: con 10 per blocchetto, il 2 va da 11 a 20.
+ * @param {number} numeroBlocchetto
+ * @param {number} ricevutePerBlocchetto
+ * @returns {{ da: number, a: number }|null} null se uno dei due numeri non e' valido
  */
-export function riepilogoBlocchetto(pagamenti) {
+export function intervalloBlocchetto(numeroBlocchetto, ricevutePerBlocchetto) {
+  const n = numero(numeroBlocchetto)
+  const per = numero(ricevutePerBlocchetto)
+  if (n === null || per === null) return null
+  return { da: (n - 1) * per + 1, a: n * per }
+}
+
+/**
+ * Riepilogo di un blocchetto: ricevute inserite, buchi nella numerazione, soci, incassato.
+ * Con l'intervallo del blocchetto i buchi partono dalla prima ricevuta del blocchetto,
+ * si sa quali ricevute restano da inserire e quali numeri sono fuori dal blocchetto.
+ * @param {Array<object>} pagamenti i tesseramenti del blocchetto
+ * @param {{ da: number, a: number }|null} [intervallo]
+ * @returns {{ ricevute: number, prima: number|null, ultima: number|null,
+ *   mancanti: number[], soci: number, incassato: number, senzaRicevuta: number,
+ *   intervallo: { da: number, a: number }|null, daInserire: { da: number, a: number }|null,
+ *   fuori: number[] }}
+ */
+export function riepilogoBlocchetto(pagamenti, intervallo = null) {
   const ricevute = new Set()
   const soci = new Set()
   let incassato = 0
@@ -40,8 +60,20 @@ export function riepilogoBlocchetto(pagamenti) {
   const ordinate = [...ricevute].sort((a, b) => a - b)
   const prima = ordinate[0] ?? null
   const ultima = ordinate.at(-1) ?? null
+  const dentro = intervallo ? ordinate.filter((r) => r >= intervallo.da && r <= intervallo.a) : ordinate
+  const fuori = intervallo ? ordinate.filter((r) => r < intervallo.da || r > intervallo.a) : []
+  // Buchi: dalla prima ricevuta (del blocchetto, se si conosce) all'ultima inserita
+  const inizio = intervallo ? intervallo.da : prima
+  const ultimaDentro = dentro.at(-1) ?? null
   const mancanti = []
-  for (let r = prima; prima !== null && r <= ultima; r++) if (!ricevute.has(r)) mancanti.push(r)
+  for (let r = inizio; ultimaDentro !== null && r <= ultimaDentro; r++) {
+    if (!ricevute.has(r)) mancanti.push(r)
+  }
+  let daInserire = null
+  if (intervallo) {
+    const da = ultimaDentro === null ? intervallo.da : ultimaDentro + 1
+    if (da <= intervallo.a) daInserire = { da, a: intervallo.a }
+  }
   return {
     ricevute: ordinate.length,
     prima,
@@ -50,7 +82,21 @@ export function riepilogoBlocchetto(pagamenti) {
     soci: soci.size,
     incassato: Math.round(incassato * 100) / 100,
     senzaRicevuta,
+    intervallo,
+    daInserire,
+    fuori,
   }
+}
+
+/**
+ * Da quale ricevuta riprendere: la prima ancora da inserire, oppure l'ultima
+ * inserita se il blocchetto e' completo.
+ * @param {ReturnType<typeof riepilogoBlocchetto>} riepilogo
+ * @returns {number|null}
+ */
+export function ricevutaDaCuiRiprendere(riepilogo) {
+  if (riepilogo.intervallo) return riepilogo.daInserire?.da ?? riepilogo.intervallo.a
+  return riepilogo.ultima === null ? null : riepilogo.ultima + 1
 }
 
 /**

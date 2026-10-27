@@ -2,7 +2,15 @@
   <section class="blocchetto" aria-labelledby="blocchetto-titolo">
     <h2 id="blocchetto-titolo" class="blocchetto__titolo">
       <AppIcon name="blocchetto" /> Blocchetto {{ numero }}
+      <span v-if="intervallo" class="blocchetto__intervallo">
+        ricevute {{ intervallo.da }}–{{ intervallo.a }}
+      </span>
     </h2>
+
+    <p v-if="ricevutaFuori" class="blocchetto__nota blocchetto__nota--attenzione" role="status">
+      <AppIcon name="attenzione" />
+      La ricevuta {{ ricevutaCorrente }} non è del blocchetto {{ numero }}: controlla i due numeri.
+    </p>
 
     <p v-if="errore" class="blocchetto__nota blocchetto__nota--errore" role="alert">
       <AppIcon name="errore" /> {{ errore }}
@@ -18,8 +26,11 @@
         <div>
           <dt>Ricevute</dt>
           <dd>
-            {{ riepilogo.ricevute }}
-            <span class="blocchetto__dettaglio">
+            {{ intervallo ? riepilogo.ricevute - riepilogo.fuori.length : riepilogo.ricevute }}
+            <span v-if="intervallo" class="blocchetto__dettaglio">
+              su {{ intervallo.a - intervallo.da + 1 }}
+            </span>
+            <span v-else class="blocchetto__dettaglio">
               (dalla {{ riepilogo.prima }} alla {{ riepilogo.ultima }})
             </span>
           </dd>
@@ -38,10 +49,10 @@
         <p class="blocchetto__nota">
           {{
             riepilogo.mancanti.length === 1
-              ? 'Manca 1 ricevuta'
-              : `Mancano ${riepilogo.mancanti.length} ricevute`
+              ? 'Saltata 1 ricevuta'
+              : `Saltate ${riepilogo.mancanti.length} ricevute`
           }}
-          tra la {{ riepilogo.prima }} e la {{ riepilogo.ultima }}:
+          prima dell'ultima inserita:
         </p>
         <ul class="blocchetto__elenco">
           <li v-for="r in mancantiVisibili" :key="r">
@@ -62,6 +73,25 @@
       <p v-else class="blocchetto__nota blocchetto__nota--ok">
         <AppIcon name="ok" /> Nessun buco nella numerazione.
       </p>
+
+      <p v-if="riepilogo.daInserire" class="blocchetto__nota">
+        <template v-if="riepilogo.daInserire.da === riepilogo.daInserire.a">
+          Da inserire: la {{ riepilogo.daInserire.da }}.
+        </template>
+        <template v-else>
+          Da inserire: dalla {{ riepilogo.daInserire.da }} alla {{ riepilogo.daInserire.a }}.
+        </template>
+      </p>
+      <p v-else-if="intervallo" class="blocchetto__nota blocchetto__nota--ok">
+        <AppIcon name="ok" /> Blocchetto arrivato all'ultima ricevuta.
+      </p>
+
+      <p v-if="riepilogo.fuori.length > 0" class="blocchetto__nota blocchetto__nota--attenzione">
+        <AppIcon name="attenzione" />
+        {{ riepilogo.fuori.length === 1 ? 'Una ricevuta registrata' : `${riepilogo.fuori.length} ricevute registrate` }}
+        con questo blocchetto {{ riepilogo.fuori.length === 1 ? 'ha' : 'hanno' }} un numero fuori dal
+        blocchetto: {{ fuoriVisibili }}.
+      </p>
       <p v-if="riepilogo.senzaRicevuta > 0" class="blocchetto__nota">
         {{ riepilogo.senzaRicevuta }}
         {{ riepilogo.senzaRicevuta === 1 ? 'pagamento' : 'pagamenti' }} senza numero di ricevuta.
@@ -70,12 +100,12 @@
 
     <div class="blocchetto__azioni">
       <BaseButton
-        v-if="riepilogo && riepilogo.ultima !== null && ricevutaCorrente !== riepilogo.ultima + 1"
+        v-if="riprendiDa !== null && riprendiDa !== ricevutaCorrente"
         variant="ghost"
         :disabled="disabilitato"
-        @click="emit('vai', riepilogo.ultima + 1)"
+        @click="emit('vai', riprendiDa)"
       >
-        <AppIcon name="successivo" /> Riprendi dalla ricevuta {{ riepilogo.ultima + 1 }}
+        <AppIcon name="successivo" /> Riprendi dalla ricevuta {{ riprendiDa }}
       </BaseButton>
       <BaseButton :disabled="disabilitato" @click="emit('successivo')">
         <AppIcon name="blocchetto" /> Passa al blocchetto {{ numero + 1 }}
@@ -88,9 +118,11 @@
 import { computed } from 'vue'
 import AppIcon from '@/components/base/AppIcon.vue'
 import BaseButton from '@/components/base/BaseButton.vue'
+import { ricevutaDaCuiRiprendere } from '@/utils/blocchetto'
 
 // Il blocchetto che si sta ricopiando: cosa e' gia' inserito, i buchi nella
-// numerazione (con un clic si va alla ricevuta) e il passaggio al blocchetto dopo.
+// numerazione (con un clic si va alla ricevuta), cosa resta da inserire, i numeri
+// fuori dal blocchetto e il passaggio al blocchetto dopo.
 const MOSTRATE = 30
 
 const props = defineProps({
@@ -102,6 +134,18 @@ const props = defineProps({
 })
 const emit = defineEmits(['vai', 'successivo'])
 
+const intervallo = computed(() => props.riepilogo?.intervallo ?? null)
+const ricevutaFuori = computed(
+  () =>
+    intervallo.value !== null &&
+    props.ricevutaCorrente !== null &&
+    (props.ricevutaCorrente < intervallo.value.da || props.ricevutaCorrente > intervallo.value.a),
+)
+const riprendiDa = computed(() => (props.riepilogo ? ricevutaDaCuiRiprendere(props.riepilogo) : null))
+const fuoriVisibili = computed(() => {
+  const fuori = props.riepilogo.fuori
+  return fuori.slice(0, 10).join(', ') + (fuori.length > 10 ? ` e altre ${fuori.length - 10}` : '')
+})
 const mancantiVisibili = computed(() => props.riepilogo.mancanti.slice(0, MOSTRATE))
 const altreMancanti = computed(() => Math.max(0, props.riepilogo.mancanti.length - MOSTRATE))
 const euro = (valore) => Number(valore || 0).toFixed(2)
@@ -168,6 +212,21 @@ const euro = (valore) => Number(valore || 0).toFixed(2)
 
 .blocchetto__nota--errore {
   color: var(--color-danger);
+}
+
+.blocchetto__nota--attenzione {
+  color: var(--color-text-primary);
+  padding: var(--space-8) var(--space-12);
+  border-left: 3px solid var(--color-warning);
+  background: var(--color-surface-hover);
+}
+
+.blocchetto__intervallo {
+  margin-left: auto;
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-label);
+  font-weight: 400;
+  color: var(--color-text-secondary);
 }
 
 .blocchetto__mancanti {

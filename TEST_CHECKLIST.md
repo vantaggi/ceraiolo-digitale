@@ -249,8 +249,12 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 
 ### Test 14.2: Riquadro del blocchetto
 
-- [ ] Scelto un blocchetto gia' iniziato, la ricevuta riparte da quella dopo l'ultima inserita
-- [ ] Il riquadro dice quante ricevute, quanti soci e quanto incassato; se manca una ricevuta in mezzo la elenca, e un clic porta li'
+- [ ] Con 10 ricevute per blocchetto (Impostazioni › Generale) il riquadro del blocchetto 2 dice "ricevute 11–20"
+- [ ] Scelto un blocchetto vuoto la ricevuta parte dalla prima del blocchetto (blocchetto 2: 11); gia' iniziato, dalla prima ancora da inserire
+- [ ] Il riquadro dice quante ricevute su 10, quanti soci e quanto incassato; se manca una ricevuta (anche la prima del blocchetto) la elenca, e un clic porta li'
+- [ ] "Da inserire" dice quali ricevute restano fino alla fine del blocchetto; finito il blocchetto dice che e' arrivato all'ultima
+- [ ] Andando con la freccia oltre l'ultima ricevuta compare l'avviso "La ricevuta N non e' del blocchetto"
+- [ ] Sui blocchetti gia' registrati: se compare "ricevute registrate con un numero fuori dal blocchetto", la regola delle 10 ricevute non vale per quel blocchetto (segnarlo nel foglio esiti)
 - [ ] Una ricevuta inserita in un altro giorno mostra i suoi soci (anche dopo aver ricaricato la pagina)
 - [ ] Dopo ogni pagamento (anche in Turbo e con "Nuovo socio") ricevuta, totale e riquadro si aggiornano; togliendo un socio dalla ricevuta il buco ricompare
 - [ ] "Passa al blocchetto N+1" cambia blocchetto e rimette il cursore nella ricerca
