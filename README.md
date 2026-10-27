@@ -85,6 +85,16 @@ npm run dev
 
 L'applicazione si aprirà automaticamente nel browser all'indirizzo `http://localhost:5173`. Al primo avvio, verrai reindirizzato alla pagina di importazione del database. Seleziona il file `santantoniari_test.sqlite` generato nel passo precedente.
 
+## Usarla senza connessione
+
+L'app si installa dal browser e poi funziona anche offline:
+
+1. Con internet, apri https://vantaggi.github.io/ceraiolo-digitale/ in Chrome o Edge.
+2. Installa l'app (icona "Installa" nella barra dell'indirizzo). Da quel momento si apre dall'icona sul desktop, anche senza rete.
+3. Gli aggiornamenti si scaricano quando c'e' internet e partono alla riapertura successiva.
+
+I dati stanno nel browser e sono legati all'indirizzo da cui si apre l'app: la versione installata, `npm run dev` (localhost:5173) e altri indirizzi hanno database separati. Per passare da uno all'altro: backup da Impostazioni › Dati e ripristino nell'altro. Se l'app si apre vuota, prima di importare qualcosa controlla di averla aperta dal solito indirizzo.
+
 ## 4. Funzionalità Principali
 
 L'applicazione include le seguenti funzionalità:
