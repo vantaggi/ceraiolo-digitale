@@ -2,6 +2,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useToast } from 'vue-toastification'
 import { askConfirm } from '@/composables/useDialog'
+import AppIcon from '@/components/base/AppIcon.vue'
 import {
   db,
   getAllBlocchetti,
@@ -316,9 +317,9 @@ const formatDate = (dateString) => {
                  <span class="badge green">€ {{ b.totaleIncassato }}</span>
               </td>
               <td class="action-cell">
-                 <button v-if="b.isReal && !b.data_restituzione" @click="handleReturn(b.id, b.numero_blocchetto)" class="action-btn ok-btn" title="Segna come Restituito">✅</button>
-                 <button @click="toggleDetails(b.numero_blocchetto)" class="action-btn info-btn" title="Esplora Ricevute in questo blocchetto">🔎</button>
-                 <button v-if="b.isReal" @click="handleDelete(b.id, b.numero_blocchetto)" class="action-btn delete-btn" title="Elimina Assegnazione (Diventerà Storico)">🗑️</button>
+                 <button v-if="b.isReal && !b.data_restituzione" @click="handleReturn(b.id, b.numero_blocchetto)" class="action-btn ok-btn" title="Segna come Restituito" aria-label="Segna come restituito"><AppIcon name="restituisci" /></button>
+                 <button @click="toggleDetails(b.numero_blocchetto)" class="action-btn info-btn" title="Esplora Ricevute in questo blocchetto" aria-label="Esplora le ricevute del blocchetto"><AppIcon name="dettagli" /></button>
+                 <button v-if="b.isReal" @click="handleDelete(b.id, b.numero_blocchetto)" class="action-btn delete-btn" title="Elimina Assegnazione (Diventerà Storico)" aria-label="Elimina assegnazione"><AppIcon name="elimina" /></button>
               </td>
             </tr>
             <!-- Dettaglio Espanso: Ricevute e Soci -->

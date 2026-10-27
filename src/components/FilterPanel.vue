@@ -1,15 +1,17 @@
 <template>
   <div class="filter-panel">
     <div class="filter-header">
-      <h3>🔍 Filtri</h3>
-      <button v-if="hasActiveFilters" @click="resetFilters" class="reset-button">✕ Reset</button>
+      <h3><AppIcon name="filtri" /> Filtri</h3>
+      <button v-if="hasActiveFilters" @click="resetFilters" class="reset-button">
+        <AppIcon name="chiudi" /> Reset
+      </button>
     </div>
 
     <div class="filter-controls">
       <!-- Filtro Età -->
       <div class="filter-group">
         <label for="age-filter">
-          <span class="filter-icon">🎂</span>
+          <AppIcon name="eta" class="filter-icon" />
           Età
         </label>
         <select
@@ -27,7 +29,7 @@
       <!-- Filtro Gruppo -->
       <div class="filter-group">
         <label for="group-filter">
-          <span class="filter-icon">👥</span>
+          <AppIcon name="gruppo" class="filter-icon" />
           Gruppo
         </label>
         <select
@@ -54,6 +56,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { getUniqueGroups } from '@/services/db'
+import AppIcon from '@/components/base/AppIcon.vue'
 
 // Props per ricevere i valori iniziali dal parent
 const props = defineProps({

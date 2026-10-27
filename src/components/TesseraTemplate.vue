@@ -7,7 +7,7 @@
     >
       <!-- Messaggio PDF Template -->
       <div v-if="hasPdfTemplate && !backgroundImage" class="pdf-template-message">
-        <div class="pdf-icon">📄</div>
+        <AppIcon name="documento" class="pdf-icon" size="24" />
         <div class="pdf-text">PDF Template<br />Configurato</div>
       </div>
 
@@ -22,6 +22,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import AppIcon from '@/components/base/AppIcon.vue'
 
 const props = defineProps({
   nomeCognome: {
@@ -150,8 +151,8 @@ const cardStyle = computed(() => ({
 }
 
 .pdf-icon {
-  font-size: 24px;
-  margin-bottom: 8px;
+  display: block;
+  margin: 0 auto 8px;
 }
 
 .pdf-text {

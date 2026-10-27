@@ -2,14 +2,16 @@
   <div v-if="show" class="modal-overlay" @click="closeModal">
     <div class="modal-content" @click.stop>
       <div class="modal-header">
-        <h3>💳 Registra Pagamento</h3>
-        <button @click="closeModal" class="close-button">✕</button>
+        <h3><AppIcon name="pagamento" /> Registra Pagamento</h3>
+        <button type="button" @click="closeModal" class="close-button" aria-label="Chiudi">
+          <AppIcon name="chiudi" />
+        </button>
       </div>
 
       <form @submit.prevent="handleSubmit" class="payment-form">
         <div class="form-group">
           <label for="quota-pagata">
-            <span class="field-icon">💰</span>
+            <AppIcon name="quota" class="field-icon" />
             Quota Pagata (€)
           </label>
           <input
@@ -27,7 +29,7 @@
 
         <div class="form-group">
           <label for="data-pagamento">
-            <span class="field-icon">📅</span>
+            <AppIcon name="data" class="field-icon" />
             Data Pagamento
           </label>
           <input
@@ -42,7 +44,7 @@
 
         <div class="form-group">
           <label for="numero-blocchetto">
-            <span class="field-icon">📄</span>
+            <AppIcon name="blocchetto" class="field-icon" />
             N. Blocchetto
           </label>
           <input
@@ -58,7 +60,7 @@
 
         <div class="form-group">
           <label for="numero-ricevuta">
-            <span class="field-icon">🧾</span>
+            <AppIcon name="ricevuta" class="field-icon" />
             N. Ricevuta
           </label>
           <input
@@ -75,7 +77,7 @@
         <!-- Years Selection -->
         <div class="form-group">
           <label>
-            <span class="field-icon">📅</span>
+            <AppIcon name="data" class="field-icon" />
             Anni di Tesseramento
           </label>
           <div class="years-selection">
@@ -112,6 +114,7 @@
 
 <script setup>
 import { ref, reactive, watch, nextTick } from 'vue'
+import AppIcon from '@/components/base/AppIcon.vue'
 import { getTesseramentiBySocioId, getSetting, calculateAgeInYear, isExemptFromPayment } from '@/services/db'
 
 const emit = defineEmits(['close', 'payments-saved'])

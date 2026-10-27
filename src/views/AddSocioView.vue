@@ -3,7 +3,9 @@
     <div class="form-container">
       <!-- Header -->
       <div class="form-header">
-        <router-link to="/" class="back-link">← Torna alla ricerca</router-link>
+        <router-link to="/" class="back-link">
+          <AppIcon name="indietro" /> Torna alla ricerca
+        </router-link>
         <h1>+ Nuovo Socio</h1>
       </div>
 
@@ -13,7 +15,7 @@
         <div class="form-row">
           <div class="form-group">
             <label for="nome">
-              <span class="field-icon">👤</span>
+              <AppIcon name="socio" class="field-icon" />
               Nome
             </label>
             <input
@@ -29,7 +31,7 @@
 
           <div class="form-group">
             <label for="cognome">
-              <span class="field-icon">📝</span>
+              <AppIcon name="anagrafica" class="field-icon" />
               Cognome
             </label>
             <input
@@ -47,7 +49,7 @@
         <div class="form-row">
           <div class="form-group">
             <label for="data-nascita">
-              <span class="field-icon">🎂</span>
+              <AppIcon name="eta" class="field-icon" />
               Data di Nascita
             </label>
             <input
@@ -62,7 +64,7 @@
 
           <div class="form-group">
             <label for="luogo-nascita">
-              <span class="field-icon">📍</span>
+              <AppIcon name="luogo" class="field-icon" />
               Luogo di Nascita
             </label>
             <input
@@ -79,7 +81,7 @@
         <!-- Gruppo appartenenza -->
         <div class="form-group">
           <label for="gruppo-appartenenza">
-            <span class="field-icon">👥</span>
+            <AppIcon name="gruppo" class="field-icon" />
             Gruppo di Appartenenza
           </label>
           <select
@@ -99,7 +101,7 @@
         <!-- Campo nuovo gruppo (se selezionato "Nuovo Gruppo") -->
         <div v-if="formData.gruppo_appartenenza === 'Nuovo'" class="form-group">
           <label for="nuovo-gruppo">
-            <span class="field-icon">✨</span>
+            <AppIcon name="aggiungi" class="field-icon" />
             Nome Nuovo Gruppo
           </label>
           <input
@@ -115,7 +117,7 @@
         <!-- Anno prima iscrizione (opzionale) -->
         <div class="form-group">
           <label for="data-prima-iscrizione">
-            <span class="field-icon">📅</span>
+            <AppIcon name="data" class="field-icon" />
             Anno Prima Iscrizione (opzionale)
           </label>
           <input
@@ -132,7 +134,7 @@
         <!-- Note -->
         <div class="form-group">
           <label for="note">
-            <span class="field-icon">📝</span>
+            <AppIcon name="nota" class="field-icon" />
             Note (opzionale)
           </label>
           <textarea
@@ -148,7 +150,8 @@
         <div class="form-actions">
           <router-link to="/" class="cancel-button">Annulla</router-link>
           <button type="submit" class="save-button" :disabled="isSubmitting">
-            {{ isSubmitting ? '💾 Salvando...' : '👤 Salva Nuovo Socio' }}
+            <AppIcon :name="isSubmitting ? 'caricamento' : 'nuovo-socio'" :spin="isSubmitting" />
+            {{ isSubmitting ? 'Salvataggio...' : 'Salva Nuovo Socio' }}
           </button>
         </div>
       </form>
@@ -161,6 +164,7 @@ import { ref, reactive, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useToast } from 'vue-toastification'
 import { addSocio, getUniqueGroups, getSetting, addCustomGroup } from '@/services/db'
+import AppIcon from '@/components/base/AppIcon.vue'
 
 const router = useRouter()
 const toast = useToast()

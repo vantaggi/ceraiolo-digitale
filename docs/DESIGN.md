@@ -72,9 +72,35 @@ Restano da correggere in G-4, perche' dipendono da colori scritti a mano nelle v
 ## Conflitti dichiarati
 
 - **Font.** La Constitution usa il font di sistema; il progetto usa Merriweather (titoli) e Inter (testo) da Google Fonts. Si tengono: sono l'identita' del progetto. Da valutare l'hosting locale dei font, perche' l'app lavora offline.
-- **Icone.** La Constitution vuole Lucide in SVG; oggi ci sono 194 emoji usate come icone in 16 file (navigazione inclusa). Si passa a Lucide a lotti, per schermata.
+- **Icone.** La Constitution vuole Lucide in SVG; il 25 ottobre c'erano 210 emoji e simboli usati come icone in 16 file. Si passa a Lucide a lotti, per schermata (vedi "Icone" sotto).
 - **Conferme.** 10 `confirm()` del browser; la Constitution chiede che la conferma distruttiva nomini l'oggetto e la conseguenza. Si sostituiscono con un componente di dialogo unico, partendo da `ConfirmDeleteModal`.
 - **Tema ad alto contrasto.** Non previsto per ora: app desktop usata da poche persone. Si rivaluta se serve.
+
+## Icone
+
+Solo Lucide, tramite `AppIcon` (`src/components/base/AppIcon.vue`). Un concetto ha una sola icona: la tabella vive in `src/components/base/icons.js`, qui il riassunto. L'icona e' decorativa quando c'e' un testo accanto; un bottone con la sola icona ha `aria-label` (o `label` su `AppIcon`).
+
+| Concetto | Icona | Concetto | Icona |
+| --- | --- | --- | --- |
+| ricerca | Search | pagamento | CreditCard |
+| registrazione-seriale | ListPlus | quota | Euro |
+| blocchetto | NotebookText | data | Calendar |
+| ricevuta | ReceiptText | documento | FileText |
+| report | ChartColumn | rinnovo-rapido | Zap |
+| impostazioni | Settings | tessera | IdCard |
+| socio / nuovo-socio | User / UserPlus | anagrafica | UserRound |
+| gruppo | Users | eta | Cake |
+| luogo | MapPin | nota | StickyNote |
+| aggiungi / modifica | Plus / Pencil | salva / conferma | Save / Check |
+| chiudi | X | elimina | Trash2 |
+| esporta | Download | restituisci | Undo2 |
+| dettagli | Eye | filtri | Funnel |
+| indietro / precedente / successivo | ArrowLeft / ChevronLeft / ChevronRight | link | Link |
+| errore | CircleAlert | caricamento | LoaderCircle (gira) |
+| recenti / attivita / changelog | History / Activity / ScrollText | ripara | Wrench |
+| in-aumento / in-calo / stabile | TrendingUp / TrendingDown / Minus | tema-chiaro / tema-scuro | Sun / Moon |
+
+Le lettere V, X, O e - dei badge di stato dei pagamenti restano per ora: sono testo accanto all'etichetta, non emoji. Se sono la notazione del registro cartaceo si tengono, altrimenti diventano icone (da chiedere al proprietario).
 
 ## Debiti
 
@@ -86,5 +112,5 @@ Restano da correggere in G-4, perche' dipendono da colori scritti a mano nelle v
 
 1. G-1 (fatto): token mancanti (`status-error`, `space-*`, `radius-*`, ruoli tipografici, `focus-ring`, `surface-elevated`, `border-strong`) e correzione dei contrasti; `src/assets/__tests__/tokens.test.js` rifiuta `var(--x)` non definiti e colori senza valore scuro.
 2. G-2: `BaseModal` e `BaseButton`, poi via i `confirm()` nativi.
-3. G-3: tabella concetto -> icona Lucide, poi via le emoji schermata per schermata.
+3. G-3: tabella concetto -> icona Lucide, poi via le emoji schermata per schermata. Lotto 1 fatto (navigazione, Home, scheda socio, nuovo socio, blocchetti, componenti condivisi); lotto 2 Impostazioni e Registrazione seriale; lotto 3 i Report, dopo la decisione su Report Beta. `src/components/__tests__/icone.test.js` tiene la lista dei file ancora da migrare.
 4. G-4: colori scritti a mano sostituiti dai token, vista per vista.

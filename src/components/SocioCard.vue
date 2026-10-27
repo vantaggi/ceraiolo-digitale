@@ -11,13 +11,16 @@
         @click="$emit('quick-renew', socio)"
         class="renew-button"
         title="Rinnova Velocemente"
+        aria-label="Rinnova velocemente"
       >
-        ⚡
+        <AppIcon name="rinnovo-rapido" />
       </button>
       <RouterLink :to="{ name: 'socio-detail', params: { id: socio.id } }" class="details-button">
         Vedi Dettagli
       </RouterLink>
-      <button @click="$emit('generate-card', socio)" class="card-button">🎫 Genera Tessera</button>
+      <button @click="$emit('generate-card', socio)" class="card-button">
+        <AppIcon name="tessera" /> Genera Tessera
+      </button>
     </div>
   </div>
 </template>
@@ -26,6 +29,7 @@
 import { RouterLink } from 'vue-router'
 import { ref, onMounted, watch } from 'vue'
 import { getTesseramentiBySocioId } from '@/services/db'
+import AppIcon from '@/components/base/AppIcon.vue'
 
 const props = defineProps({
   socio: {

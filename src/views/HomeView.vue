@@ -66,8 +66,8 @@
             <div v-if="searchResults.length > 0" class="results-header">
               <span class="results-count">{{ searchResults.length }} soci trovati</span>
               <button @click="exportSociToPdf" :disabled="isExporting" class="pdf-export-button">
-                <span v-if="isExporting" class="loading-spinner">⏳</span>
-                {{ isExporting ? 'Esporta PDF' : '📄 Esporta PDF' }}
+                <AppIcon :name="isExporting ? 'caricamento' : 'esporta'" :spin="isExporting" />
+                Esporta PDF
               </button>
             </div>
 
@@ -87,7 +87,7 @@
 
             <!-- Recent Members (Only when empty search) -->
             <div v-if="!hasSearchCriteria && recentMembers.length > 0" class="recent-section">
-              <h3>🕒 Ultimi Soci Visitati</h3>
+              <h3><AppIcon name="recenti" /> Ultimi Soci Visitati</h3>
               <div class="results-list">
                 <SocioCard
                   v-for="socio in recentMembers"
@@ -107,11 +107,13 @@
 
         <!-- Right Column: Sidebar (Activity) -->
         <aside class="activity-sidebar">
-          <h3>⚡ Attività Recente</h3>
+          <h3><AppIcon name="attivita" /> Attività Recente</h3>
           <div v-if="activityLogs.length > 0" class="activity-list">
             <div v-for="log in activityLogs" :key="log.id" class="activity-item">
               <div class="activity-icon" :class="log.type">
-                {{ log.type === 'create' ? '✨' : log.type === 'update' ? '📝' : '🗑️' }}
+                <AppIcon
+                  :name="log.type === 'create' ? 'aggiungi' : log.type === 'update' ? 'modifica' : 'elimina'"
+                />
               </div>
               <div class="activity-content">
                 <div class="activity-desc">{{ log.description }}</div>
@@ -122,11 +124,14 @@
           <div v-else class="empty-activity">Nessuna attività registrata di recente.</div>
 
           <div class="quick-links">
-            <h4>🔗 Link Rapidi</h4>
+            <h4><AppIcon name="link" /> Link Rapidi</h4>
             <router-link to="/registrazione-seriale" class="q-link"
-              >🔄 Inserimento Rapido</router-link
+              >
+              <AppIcon name="registrazione-seriale" /> Inserimento Rapido</router-link
             >
-            <router-link to="/reports" class="q-link">📊 Report Annuali</router-link>
+            <router-link to="/reports" class="q-link">
+              <AppIcon name="report" /> Report Annuali
+            </router-link>
           </div>
         </aside>
       </div>
@@ -140,12 +145,18 @@
       <!-- Utility Footer -->
       <footer class="dashboard-footer">
         <div class="footer-actions">
-          <button @click="exportDatabase" class="utility-button secondary">📥 Backup DB</button>
-          <button @click="exportChangeLogData" class="utility-button secondary">
-            📊 Changelog
+          <button @click="exportDatabase" class="utility-button secondary">
+            <AppIcon name="esporta" /> Backup DB
           </button>
-          <button @click="runNormalization" class="utility-button warning" title="Sistema i blocchetti storici invertiti">🔧 Fix DB Invertito</button>
-          <button @click="clearDatabase" class="utility-button danger">🗑️ Reset DB</button>
+          <button @click="exportChangeLogData" class="utility-button secondary">
+            <AppIcon name="changelog" /> Changelog
+          </button>
+          <button @click="runNormalization" class="utility-button warning" title="Sistema i blocchetti storici invertiti">
+            <AppIcon name="ripara" /> Fix DB Invertito
+          </button>
+          <button @click="clearDatabase" class="utility-button danger">
+            <AppIcon name="elimina" /> Reset DB
+          </button>
         </div>
         <p class="footer-note">Sistema Gestionale Ceraiolo Digitale - v1.0</p>
       </footer>
@@ -173,6 +184,7 @@ import { generateAndDownloadSociPDF, generateSingleCardPDF } from '@/services/ex
 import SocioCard from '@/components/SocioCard.vue'
 import FilterPanel from '@/components/FilterPanel.vue'
 import DashboardCharts from '@/components/DashboardCharts.vue'
+import AppIcon from '@/components/base/AppIcon.vue'
 
 // Stato dell'applicazione
 const searchTerm = ref('')

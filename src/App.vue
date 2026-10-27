@@ -2,13 +2,17 @@
 import { useThemeStore } from './stores/theme'
 import logoSantantoniari from '@/assets/logo_santantoniari.jpg'
 import { useRouter } from 'vue-router'
-import { onMounted, onBeforeUnmount, ref } from 'vue'
+import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
 import KeyboardShortcutsModal from '@/components/KeyboardShortcutsModal.vue'
 import AppDialog from '@/components/AppDialog.vue'
+import AppIcon from '@/components/base/AppIcon.vue'
 
 const themeStore = useThemeStore()
 const router = useRouter()
 const showShortcutsModal = ref(false)
+const themeLabel = computed(() =>
+  themeStore.currentTheme === 'dark' ? 'Passa al tema chiaro' : 'Passa al tema scuro',
+)
 
 const handleGlobalKeydown = (e) => {
   // Ignore if typing in input/textarea (unless it involves modifiers checking context?)
@@ -57,15 +61,21 @@ onBeforeUnmount(() => {
         <h1 class="app-title">Ceraiolo Digitale</h1>
       </div>
       <nav>
-        <RouterLink to="/" class="nav-link">🏠 Ricerca</RouterLink>
+        <RouterLink to="/" class="nav-link"><AppIcon name="ricerca" /> Ricerca</RouterLink>
         <RouterLink to="/registrazione-seriale" class="nav-link"
-          >🔄 Registrazione Seriale</RouterLink
+          ><AppIcon name="registrazione-seriale" /> Registrazione Seriale</RouterLink
         >
-        <RouterLink to="/blocchetti" class="nav-link">🧾 Blocchetti</RouterLink>
-        <RouterLink to="/reports" class="nav-link">📊 Report</RouterLink>
-        <RouterLink to="/settings" class="nav-link">⚙️ Impostazioni</RouterLink>
-        <button @click="themeStore.toggleTheme" class="theme-toggle" title="Cambia Tema">
-          {{ themeStore.currentTheme === 'dark' ? '🔥' : '🕯️' }}
+        <RouterLink to="/blocchetti" class="nav-link"><AppIcon name="blocchetto" /> Blocchetti</RouterLink>
+        <RouterLink to="/reports" class="nav-link"><AppIcon name="report" /> Report</RouterLink>
+        <RouterLink to="/settings" class="nav-link"><AppIcon name="impostazioni" /> Impostazioni</RouterLink>
+        <button
+          type="button"
+          @click="themeStore.toggleTheme"
+          class="theme-toggle"
+          :title="themeLabel"
+          :aria-label="themeLabel"
+        >
+          <AppIcon :name="themeStore.currentTheme === 'dark' ? 'tema-chiaro' : 'tema-scuro'" />
         </button>
       </nav>
     </header>
@@ -188,7 +198,7 @@ nav {
   transform: rotate(15deg);
 }
 
-/* 📱 Responsive Mobile */
+/* Responsive Mobile */
 @media (max-width: 768px) {
   .app-header {
     flex-direction: column;
