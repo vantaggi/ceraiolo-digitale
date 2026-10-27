@@ -190,6 +190,30 @@ export async function deleteBlocchetto(id) {
 }
 
 /**
+ * Pagamenti registrati su un blocchetto. Il numero puo' essere salvato come numero
+ * o come testo (dipende da come e' arrivato il dato), quindi si cercano entrambi.
+ * @param {number} numeroBlocchetto
+ * @returns {Promise<Array>} tesseramenti del blocchetto
+ */
+export async function getPagamentiBlocchetto(numeroBlocchetto) {
+  const n = Number(numeroBlocchetto)
+  if (!Number.isInteger(n) || n <= 0) return []
+  return db.tesseramenti.where('numero_blocchetto').anyOf([n, String(n)]).toArray()
+}
+
+/**
+ * Cognome e nome di alcuni soci, per id.
+ * @param {Array<number>} ids
+ * @returns {Promise<Map<number, {cognome: string, nome: string}>>}
+ */
+export async function getNomiSoci(ids) {
+  const soci = await db.soci.bulkGet([...new Set(ids)])
+  return new Map(
+    soci.filter(Boolean).map((s) => [s.id, { cognome: s.cognome, nome: s.nome }]),
+  )
+}
+
+/**
  * Auto-syncs blocchetti from existing tesseramenti data.
  * Reads all payments, groups by numero_blocchetto, and creates any missing blocchetto records.
  */
