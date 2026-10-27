@@ -14,6 +14,22 @@ export const SCHEDE_INCASSI = [
   { to: '/incassi/blocchetti', label: 'Blocchetti', icona: 'blocchetto' },
 ]
 
+// Schede della sezione Impostazioni.
+export const SCHEDE_IMPOSTAZIONI = [
+  { to: '/settings', label: 'Generale', icona: 'configurazione' },
+  { to: '/settings/tessera', label: 'Tessera', icona: 'tessera' },
+  { to: '/settings/manicchie', label: 'Manicchie', icona: 'gruppo' },
+  { to: '/settings/dati', label: 'Dati e backup', icona: 'archivio' },
+]
+
+// Vecchi indirizzi /settings?tab=... -> nuova scheda
+export const VECCHIE_SCHEDE = {
+  generale: '/settings',
+  template: '/settings/tessera',
+  zone: '/settings/manicchie',
+  dati: '/settings/dati',
+}
+
 /**
  * Sezione del menu a cui appartiene un indirizzo.
  * @param {string} path

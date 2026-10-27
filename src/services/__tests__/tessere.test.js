@@ -138,7 +138,7 @@ describe('PDF delle tessere', () => {
   it('senza sfondo spiega dove caricarlo', async () => {
     impostazioni({})
     await expect(generateAllCardsPDF(soci.slice(0, 1), 2027)).rejects.toThrow(
-      /Impostazioni > Template Tessera/,
+      /Impostazioni > Tessera/,
     )
   })
 })
@@ -159,6 +159,6 @@ describe('anteprima uguale al file generato', () => {
     expect(settingsSorgente).toMatch(/<AnteprimaTessera/)
     // Report PDF rimanda a Impostazioni invece di ripetere l'anteprima
     expect(reportsSorgente).not.toMatch(/AnteprimaTessera|TesseraTemplate/)
-    expect(reportsSorgente).toMatch(/to="\/settings\?tab=template"/)
+    expect(reportsSorgente).toMatch(/to="\/settings\/tessera"/)
   })
 })
