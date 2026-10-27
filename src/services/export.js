@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf'
-import { PDFDocument, rgb } from 'pdf-lib'
 import * as XLSX from 'xlsx'
-import { db, getSetting, updateSetting, exportAllSoci, exportAllTesseramenti } from './db'
+import { caricaModelloTessera, creaPDFTessere } from './tessere'
+import { db, updateSetting, exportAllSoci, exportAllTesseramenti } from './db'
 import { calculatePaymentStatus, descriviArretrati, statoAnno } from '@/utils/payment'
 import logoUrl from '@/assets/logo_santantoniari.jpg'
 
@@ -791,365 +791,52 @@ export async function generateActiveMembersPDF(soci, targetYear) {
 }
 
 /**
- * Generates a PDF with a single member card using PDF template
+ * Scarica il PDF della tessera di un socio (stessa impaginazione dell'anteprima)
  * @param {Object} socio - Member object
  * @param {number} renewalYear - The year for the card
  * @returns {Promise<void>}
  */
 export async function generateSingleCardPDF(socio, renewalYear) {
-  try {
-    // Carica il PDF template dal database
-    const pdfTemplateData = await getSetting('cardTemplatePDF')
-    if (!pdfTemplateData) {
-      throw new Error('Nessun template PDF configurato. Carica un template PDF nelle impostazioni.')
-    }
+  const modello = await caricaModelloTessera()
+  const pdfBytes = await creaPDFTessere([socio], modello)
+  const blob = new Blob([pdfBytes], { type: 'application/pdf' })
 
-    // Converti i dati del template in Uint8Array
-    const templateBytes = new Uint8Array(pdfTemplateData)
-
-    // Carica il PDF template
-    const templateDoc = await PDFDocument.load(templateBytes)
-
-    // Crea un nuovo documento basato sul template
-    const pdfDoc = await PDFDocument.create()
-
-    // Copia la prima pagina del template
-    const [templatePage] = await pdfDoc.copyPages(templateDoc, [0])
-    pdfDoc.addPage(templatePage)
-
-    // Ottieni la pagina per aggiungere il testo
-    const page = pdfDoc.getPages()[0]
-    const { width, height } = page.getSize()
-
-    // Formatta la data come nel componente Vue
-    const formattaData = (dataNascita) => {
-      if (!dataNascita) return ''
-      const [anno, mese, giorno] = dataNascita.split('-')
-      const mesi = [
-        'Gennaio',
-        'Febbraio',
-        'Marzo',
-        'Aprile',
-        'Maggio',
-        'Giugno',
-        'Luglio',
-        'Agosto',
-        'Settembre',
-        'Ottobre',
-        'Novembre',
-        'Dicembre',
-      ]
-      const meseNome = mesi[parseInt(mese) - 1]
-      return `${parseInt(giorno)} ${meseNome} ${anno}`
-    }
-
-    const nomeCognome = `${socio.cognome} ${socio.nome}`
-    const dataNascitaFormattata = formattaData(socio.data_nascita)
-
-    // Calcola le dimensioni dell'area di testo (stesso calcolo di TesseraTemplate.vue)
-    // Padding: 12mm sopra/sotto, 15% sinistra/destra per forzare wrapping
-    const paddingTopBottom = 12 * 2.83465 // 12mm in punti
-    const paddingLeftRightPercent = 0.15 // 15% per area di testo più stretta
-    const availableWidth = width * (1 - 2 * paddingLeftRightPercent) // 70% della larghezza
-
-    // Centro dell'area di testo
-    const textAreaCenterX = width / 2
-    const textAreaTop = paddingTopBottom
-    const textAreaBottom = height - paddingTopBottom
-    const textAreaCenterY = (textAreaTop + textAreaBottom) / 2
-
-    const nameFontSize = 5 * 2.83465 // 5mm font size for names
-    const dateFontSize = 4.5 * 2.83465 // 4.5mm font size for dates
-    const lineSpacing = 3 * 2.83465 // 3mm gap tra righe
-    const nameMinLineHeight = 8 * 2.83465 // 8mm min-height per name line
-    const dateMinLineHeight = 6 * 2.83465 // 6mm min-height per date line
-
-    // Font - usa Times-Italic per imitare scrittura a penna
-    const font = await pdfDoc.embedFont('Times-Italic')
-
-    // Funzione per wrapping del testo
-    const wrapText = (text, maxWidth, font, size) => {
-      const words = text.split(' ')
-      const lines = []
-      let currentLine = ''
-
-      for (const word of words) {
-        const testLine = currentLine ? `${currentLine} ${word}` : word
-        const textWidth = font.widthOfTextAtSize(testLine, size)
-
-        if (textWidth <= maxWidth && currentLine) {
-          currentLine = testLine
-        } else if (textWidth <= maxWidth) {
-          currentLine = word
-        } else {
-          if (currentLine) {
-            lines.push(currentLine)
-          }
-          currentLine = word
-        }
-      }
-
-      if (currentLine) {
-        lines.push(currentLine)
-      }
-
-      return lines
-    }
-
-    // Gestisci il nome e cognome con wrapping se necessario
-    const nomeLines = wrapText(nomeCognome, availableWidth, font, nameFontSize)
-    const dataLines = wrapText(dataNascitaFormattata, availableWidth, font, dateFontSize)
-
-    // Calcola l'altezza totale del contenuto (nome + gap + data)
-    const nomeHeight = nomeLines.length * nameMinLineHeight
-    const dataHeight = dataLines.length * dateMinLineHeight
-    const gapHeight = lineSpacing
-    const totalContentHeight = nomeHeight + gapHeight + dataHeight
-
-    // Posizione Y iniziale (centrata verticalmente nell'area di testo)
-    let currentY = textAreaCenterY + totalContentHeight / 2 - nameMinLineHeight / 2
-
-    // Disegna le righe del nome (dall'alto verso il basso)
-    for (let i = 0; i < nomeLines.length; i++) {
-      const textWidth = font.widthOfTextAtSize(nomeLines[i], nameFontSize)
-      const x = textAreaCenterX - textWidth / 2 // Centra manualmente
-
-      page.drawText(nomeLines[i], {
-        x: x,
-        y: currentY,
-        size: nameFontSize,
-        font: font,
-        color: rgb(0, 0, 0),
-      })
-      currentY -= nameMinLineHeight
-    }
-
-    // Aggiungi il gap tra nome e data
-    currentY -= lineSpacing
-
-    // Disegna le righe della data
-    for (let i = 0; i < dataLines.length; i++) {
-      const textWidth = font.widthOfTextAtSize(dataLines[i], dateFontSize)
-      const x = textAreaCenterX - textWidth / 2 // Centra manualmente
-
-      page.drawText(dataLines[i], {
-        x: x,
-        y: currentY,
-        size: dateFontSize,
-        font: font,
-        color: rgb(0, 0, 0),
-      })
-      currentY -= dateMinLineHeight
-    }
-
-    // Salva il PDF
-    const pdfBytes = await pdfDoc.save()
-    const blob = new Blob([pdfBytes], { type: 'application/pdf' })
-
-    // Scarica il PDF
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = sanitizeFilename(`tessera_${socio.cognome}_${socio.nome}_${renewalYear}.pdf`)
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-  } catch (error) {
-    console.error('Errore nella generazione del PDF della tessera:', error)
-    throw error
-  }
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = sanitizeFilename(`tessera_${socio.cognome}_${socio.nome}_${renewalYear}.pdf`)
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
 }
 
 /**
- * Generates a SINGLE PDF with all member cards alphabetically using PDF template
+ * Generates a SINGLE PDF with all member cards alphabetically
  * @param {Array} soci - Array of member objects
  * @param {number} renewalYear - The year for the cards
  * @param {Function} onProgress - Callback function for progress updates
  * @returns {Promise<Array>} Array with single PDF result containing filename and blob
  */
 export async function generateAllCardsPDF(soci, renewalYear, onProgress = () => {}) {
-  try {
-    // Carica il PDF template dal database
-    const pdfTemplateData = await getSetting('cardTemplatePDF')
-    if (!pdfTemplateData) {
-      throw new Error('Nessun template PDF configurato. Carica un template PDF nelle impostazioni.')
-    }
+  const modello = await caricaModelloTessera()
+  const sociOrdinati = [...soci].sort((a, b) => a.cognome.localeCompare(b.cognome))
+  const pdfBytes = await creaPDFTessere(sociOrdinati, modello, onProgress)
+  const blob = new Blob([pdfBytes], { type: 'application/pdf' })
 
-    // Converti i dati del template in Uint8Array
-    const templateBytes = new Uint8Array(pdfTemplateData)
+  const fileName = sanitizeFilename(
+    `tessere_complete_${renewalYear}_${new Date().toISOString().split('T')[0]}.pdf`,
+  )
 
-    // Carica il PDF template
-    const templateDoc = await PDFDocument.load(templateBytes)
-
-    // Crea un UNICO nuovo documento per tutte le tessere
-    const pdfDoc = await PDFDocument.create()
-
-    // Font - usa Times-Italic (caricato una volta sola per tutto il documento)
-    const font = await pdfDoc.embedFont('Times-Italic')
-
-    // Ordina i soci per cognome
-    const sociOrdinati = soci.sort((a, b) => a.cognome.localeCompare(b.cognome))
-
-    const totaleSoci = sociOrdinati.length
-
-    // Ciclo unico su tutti i soci ordinati
-    for (let i = 0; i < totaleSoci; i++) {
-      const socio = sociOrdinati[i]
-
-      // Copia la prima pagina del template per ogni tessera
-      const [templatePage] = await pdfDoc.copyPages(templateDoc, [0])
-      pdfDoc.addPage(templatePage)
-
-      // Ottieni la pagina corrente (l'ultima aggiunta) per aggiungere il testo
-      const page = pdfDoc.getPages()[i]
-      const { width, height } = page.getSize()
-
-      // Formatta la data come nel componente Vue
-      const formattaData = (dataNascita) => {
-        if (!dataNascita) return ''
-        const [anno, mese, giorno] = dataNascita.split('-')
-        const mesi = [
-          'Gennaio',
-          'Febbraio',
-          'Marzo',
-          'Aprile',
-          'Maggio',
-          'Giugno',
-          'Luglio',
-          'Agosto',
-          'Settembre',
-          'Ottobre',
-          'Novembre',
-          'Dicembre',
-        ]
-        const meseNome = mesi[parseInt(mese) - 1]
-        return `${parseInt(giorno)} ${meseNome} ${anno}`
-      }
-
-      const nomeCognome = `${socio.cognome} ${socio.nome}`
-      const dataNascitaFormattata = formattaData(socio.data_nascita)
-
-      // Calcola le dimensioni dell'area di testo (stesso calcolo di TesseraTemplate.vue)
-      // Padding: 12mm sopra/sotto, 15% sinistra/destra per forzare wrapping
-      const paddingTopBottom = 12 * 2.83465 // 12mm in punti
-      const paddingLeftRightPercent = 0.15 // 15% per area di testo più stretta
-      const availableWidth = width * (1 - 2 * paddingLeftRightPercent) // 70% della larghezza
-
-      // Centro dell'area di testo
-      const textAreaCenterX = width / 2
-      const textAreaTop = paddingTopBottom
-      const textAreaBottom = height - paddingTopBottom
-      const textAreaCenterY = (textAreaTop + textAreaBottom) / 2
-
-      const nameFontSize = 5 * 2.83465 // 5mm font size for names
-      const dateFontSize = 4.5 * 2.83465 // 4.5mm font size for dates
-      const lineSpacing = 3 * 2.83465 // 3mm gap tra righe
-      const nameMinLineHeight = 8 * 2.83465 // 8mm min-height per name line
-      const dateMinLineHeight = 6 * 2.83465 // 6mm min-height per date line
-
-      // Funzione per wrapping del testo
-      const wrapText = (text, maxWidth, font, size) => {
-        const words = text.split(' ')
-        const lines = []
-        let currentLine = ''
-
-        for (const word of words) {
-          const testLine = currentLine ? `${currentLine} ${word}` : word
-          const textWidth = font.widthOfTextAtSize(testLine, size)
-
-          if (textWidth <= maxWidth && currentLine) {
-            currentLine = testLine
-          } else if (textWidth <= maxWidth) {
-            currentLine = word
-          } else {
-            if (currentLine) {
-              lines.push(currentLine)
-            }
-            currentLine = word
-          }
-        }
-
-        if (currentLine) {
-          lines.push(currentLine)
-        }
-
-        return lines
-      }
-
-      // Gestisci il nome e cognome con wrapping se necessario
-      const nomeLines = wrapText(nomeCognome, availableWidth, font, nameFontSize)
-      const dataLines = wrapText(dataNascitaFormattata, availableWidth, font, dateFontSize)
-
-      // Calcola l'altezza totale del contenuto (nome + gap + data)
-      const nomeHeight = nomeLines.length * nameMinLineHeight
-      const dataHeight = dataLines.length * dateMinLineHeight
-      const gapHeight = lineSpacing
-      const totalContentHeight = nomeHeight + gapHeight + dataHeight
-
-      // Posizione Y iniziale (centrata verticalmente nell'area di testo)
-      let currentY = textAreaCenterY + totalContentHeight / 2 - nameMinLineHeight / 2
-
-      // Disegna le righe del nome (dall'alto verso il basso)
-      for (let j = 0; j < nomeLines.length; j++) {
-        const textWidth = font.widthOfTextAtSize(nomeLines[j], nameFontSize)
-        const x = textAreaCenterX - textWidth / 2 // Centra manualmente
-
-        page.drawText(nomeLines[j], {
-          x: x,
-          y: currentY,
-          size: nameFontSize,
-          font: font,
-          color: rgb(0, 0, 0),
-        })
-        currentY -= nameMinLineHeight
-      }
-
-      // Aggiungi il gap tra nome e data
-      currentY -= lineSpacing
-
-      // Disegna le righe della data
-      for (let k = 0; k < dataLines.length; k++) {
-        const textWidth = font.widthOfTextAtSize(dataLines[k], dateFontSize)
-        const x = textAreaCenterX - textWidth / 2 // Centra manualmente
-
-        page.drawText(dataLines[k], {
-          x: x,
-          y: currentY,
-          size: dateFontSize,
-          font: font,
-          color: rgb(0, 0, 0),
-        })
-        currentY -= dateMinLineHeight
-      }
-
-      // Aggiorna progresso
-      const progress = ((i + 1) / totaleSoci) * 100
-      onProgress(progress)
-    }
-
-    // Salva il PDF unico completo
-    const pdfBytes = await pdfDoc.save()
-    const blob = new Blob([pdfBytes], { type: 'application/pdf' })
-
-    // Genera il nome file unico
-    const fileName = sanitizeFilename(
-      `tessere_complete_${renewalYear}_${new Date().toISOString().split('T')[0]}.pdf`,
-    )
-
-    // Ritorna un array con un solo elemento (per compatibilità)
-    return [
-      {
-        letter: 'ALL', // Identificativo generico
-        filename: fileName,
-        blob: blob,
-        count: totaleSoci,
-      },
-    ]
-  } catch (error) {
-    console.error('Errore nella generazione del PDF delle tessere:', error)
-    throw error
-  }
+  // Ritorna un array con un solo elemento (per compatibilità)
+  return [
+    {
+      letter: 'ALL',
+      filename: fileName,
+      blob: blob,
+      count: sociOrdinati.length,
+    },
+  ]
 }
 
 /**

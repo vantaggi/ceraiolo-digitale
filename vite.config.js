@@ -17,6 +17,11 @@ export default defineConfig({
           src: 'node_modules/sql.js/dist/sql-wasm.wasm',
           dest: '',
         },
+        {
+          // Caratteri standard per l'anteprima delle tessere (pdf.js)
+          src: 'node_modules/pdfjs-dist/standard_fonts/*',
+          dest: 'pdfjs/standard_fonts',
+        },
       ],
     }),
   ],

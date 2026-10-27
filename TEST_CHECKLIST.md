@@ -215,3 +215,24 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 - [ ] Impostazioni › Dati › Zona pericolosa: "Correggi" chiede conferma e corregge i blocchetti invertiti
 
 **Risultato atteso**: la Home serve solo a trovare i soci; tutto cio' che tocca il database sta in Impostazioni › Dati
+
+---
+
+## ✅ Test 11: Tessere
+
+### Test 11.1: Sfondo e anteprima (Impostazioni › Template Tessera)
+
+- [ ] Carica lo sfondo vero (foto JPG/PNG o PDF): l'anteprima lo mostra subito, con la scritta "non ancora salvato"
+- [ ] Con una foto compare la risoluzione in dpi; sotto 250 dpi compare l'avviso "potrebbe sembrare sgranata"
+- [ ] "Salva sfondo", poi ricarica la pagina: l'anteprima mostra ancora lo sfondo salvato
+- [ ] In "Prova con un altro nome" scrivi un nome lungo (es. due cognomi e due nomi): l'anteprima va a capo come il PDF
+- [ ] "Rimuovi sfondo" chiede conferma; dopo, l'anteprima dice "Nessuno sfondo caricato"
+
+### Test 11.2: Il file e' uguale all'anteprima
+
+- [ ] Home: cerca un socio, "Genera Tessera", apri il PDF: nome, data, a capo e posizione sono quelli dell'anteprima con lo stesso nome
+- [ ] Report PDF › Rinnovi: "Genera Tessere" scarica un PDF con una pagina per socio, in ordine di cognome
+- [ ] Il PDF di tutte le tessere pesa piu' o meno quanto lo sfondo (non lo sfondo moltiplicato per il numero di soci)
+- [ ] Stampa una pagina di prova su carta: misure e margini vanno bene per la tipografia
+
+**Risultato atteso**: quello che si vede nell'anteprima e' esattamente la pagina del PDF che va in stampa
