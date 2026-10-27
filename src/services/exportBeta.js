@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import logoUrl from '@/assets/logo_santantoniari.jpg';
+import { cellaStatoAnno } from './export';
 
 const loadImage = (url) => {
   return new Promise((resolve, reject) => {
@@ -349,37 +350,9 @@ export async function generateBetaDynamicPDF(data, reportConfig, filtersSummaryT
     }
     if (reportConfig.display.baseColumns.includes('motivoEsclusione')) row.push(member.motivoEsclusione || '-');
 
-    // Inject V/O/X/- with specific colors
+    // Stato di ogni anno (V/X/O/-): regola in utils/payment.js
     const paidYears = member.tesseramenti?.map(t => t.anno) || [];
-    const isMinorInYear = (m, y) => {
-      if (!m.data_nascita) return false;
-      const birthYear = new Date(m.data_nascita).getFullYear();
-      return (y - birthYear < 18);
-    };
-
-    const getEnrollmentYear = (m) => {
-      if (m.data_iscrizione) {
-        return new Date(m.data_iscrizione).getFullYear();
-      }
-      if (paidYears.length > 0) return Math.min(...paidYears);
-      return new Date().getFullYear(); // Fallback to current year
-    };
-
-    const isEnrolledInYear = (m, y) => {
-      return y >= getEnrollmentYear(m);
-    };
-
-    sortedYearColumns.forEach(year => {
-      if (!isEnrolledInYear(member, year)) {
-        row.push({ text: '-', color: [0, 100, 200] });
-      } else if (paidYears.includes(year)) {
-        row.push({ text: 'V', color: [0, 150, 0] });
-      } else if (isMinorInYear(member, year)) {
-        row.push({ text: 'O', color: [217, 119, 6] });
-      } else {
-        row.push({ text: 'X', color: [200, 50, 50] });
-      }
-    });
+    sortedYearColumns.forEach(year => row.push(cellaStatoAnno(member, paidYears, year)));
 
     // Aggiungi lo spazio vuoto per la firma alla fine se selezionata
     if (reportConfig.display.baseColumns.includes('firma')) row.push(''); // Spazio vuoto per la firma

@@ -2,7 +2,7 @@ import jsPDF from 'jspdf'
 import { PDFDocument, rgb } from 'pdf-lib'
 import * as XLSX from 'xlsx'
 import { db, getSetting, updateSetting, exportAllSoci, exportAllTesseramenti } from './db'
-import { calculatePaymentStatus } from '@/utils/payment'
+import { calculatePaymentStatus, statoAnno } from '@/utils/payment'
 import logoUrl from '@/assets/logo_santantoniari.jpg'
 
 /**
@@ -59,8 +59,14 @@ function createPDFDocument(orientation = 'landscape', format = 'a4') {
   })
 }
 
+// Impaginazione comune dei PDF (mm). I margini valgono sia in verticale sia in orizzontale.
+const MARGINE = 12
+const MARGINE_BASSO = 14 // spazio lasciato al numero di pagina
+const FONT_TABELLA = 9
+const INTERLINEA = (FONT_TABELLA * 1.15 * 25.4) / 72 // altezza di una riga di testo a 9pt
+
 /**
- * Aggiunge header standard al PDF
+ * Aggiunge header standard al PDF, centrato sulla larghezza della pagina
  * @param {jsPDF} doc - Documento PDF
  * @param {string} title - Titolo principale
  * @param {string} subtitle - Sottotitolo (opzionale)
@@ -68,36 +74,44 @@ function createPDFDocument(orientation = 'landscape', format = 'a4') {
  * @param {string} logoData - Dati Base64 del logo (opzionale)
  * @returns {number} Posizione Y dopo l'header
  */
-function addPDFHeader(doc, title, subtitle = '', summary = '', logoData = null) {
-  let currentY = 20
+export function addPDFHeader(doc, title, subtitle = '', summary = '', logoData = null) {
+  const larghezzaPagina = doc.internal.pageSize.getWidth()
+  const centro = larghezzaPagina / 2
+  // Il testo resta fuori dalla fascia del logo, a sinistra, e dal suo riflesso a destra
+  const larghezzaTesto = larghezzaPagina - 2 * 36
+  let currentY = 18
 
-  // Aggiungi Logo se presente
   if (logoData) {
     try {
-      // x=10, y=10, w=25, h=auto (mantieni aspect ratio se possibile, altrimenti quadrato)
-      // assumiamo logo quadrato per semplicità o fisso
-      doc.addImage(logoData, 'JPEG', 10, 10, 25, 25)
+      doc.addImage(logoData, 'JPEG', 10, 8, 22, 22)
     } catch (e) {
       console.error('Errore aggiunta logo al PDF', e)
     }
   }
 
-  // Titolo principale
-  doc.setFontSize(20)
+  doc.setTextColor(0, 0, 0)
   doc.setFont('helvetica', 'bold')
-  // Centra il titolo. Se c'è il logo, il centro è comunque 148 (A4 landscape width 297 / 2)
-  doc.text(title, 148, currentY, { align: 'center' })
-  currentY += 10
+  doc.setFontSize(16)
+  const righeTitolo = doc.splitTextToSize(title, larghezzaTesto)
+  doc.text(righeTitolo, centro, currentY, { align: 'center' })
+  currentY += righeTitolo.length * 7
 
-  // Sottotitolo
+  doc.setFont('helvetica', 'normal')
   if (subtitle) {
-    doc.setFontSize(14)
-    doc.setFont('helvetica', 'normal')
-    doc.text(subtitle, 148, currentY, { align: 'center' })
-    currentY += 10
+    doc.setFontSize(11)
+    const righe = doc.splitTextToSize(subtitle, larghezzaTesto)
+    doc.text(righe, centro, currentY, { align: 'center' })
+    currentY += righe.length * 5.5
   }
 
-  // Data generazione
+  if (summary) {
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'bold')
+    doc.text(summary, centro, currentY, { align: 'center' })
+    doc.setFont('helvetica', 'normal')
+    currentY += 5.5
+  }
+
   const generationDate = new Date().toLocaleDateString('it-IT', {
     day: '2-digit',
     month: '2-digit',
@@ -105,180 +119,128 @@ function addPDFHeader(doc, title, subtitle = '', summary = '', logoData = null) 
     hour: '2-digit',
     minute: '2-digit',
   })
-  doc.setFontSize(12)
-  doc.setFont('helvetica', 'normal')
-  doc.text(`Generato il: ${generationDate}`, 148, currentY, { align: 'center' })
-  currentY += 10
+  doc.setFontSize(8)
+  doc.setTextColor(110, 110, 110)
+  doc.text(`Generato il: ${generationDate}`, centro, currentY, { align: 'center' })
+  doc.setTextColor(0, 0, 0)
+  currentY += 4
 
-  // Testo riassuntivo
-  if (summary) {
-    doc.text(summary, 148, currentY, { align: 'center' })
-    currentY += 10
-  }
-
-  return currentY
+  return logoData ? Math.max(currentY, 32) : currentY
 }
 
 /**
- * Crea una tabella PDF con intestazione e righe
+ * Adatta le larghezze delle colonne allo spazio disponibile, in proporzione
+ * @param {Array<{width: number}>} headers
+ * @param {number} larghezzaDisponibile - in mm
+ * @returns {Array<number>} larghezze in mm
+ */
+export function adattaColonne(headers, larghezzaDisponibile) {
+  const totale = headers.reduce((somma, h) => somma + h.width, 0)
+  return headers.map((h) => (h.width * larghezzaDisponibile) / totale)
+}
+
+/**
+ * Crea una tabella PDF con intestazione e righe, larga quanto la pagina.
+ * Le righe crescono se un testo va a capo; l'intestazione si ripete su ogni pagina.
  * @param {jsPDF} doc - Documento PDF
- * @param {Array} headers - Array di oggetti header {text, width}
- * @param {Array} rows - Array di righe (ogni riga è un array di valori)
+ * @param {Array} headers - Array di oggetti header {text, width, align?, orientation?}
+ * @param {Array} rows - Array di righe (ogni riga è un array di valori o {text, color})
  * @param {number} startY - Posizione Y iniziale
- * @param {number} rowHeight - Altezza delle righe
+ * @param {number} rowHeight - Altezza minima delle righe
  * @returns {number} Posizione Y dopo la tabella
  */
-function createPDFTable(doc, headers, rows, startY, rowHeight = 10) {
-  const startX = 20
-
-  // Calcola larghezza totale tabella dai headers
-  // Se non specificato width nel header, fallback? Assumiamo ci sia.
-  let tableWidth = 0
-  headers.forEach((h) => {
-    tableWidth += h.width
-  })
-
-  // Calcola posizioni colonne
+export function createPDFTable(doc, headers, rows, startY, rowHeight = 7) {
+  const startX = MARGINE
+  const altezzaPagina = doc.internal.pageSize.getHeight()
+  const larghezze = adattaColonne(headers, doc.internal.pageSize.getWidth() - 2 * MARGINE)
+  const tableWidth = larghezze.reduce((a, b) => a + b, 0)
   const colPositions = [startX]
-  headers.forEach((header, index) => {
-    const prevPos = colPositions[index]
-    colPositions.push(prevPos + header.width)
-  })
+  larghezze.forEach((w, i) => colPositions.push(colPositions[i] + w))
+  // L'allineamento dipende dalla larghezza dichiarata, non da quella adattata
+  const allineamento = headers.map((h) => h.align || (h.width <= 25 ? 'center' : 'left'))
+  const xTesto = (i) =>
+    allineamento[i] === 'center' ? colPositions[i] + larghezze[i] / 2 : colPositions[i] + 2
 
   let currentY = startY
 
-  // Calculate dynamic header row height
-  let headerRowHeight = rowHeight
-  doc.setFontSize(9)
+  let headerRowHeight = rowHeight + 1
+  doc.setFontSize(FONT_TABELLA)
+  doc.setFont('helvetica', 'bold')
   headers.forEach((h) => {
     if (h.orientation === 'vertical') {
-      const textW = (doc.getStringUnitWidth(h.text) * 9) / doc.internal.scaleFactor
+      const textW = (doc.getStringUnitWidth(h.text) * FONT_TABELLA) / doc.internal.scaleFactor
       if (textW + 4 > headerRowHeight) headerRowHeight = textW + 4
     }
   })
 
   const drawHeader = () => {
     doc.setFillColor(183, 28, 28) // Rosso scuro
-    doc.setTextColor(255) // Bianco
-    doc.setFontSize(9)
+    doc.setTextColor(255)
+    doc.setFontSize(FONT_TABELLA)
     doc.setFont('helvetica', 'bold')
-
-    // Sfondo intestazione
     doc.rect(startX, currentY, tableWidth, headerRowHeight, 'F')
-
-    // Bordi intestazione
     doc.setDrawColor(100, 100, 100)
     doc.setLineWidth(0.3)
     doc.rect(startX, currentY, tableWidth, headerRowHeight)
 
-    // Testo intestazione
     headers.forEach((header, index) => {
-      let align = header.align || (header.width <= 25 ? 'center' : 'left')
-      let textX = colPositions[index] + (align === 'center' ? header.width / 2 : 2)
-
       if (header.orientation === 'vertical') {
-        doc.text(header.text, textX + 1, currentY + headerRowHeight - 2, { angle: 90 })
+        const x = colPositions[index] + larghezze[index] / 2 + 1.2
+        doc.text(header.text, x, currentY + headerRowHeight - 2, { angle: 90 })
       } else {
-        doc.text(header.text, textX, currentY + headerRowHeight / 2 + 1.2, { align })
+        doc.text(header.text, xTesto(index), currentY + headerRowHeight / 2 + 1.2, {
+          align: allineamento[index],
+        })
       }
     })
     currentY += headerRowHeight
+    doc.setTextColor(0)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(FONT_TABELLA)
   }
 
   drawHeader()
 
-  // Righe dati
-  doc.setTextColor(0) // Nero
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(8)
-
   rows.forEach((row, rowIndex) => {
-    // Alternanza colori
-    const isEvenRow = rowIndex % 2 === 0
-    const fillColor = isEvenRow ? [248, 248, 248] : [255, 255, 255]
-    doc.setFillColor(fillColor[0], fillColor[1], fillColor[2])
-    doc.rect(startX, currentY, tableWidth, rowHeight, 'F')
+    // Testo di ogni cella, a capo solo se non entra nella colonna
+    const celle = row.map((cellValue, i) => {
+      const isObject = typeof cellValue === 'object' && cellValue !== null
+      const text = String((isObject ? cellValue.text : cellValue) ?? '')
+      const color = isObject ? cellValue.color : null
+      const maxWidth = larghezze[i] - 3
+      // Una parola sola non si spezza: jsPDF la dividerebbe in righe vuote
+      const vaACapo = text.includes(' ') && doc.getTextWidth(text) > maxWidth
+      const lines = vaACapo ? doc.splitTextToSize(text, maxWidth).filter((l) => l !== '') : [text]
+      return { lines, color }
+    })
+    const maxLines = Math.max(1, ...celle.map((c) => c.lines.length))
+    const altezza = Math.max(rowHeight, maxLines * INTERLINEA + 3)
 
-    // Bordi celle
+    // Nuova pagina prima di una riga che non entra
+    if (currentY + altezza > altezzaPagina - MARGINE_BASSO) {
+      doc.addPage()
+      currentY = MARGINE
+      drawHeader()
+    }
+
+    const fillColor = rowIndex % 2 === 0 ? [248, 248, 248] : [255, 255, 255]
+    doc.setFillColor(fillColor[0], fillColor[1], fillColor[2])
+    doc.rect(startX, currentY, tableWidth, altezza, 'F')
     doc.setDrawColor(220, 220, 220)
     doc.setLineWidth(0.3)
+    colPositions.forEach((x) => doc.line(x, currentY, x, currentY + altezza))
+    doc.rect(startX, currentY, tableWidth, altezza)
 
-    // Linee verticali
-    colPositions.forEach((x) => {
-      doc.line(x, currentY, x, currentY + rowHeight)
+    celle.forEach(({ lines, color }, i) => {
+      if (color) doc.setTextColor(color[0], color[1], color[2])
+      else doc.setTextColor(0, 0, 0)
+      // Blocco di testo centrato in verticale nella riga
+      const primaRiga = currentY + (altezza - (lines.length - 1) * INTERLINEA) / 2 + 1.2
+      doc.text(lines, xTesto(i), primaRiga, { align: allineamento[i] })
     })
-    // Ultima linea verticale
-    // colPositions ha N+1 elementi (inizio col 1, inizio col 2, ..., fine col N)
-    // Non serve ridisegnarla se cicliamo colPositions, ma colPositions.length = headers.length + 1
-    // Il loop sopra disegna tutte le verticali incluse la finale.
+    doc.setTextColor(0, 0, 0)
 
-    // Bordo orizzontale
-    doc.rect(startX, currentY, tableWidth, rowHeight)
-
-    // Testo celle
-    row.forEach((cellValue, cellIndex) => {
-      let cellText = ''
-      let cellColor = null // Default black
-
-      if (typeof cellValue === 'object' && cellValue !== null) {
-        cellText = String(cellValue.text || '')
-        if (cellValue.color) cellColor = cellValue.color
-      } else {
-        cellText = String(cellValue || '')
-      }
-
-      // Applicazione colore se specificato
-      if (cellColor) {
-        doc.setTextColor(cellColor[0], cellColor[1], cellColor[2])
-        // Opzionale: Bold se colorato?
-        // doc.setFont('helvetica', 'bold')
-      } else {
-        doc.setTextColor(0, 0, 0)
-        // doc.setFont('helvetica', 'normal')
-      }
-
-      let align = headers[cellIndex].align || (headers[cellIndex].width <= 25 ? 'center' : 'left')
-      let textX = colPositions[cellIndex] + (align === 'center' ? headers[cellIndex].width / 2 : 2)
-
-      const maxWidth = headers[cellIndex].width - 4
-      const textY = currentY + rowHeight / 2 + 1.2 // Centratura dinamica
-
-      // Logica migliorata: usa SEMPRE il wrapping per testi lunghi
-      if (
-        cellText.length > 20 ||
-        (doc.getStringUnitWidth(cellText) * doc.internal.getFontSize()) / doc.internal.scaleFactor >
-          maxWidth
-      ) {
-        // Testo multi-riga (wrapping automatico, lo lascio centrato o no?)
-        const lines = doc.splitTextToSize(cellText, maxWidth)
-        const lineHeight = 3.5 // approx per fontSize 9
-        const blockHeight = lines.length * lineHeight
-        const startY = currentY + (rowHeight - blockHeight) / 2 + 2.5
-
-        doc.text(lines, colPositions[cellIndex] + 2, startY)
-      } else {
-        // Testo normale (una riga)
-        doc.text(cellText, textX, textY, { align })
-      }
-
-      // Reset color to black for next cell just in case
-      doc.setTextColor(0, 0, 0)
-    })
-
-    currentY += rowHeight
-
-    // Controllo paginazione (se vicino al fondo)
-    const pageMaxHeight = doc.internal.pageSize.height - 35
-    if (currentY > pageMaxHeight) {
-      doc.addPage()
-      currentY = 20
-
-      drawHeader()
-
-      doc.setTextColor(0)
-      doc.setFont('helvetica', 'normal')
-      doc.setFontSize(8)
-    }
+    currentY += altezza
   })
 
   return currentY
@@ -288,16 +250,18 @@ function createPDFTable(doc, headers, rows, startY, rowHeight = 10) {
  * Aggiunge footer standard al PDF con numeri di pagina
  * @param {jsPDF} doc - Documento PDF
  */
-function addPDFFooter(doc) {
-  const pageHeight = doc.internal.pageSize.height
+export function addPDFFooter(doc) {
+  const pageHeight = doc.internal.pageSize.getHeight()
+  const pageWidth = doc.internal.pageSize.getWidth()
   const pageCount = doc.internal.getNumberOfPages()
 
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i)
     doc.setFontSize(8)
-
     doc.setFont('helvetica', 'normal')
-    doc.text(`Pagina ${i} di ${pageCount}`, doc.internal.pageSize.width - 40, pageHeight - 20)
+    doc.setTextColor(110, 110, 110)
+    doc.text(`Pagina ${i} di ${pageCount}`, pageWidth - MARGINE, pageHeight - 7, { align: 'right' })
+    doc.setTextColor(0, 0, 0)
   }
 }
 
@@ -515,37 +479,28 @@ export async function generateRenewalListPDF(soci, renewalYear) {
 }
 
 /**
- * Restituisce se in quell'anno il socio era minorenne
+ * Colori (RGB) dei 4 stati degli anni nei PDF: la regola sta in statoAnno (utils/payment.js)
  */
-const isMinorInYear = (member, year) => {
-  if (!member.data_nascita) return false
-  const birthYear = new Date(member.data_nascita).getFullYear()
-  return year - birthYear < 18
+export const COLORI_STATO_ANNO = {
+  '-': [0, 100, 200],
+  V: [0, 150, 0],
+  O: [217, 119, 6],
+  X: [200, 50, 50],
 }
 
 /**
- * Calcola l'anno di iscrizione del socio
+ * Cella PDF con lo stato di un anno (V, X, O, -) e il suo colore
  */
-const getEnrollmentYear = (member, paidYears = []) => {
-  if (member.data_iscrizione) {
-    return new Date(member.data_iscrizione).getFullYear()
-  }
-  if (paidYears && paidYears.length > 0) return Math.min(...paidYears)
-  return new Date().getFullYear() // Fallback
-}
-
-/**
- * Restituisce se il socio era iscritto in quell'anno
- */
-const isEnrolledInYear = (member, year, paidYears = []) => {
-  return year >= getEnrollmentYear(member, paidYears)
+export const cellaStatoAnno = (socio, anniPagati, anno) => {
+  const stato = statoAnno(socio, anniPagati, anno)
+  return { text: stato, color: COLORI_STATO_ANNO[stato] }
 }
 
 /**
  * Aggiunge la legenda dei 4 stati per gli anni al PDF
  */
 function addStatusLegend(doc, startY) {
-  let currentX = 14
+  let currentX = MARGINE
   doc.setFontSize(8)
   doc.setTextColor(100, 100, 100)
   doc.text('Legenda Anni: ', currentX, startY)
@@ -626,21 +581,9 @@ export async function generateVotingListPDF(soci, votingYear) {
     const paidYears = socio.tesseramenti ? socio.tesseramenti.map((t) => t.anno) : []
     const history = socio.paymentHistory || {}
 
-    // Nuovo helper per status a 4 stati (V, X, O, -)
-    const getStatus = (year) => {
-      // Usiamo paidYears (dal tesseramento) o history (se generato dal componente)
-      const isPaid = history[year] || paidYears.includes(year)
-
-      if (!isEnrolledInYear(socio, year, paidYears)) {
-        return { text: '-', color: [0, 100, 200] } // Blu "-"
-      } else if (isPaid) {
-        return { text: 'V', color: [0, 150, 0] } // Verde "V"
-      } else if (isMinorInYear(socio, year)) {
-        return { text: 'O', color: [217, 119, 6] } // Arancio "O"
-      } else {
-        return { text: 'X', color: [200, 50, 50] } // Rosso "X"
-      }
-    }
+    // Anni pagati: dal tesseramento o dallo storico calcolato da db.js
+    const anniPagati = [...new Set([...paidYears, ...Object.keys(history).filter((y) => history[y]).map(Number)])]
+    const getStatus = (year) => cellaStatoAnno(socio, anniPagati, year)
 
     return [
       `${socio.cognome} ${socio.nome}`,
@@ -679,6 +622,89 @@ export async function generateVotingListPDF(soci, votingYear) {
   // Salva il PDF
   const filename = generatePDFFilename('lista_votazioni', { votingYear })
   doc.save(filename)
+}
+
+/**
+ * Colori (RGB) e testi del diritto di voto nei PDF
+ */
+const DIRITTO_VOTO_PDF = {
+  si: { text: 'Sì', color: [0, 150, 0] },
+  regolarizza: { text: 'Regolarizza', color: [217, 119, 6] },
+  no: { text: 'No', color: [200, 50, 50] },
+}
+
+const descriviTotali = (t) => {
+  const parti = [`Sì: ${t.si}`, `Regolarizza: ${t.regolarizza}`]
+  if (t.no > 0) parti.push(`No: ${t.no}`)
+  if (t.quoteMancanti > 0) parti.push(`Quote da recuperare: ${t.quoteMancanti}`)
+  return parti.join('   ·   ')
+}
+
+/**
+ * PDF "Aventi diritto al voto e arretrati" (elenco da elencoAventiDiritto in utils/aventiDiritto.js)
+ * @param {{ gruppi: Array, totali: object }} elenco
+ * @param {number} annoElezione
+ * @param {object} [opzioni]
+ * @param {boolean} [opzioni.perManicchia] - una sezione per manicchia, ognuna da pagina nuova
+ */
+export async function generateAventiDirittoPDF(elenco, annoElezione, opzioni = {}) {
+  const { perManicchia = false } = opzioni
+  const doc = createPDFDocument('landscape')
+
+  let logoData = null
+  try {
+    logoData = await loadImage(logoUrl)
+  } catch (e) {
+    console.warn('Impossibile caricare il logo per il PDF', e)
+  }
+
+  const anni = [4, 3, 2, 1, 0].map((d) => annoElezione - d)
+  const titolo = `Aventi diritto al voto e arretrati - Elezioni ${annoElezione}`
+
+  const colonne = (conManicchia) => [
+    { text: 'Socio', width: conManicchia ? 70 : 90 },
+    ...(conManicchia ? [{ text: 'Manicchia', width: 45 }] : []),
+    { text: 'Nascita', width: 22 },
+    ...anni.map((a) => ({ text: String(a), width: 8, orientation: 'vertical' })),
+    { text: 'Diritto', width: 25, align: 'center' },
+    { text: 'Da pagare / motivo', width: conManicchia ? 55 : 80 },
+  ]
+
+  const riga = (r, conManicchia) => {
+    const voto = DIRITTO_VOTO_PDF[r.stato]
+    return [
+      `${r.socio.cognome} ${r.socio.nome}`,
+      ...(conManicchia ? [r.socio.gruppo_appartenenza || '-'] : []),
+      formatDate(r.socio.data_nascita),
+      ...anni.map((a) => cellaStatoAnno(r.socio, r.anniPagati, a)),
+      { text: voto.text, color: voto.color },
+      r.stato === 'regolarizza' ? r.quoteMancanti.join(', ') : r.motivo || '',
+    ]
+  }
+
+  const intestazione = (sottotitolo, totali) => {
+    const y = addPDFHeader(doc, titolo, sottotitolo, descriviTotali(totali), logoData)
+    return addStatusLegend(doc, y + 2) + 4
+  }
+
+  if (perManicchia) {
+    elenco.gruppi.forEach((gruppo, i) => {
+      if (i > 0) doc.addPage()
+      const y = intestazione(`Manicchia: ${gruppo.manicchia}`, gruppo.totali)
+      createPDFTable(doc, colonne(false), gruppo.righe.map((r) => riga(r, false)), y)
+    })
+  } else {
+    const sottotitolo =
+      elenco.gruppi.length === 1 ? `Manicchia: ${elenco.gruppi[0].manicchia}` : 'Tutte le manicchie'
+    const y = intestazione(sottotitolo, elenco.totali)
+    const conManicchia = elenco.gruppi.length > 1
+    const righe = elenco.gruppi.flatMap((g) => g.righe.map((r) => riga(r, conManicchia)))
+    createPDFTable(doc, colonne(conManicchia), righe, y)
+  }
+
+  addPDFFooter(doc)
+  const quale = elenco.gruppi.length === 1 ? elenco.gruppi[0].manicchia : perManicchia ? 'per_manicchia' : ''
+  doc.save(generatePDFFilename('aventi_diritto', { annoElezione, quale }))
 }
 
 /**
@@ -725,20 +751,9 @@ export async function generateActiveMembersPDF(soci, targetYear) {
     const paidYears = socio.tesseramenti ? socio.tesseramenti.map((t) => t.anno) : []
     const history = socio.paymentHistory || {}
 
-    // Nuovo helper per status a 4 stati (V, X, O, -)
-    const getStatus = (year) => {
-      const isPaid = history[year] || paidYears.includes(year)
-
-      if (!isEnrolledInYear(socio, year, paidYears)) {
-        return { text: '-', color: [0, 100, 200] } // Blu "-"
-      } else if (isPaid) {
-        return { text: 'V', color: [0, 150, 0] } // Verde "V"
-      } else if (isMinorInYear(socio, year)) {
-        return { text: 'O', color: [217, 119, 6] } // Arancio "O"
-      } else {
-        return { text: 'X', color: [200, 50, 50] } // Rosso "X"
-      }
-    }
+    // Anni pagati: dal tesseramento o dallo storico calcolato da db.js
+    const anniPagati = [...new Set([...paidYears, ...Object.keys(history).filter((y) => history[y]).map(Number)])]
+    const getStatus = (year) => cellaStatoAnno(socio, anniPagati, year)
 
     return [
       `${socio.cognome} ${socio.nome}`,

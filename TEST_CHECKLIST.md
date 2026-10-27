@@ -175,3 +175,43 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 - [ ] Se il browser chiede di nuovo il permesso, compare "Riattiva backup": il clic chiede il permesso e fa subito un backup
 
 **Risultato atteso**: il backup funziona anche senza aprire Impostazioni, e quando e' fermo si vede
+
+---
+
+## ✅ Test 9: Menu a cinque sezioni
+
+### Test 9.1: Voci e pagine
+
+- [ ] Il menu mostra Soci, Incassi, Report PDF, Statistiche, Impostazioni
+- [ ] Da un socio aperto resta accesa la voce Soci
+- [ ] Incassi si apre su "Registra ricevute"; la scheda "Blocchetti" porta all'elenco dei blocchetti e la voce Incassi resta accesa
+- [ ] Report PDF apre i report; il link "Report Builder Beta" apre il report su misura e la voce Report PDF resta accesa
+- [ ] Statistiche mostra numeri e grafico dell'andamento
+- [ ] Ctrl+K da qualsiasi pagina porta alla ricerca soci
+
+### Test 9.2: Vecchi indirizzi e segnalibri
+
+- [ ] `#/registrazione-seriale` porta a Incassi › Registra ricevute
+- [ ] `#/blocchetti` porta a Incassi › Blocchetti
+- [ ] `#/reports` e `#/reports-beta` portano a Report PDF
+
+**Risultato atteso**: ogni pagina ha una sola voce di menu accesa, e i segnalibri di prima funzionano ancora
+
+---
+
+## ✅ Test 10: Pagina Soci e Impostazioni › Dati
+
+### Test 10.1: Soci
+
+- [ ] Aprendo l'app il cursore e' gia' nel campo di ricerca, in cima alla pagina
+- [ ] Cerca un cognome, apri un socio, torna indietro: ricerca e filtri sono ancora li'
+- [ ] I numeri sotto i filtri (Soci, Pagamenti anno, Pagamenti anno prossimo) filtrano l'elenco; "Statistiche" apre la pagina del grafico
+- [ ] Con una ricerca attiva l'elenco usa tutta la larghezza; a ricerca vuota compare "Attivita' recente"
+
+### Test 10.2: Manutenzione spostata
+
+- [ ] In fondo alla Home non ci sono piu' Backup DB, Changelog, Fix DB e Reset DB
+- [ ] Impostazioni › Dati: "Registro modifiche" scarica il file del registro
+- [ ] Impostazioni › Dati › Zona pericolosa: "Correggi" chiede conferma e corregge i blocchetti invertiti
+
+**Risultato atteso**: la Home serve solo a trovare i soci; tutto cio' che tocca il database sta in Impostazioni › Dati

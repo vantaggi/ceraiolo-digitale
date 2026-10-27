@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { calculateAgeInYear, isExemptFromPayment, calculatePaymentStatus } from '../payment'
+import { calculateAgeInYear, isExemptFromPayment, calculatePaymentStatus, statoAnno } from '../payment'
 
 // Le regole sono descritte nei commenti di src/utils/payment.js: eta' contata sul solo anno,
 // minorenni (< 18) esenti, condono degli arretrati se l'anno di riferimento e' pagato.
@@ -82,5 +82,34 @@ describe('calculatePaymentStatus', () => {
   it("prima iscrizione dopo l'anno di riferimento: nessun arretrato", () => {
     const socio = { data_nascita: '1980-03-10', data_prima_iscrizione: 2027 }
     expect(calculatePaymentStatus(socio, [], 2026)).toEqual({ inRegola: true, arretrati: [] })
+  })
+})
+
+describe('statoAnno (colonne V, X, O, - dei report)', () => {
+  const adulto = { data_nascita: '1980-01-01' }
+
+  it("conta dall'anno di prima iscrizione anche se il primo pagamento e' dopo", () => {
+    // Iscritto nel 2010, primo pagamento registrato nel 2015
+    const socio = { ...adulto, data_prima_iscrizione: 2010 }
+    expect(statoAnno(socio, [2015], 2009)).toBe('-')
+    expect(statoAnno(socio, [2015], 2010)).toBe('X')
+    expect(statoAnno(socio, [2015], 2014)).toBe('X')
+    expect(statoAnno(socio, [2015], 2015)).toBe('V')
+  })
+
+  it("senza anno dichiarato parte dal primo pagamento", () => {
+    expect(statoAnno(adulto, [2015], 2014)).toBe('-')
+    expect(statoAnno(adulto, [2015], 2016)).toBe('X')
+  })
+
+  it("da minorenne non pagato e' O, pagato e' V", () => {
+    const socio = { data_nascita: '2012-06-01', data_prima_iscrizione: 2020 }
+    expect(statoAnno(socio, [2020], 2020)).toBe('V')
+    expect(statoAnno(socio, [2020], 2025)).toBe('O')
+    expect(statoAnno(socio, [2020], 2030)).toBe('X') // 18 anni
+  })
+
+  it('senza iscrizione ne pagamenti ogni anno e -', () => {
+    expect(statoAnno(adulto, [], 2026)).toBe('-')
   })
 })
