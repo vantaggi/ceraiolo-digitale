@@ -1,6 +1,7 @@
 import Dexie from 'dexie'
 import initSqlJs from 'sql.js'
 import { calculatePaymentStatus } from '@/utils/payment'
+import { calcolaStatisticheAnnuali } from '@/utils/statistiche'
 
 // Create a new Dexie database instance
 export const db = new Dexie('CeraioloDigitaleDB')
@@ -1860,117 +1861,15 @@ export async function getEarliestActivityYear() {
  * Calcola le statistiche annuali per i grafici
  * @param {number} [startYear] - Anno di inizio (opzionale)
  * @param {number} [endYear] - Anno di fine (opzionale)
- * @returns {Promise<Array>} Array di oggetti { year, total, newMembers, lostMembers }
+ * @returns {Promise<Array>} Array di oggetti { year, total, newMembers, returningMembers, lostMembers },
+ *   calcolati da calcolaStatisticheAnnuali in src/utils/statistiche.js
  */
 export async function getYearlyStats(startYear, endYear) {
   try {
-    const currentYear = new Date().getFullYear()
     const start = startYear || (await getEarliestActivityYear())
-    const end = endYear || currentYear
-
-    const allSoci = await db.soci.toArray()
-
-    // Cache di tutti i tesseramenti per evitare query multiple
-    const allTesseramenti = await db.tesseramenti.toArray()
-    // Mappa: socioId -> Set di anni pagati
-    const paymentsMap = new Map()
-
-    allTesseramenti.forEach((t) => {
-      if (!paymentsMap.has(t.id_socio)) {
-        paymentsMap.set(t.id_socio, new Set())
-      }
-      paymentsMap.get(t.id_socio).add(t.anno)
-    })
-
-    // 2. Pre-calculate "effective start year" for each socio
-    const socioStartYears = new Map()
-    allSoci.forEach((socio) => {
-      let start = null
-      if (socio.data_prima_iscrizione) start = socio.data_prima_iscrizione
-      if (!start) {
-        const paidYears = paymentsMap.get(socio.id)
-        if (paidYears && paidYears.size > 0) start = Math.min(...Array.from(paidYears))
-      }
-      if (start) socioStartYears.set(socio.id, start)
-    })
-
-    const stats = []
-
-    // Helper: Is socio active/enrolled in specific year?
-    const isEnrolledInYear = (socio, year) => {
-      // Must have a start year to be enrolled
-      const start = socioStartYears.get(socio.id)
-      if (!start || year < start) return false
-
-      // 1. Explicit Payment
-      if (paymentsMap.has(socio.id) && paymentsMap.get(socio.id).has(year)) {
-        return true
-      }
-
-      // 2. Minor Exemption logic
-      const numericYear = Number(year)
-      if (isExemptFromPayment(socio, numericYear)) {
-        // Additional safety: ensure they are born
-        if (socio.data_nascita) {
-          const birthYear = new Date(socio.data_nascita).getFullYear()
-          if (numericYear < birthYear) return false
-        }
-        return true
-      }
-
-      return false
-    }
-
-    // Calcolo per ogni anno
-    for (let year = start; year <= end; year++) {
-      let total = 0
-      let newMembers = 0
-      let lostMembers = 0 // Iscritti l'anno prima ma non questo
-
-      // Set di ID iscritti quest'anno (per calcolo churn anno successivo o verifica)
-      const enrolledThisYear = new Set()
-
-      // 1. Calcola Totale e Nuovi
-      for (const socio of allSoci) {
-        if (isEnrolledInYear(socio, year)) {
-          total++
-          enrolledThisYear.add(socio.id)
-
-          // Check if New
-          const start = socioStartYears.get(socio.id)
-          if (start === year) {
-            newMembers++
-          }
-        }
-      }
-
-      // 2. Calcola Non Rinnovati (Churn)
-      // Solo se non siamo al primo anno del loop (o serve query anno precedente)
-      // Per semplicità, ricalcoliamo gli iscritti dell'anno precedente
-      if (year > start) {
-        // Recuperiamo chi era iscritto l'anno scorso
-        const prevYear = year - 1
-
-        for (const socio of allSoci) {
-          if (isEnrolledInYear(socio, prevYear)) {
-            // Se era iscritto l'anno scorso...
-            // ...e NON è iscritto quest'anno
-            if (!enrolledThisYear.has(socio.id)) {
-              lostMembers++
-            }
-          }
-        }
-      }
-
-      stats.push({
-        year,
-        total,
-        newMembers,
-        lostMembers,
-      })
-    }
-
-    return stats
+    const end = endYear || new Date().getFullYear()
+    const [soci, tesseramenti] = await Promise.all([db.soci.toArray(), db.tesseramenti.toArray()])
+    return calcolaStatisticheAnnuali(soci, tesseramenti, start, end)
   } catch (error) {
     console.error('Error calculating yearly stats:', error)
     throw new Error('Errore nel calcolo delle statistiche annuali')
