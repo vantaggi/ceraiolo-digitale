@@ -260,3 +260,22 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 - [ ] "Passa al blocchetto N+1" cambia blocchetto e rimette il cursore nella ricerca
 
 **Risultato atteso**: si ricopia un blocchetto di carta vedendo sempre a che punto si e' e cosa manca
+
+---
+
+## ✅ Test 18: Nuovo socio (pagina Soci e Incassi)
+
+Lo stesso modulo e le stesse regole nei due punti: Soci › Nuovo socio e Incassi › Registra ricevute › "Nuovo Socio".
+
+- [ ] Obbligatori: cognome, nome, data e luogo di nascita (il luogo arriva gia' scritto con la citta' di Impostazioni › Generale). Manicchia, anno di prima iscrizione e note sono facoltativi
+- [ ] Uscire da un campo vuoto non mostra errori; premendo Salva con campi vuoti l'errore compare sotto ogni campo e il cursore va sul primo
+- [ ] Una data di nascita nel futuro o prima del 1900 si segnala appena si esce dal campo
+- [ ] Scrivendo cognome e nome di un socio gia' in archivio compare l'avviso con il link alla sua scheda (prima quello con la stessa data di nascita); si puo' comunque salvare
+- [ ] Manicchia: lasciata su "Senza manicchia" il socio finisce sotto "Senza manicchia" nei report; "Nuova manicchia…" chiede il nome e la manicchia nuova compare poi in Impostazioni › Manicchie
+- [ ] Pagina Nuovo socio: Ctrl+S salva, e dopo il salvataggio si apre la scheda del socio
+- [ ] Incassi: da "Socio non trovato" il modulo arriva con cognome (prima parola cercata) e nome (il resto) gia' scritti
+- [ ] Incassi: senza anno di prima iscrizione vale l'anno di riferimento delle ricevute; il pagamento va sulla ricevuta in corso con la quota nuovo socio (Impostazioni › Generale)
+- [ ] Annulla chiude il modulo senza salvare
+- [ ] Tema chiaro e scuro, e sul telefono i campi vanno uno sotto l'altro
+
+**Risultato atteso**: un nuovo socio si inserisce allo stesso modo da Soci e da Incassi, e non si salva senza i dati che servono alle tessere e ai report
