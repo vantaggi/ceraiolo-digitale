@@ -7,6 +7,7 @@ import BatchEntryView from '../views/BatchEntryView.vue'
 import ReportsView from '../views/ReportsView.vue'
 import SettingsView from '../views/SettingsView.vue'
 import { isDatabaseEmpty } from '@/services/db'
+import { ricordaSocioAperto } from '@/utils/ricercaSoci'
 import { VECCHIE_SCHEDE } from './sezioni'
 
 const router = createRouter({
@@ -140,6 +141,8 @@ router.beforeEach(async (to, from, next) => {
 
 router.afterEach((to, from) => {
   window.scrollTo(0, 0)
+  // La pagina Soci mostra gli ultimi soci aperti
+  if (to.name === 'socio-detail') ricordaSocioAperto(window.localStorage, to.params.id)
   console.log(`Navigazione: ${from.name} -> ${to.name}`)
 })
 
