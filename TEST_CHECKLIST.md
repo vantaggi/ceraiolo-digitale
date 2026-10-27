@@ -236,3 +236,34 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 - [ ] Stampa una pagina di prova su carta: misure e margini vanno bene per la tipografia
 
 **Risultato atteso**: quello che si vede nell'anteprima e' esattamente la pagina del PDF che va in stampa
+
+---
+
+## ✅ Test 12: Senza connessione (app installata, Chrome o Edge sul PC)
+
+### Test 12.1: Installazione
+
+- [ ] Con internet, apri https://vantaggi.github.io/ceraiolo-digitale/ e aspetta che la pagina sia caricata
+- [ ] Nella barra dell'indirizzo compare l'icona "Installa app" (o menu ⋮ › "Installa Ceraiolo Digitale"): installala
+- [ ] Sul desktop c'e' l'icona con il logo; l'app si apre in una finestra sua, con titolo "Ceraiolo Digitale"
+
+### Test 12.2: Offline
+
+- [ ] Stacca internet (Wi-Fi spento), chiudi e riapri l'app dall'icona: si apre normalmente
+- [ ] Cerca un socio, registra un pagamento, genera un PDF aventi diritto e una tessera: funziona tutto
+- [ ] I caratteri sono gli stessi di quando c'e' internet (titoli con grazie, testo Inter)
+- [ ] Impostazioni › Dati: backup manuale e ripristino di un backup funzionano
+
+### Test 12.3: Spostare i dati nell'app installata (una volta sola)
+
+- [ ] Dalla copia usata finora: Impostazioni › Dati › backup manuale, salva il file
+- [ ] Nell'app installata: Impostazioni › Dati › Ripristina database con quel file
+- [ ] Controlla a campione 3 soci (pagamenti compresi) e i blocchetti
+- [ ] Scegli di nuovo la cartella del backup automatico nell'app installata
+
+### Test 12.4: Aggiornamenti
+
+- [ ] Dopo un aggiornamento pubblicato, apri l'app con internet e lavora: la pagina non si ricarica da sola
+- [ ] Chiudi e riapri l'app: la versione nuova e' attiva
+
+**Risultato atteso**: dopo la prima apertura online l'app si apre e lavora senza internet, con gli stessi dati

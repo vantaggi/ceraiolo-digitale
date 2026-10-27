@@ -1,5 +1,5 @@
 /* Global Styles for Ceraiolo Digitale */
-@import url('https://fonts.googleapis.com/css2?family=Merriweather:wght@700&family=Inter:wght@400;500;600;700&display=swap');
+/* Caratteri inclusi nell'app (src/main.js), non da Google Fonts: funzionano anche offline */
 
 /* Official Color Palette & Variables */
 :root {
