@@ -213,7 +213,10 @@
                 <AppIcon name="ok" /> In Regola
               </div>
               <div v-else class="action-area">
-                <div v-if="socio.arretrati.length > 0 && !isMinor(socio)" class="arretrati-badge">
+                <div v-if="socio.daReiscrivere" class="arretrati-badge">
+                  <AppIcon name="attenzione" /> Da reiscrivere: fermo da più di 3 anni
+                </div>
+                <div v-else-if="socio.arretrati.length > 0 && !isMinor(socio)" class="arretrati-badge">
                   <AppIcon name="attenzione" /> Arretrati: {{ socio.arretrati.join(', ') }}
                 </div>
                 <button class="pay-btn" :disabled="isProcessing" @click.stop="selectSocio(socio)">
@@ -381,7 +384,7 @@ import {
   addTesseramento,
   getUniqueGroups,
   addCustomGroup,
-  getArretrati,
+  getStatoQuote,
   findExistingPaymentYear,
   calculateAgeInYear,
   deleteTesseramentiByReceipt,
@@ -784,11 +787,11 @@ const performSearch = async () => {
     const resultsWithArretrati = await Promise.all(
       results.map(async (socio) => {
         try {
-          const arretrati = await getArretrati(socio.id)
+          const { arretrati, daReiscrivere } = await getStatoQuote(socio.id)
           const paidCurrentYear = await findExistingPaymentYear(socio.id, [
             sessionData.annoRiferimento,
           ])
-          return { ...socio, arretrati: arretrati || [], paidCurrentYear: !!paidCurrentYear }
+          return { ...socio, arretrati, daReiscrivere, paidCurrentYear: !!paidCurrentYear }
         } catch (error) {
           console.error('Errore caricamento arretrati per socio:', socio.id, error)
           return { ...socio, arretrati: [] }

@@ -2,7 +2,7 @@ import jsPDF from 'jspdf'
 import { PDFDocument, rgb } from 'pdf-lib'
 import * as XLSX from 'xlsx'
 import { db, getSetting, updateSetting, exportAllSoci, exportAllTesseramenti } from './db'
-import { calculatePaymentStatus, statoAnno } from '@/utils/payment'
+import { calculatePaymentStatus, descriviArretrati, statoAnno } from '@/utils/payment'
 import logoUrl from '@/assets/logo_santantoniari.jpg'
 
 /**
@@ -342,12 +342,11 @@ export async function generateSociPDF(sociList, renewalYear) {
         const anniPagati = socio.tesseramenti ? socio.tesseramenti.map((t) => t.anno) : []
         // Calcola lo stato pagamenti usando la utility condivisa (con logica condono)
         const status = calculatePaymentStatus(socio, anniPagati, renewalYear)
-        const anniArretrati = status.arretrati
 
         return [
           `${socio.cognome} ${socio.nome}`,
           socio.gruppo_appartenenza || '-',
-          anniArretrati.length > 0 ? anniArretrati.join(', ') : '-',
+          descriviArretrati(status),
           '', // Colonna vuota per scrivere a mano
         ]
       })
@@ -449,12 +448,11 @@ export async function generateRenewalListPDF(soci, renewalYear) {
       const anniPagati = socio.tesseramenti.map((t) => t.anno)
       // Calcola lo stato pagamenti usando la utility condivisa (con logica condono)
       const status = calculatePaymentStatus(socio, anniPagati, renewalYear)
-      const anniArretrati = status.arretrati
 
       return [
         `${socio.cognome} ${socio.nome}`,
         socio.gruppo_appartenenza || '-',
-        anniArretrati.length > 0 ? anniArretrati.join(', ') : '-',
+        descriviArretrati(status),
         '', // Colonna vuota per scrivere a mano
       ]
     })

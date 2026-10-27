@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { calculateAgeInYear, isExemptFromPayment, calculatePaymentStatus, statoAnno } from '../payment'
+import {
+  calculateAgeInYear,
+  isExemptFromPayment,
+  calculatePaymentStatus,
+  descriviArretrati,
+  statoAnno,
+} from '../payment'
 
 // Le regole sono descritte nei commenti di src/utils/payment.js: eta' contata sul solo anno,
 // minorenni (< 18) esenti, condono degli arretrati se l'anno di riferimento e' pagato.
@@ -38,6 +44,7 @@ describe('calculatePaymentStatus', () => {
     ).toEqual({
       inRegola: true,
       arretrati: [],
+      daReiscrivere: false,
     })
   })
 
@@ -45,14 +52,39 @@ describe('calculatePaymentStatus', () => {
     expect(calculatePaymentStatus(adulto, [2020, 2026], 2026)).toEqual({
       inRegola: true,
       arretrati: [],
+      daReiscrivere: false,
     })
   })
 
-  it("non pagato l'anno di riferimento: arretrati dalla prima iscrizione in poi, anno incluso", () => {
+  it("non pagato l'anno di riferimento: arretrati dopo l'ultimo anno pagato, anno incluso", () => {
+    // Il 2022 saltato e' condonato dal pagamento del 2023
     expect(calculatePaymentStatus(adulto, [2020, 2021, 2023], 2026)).toEqual({
       inRegola: false,
-      arretrati: [2022, 2024, 2025, 2026],
+      arretrati: [2024, 2025, 2026],
+      daReiscrivere: false,
     })
+  })
+
+  it('piu di tre anni scoperti: nessun arretrato, va reiscritto', () => {
+    expect(calculatePaymentStatus(adulto, [2020, 2021, 2022], 2026)).toEqual({
+      inRegola: false,
+      arretrati: [],
+      daReiscrivere: true,
+    })
+    // Iscrizione dichiarata ma nessun pagamento da allora
+    expect(calculatePaymentStatus(adulto, [], 2026).daReiscrivere).toBe(true)
+  })
+
+  it('ex minorenne: gli anni da esente contano come in regola', () => {
+    // nato nel 2007: 18 anni nel 2025, mai pagato da maggiorenne
+    const socio = { data_nascita: '2007-02-01', data_prima_iscrizione: 2015 }
+    expect(calculatePaymentStatus(socio, [2015], 2026).arretrati).toEqual([2025, 2026])
+  })
+
+  it('descriviArretrati scrive cosa mostrare nei PDF', () => {
+    expect(descriviArretrati({ arretrati: [2025, 2026], daReiscrivere: false })).toBe('2025, 2026')
+    expect(descriviArretrati({ arretrati: [], daReiscrivere: false })).toBe('-')
+    expect(descriviArretrati({ arretrati: [], daReiscrivere: true })).toBe('Da reiscrivere')
   })
 
   it('senza prima iscrizione parte dal primo anno pagato', () => {
@@ -62,12 +94,20 @@ describe('calculatePaymentStatus', () => {
 
   it("senza prima iscrizione e senza pagamenti l'arretrato e' solo l'anno di riferimento", () => {
     const socio = { data_nascita: '1980-03-10', data_prima_iscrizione: null }
-    expect(calculatePaymentStatus(socio, [], 2026)).toEqual({ inRegola: false, arretrati: [2026] })
+    expect(calculatePaymentStatus(socio, [], 2026)).toEqual({
+      inRegola: false,
+      arretrati: [2026],
+      daReiscrivere: false,
+    })
   })
 
   it("minorenne gia' iscritto: in regola anche senza pagare", () => {
     const socio = { data_nascita: '2012-05-01', data_prima_iscrizione: 2022 }
-    expect(calculatePaymentStatus(socio, [2022], 2026)).toEqual({ inRegola: true, arretrati: [] })
+    expect(calculatePaymentStatus(socio, [2022], 2026)).toEqual({
+      inRegola: true,
+      arretrati: [],
+      daReiscrivere: false,
+    })
   })
 
   it('appena maggiorenne: gli anni da minorenne non diventano arretrati', () => {
@@ -76,12 +116,17 @@ describe('calculatePaymentStatus', () => {
     expect(calculatePaymentStatus(socio, [2020], 2026)).toEqual({
       inRegola: false,
       arretrati: [2026],
+      daReiscrivere: false,
     })
   })
 
   it("prima iscrizione dopo l'anno di riferimento: nessun arretrato", () => {
     const socio = { data_nascita: '1980-03-10', data_prima_iscrizione: 2027 }
-    expect(calculatePaymentStatus(socio, [], 2026)).toEqual({ inRegola: true, arretrati: [] })
+    expect(calculatePaymentStatus(socio, [], 2026)).toEqual({
+      inRegola: true,
+      arretrati: [],
+      daReiscrivere: false,
+    })
   })
 })
 
@@ -97,7 +142,7 @@ describe('statoAnno (colonne V, X, O, - dei report)', () => {
     expect(statoAnno(socio, [2015], 2015)).toBe('V')
   })
 
-  it("senza anno dichiarato parte dal primo pagamento", () => {
+  it('senza anno dichiarato parte dal primo pagamento', () => {
     expect(statoAnno(adulto, [2015], 2014)).toBe('-')
     expect(statoAnno(adulto, [2015], 2016)).toBe('X')
   })
