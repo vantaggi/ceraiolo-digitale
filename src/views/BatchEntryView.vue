@@ -1,17 +1,17 @@
 <template>
   <div class="batch-entry">
     <div class="batch-header">
-      <h1>🔄 Registrazione Seriale Pagamenti</h1>
+      <h1><AppIcon name="registrazione-seriale" /> Registrazione Seriale Pagamenti</h1>
       <p class="batch-subtitle">Flusso ottimizzato per blocchetti cartacei</p>
     </div>
 
     <!-- Area 1: Dati di Sessione (Fissi) -->
     <div class="session-data">
-      <h2>📋 Dati di Sessione</h2>
+      <h2><AppIcon name="impostazioni" /> Dati di Sessione</h2>
       <div class="session-grid">
         <div class="form-group">
           <label for="anno-riferimento">
-            <span class="field-icon">📅</span>
+            <AppIcon name="data" class="field-icon" />
             Anno di Riferimento *
           </label>
           <input
@@ -30,7 +30,7 @@
 
         <div class="form-group">
           <label for="numero-blocchetto">
-            <span class="field-icon">📄</span>
+            <AppIcon name="blocchetto" class="field-icon" />
             Numero Blocchetto *
           </label>
           <input
@@ -48,7 +48,7 @@
 
         <div class="form-group">
           <label for="data-pagamento">
-            <span class="field-icon">🗓️</span>
+            <AppIcon name="data" class="field-icon" />
             Data Pagamento *
           </label>
           <input
@@ -69,15 +69,20 @@
     <!-- Area 2: Contesto Ricevuta Attuale -->
     <div class="receipt-context">
       <div class="receipt-header">
-        <h2>🧾 Ricevuta Attuale</h2>
+        <h2><AppIcon name="ricevuta" /> Ricevuta Attuale</h2>
         <div class="receipt-controls">
           <label for="numero-ricevuta">
-            <span class="field-icon">📊</span>
+            <AppIcon name="ricevuta" class="field-icon" />
             Numero Ricevuta:
           </label>
           <div class="receipt-number-controls">
-            <button @click="decrementReceipt" class="receipt-btn" :disabled="isProcessing">
-              ⬅️
+            <button
+              @click="decrementReceipt"
+              class="receipt-btn"
+              :disabled="isProcessing"
+              aria-label="Ricevuta precedente"
+            >
+              <AppIcon name="precedente" />
             </button>
             <input
               id="numero-ricevuta"
@@ -88,8 +93,13 @@
               readonly
               :disabled="isProcessing"
             />
-            <button @click="incrementReceipt" class="receipt-btn" :disabled="isProcessing">
-              ➡️
+            <button
+              @click="incrementReceipt"
+              class="receipt-btn"
+              :disabled="isProcessing"
+              aria-label="Ricevuta successiva"
+            >
+              <AppIcon name="successivo" />
             </button>
           </div>
         </div>
@@ -97,17 +107,22 @@
 
       <!-- Riepilogo Soci sulla Ricevuta -->
       <div class="receipt-summary">
-        <h3>👥 Soci su questa ricevuta ({{ currentReceipt.soci.length }})</h3>
+        <h3><AppIcon name="gruppo" /> Soci su questa ricevuta ({{ currentReceipt.soci.length }})</h3>
         <div v-if="currentReceipt.soci.length === 0" class="empty-receipt">
-          <p>🎯 Nessun socio aggiunto ancora</p>
+          <p>Nessun socio aggiunto ancora</p>
           <small>Inizia cercando un socio esistente o registrane uno nuovo</small>
         </div>
         <TransitionGroup name="list" tag="div" class="receipt-soci-list">
           <div v-for="socio in currentReceipt.soci" :key="socio.id" class="receipt-socio-item">
             <span class="socio-name">{{ socio.cognome }} {{ socio.nome }}</span>
             <span class="socio-payment">{{ socio.anniPagati.join(', ') }}</span>
-            <button @click="removeFromReceipt(socio)" class="remove-btn" :disabled="isProcessing">
-              ❌
+            <button
+              @click="removeFromReceipt(socio)"
+              class="remove-btn"
+              :disabled="isProcessing"
+              :aria-label="`Togli ${socio.cognome} ${socio.nome} dalla ricevuta`"
+            >
+              <AppIcon name="chiudi" />
             </button>
           </div>
         </TransitionGroup>
@@ -117,14 +132,14 @@
     <!-- Area 3: L'Area di Lavoro -->
     <div class="work-area">
       <div class="work-area-header">
-        <h2>🔍 Area di Lavoro</h2>
+        <h2><AppIcon name="ricerca" /> Area di Lavoro</h2>
         <button
           @click="openNewSocioForm"
           class="add-socio-header-btn"
           title="Registra Nuovo Socio"
           :disabled="isProcessing"
         >
-          <span class="icon">➕</span>
+          <AppIcon name="aggiungi" class="icon" />
           <span class="label">Nuovo Socio</span>
         </button>
       </div>
@@ -138,7 +153,7 @@
             title="Salta la conferma pagamento (Invio = Paga)"
           >
             <input type="checkbox" v-model="turboMode" />
-            <span class="toggle-icon">⚡</span>
+            <AppIcon name="rapido" class="toggle-icon" />
             <span class="toggle-label">Turbo Mode</span>
           </label>
 
@@ -148,7 +163,7 @@
             title="Attiva/Disattiva suoni di feedback"
           >
             <input type="checkbox" v-model="soundEnabled" />
-            <span class="toggle-icon">{{ soundEnabled ? '🔊' : '🔇' }}</span>
+            <AppIcon :name="soundEnabled ? 'audio-attivo' : 'audio-spento'" class="toggle-icon" />
             <span class="toggle-label">Suoni</span>
           </label>
         </div>
@@ -164,13 +179,20 @@
             :disabled="isProcessing"
             ref="searchInput"
           />
-          <button @click="clearSearch" class="clear-search-btn" v-if="searchQuery">✕</button>
+          <button
+            @click="clearSearch"
+            class="clear-search-btn"
+            v-if="searchQuery"
+            aria-label="Svuota ricerca"
+          >
+            <AppIcon name="chiudi" />
+          </button>
         </div>
       </div>
 
       <!-- Risultati Ricerca -->
       <div v-if="searchResults.length > 0" class="search-results">
-        <h3>🔎 Risultati ({{ searchResults.length }})</h3>
+        <h3><AppIcon name="ricerca" /> Risultati ({{ searchResults.length }})</h3>
         <div class="results-list" ref="resultsListRef">
           <div
             v-for="(socio, index) in searchResults"
@@ -187,17 +209,17 @@
             </div>
             <div class="socio-status">
               <div v-if="getSocioStatus(socio) === 'IN_RECEIPT'" class="status-badge success">
-                ✅ In Ricevuta
+                <AppIcon name="ok" /> In Ricevuta
               </div>
               <div v-else-if="getSocioStatus(socio) === 'IN_ORDER'" class="status-badge success">
-                ✅ In Regola
+                <AppIcon name="ok" /> In Regola
               </div>
               <div v-else class="action-area">
                 <div v-if="socio.arretrati.length > 0 && !isMinor(socio)" class="arretrati-badge">
-                  ⚠️ Arretrati: {{ socio.arretrati.join(', ') }}
+                  <AppIcon name="attenzione" /> Arretrati: {{ socio.arretrati.join(', ') }}
                 </div>
                 <button class="pay-btn" :disabled="isProcessing" @click.stop="selectSocio(socio)">
-                  💰 Paga
+                  <AppIcon name="pagamento" /> Paga
                 </button>
               </div>
             </div>
@@ -208,20 +230,20 @@
       <!-- Nessun Risultato - Nuovo Socio -->
       <div v-else-if="searchQuery && searchResults.length === 0 && !isSearching" class="no-results">
         <div class="no-results-content">
-          <h3>👤 Socio non trovato</h3>
+          <h3><AppIcon name="socio" /> Socio non trovato</h3>
           <p>
             "<strong>{{ searchQuery }}</strong
             >" non corrisponde a nessun socio esistente.
           </p>
           <button @click="showNewSocioForm = true" class="new-socio-btn" :disabled="isProcessing">
-            ➕ Registra Nuovo Socio
+            <AppIcon name="nuovo-socio" /> Registra Nuovo Socio
           </button>
         </div>
       </div>
 
       <!-- Form Nuovo Socio -->
       <div v-if="showNewSocioForm" class="new-socio-form">
-        <h3>📝 Registra Nuovo Socio</h3>
+        <h3><AppIcon name="nuovo-socio" /> Registra Nuovo Socio</h3>
         <div class="mini-form-grid">
           <div class="form-group">
             <label for="new-cognome">Cognome *</label>
@@ -292,7 +314,7 @@
               <option v-for="group in availableGroups" :key="group" :value="group">
                 {{ group }}
               </option>
-              <option value="__NEW__">➕ Nuova manicchia...</option>
+              <option value="__NEW__">+ Nuova manicchia...</option>
             </select>
           </div>
 
@@ -318,7 +340,7 @@
             class="save-btn"
             :disabled="isProcessing || !canSaveNewSocio"
           >
-            💾 Salva e Registra Pagamento {{ sessionData.annoRiferimento }}
+            <AppIcon name="salva" /> Salva e Registra Pagamento {{ sessionData.annoRiferimento }}
           </button>
         </div>
       </div>
@@ -371,6 +393,7 @@ import {
 import ErrorModal from '@/components/ErrorModal.vue'
 import ConfirmDeleteModal from '@/components/ConfirmDeleteModal.vue'
 import AddPaymentModal from '@/components/AddPaymentModal.vue'
+import AppIcon from '@/components/base/AppIcon.vue'
 
 const toast = useToast()
 const searchInput = ref(null)

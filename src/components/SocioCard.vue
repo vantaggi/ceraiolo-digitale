@@ -13,7 +13,7 @@
         title="Rinnova Velocemente"
         aria-label="Rinnova velocemente"
       >
-        <AppIcon name="rinnovo-rapido" />
+        <AppIcon name="rapido" />
       </button>
       <RouterLink :to="{ name: 'socio-detail', params: { id: socio.id } }" class="details-button">
         Vedi Dettagli

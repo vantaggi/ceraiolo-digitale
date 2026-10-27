@@ -37,7 +37,7 @@ Una PR si unisce su `main` solo quando:
 4. Un fix tocca solo cio' che deve. Pulizie e refactor vanno in PR separate.
 5. Nessun commento di revisione senza risposta.
 
-La sessione che apre la PR non la unisce: la porta al verde e riferisce. Unisce il proprietario.
+La sessione che apre la PR la porta al verde e riferisce. Dal 27 ottobre 2026 il proprietario autorizza a unire con merge commit le PR di cui si e' sicuri al 100%: CI verde, verifica scritta, nessun commento aperto, nessuna decisione di prodotto in sospeso. Cambi di schema Dexie, cancellazioni di codice o dati e tutto cio' che lascia un dubbio li unisce il proprietario.
 
 ## Codice morto
 

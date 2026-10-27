@@ -3,35 +3,35 @@
     <div class="container settings-layout">
       <!-- Sidebar Navigation -->
       <aside class="settings-sidebar">
-        <h1 class="sidebar-title">⚙️ Impostazioni</h1>
+        <h1 class="sidebar-title"><AppIcon name="impostazioni" /> Impostazioni</h1>
         <nav class="settings-nav">
           <button
             @click="currentTab = 'generale'"
             :class="{ active: currentTab === 'generale' }"
             class="nav-item"
           >
-            🔧 Generale
+            <AppIcon name="ripara" /> Generale
           </button>
           <button
             @click="currentTab = 'template'"
             :class="{ active: currentTab === 'template' }"
             class="nav-item"
           >
-            🎫 Template Tessera
+            <AppIcon name="tessera" /> Template Tessera
           </button>
           <button
             @click="currentTab = 'dati'"
             :class="{ active: currentTab === 'dati' }"
             class="nav-item"
           >
-            💾 Dati & Backup
+            <AppIcon name="salva" /> Dati & Backup
           </button>
           <button
             @click="currentTab = 'zone'"
             :class="{ active: currentTab === 'zone' }"
             class="nav-item"
           >
-            🏘️ Gestione Zone
+            <AppIcon name="gruppo" /> Gestione Zone
           </button>
         </nav>
       </aside>
@@ -40,7 +40,7 @@
       <main class="settings-content">
         <!-- Tab: Generale -->
         <section v-if="currentTab === 'generale'" class="settings-section">
-          <h2>🔧 Configurazione Applicazione</h2>
+          <h2><AppIcon name="ripara" /> Configurazione Applicazione</h2>
           <p>Parametri globali per il funzionamento dell'applicazione</p>
 
           <div class="config-grid">
@@ -108,8 +108,8 @@
 
             <div class="action-buttons">
               <button @click="saveAppConfig" :disabled="isSavingConfig" class="save-button">
-                <span v-if="isSavingConfig" class="loading-spinner">⏳</span>
-                {{ isSavingConfig ? 'Salvataggio...' : '💾 Salva Configurazione' }}
+                <AppIcon :name="isSavingConfig ? 'caricamento' : 'salva'" :spin="isSavingConfig" />
+                {{ isSavingConfig ? 'Salvataggio...' : 'Salva Configurazione' }}
               </button>
             </div>
           </div>
@@ -117,7 +117,7 @@
 
         <!-- Tab: Template -->
         <section v-if="currentTab === 'template'" class="settings-section">
-          <h2>🎫 Template Tessera</h2>
+          <h2><AppIcon name="tessera" /> Template Tessera</h2>
           <p>Personalizza l'aspetto delle tessere di iscrizione</p>
 
           <div class="template-section">
@@ -167,12 +167,12 @@
                   :disabled="(!selectedPDF && !selectedImage) || isSaving"
                   class="save-button"
                 >
-                  <span v-if="isSaving" class="loading-spinner">⏳</span>
-                  {{ isSaving ? 'Salvataggio...' : '💾 Salva Template' }}
+                  <AppIcon :name="isSaving ? 'caricamento' : 'salva'" :spin="isSaving" />
+                  {{ isSaving ? 'Salvataggio...' : 'Salva Template' }}
                 </button>
 
                 <button @click="resetTemplate" :disabled="isSaving" class="reset-button">
-                  🔄 Ripristina Default
+                  <AppIcon name="ripristina" /> Ripristina Default
                 </button>
               </div>
             </div>
@@ -180,7 +180,7 @@
         </section>
 
         <section v-if="currentTab === 'dati'" class="settings-section">
-          <h2>💾 Gestione Dati & Backup</h2>
+          <h2><AppIcon name="salva" /> Gestione Dati & Backup</h2>
 
           <!-- Health Status -->
           <div class="data-health-banner" v-if="auditStats">
@@ -191,9 +191,10 @@
                 warning: auditStats.summary.total_issues > 0,
               }"
             >
-              <span class="health-icon">{{
-                auditStats.summary.total_issues === 0 ? '✅' : '⚠️'
-              }}</span>
+              <AppIcon
+                class="health-icon"
+                :name="auditStats.summary.total_issues === 0 ? 'ok' : 'attenzione'"
+              />
               <div class="health-text">
                 <h3>Stato Salute Dati</h3>
                 <p v-if="auditStats.summary.total_issues === 0">Tutti i dati sono corretti.</p>
@@ -207,10 +208,10 @@
 
           <!-- Sezione Backup Automatico -->
           <div class="subsection">
-            <h3>🔄 Backup Automatico su PC</h3>
+            <h3><AppIcon name="automatico" /> Backup Automatico su PC</h3>
             <div class="backup-grid">
               <div class="backup-card">
-                <h4>📁 Cartella di Backup</h4>
+                <h4><AppIcon name="cartella" /> Cartella di Backup</h4>
                 <p class="path-text">{{ backupStore.backupPath }}</p>
                 <button
                   @click="selectBackupFolder"
@@ -221,18 +222,23 @@
                     !isFileSystemSupported ? 'Il tuo browser non supporta questa funzionalità' : ''
                   "
                 >
+                  <AppIcon
+                    :name="
+                      !isFileSystemSupported ? 'disattivo' : backupStore.isAuthorized ? 'ok' : 'cartella'
+                    "
+                  />
                   {{
                     !isFileSystemSupported
-                      ? '❌ Non Supportato'
+                      ? 'Non Supportato'
                       : backupStore.isAuthorized
-                        ? '✅ Cambia Cartella'
-                        : '📁 Seleziona Cartella'
+                        ? 'Cambia Cartella'
+                        : 'Seleziona Cartella'
                   }}
                 </button>
               </div>
 
               <div class="backup-card">
-                <h4>⚡ Auto-Salvataggio</h4>
+                <h4><AppIcon name="automatico" /> Auto-Salvataggio</h4>
                 <p>Salva automaticamente ad ogni modifica.</p>
                 <button
                   @click="toggleAutoBackup"
@@ -240,12 +246,13 @@
                   class="backup-toggle-button"
                   :class="{ active: backupStore.autoBackupEnabled }"
                 >
-                  {{ backupStore.autoBackupEnabled ? '✅ Attivo' : '⭕ Disattivato' }}
+                  <AppIcon :name="backupStore.autoBackupEnabled ? 'ok' : 'disattivo'" />
+                  {{ backupStore.autoBackupEnabled ? 'Attivo' : 'Disattivato' }}
                 </button>
               </div>
 
               <div class="backup-card highlight">
-                <h4>💾 Backup Manuale</h4>
+                <h4><AppIcon name="salva" /> Backup Manuale</h4>
                 <p>Crea subito una copia.</p>
                 <button
                   @click="forceBackup"
@@ -253,13 +260,16 @@
                   class="manual-backup-button"
                   :class="{ 'btn-loading': isSavingBackup }"
                 >
-                  <span v-if="isSavingBackup" class="loading-spinner">⏳</span>
+                  <AppIcon
+                    :name="isSavingBackup ? 'caricamento' : backupStore.isAuthorized ? 'salva' : 'esporta'"
+                    :spin="isSavingBackup"
+                  />
                   {{
                     isSavingBackup
                       ? 'In corso...'
                       : backupStore.isAuthorized
-                        ? '💾 Esegui Backup Ora'
-                        : '📥 Scarica Backup'
+                        ? 'Esegui Backup Ora'
+                        : 'Scarica Backup'
                   }}
                 </button>
               </div>
@@ -270,11 +280,11 @@
 
           <!-- Sezione Export/Import -->
           <div class="subsection">
-            <h3>📦 Esportazione & Ripristino</h3>
+            <h3><AppIcon name="archivio" /> Esportazione & Ripristino</h3>
             <div class="data-section">
               <div class="export-options">
                 <div class="export-option">
-                  <h4>📥 Esporta Database Completo</h4>
+                  <h4><AppIcon name="esporta" /> Esporta Database Completo</h4>
                   <p>File .sqlite per migrazione o backup manuale (include Impostazioni).</p>
                   <button @click="exportDatabase" :disabled="isExporting" class="export-button">
                     {{ isExporting ? 'Esportazione...' : 'Scarica SQLite' }}
@@ -282,7 +292,7 @@
                 </div>
 
                 <div class="export-option">
-                  <h4>📊 Esporta Excel</h4>
+                  <h4><AppIcon name="foglio-calcolo" /> Esporta Excel</h4>
                   <p>Tabelle per Maggiorenni e Minorenni.</p>
                   <button @click="exportExcel" :disabled="isExporting" class="export-button">
                     {{ isExporting ? 'Esportazione...' : 'Scarica Excel' }}
@@ -290,7 +300,7 @@
                 </div>
 
                 <div class="export-option">
-                  <h4>⚙️ Configurazione JSON</h4>
+                  <h4><AppIcon name="configurazione" /> Configurazione JSON</h4>
                   <p>Export/Import solo impostazioni.</p>
                   <div class="button-group-small">
                     <button @click="exportSettings" :disabled="isExporting" class="action-button">
@@ -310,7 +320,7 @@
                 </div>
 
                 <div class="export-option danger">
-                  <h4>♻️ Ripristina Database</h4>
+                  <h4><AppIcon name="ripristina" /> Ripristina Database</h4>
                   <p>Carica un backup .sqlite (Sovrascrive tutto!).</p>
                   <input
                     type="file"
@@ -328,9 +338,9 @@
 
           <!-- DANGER ZONE -->
           <div class="subsection danger-zone">
-            <h3>⛔ Zona Pericolosa</h3>
+            <h3><AppIcon name="pericolo" /> Zona Pericolosa</h3>
             <div class="danger-card">
-              <h4>🏭 Ripristino Impostazioni di Fabbrica</h4>
+              <h4><AppIcon name="ripristina" /> Ripristino Impostazioni di Fabbrica</h4>
               <p>
                 Cancella TUTTI i dati (Soci, Pagamenti, Impostazioni) e riporta l'applicazione allo
                 stato iniziale.
@@ -340,7 +350,7 @@
                 :disabled="isExporting"
                 class="danger-button-large"
               >
-                🗑️ CANCELLA TUTTO E RIPRISTINA
+                <AppIcon name="elimina" /> CANCELLA TUTTO E RIPRISTINA
               </button>
             </div>
           </div>
@@ -348,7 +358,7 @@
 
         <!-- Tab: Zone (Gestione Manicchie) -->
         <section v-if="currentTab === 'zone'" class="settings-section">
-          <h2>🏘️ Gestione Zone (Gruppi)</h2>
+          <h2><AppIcon name="gruppo" /> Gestione Zone (Gruppi)</h2>
           <p>
             Gestisci le zone di appartenenza. Puoi rinominare zone esistenti (aggiornando tutti i soci)
             o aggiungerne di nuove per averle pronte nel menu a tendina.
@@ -363,13 +373,15 @@
                 @keyup.enter="addNewZone"
               />
               <button @click="addNewZone" :disabled="!newZoneName.trim()" class="save-button">
-                ➕ Aggiungi
+                <AppIcon name="aggiungi" /> Aggiungi
               </button>
             </div>
           </div>
 
           <div class="zones-list-container">
-            <div v-if="isLoadingZones" class="loading-spinner-large">⏳ Caricamento...</div>
+            <div v-if="isLoadingZones" class="loading-spinner-large">
+              <AppIcon name="caricamento" spin /> Caricamento...
+            </div>
             <div v-else-if="zones.length === 0" class="empty-state">Nessuna zona definita.</div>
             <ul v-else class="zones-list">
               <li v-for="zone in zones" :key="zone" class="zone-item">
@@ -387,20 +399,20 @@
 
                 <div class="zone-buttons">
                   <template v-if="editingZone !== zone">
-                    <button @click="startRename(zone)" class="action-button small secondary" title="Rinomina">
-                      ✏️
+                    <button @click="startRename(zone)" class="action-button small secondary" title="Rinomina" aria-label="Rinomina zona">
+                      <AppIcon name="modifica" />
                     </button>
                     <!-- Delete button just removes from defined list, doesn't delete users -->
-                    <button @click="deleteZone(zone)" class="action-button small danger" title="Rimuovi dalla lista (non cancella i soci)">
-                      🗑️
+                    <button @click="deleteZone(zone)" class="action-button small danger" title="Rimuovi dalla lista (non cancella i soci)" aria-label="Rimuovi zona dalla lista">
+                      <AppIcon name="elimina" />
                     </button>
                   </template>
                   <template v-else>
-                     <button @click="saveZoneRename(zone)" class="action-button small success" title="Salva">
-                      💾
+                     <button @click="saveZoneRename(zone)" class="action-button small success" title="Salva" aria-label="Salva nome zona">
+                      <AppIcon name="salva" />
                     </button>
-                    <button @click="cancelRename" class="action-button small secondary" title="Annulla">
-                      ❌
+                    <button @click="cancelRename" class="action-button small secondary" title="Annulla" aria-label="Annulla rinomina">
+                      <AppIcon name="chiudi" />
                     </button>
                   </template>
                 </div>
@@ -433,6 +445,7 @@ import { exportDataToExcel, exportSettingsToJson, importSettingsFromJson } from 
 import { useBackupStore } from '@/stores/backupStore'
 import { backupService } from '@/services/backupService'
 import TesseraTemplate from '@/components/TesseraTemplate.vue'
+import AppIcon from '@/components/base/AppIcon.vue'
 
 const toast = useToast()
 const currentYear = new Date().getFullYear()
@@ -1451,20 +1464,6 @@ const saveZoneRename = async (oldName) => {
 
 .export-info strong {
   color: var(--color-text-primary);
-}
-
-.loading-spinner {
-  display: inline-block;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 /* Backup Section */

@@ -24,8 +24,6 @@ const ICONA_TESTUALE = /(?![©®™])\p{Extended_Pictographic}|[←-↓✓✕✗
 // vengono migrate; il test fallisce se un'eccezione non serve piu'.
 const ECCEZIONI = {
   'components/KeyboardShortcutsModal.vue': 'le frecce sono i tasti da premere, non icone',
-  'views/SettingsView.vue': 'G-3 lotto 2',
-  'views/BatchEntryView.vue': 'G-3 lotto 2',
   'views/ReportsView.vue': 'G-3 lotto 3, dopo la decisione su Report Beta',
   'views/ReportsBetaView.vue': 'G-3 lotto 3, dopo la decisione su Report Beta',
 }
