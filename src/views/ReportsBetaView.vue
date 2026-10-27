@@ -328,6 +328,7 @@ import AppIcon from '@/components/base/AppIcon.vue';
 import { getAllSociWithTesseramenti, getUniqueGroups } from '@/services/db';
 import { generateBetaDynamicPDF } from '@/services/exportBeta';
 import { valutaDirittoVoto } from '@/utils/voto';
+import { statoAnno } from '@/utils/payment';
 
 const toast = useToast();
 const loading = ref(false);
@@ -370,43 +371,12 @@ const reportState = ref({
   }
 });
 
-const hasPaidYear = (member, year) => {
-  const paidYears = member.tesseramenti?.map(t => t.anno) || [];
-  return paidYears.includes(year);
-};
+// Stato di un anno (V/X/O/-): regola in utils/payment.js
+const getYearBadgeText = (member, year) =>
+  statoAnno(member, member.tesseramenti?.map(t => t.anno) || [], year);
 
-const isMinorInYear = (member, year) => {
-  if (!member.data_nascita) return false;
-  const birthYear = new Date(member.data_nascita).getFullYear();
-  return (year - birthYear < 18);
-};
-
-const getEnrollmentYear = (member) => {
-  if (member.data_iscrizione) {
-    return new Date(member.data_iscrizione).getFullYear();
-  }
-  const paidYears = member.tesseramenti?.map(t => t.anno) || [];
-  if (paidYears.length > 0) return Math.min(...paidYears);
-  return new Date().getFullYear(); // Fallback to current year if completely unknown
-};
-
-const isEnrolledInYear = (member, year) => {
-  return year >= getEnrollmentYear(member);
-};
-
-const getYearBadgeText = (member, year) => {
-  if (!isEnrolledInYear(member, year)) return '-';
-  if (hasPaidYear(member, year)) return 'V';
-  if (isMinorInYear(member, year)) return 'O';
-  return 'X';
-};
-
-const getYearBadgeClass = (member, year) => {
-  if (!isEnrolledInYear(member, year)) return 'badge-blue';
-  if (hasPaidYear(member, year)) return 'badge-success';
-  if (isMinorInYear(member, year)) return 'badge-warning';
-  return 'badge-error';
-};
+const CLASSI_STATO_ANNO = { '-': 'badge-blue', V: 'badge-success', O: 'badge-warning', X: 'badge-error' };
+const getYearBadgeClass = (member, year) => CLASSI_STATO_ANNO[getYearBadgeText(member, year)];
 
 const resetFilters = () => {
   reportState.value.filters = {

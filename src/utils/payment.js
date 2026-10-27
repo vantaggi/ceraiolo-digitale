@@ -82,3 +82,36 @@ export function calculatePaymentStatus(socio, paidYears, targetYear) {
     arretrati
   }
 }
+
+/**
+ * Anno di iscrizione: il primo tra l'anno dichiarato (data_prima_iscrizione)
+ * e il primo pagamento registrato. Senza nessuno dei due, null.
+ * @param {object} socio
+ * @param {Array<number>} anniPagati
+ * @returns {number|null}
+ */
+export function annoIscrizione(socio, anniPagati) {
+  const candidati = [...anniPagati]
+  const dichiarato = Number(socio.data_prima_iscrizione)
+  if (Number.isInteger(dichiarato) && dichiarato > 1900) candidati.push(dichiarato)
+  return candidati.length > 0 ? Math.min(...candidati) : null
+}
+
+/**
+ * Stato di un anno nelle colonne dei report (V, X, O, -).
+ * - "-": non ancora iscritto in quell'anno
+ * - "V": pagato
+ * - "O": minorenne, esente
+ * - "X": non pagato
+ * @param {object} socio
+ * @param {Array<number>} anniPagati
+ * @param {number} anno
+ * @returns {'V'|'X'|'O'|'-'}
+ */
+export function statoAnno(socio, anniPagati, anno) {
+  const iscrizione = annoIscrizione(socio, anniPagati)
+  if (iscrizione === null || anno < iscrizione) return '-'
+  if (anniPagati.includes(anno)) return 'V'
+  if (isExemptFromPayment(socio, anno)) return 'O'
+  return 'X'
+}
