@@ -3,14 +3,14 @@
     <div class="container reports-layout">
       <!-- Sidebar Nav for consistency -->
       <aside class="reports-sidebar">
-        <h1 class="sidebar-title">📊 Report</h1>
+        <h1 class="sidebar-title"><AppIcon name="report" /> Report</h1>
         <nav class="reports-nav">
           <!-- Link to normal reports page -->
           <router-link to="/reports" class="nav-item" style="text-decoration: none; color: inherit; display: block; margin-bottom: 15px;">
-            ⬅️ Torna a Reports Standard
+            <AppIcon name="indietro" /> Torna a Reports Standard
           </router-link>
           <button class="nav-item active" style="width: 100%;">
-             🛠️ Report Beta
+             <AppIcon name="personalizza" /> Report Beta
           </button>
         </nav>
       </aside>
@@ -18,13 +18,13 @@
       <main class="reports-content" style="flex: 1;">
         <!-- UI Notification per Business Rules -->
         <div class="report-section" style="background-color: #fff3cd; border-color: #ffeeba; margin-bottom: 2rem;">
-          <h4 style="color: #856404; margin-bottom: 5px;">⚠️ BETA VERSION</h4>
+          <h4 style="color: #856404; margin-bottom: 5px;"><AppIcon name="attenzione" /> BETA VERSION</h4>
           <p style="color: #856404; font-size: 0.95rem;">Use for testing layout and data structure. For official documents, use the standard Reports tab.</p>
         </div>
 
         <section class="report-section header-section">
           <div class="header-row">
-            <h2>🛠️ Report Builder Personalizzato</h2>
+            <h2><AppIcon name="personalizza" /> Report Builder Personalizzato</h2>
           </div>
         </section>
 
@@ -39,7 +39,7 @@
         <!-- Presets section -->
         <section class="report-section" style="margin-bottom: 2rem;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
-            <h3 style="margin: 0;">💾 Preset di Ricerca Salvati</h3>
+            <h3 style="margin: 0;"><AppIcon name="salva" /> Preset di Ricerca Salvati</h3>
             <button @click="savePreset" class="action-button" style="width: auto; padding: 0.5rem 1rem; font-size: 0.9rem; background-color: var(--color-success);">
               + Salva Nuova Vista
             </button>
@@ -48,7 +48,7 @@
              <div v-for="(preset, index) in savedPresets" :key="index" style="background: var(--color-background); border: 1px solid var(--color-border); padding: 8px 12px; border-radius: 6px; display: flex; align-items: center; gap: 10px;box-shadow: var(--shadow-sm);">
                 <span style="font-weight: 500; cursor: pointer; color: var(--color-primary);" @click="loadPreset(preset)" title="Clicca per applicare questo preset">{{ preset.name }}</span>
                 <div style="border-left: 1px solid var(--color-border); height: 15px; margin: 0 5px;"></div>
-                <button @click="deletePreset(index)" style="background: none; border: none; color: var(--color-danger); cursor: pointer; font-size: 1rem; padding: 0;" title="Elimina Preset">🗑️</button>
+                <button @click="deletePreset(index)" style="background: none; border: none; color: var(--color-danger); cursor: pointer; font-size: 1rem; padding: 0;" title="Elimina Preset" aria-label="Elimina preset"><AppIcon name="elimina" /></button>
              </div>
           </div>
           <div v-else style="margin-top: 15px; color: var(--color-text-secondary); font-size: 0.9rem;">
@@ -61,7 +61,7 @@
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
             <h3 style="margin: 0;">Filtri Generali</h3>
             <button @click="resetFilters" class="action-button" style="width: auto; padding: 0.5rem 1rem; font-size: 0.9rem; background-color: var(--color-surface); border: 1px solid var(--color-border); color: var(--color-text-primary);">
-              🔄 Ripristina Filtri
+              <AppIcon name="ripristina" /> Ripristina Filtri
             </button>
           </div>
           <div class="filters-inline">
@@ -93,7 +93,7 @@
 
           <hr style="border: 0; border-top: 1px solid var(--color-border); margin: 15px 0;" />
 
-          <h4>🗳️ Filtri Elezioni (Aventi Diritto)</h4>
+          <h4><AppIcon name="votazioni" /> Filtri Elezioni (Aventi Diritto)</h4>
           <div class="filters-inline" style="margin-top: 10px; background: var(--color-background); padding: 10px; border-radius: 6px; border: 1px solid var(--color-border);">
             <div class="f-group" style="margin-right: 20px;">
               <label>Data di Riferimento Elezioni:</label>
@@ -141,13 +141,13 @@
                 <input type="radio" value="AND" v-model="reportState.filters.paymentYears.logic" />
                 <span class="radiomark"></span>
                 And (ha pagato <strong>tutti</strong> gli anni selezionati)
-                <span style="font-size: 0.8rem; color: var(--color-primary); margin-left: 5px; cursor: help;" title="Scegliendo AND, mostri SOLO i soci che hanno pagato tutti gli anni spuntati">ℹ️</span>
+                <span style="font-size: 0.8rem; color: var(--color-primary); margin-left: 5px; cursor: help;" title="Scegliendo AND, mostri SOLO i soci che hanno pagato tutti gli anni spuntati"><AppIcon name="info" label="Informazioni" /></span>
               </label>
               <label class="radio-label" title="Scegliendo OR, mostri QUALSIASI socio che ha pagato ANCHE IN UNO SOLO degli anni scelti">
                 <input type="radio" value="OR" v-model="reportState.filters.paymentYears.logic" />
                 <span class="radiomark"></span>
                 Or (ha pagato <strong>almeno uno</strong> degli anni)
-                <span style="font-size: 0.8rem; color: var(--color-primary); margin-left: 5px; cursor: help;" title="Scegliendo OR, mostri i soci che hanno pagato in almeno uno degli anni spuntati">ℹ️</span>
+                <span style="font-size: 0.8rem; color: var(--color-primary); margin-left: 5px; cursor: help;" title="Scegliendo OR, mostri i soci che hanno pagato in almeno uno degli anni spuntati"><AppIcon name="info" label="Informazioni" /></span>
               </label>
             </div>
         </section>
@@ -203,9 +203,9 @@
               <h5 style="margin-top: 0; margin-bottom: 12px; color: var(--color-text-secondary); font-size: 0.9rem;">Ordina Colonne Base (da sinistra a destra):</h5>
               <div class="column-order-grid">
                 <div v-for="(col, index) in reportState.display.baseColumns" :key="col" class="column-order-item">
-                  <button @click="moveColumn(index, -1)" :disabled="index === 0" class="col-move-btn" title="Sposta a sinistra">◀</button>
+                  <button @click="moveColumn(index, -1)" :disabled="index === 0" class="col-move-btn" title="Sposta a sinistra" aria-label="Sposta colonna a sinistra"><AppIcon name="precedente" /></button>
                   <span class="col-name">{{ colName(col) }}</span>
-                  <button @click="moveColumn(index, 1)" :disabled="index === reportState.display.baseColumns.length - 1" class="col-move-btn" title="Sposta a destra">▶</button>
+                  <button @click="moveColumn(index, 1)" :disabled="index === reportState.display.baseColumns.length - 1" class="col-move-btn" title="Sposta a destra" aria-label="Sposta colonna a destra"><AppIcon name="successivo" /></button>
                 </div>
               </div>
             </div>
@@ -252,7 +252,8 @@
         <!-- Action & Data Preview -->
         <section class="report-section">
           <button @click="handleExport" class="action-button wide" style="margin-bottom: 2rem; font-size: 1.1rem; padding: 1rem;" :disabled="loading">
-            {{ loading ? '⏳ Generazione PDF in corso...' : '📄 Genera PDF Dinamico' }}
+            <AppIcon :name="loading ? 'caricamento' : 'documento'" :spin="loading" />
+            {{ loading ? 'Generazione PDF in corso...' : 'Genera PDF Dinamico' }}
           </button>
 
           <div v-if="processedData.length > 0">
@@ -323,6 +324,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useToast } from 'vue-toastification';
 import { askConfirm, askText } from '@/composables/useDialog';
+import AppIcon from '@/components/base/AppIcon.vue';
 import { getAllSociWithTesseramenti, getUniqueGroups } from '@/services/db';
 import { generateBetaDynamicPDF } from '@/services/exportBeta';
 

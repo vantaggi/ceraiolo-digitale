@@ -20,12 +20,9 @@ const rel = (file) => path.relative(SRC, file).split(path.sep).join('/')
 // Emoji e simboli che fanno da icona (frecce, spunte, croci). (C) (R) e TM restano testo.
 const ICONA_TESTUALE = /(?![©®™])\p{Extended_Pictographic}|[←-↓✓✕✗]/u
 
-// Eccezioni motivate. Le viste dei lotti successivi di G-3 escono dalla lista quando
-// vengono migrate; il test fallisce se un'eccezione non serve piu'.
+// Eccezioni motivate; il test fallisce se un'eccezione non serve piu'.
 const ECCEZIONI = {
   'components/KeyboardShortcutsModal.vue': 'le frecce sono i tasti da premere, non icone',
-  'views/ReportsView.vue': 'G-3 lotto 3, dopo la decisione su Report Beta',
-  'views/ReportsBetaView.vue': 'G-3 lotto 3, dopo la decisione su Report Beta',
 }
 
 const righeConIcone = (file) =>

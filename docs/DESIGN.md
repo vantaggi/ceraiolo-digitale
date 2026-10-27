@@ -104,8 +104,11 @@ Solo Lucide, tramite `AppIcon` (`src/components/base/AppIcon.vue`). Un concetto 
 | archivio | Archive | foglio-calcolo | FileSpreadsheet |
 | configurazione | FileBraces | audio-attivo / audio-spento | Volume2 / VolumeX |
 | ok / attenzione | CircleCheck / TriangleAlert | pericolo / disattivo | OctagonAlert / CircleOff |
+| statistiche / elenco | ChartLine / List | audit | Scale |
+| personalizza | SlidersHorizontal | numeri / votazioni | Hash / Vote |
+| info | Info | | |
 
-Le lettere V, X, O e - dei badge di stato dei pagamenti restano per ora: sono testo accanto all'etichetta, non emoji. Se sono la notazione del registro cartaceo si tengono, altrimenti diventano icone (da chiedere al proprietario).
+Le lettere V, X, O e - dei badge di stato dei pagamenti restano: sono la stessa notazione delle colonne "Anni di pagamento (V/X)" dei PDF, e stanno accanto all'etichetta scritta.
 
 ## Debiti
 
@@ -117,5 +120,5 @@ Le lettere V, X, O e - dei badge di stato dei pagamenti restano per ora: sono te
 
 1. G-1 (fatto): token mancanti (`status-error`, `space-*`, `radius-*`, ruoli tipografici, `focus-ring`, `surface-elevated`, `border-strong`) e correzione dei contrasti; `src/assets/__tests__/tokens.test.js` rifiuta `var(--x)` non definiti e colori senza valore scuro.
 2. G-2: `BaseModal` e `BaseButton`, poi via i `confirm()` nativi.
-3. G-3: tabella concetto -> icona Lucide, poi via le emoji schermata per schermata. Lotti 1 e 2 fatti (navigazione, Home, scheda socio, nuovo socio, blocchetti, componenti condivisi, Impostazioni, Registrazione seriale); lotto 3 i Report, dopo la decisione su Report Beta. `src/components/__tests__/icone.test.js` tiene la lista dei file ancora da migrare.
+3. G-3: tabella concetto -> icona Lucide, poi via le emoji schermata per schermata. Fatto in tre lotti (PR #7, #8 e il lotto dei Report): nessuna emoji resta nei sorgenti, e `src/components/__tests__/icone.test.js` impedisce che tornino.
 4. G-4: colori scritti a mano sostituiti dai token, vista per vista.
