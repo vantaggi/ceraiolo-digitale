@@ -10,7 +10,7 @@ import logoUrl from '@/assets/logo_santantoniari.jpg'
  * @param {string} url - URL dell'immagine
  * @returns {Promise<string>} Base64 Data URL
  */
-const loadImage = (url) => {
+export const loadImage = (url) => {
   return new Promise((resolve, reject) => {
     const img = new Image()
     img.crossOrigin = 'Anonymous'
@@ -32,7 +32,7 @@ const loadImage = (url) => {
  * @param {string} dateStr
  * @returns {string} Formatted date or original string
  */
-function formatDate(dateStr) {
+export function formatDate(dateStr) {
   if (!dateStr) return '-'
   try {
     const [y, m, d] = dateStr.split('-')
@@ -51,7 +51,7 @@ function formatDate(dateStr) {
  * @param {string} format - Formato pagina ('a4', ecc.)
  * @returns {jsPDF} Istanza jsPDF configurata
  */
-function createPDFDocument(orientation = 'landscape', format = 'a4') {
+export function createPDFDocument(orientation = 'landscape', format = 'a4') {
   return new jsPDF({
     orientation,
     unit: 'mm',
@@ -271,7 +271,7 @@ export function addPDFFooter(doc) {
  * @param {Object} params - Parametri aggiuntivi per il nome file
  * @returns {string} Nome file sanitizzato
  */
-function generatePDFFilename(baseName, params = {}) {
+export function generatePDFFilename(baseName, params = {}) {
   const parts = [baseName]
 
   // Aggiungi parametri se presenti
@@ -499,7 +499,7 @@ export const cellaStatoAnno = (socio, anniPagati, anno) => {
 /**
  * Aggiunge la legenda dei 4 stati per gli anni al PDF
  */
-function addStatusLegend(doc, startY) {
+export function addStatusLegend(doc, startY) {
   let currentX = MARGINE
   doc.setFontSize(8)
   doc.setTextColor(100, 100, 100)
@@ -1689,7 +1689,7 @@ export async function generateChurnPDF(soci, year) {
         `${socio.cognome} ${socio.nome}`,
         socio.gruppo_appartenenza || '-',
         lastPaymentStr,
-        socio.telefono || '', // If phone exists in notes or structure? Standard schema has no phone.
+        socio.note || '', // lo schema non ha il telefono: le note sono l'unico recapito
         // We can put blank or look at notes? Standard schema: 'note'.
         '', // Checkbox / Notes manual
       ]
