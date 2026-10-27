@@ -18,7 +18,8 @@ const sourceFiles = (dir) =>
 const rel = (file) => path.relative(SRC, file).split(path.sep).join('/')
 
 // Emoji e simboli che fanno da icona (frecce, spunte, croci). (C) (R) e TM restano testo.
-const ICONA_TESTUALE = /(?![©®™])\p{Extended_Pictographic}|[←-↓✓✕✗]/u
+// U+FFFD e' il resto di un'emoji rotta (es. "\uFFFD\uFE0F Audit Qualita' Dati" in ReportsView).
+const ICONA_TESTUALE = /(?![©®™])\p{Extended_Pictographic}|[←-↓✓✕✗\uFFFD]/u
 
 // Eccezioni motivate; il test fallisce se un'eccezione non serve piu'.
 const ECCEZIONI = {

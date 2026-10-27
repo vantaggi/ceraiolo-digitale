@@ -106,7 +106,7 @@ Solo Lucide, tramite `AppIcon` (`src/components/base/AppIcon.vue`). Un concetto 
 | ok / attenzione | CircleCheck / TriangleAlert | pericolo / disattivo | OctagonAlert / CircleOff |
 | statistiche / elenco | ChartLine / List | audit | Scale |
 | personalizza | SlidersHorizontal | numeri / votazioni | Hash / Vote |
-| info | Info | | |
+| info | Info | qualita-dati | ShieldCheck |
 
 Le lettere V, X, O e - dei badge di stato dei pagamenti restano: sono la stessa notazione delle colonne "Anni di pagamento (V/X)" dei PDF, e stanno accanto all'etichetta scritta.
 

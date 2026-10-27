@@ -128,9 +128,13 @@ const blocchettiDinamici = computed(() => {
    return sorted
 })
 
+// I contatori contano gli stessi blocchetti della tabella (solo quelli registrati):
+// quelli ricavati dallo storico non hanno data di restituzione e risultavano "non restituiti".
+const blocchettiRegistrati = computed(() => blocchettiDinamici.value.filter(b => b.isReal))
+
 const filteredBlocchetti = computed(() => {
     // 1. Mostra SOLO i blocchetti realmente esistenti nel database (isReal === true)
-    let baseList = blocchettiDinamici.value.filter(b => b.isReal)
+    let baseList = blocchettiRegistrati.value
 
     if (!searchQuery.value) return baseList
 
@@ -147,8 +151,8 @@ const filteredBlocchetti = computed(() => {
     })
 })
 
-const totalBlocchetti = computed(() => blocchettiDinamici.value.length)
-const totalAttivi = computed(() => blocchettiDinamici.value.filter(b => !b.data_restituzione).length)
+const totalBlocchetti = computed(() => blocchettiRegistrati.value.length)
+const totalAttivi = computed(() => blocchettiRegistrati.value.filter(b => !b.data_restituzione).length)
 
 
 // ---- AZIONI MANUALI ----
@@ -276,7 +280,7 @@ const formatDate = (dateString) => {
        </div>
        <div class="stats-right">
           <div class="stat-item">
-             <span class="stat-label">Totale Taccuini Lavorati</span>
+             <span class="stat-label">Blocchetti Registrati</span>
              <span class="stat-value">{{ totalBlocchetti }}</span>
           </div>
           <div class="stat-item">

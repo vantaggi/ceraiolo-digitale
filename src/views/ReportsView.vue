@@ -368,7 +368,7 @@
           <section class="report-section">
             <h3><AppIcon name="gruppo" /> Report Soci Attivi (5 Anni)</h3>
             <p>
-              Elenco soci con <strong>almeno 1 pagamento</strong> negli ultimi 5 anni (${{
+              Elenco soci con <strong>almeno 1 pagamento</strong> negli ultimi 5 anni ({{
                 renewalYear - 4
               }}
               - {{ renewalYear }}).
@@ -399,7 +399,7 @@
 
           <!-- Audit Dati -->
           <section class="report-section">
-            <h3>�️ Audit Qualità Dati</h3>
+            <h3><AppIcon name="qualita-dati" /> Audit Qualità Dati</h3>
             <p>Verifica la completezza e coerenza dei dati anagrafici.</p>
 
             <button @click="runDataAudit" class="action-button wide" :disabled="loading">
