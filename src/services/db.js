@@ -1,5 +1,5 @@
 import Dexie from 'dexie'
-import initSqlJs from 'sql.js'
+import { caricaSqlJs } from './sqljs'
 import { calculatePaymentStatus } from '@/utils/payment'
 import { SENZA_MANICCHIA } from '@/utils/aventiDiritto'
 import { elencoRecupero } from '@/utils/recupero'
@@ -504,20 +504,20 @@ export async function getTesseramentiBySocioId(socioId) {
  * @returns {Promise<Array>} A promise that resolves to an array of member objects with tesseramenti
  */
 export async function getAllSociWithTesseramenti() {
-  const soci = await db.soci.toArray()
+  // Due letture in tutto: una lettura per socio richiedeva ~5 secondi con 3.000 soci
+  const [soci, tutti] = await Promise.all([db.soci.toArray(), db.tesseramenti.toArray()])
 
-  // Per ogni socio, carica i suoi tesseramenti
-  const sociWithTesseramenti = await Promise.all(
-    soci.map(async (socio) => {
-      const tesseramenti = await getTesseramentiBySocioId(socio.id)
-      return {
-        ...socio,
-        tesseramenti,
-      }
-    }),
-  )
+  const perSocio = new Map()
+  for (const t of tutti) {
+    if (!perSocio.has(t.id_socio)) perSocio.set(t.id_socio, [])
+    perSocio.get(t.id_socio).push(t)
+  }
 
-  return sociWithTesseramenti
+  // Come getTesseramentiBySocioId: dall'anno piu' recente
+  return soci.map((socio) => ({
+    ...socio,
+    tesseramenti: (perSocio.get(socio.id) || []).sort((a, b) => b.anno - a.anno),
+  }))
 }
 
 /**
@@ -692,10 +692,7 @@ export async function exportDatabaseToSqlite(customFilename = null) {
     const filename = customFilename || `ceraiolo_backup_${timestamp}.sqlite`
 
     // Initialize sql.js
-    const SQL = await initSqlJs({
-      // Resolve the wasm file relative to the current page. By using URL, we ensure it respects the correct GitHub Pages subfolder.
-      locateFile: (file) => new URL(import.meta.env.BASE_URL + file, window.location.href).href,
-    })
+    const SQL = await caricaSqlJs()
 
     // Create new SQLite database
     const sqliteDb = new SQL.Database()
@@ -753,6 +750,10 @@ export async function exportDatabaseToSqlite(customFilename = null) {
         value TEXT
       );
     `)
+
+    // Tutte le righe in una transazione: senza, ogni riga e' una scrittura a parte
+    // (10.000 soci finti: ~10 secondi di pagina ferma a ogni backup automatico)
+    sqliteDb.run('BEGIN')
 
     // --- EXPORT SOCI ---
     const sociData = await db.soci.toArray()
@@ -848,6 +849,8 @@ export async function exportDatabaseToSqlite(customFilename = null) {
     metadataStmt.run(['schema_version', '2.0'])
     metadataStmt.run(['export_timestamp', timestamp])
     metadataStmt.free()
+
+    sqliteDb.run('COMMIT')
 
     // Get binary data and create blob
     const binaryArray = sqliteDb.export()
@@ -1032,9 +1035,7 @@ export async function exportSocioToSqlite(socioId) {
     )
 
     // Initialize sql.js
-    const SQL = await initSqlJs({
-      locateFile: (file) => `/${file}`,
-    })
+    const SQL = await caricaSqlJs()
 
     // Create new SQLite database
     const sqliteDb = new SQL.Database()
@@ -2192,9 +2193,7 @@ export async function getDataAuditStats() {
 export async function importDatabaseFromSqlite(file) {
   try {
     const arrayBuffer = await file.arrayBuffer()
-    const SQL = await initSqlJs({
-      locateFile: (file) => `/${file}`,
-    })
+    const SQL = await caricaSqlJs()
 
     // Load DB from file
     const uInt8Array = new Uint8Array(arrayBuffer)
@@ -2225,6 +2224,7 @@ export async function importDatabaseFromSqlite(file) {
       db.tesseramenti,
       db.local_changes,
       db.settings,
+      db.blocchetti,
       async () => {
         await db.soci.clear()
         await db.tesseramenti.clear()
@@ -2294,6 +2294,24 @@ export async function importDatabaseFromSqlite(file) {
           console.warn('Settings table not found in backup (Legacy backup?)')
         }
 
+        // --- IMPORT BLOCCHETTI ---
+        // Un backup vecchio senza la tabella lascia i blocchetti come sono
+        let blocchettiResult = null
+        try {
+          blocchettiResult = sqliteDb.exec('SELECT * FROM Blocchetti')
+        } catch {
+          console.warn('Blocchetti table not found in backup (Legacy backup?)')
+        }
+        if (blocchettiResult) {
+          await db.blocchetti.clear()
+          if (blocchettiResult.length > 0) {
+            const { columns, values } = blocchettiResult[0]
+            await db.blocchetti.bulkAdd(
+              values.map((row) => Object.fromEntries(columns.map((col, i) => [col, row[i]]))),
+            )
+          }
+        }
+
         // --- IMPORT LOCAL CHANGES ---
         try {
           const historyResult = sqliteDb.exec('SELECT * FROM LocalChanges')
@@ -2346,11 +2364,13 @@ export async function wipeDatabase() {
       db.tesseramenti,
       db.local_changes,
       db.settings,
+      db.blocchetti,
       async () => {
         await db.soci.clear()
         await db.tesseramenti.clear()
         await db.local_changes.clear()
         await db.settings.clear()
+        await db.blocchetti.clear()
       },
     )
     console.log('Database wiped successfully')
