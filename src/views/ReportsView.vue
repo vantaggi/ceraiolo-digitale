@@ -3,42 +3,42 @@
     <div class="container reports-layout">
       <!-- Sidebar -->
       <aside class="reports-sidebar">
-        <h1 class="sidebar-title">📊 Report</h1>
+        <h1 class="sidebar-title"><AppIcon name="report" /> Report</h1>
         <nav class="reports-nav">
           <button
             @click="currentTab = 'rinnovi'"
             :class="{ active: currentTab === 'rinnovi' }"
             class="nav-item"
           >
-            📅 Rinnovi & Tessere
+            <AppIcon name="data" /> Rinnovi & Tessere
           </button>
           <button
             @click="currentTab = 'liste'"
             :class="{ active: currentTab === 'liste' }"
             class="nav-item"
           >
-            📋 Elenchi Dati
+            <AppIcon name="elenco" /> Elenchi Dati
           </button>
           <button
             @click="currentTab = 'export'"
             :class="{ active: currentTab === 'export' }"
             class="nav-item"
           >
-            📦 Export Batch
+            <AppIcon name="archivio" /> Export Batch
           </button>
           <button
             @click="currentTab = 'stats'"
             :class="{ active: currentTab === 'stats' }"
             class="nav-item"
           >
-            📈 Statistiche
+            <AppIcon name="statistiche" /> Statistiche
           </button>
           <button
             @click="currentTab = 'audit-quote'"
             :class="{ active: currentTab === 'audit-quote' }"
             class="nav-item"
           >
-            ⚖️ Audit Quote (Rientri)
+            <AppIcon name="audit" /> Audit Quote (Rientri)
           </button>
           <hr style="border: 0; border-top: 1px solid var(--color-border); margin: 10px 0;" />
           <router-link
@@ -46,7 +46,7 @@
             class="nav-item"
             style="text-decoration: none; display: flex; align-items: center; gap: 8px;"
           >
-            🛠️ Report Builder Beta
+            <AppIcon name="personalizza" /> Report Builder Beta
           </router-link>
         </nav>
       </aside>
@@ -56,7 +56,7 @@
         <!-- GLOBAL HEADER & CONTROLS -->
         <section class="report-section header-section">
           <div class="header-row">
-            <h2>📊 {{ getTabTitle(currentTab) }}</h2>
+            <h2><AppIcon name="report" /> {{ getTabTitle(currentTab) }}</h2>
             <div class="year-selector-inline">
               <label for="renewalYear">Anno di Riferimento:</label>
               <input
@@ -76,33 +76,34 @@
           <div class="reports-grid">
             <!-- Lista Rinnovi -->
             <section class="report-card">
-              <h3>📋 Lista Rinnovi {{ renewalYear }}</h3>
+              <h3><AppIcon name="elenco" /> Lista Rinnovi {{ renewalYear }}</h3>
               <p>Tabella PDF con soci e arretrati.</p>
               <button
                 @click="generateRenewalList"
                 :disabled="!renewalYear || loading"
                 class="action-button"
               >
-                {{ loading ? '⏳ ...' : '📄 Genera Lista' }}
+                <AppIcon :name="loading ? 'caricamento' : 'documento'" :spin="loading" />
+                {{ loading ? '...' : 'Genera Lista' }}
               </button>
             </section>
 
             <!-- Recupero Crediti (Churn) -->
             <section class="report-card">
-              <h3>📉 Recupero Crediti</h3>
+              <h3><AppIcon name="in-calo" /> Recupero Crediti</h3>
               <p>Soci attivi nel {{ renewalYear - 1 }} ma NON nell'anno {{ renewalYear }}.</p>
               <button
                 @click="generateChurnReport"
                 :disabled="!renewalYear || loading"
                 class="action-button"
               >
-                📄 Genera Lista Recupero
+                <AppIcon name="documento" /> Genera Lista Recupero
               </button>
             </section>
 
             <!-- Tessere -->
             <section class="report-card">
-              <h3>🎫 Tessere Annuali</h3>
+              <h3><AppIcon name="tessera" /> Tessere Annuali</h3>
               <p>Stampa tessere per tutti i soci.</p>
 
               <div class="filter-mini">
@@ -128,14 +129,15 @@
                 :disabled="!renewalYear || loading"
                 class="action-button"
               >
-                {{ loading ? '⏳ ...' : '🎫 Genera Tessere' }}
+                <AppIcon :name="loading ? 'caricamento' : 'tessera'" :spin="loading" />
+                {{ loading ? '...' : 'Genera Tessere' }}
               </button>
             </section>
           </div>
 
           <!-- Preview -->
           <section class="report-section" style="margin-top: 2rem">
-            <h3>👁️ Anteprima Tessera</h3>
+            <h3><AppIcon name="dettagli" /> Anteprima Tessera</h3>
             <div class="preview-wrapper">
               <div class="preview-container">
                 <TesseraTemplate
@@ -159,7 +161,7 @@
         <div v-if="currentTab === 'stats'">
           <!-- Demografia -->
           <section class="report-section">
-            <h2>📈 Demografia Soci {{ renewalYear }}</h2>
+            <h2><AppIcon name="statistiche" /> Demografia Soci {{ renewalYear }}</h2>
             <div class="stats-summary" v-if="demographics">
               <div class="stat-card total">
                 <h3>Totale Soci</h3>
@@ -206,14 +208,14 @@
             <div v-else class="no-data">
               <p>Clicca "Analizza" per generare le statistiche.</p>
               <button @click="loadStats" class="action-button">
-                📊 Analizza Dati {{ renewalYear }}
+                <AppIcon name="report" /> Analizza Dati {{ renewalYear }}
               </button>
             </div>
           </section>
 
           <!-- Andamento Economico -->
           <section class="report-section" v-if="economicStats">
-            <h2>💰 Andamento Economico {{ renewalYear }}</h2>
+            <h2><AppIcon name="quota" /> Andamento Economico {{ renewalYear }}</h2>
             <div class="stats-summary">
               <div class="stat-card totalHighlight">
                 <h3>Entrate Totali</h3>
@@ -268,11 +270,11 @@
 
         <!-- TAB: LISTE DATI -->
         <div v-if="currentTab === 'liste'">
-          <h2>📋 Elenchi e Statistiche</h2>
+          <h2><AppIcon name="elenco" /> Elenchi e Statistiche</h2>
 
           <!-- Nuovi Soci -->
           <section class="report-section">
-            <h3>🆕 Nuovi Soci</h3>
+            <h3><AppIcon name="nuovo-socio" /> Nuovi Soci</h3>
             <div class="filters-inline">
               <label
                 >Anno: <strong>{{ renewalYear }}</strong></label
@@ -280,13 +282,13 @@
               <AgeCategoryFilter v-model="newMembersFilters.ageCategory" />
             </div>
             <button @click="generateNewMembersList" :disabled="loading" class="action-button wide">
-              📄 Genera Report Nuovi Soci
+              <AppIcon name="documento" /> Genera Report Nuovi Soci
             </button>
           </section>
 
           <!-- Soci per Manicchia -->
           <section class="report-section">
-            <h3>👥 Soci per Manicchia</h3>
+            <h3><AppIcon name="gruppo" /> Soci per Manicchia</h3>
             <div class="filters-grid-compact">
               <div class="f-group">
                 <label>Manicchia:</label>
@@ -311,13 +313,13 @@
               </div>
             </div>
             <button @click="generateMembersByGroup" :disabled="loading" class="action-button wide">
-              📄 Genera Report Manicchie
+              <AppIcon name="documento" /> Genera Report Manicchie
             </button>
           </section>
 
           <!-- Riepilogo Numerico Manicchie -->
           <section class="report-section">
-            <h3>🔢 Riepilogo Numerico Manicchie</h3>
+            <h3><AppIcon name="numeri" /> Riepilogo Numerico Manicchie</h3>
             <p>Genera un foglio unico con il conteggio degli iscritti per ogni manicchia.</p>
             <div class="filters-inline">
               <label
@@ -329,25 +331,25 @@
               :disabled="loading"
               class="action-button wide"
             >
-              📊 Genera Riepilogo Numerico
+              <AppIcon name="report" /> Genera Riepilogo Numerico
             </button>
           </section>
 
           <!-- Lista Recupero (Arretrati) -->
           <section class="report-section">
-            <h3>📈 Lista Recupero (Churn)</h3>
+            <h3><AppIcon name="statistiche" /> Lista Recupero (Churn)</h3>
             <p>
               Soci che hanno pagato l'anno scorso ({{ renewalYear - 1 }}) ma non ancora quest'anno
               ({{ renewalYear }}).
             </p>
             <button @click="generateChurnReport" :disabled="loading" class="action-button wide">
-              📄 Genera Lista Recupero
+              <AppIcon name="documento" /> Genera Lista Recupero
             </button>
           </section>
 
           <!-- Report Votazioni -->
           <section class="report-section">
-            <h3>🗳️ Report Votazioni</h3>
+            <h3><AppIcon name="votazioni" /> Report Votazioni</h3>
             <p>
               Elenco soci aventi diritto al voto per l'anno <strong>{{ renewalYear }}</strong
               >.
@@ -358,13 +360,13 @@
               >
             </p>
             <button @click="generateVotingReport" :disabled="loading" class="action-button wide">
-              📄 Genera Lista Votazioni
+              <AppIcon name="documento" /> Genera Lista Votazioni
             </button>
           </section>
 
           <!-- Report Soci Attivi 5 Anni -->
           <section class="report-section">
-            <h3>👥 Report Soci Attivi (5 Anni)</h3>
+            <h3><AppIcon name="gruppo" /> Report Soci Attivi (5 Anni)</h3>
             <p>
               Elenco soci con <strong>almeno 1 pagamento</strong> negli ultimi 5 anni (${{
                 renewalYear - 4
@@ -376,13 +378,13 @@
               :disabled="loading"
               class="action-button wide"
             >
-              📄 Genera Lista Attivi
+              <AppIcon name="documento" /> Genera Lista Attivi
             </button>
           </section>
 
           <!-- Lista Pagamenti -->
           <section class="report-section">
-            <h3>💰 Cronologia Pagamenti</h3>
+            <h3><AppIcon name="quota" /> Cronologia Pagamenti</h3>
             <div class="filters-inline">
               <AgeCategoryFilter v-model="paymentsFilters.ageCategory" />
             </div>
@@ -391,7 +393,7 @@
               :disabled="loading"
               class="action-button wide"
             >
-              📄 Genera Report Completo Pagamenti
+              <AppIcon name="documento" /> Genera Report Completo Pagamenti
             </button>
           </section>
 
@@ -401,32 +403,32 @@
             <p>Verifica la completezza e coerenza dei dati anagrafici.</p>
 
             <button @click="runDataAudit" class="action-button wide" :disabled="loading">
-              🔍 Esegui Controllo
+              <AppIcon name="ricerca" /> Esegui Controllo
             </button>
 
             <div v-if="auditResults" class="audit-box">
               <div v-if="auditResults.summary.total_issues === 0" class="success-message">
-                ✅ Nessuna anomalia rilevata! Il database è perfetto.
+                <AppIcon name="ok" /> Nessuna anomalia rilevata! Il database è perfetto.
               </div>
               <div v-else>
                 <div class="audit-stats">
                   <span v-if="auditResults.summary.missing_dob" class="stat-tag"
-                    >⚠️ No Data Nascita: <b>{{ auditResults.summary.missing_dob }}</b></span
+                    ><AppIcon name="attenzione" /> No Data Nascita: <b>{{ auditResults.summary.missing_dob }}</b></span
                   >
                   <span v-if="auditResults.summary.missing_pob" class="stat-tag"
-                    >⚠️ No Luogo Nascita: <b>{{ auditResults.summary.missing_pob }}</b></span
+                    ><AppIcon name="attenzione" /> No Luogo Nascita: <b>{{ auditResults.summary.missing_pob }}</b></span
                   >
                   <span v-if="auditResults.summary.missing_reg_date" class="stat-tag"
-                    >⚠️ No Data Iscrizione: <b>{{ auditResults.summary.missing_reg_date }}</b></span
+                    ><AppIcon name="attenzione" /> No Data Iscrizione: <b>{{ auditResults.summary.missing_reg_date }}</b></span
                   >
                   <span v-if="auditResults.summary.missing_group" class="stat-tag"
-                    >⚠️ No Manicchia: <b>{{ auditResults.summary.missing_group }}</b></span
+                    ><AppIcon name="attenzione" /> No Manicchia: <b>{{ auditResults.summary.missing_group }}</b></span
                   >
                   <span v-if="auditResults.summary.future_reg" class="stat-tag"
-                    >⚠️ Date Future: <b>{{ auditResults.summary.future_reg }}</b></span
+                    ><AppIcon name="attenzione" /> Date Future: <b>{{ auditResults.summary.future_reg }}</b></span
                   >
                   <span v-if="auditResults.summary.invalid_reg_date" class="stat-tag"
-                    >⚠️ Iscrizioni Illogiche: <b>{{ auditResults.summary.invalid_reg_date }}</b></span
+                    ><AppIcon name="attenzione" /> Iscrizioni Illogiche: <b>{{ auditResults.summary.invalid_reg_date }}</b></span
                   >
                 </div>
                 <p class="audit-info">
@@ -459,7 +461,7 @@
                   class="action-button wide secondary"
                   style="margin-top: 1rem"
                 >
-                  📄 Scarica Report Anomalie PDF
+                  <AppIcon name="documento" /> Scarica Report Anomalie PDF
                 </button>
               </div>
             </div>
@@ -469,7 +471,7 @@
         <!-- TAB: EXPORT -->
         <div v-if="currentTab === 'export'">
           <section class="report-section">
-            <h2>📦 Esportazione Complessiva</h2>
+            <h2><AppIcon name="archivio" /> Esportazione Complessiva</h2>
             <p>Genera e scarica tutti i report configurati in un'unica operazione.</p>
 
             <div class="batch-box">
@@ -481,7 +483,8 @@
                 <li>Riepilogo Numerico Gruppi ({{ renewalYear }})</li>
               </ul>
               <button @click="generateAllReports" :disabled="loading" class="action-button wide">
-                {{ loading ? '⏳ Generazione in corso...' : '📦 SCARICA TUTTI I REPORT' }}
+                <AppIcon :name="loading ? 'caricamento' : 'archivio'" :spin="loading" />
+                {{ loading ? 'Generazione in corso...' : 'SCARICA TUTTI I REPORT' }}
               </button>
             </div>
           </section>
@@ -490,7 +493,7 @@
         <!-- TAB: AUDIT QUOTE (RIENTRI) -->
         <div v-if="currentTab === 'audit-quote'">
           <section class="report-section">
-            <h2>⚖️ Report Controllo Quote: Nuovi Iscritti & Rientri</h2>
+            <h2><AppIcon name="audit" /> Report Controllo Quote: Nuovi Iscritti & Rientri</h2>
             <p>
               I Nuovi Iscritti e chi riprende a pagare dopo aver saltato un anno (Rientri) devono versare una quota di <b>25€</b>.
               Questo strumento controlla gli ultimi anni (e.g. 2024, 2025, 2026) per individuare chi è rientrato ma a cui sono stati erroneamente registrati solo 10€.
@@ -501,18 +504,18 @@
             </div>
 
             <button @click="runQuotaAuditTask" class="action-button wide" :disabled="loading">
-              🔍 Esegui Controllo Quote
+              <AppIcon name="ricerca" /> Esegui Controllo Quote
             </button>
 
             <!-- Risultati Audit Quote -->
             <div v-if="auditQuotaResults" class="audit-box" style="margin-top: 2rem;">
               <div v-if="auditQuotaResults.length === 0" class="success-message">
-                ✅ Nessuna anomalia trovata! Tutte le quote dei rientri per l'anno {{ renewalYear }} sono corrette.
+                <AppIcon name="ok" /> Nessuna anomalia trovata! Tutte le quote dei rientri per l'anno {{ renewalYear }} sono corrette.
               </div>
               <div v-else>
                 <div class="audit-stats">
                   <span class="stat-tag" style="background: var(--color-danger); color: white;">
-                    ⚠️ Rilevate <b>{{ auditQuotaResults.length }}</b> anomalie di versamento
+                    <AppIcon name="attenzione" /> Rilevate <b>{{ auditQuotaResults.length }}</b> anomalie di versamento
                   </span>
                 </div>
 
@@ -553,10 +556,10 @@
 
                 <div class="audit-actions" style="margin-top: 1.5rem; display: flex; gap: 1rem;">
                   <button @click="exportAuditQuotaPDF" class="action-button secondary" :disabled="loading">
-                    📄 Esporta PDF
+                    <AppIcon name="documento" /> Esporta PDF
                   </button>
                   <button @click="exportAuditQuotaExcel" class="action-button secondary" :disabled="loading">
-                    📊 Esporta Excel
+                    <AppIcon name="report" /> Esporta Excel
                   </button>
                 </div>
               </div>
@@ -576,6 +579,7 @@
 
 <script setup>
 import { ref, reactive, onMounted, watch } from 'vue'
+import AppIcon from '@/components/base/AppIcon.vue'
 import { useToast } from 'vue-toastification'
 import {
   generateRenewalListPDF,
