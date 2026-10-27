@@ -4,6 +4,8 @@ import { useToast } from 'vue-toastification'
 import { askConfirm } from '@/composables/useDialog'
 import AppIcon from '@/components/base/AppIcon.vue'
 import PageHeader from '@/components/base/PageHeader.vue'
+import SectionTabs from '@/components/base/SectionTabs.vue'
+import { SCHEDE_INCASSI } from '@/router/sezioni'
 import {
   db,
   getAllBlocchetti,
@@ -231,8 +233,8 @@ const formatDate = (dateString) => {
 <template>
   <div class="view-container">
     <PageHeader
-      title="Esplora Blocchetti e Ricevute"
-      subtitle="Naviga i pagamenti raggruppati esattamente per Blocchetto e Ricevuta."
+      title="Incassi"
+      subtitle="Assegna e fai rientrare i blocchetti, esplora le ricevute di ciascuno"
     >
       <template #actions>
         <button class="primary-button" @click="showAddForm = !showAddForm">
@@ -240,6 +242,7 @@ const formatDate = (dateString) => {
         </button>
       </template>
     </PageHeader>
+    <SectionTabs :tabs="SCHEDE_INCASSI" label="Schede di Incassi" />
 
     <!-- FORM INSERIMENTO -->
     <div v-if="showAddForm" class="form-panel shadow-panel">

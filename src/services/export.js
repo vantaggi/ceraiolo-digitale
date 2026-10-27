@@ -625,6 +625,89 @@ export async function generateVotingListPDF(soci, votingYear) {
 }
 
 /**
+ * Colori (RGB) e testi del diritto di voto nei PDF
+ */
+const DIRITTO_VOTO_PDF = {
+  si: { text: 'Sì', color: [0, 150, 0] },
+  regolarizza: { text: 'Regolarizza', color: [217, 119, 6] },
+  no: { text: 'No', color: [200, 50, 50] },
+}
+
+const descriviTotali = (t) => {
+  const parti = [`Sì: ${t.si}`, `Regolarizza: ${t.regolarizza}`]
+  if (t.no > 0) parti.push(`No: ${t.no}`)
+  if (t.quoteMancanti > 0) parti.push(`Quote da recuperare: ${t.quoteMancanti}`)
+  return parti.join('   ·   ')
+}
+
+/**
+ * PDF "Aventi diritto al voto e arretrati" (elenco da elencoAventiDiritto in utils/aventiDiritto.js)
+ * @param {{ gruppi: Array, totali: object }} elenco
+ * @param {number} annoElezione
+ * @param {object} [opzioni]
+ * @param {boolean} [opzioni.perManicchia] - una sezione per manicchia, ognuna da pagina nuova
+ */
+export async function generateAventiDirittoPDF(elenco, annoElezione, opzioni = {}) {
+  const { perManicchia = false } = opzioni
+  const doc = createPDFDocument('landscape')
+
+  let logoData = null
+  try {
+    logoData = await loadImage(logoUrl)
+  } catch (e) {
+    console.warn('Impossibile caricare il logo per il PDF', e)
+  }
+
+  const anni = [4, 3, 2, 1, 0].map((d) => annoElezione - d)
+  const titolo = `Aventi diritto al voto e arretrati - Elezioni ${annoElezione}`
+
+  const colonne = (conManicchia) => [
+    { text: 'Socio', width: conManicchia ? 70 : 90 },
+    ...(conManicchia ? [{ text: 'Manicchia', width: 45 }] : []),
+    { text: 'Nascita', width: 22 },
+    ...anni.map((a) => ({ text: String(a), width: 8, orientation: 'vertical' })),
+    { text: 'Diritto', width: 25, align: 'center' },
+    { text: 'Da pagare / motivo', width: conManicchia ? 55 : 80 },
+  ]
+
+  const riga = (r, conManicchia) => {
+    const voto = DIRITTO_VOTO_PDF[r.stato]
+    return [
+      `${r.socio.cognome} ${r.socio.nome}`,
+      ...(conManicchia ? [r.socio.gruppo_appartenenza || '-'] : []),
+      formatDate(r.socio.data_nascita),
+      ...anni.map((a) => cellaStatoAnno(r.socio, r.anniPagati, a)),
+      { text: voto.text, color: voto.color },
+      r.stato === 'regolarizza' ? r.quoteMancanti.join(', ') : r.motivo || '',
+    ]
+  }
+
+  const intestazione = (sottotitolo, totali) => {
+    const y = addPDFHeader(doc, titolo, sottotitolo, descriviTotali(totali), logoData)
+    return addStatusLegend(doc, y + 2) + 4
+  }
+
+  if (perManicchia) {
+    elenco.gruppi.forEach((gruppo, i) => {
+      if (i > 0) doc.addPage()
+      const y = intestazione(`Manicchia: ${gruppo.manicchia}`, gruppo.totali)
+      createPDFTable(doc, colonne(false), gruppo.righe.map((r) => riga(r, false)), y)
+    })
+  } else {
+    const sottotitolo =
+      elenco.gruppi.length === 1 ? `Manicchia: ${elenco.gruppi[0].manicchia}` : 'Tutte le manicchie'
+    const y = intestazione(sottotitolo, elenco.totali)
+    const conManicchia = elenco.gruppi.length > 1
+    const righe = elenco.gruppi.flatMap((g) => g.righe.map((r) => riga(r, conManicchia)))
+    createPDFTable(doc, colonne(conManicchia), righe, y)
+  }
+
+  addPDFFooter(doc)
+  const quale = elenco.gruppi.length === 1 ? elenco.gruppi[0].manicchia : perManicchia ? 'per_manicchia' : ''
+  doc.save(generatePDFFilename('aventi_diritto', { annoElezione, quale }))
+}
+
+/**
  * Generates a PDF list of active members (last 5 years)
  * @param {Array} soci - Array of active members
  * @param {number} targetYear - The reference year
