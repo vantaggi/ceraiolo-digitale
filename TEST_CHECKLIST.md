@@ -236,7 +236,7 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 ### Test 11.2: Il file e' uguale all'anteprima
 
 - [ ] Home: cerca un socio, "Genera Tessera", apri il PDF: nome, data, a capo e posizione sono quelli dell'anteprima con lo stesso nome
-- [ ] Report PDF › Rinnovi: "Genera Tessere" scarica un PDF con una pagina per socio, in ordine di cognome
+- [ ] Report PDF › Tessere: "Genera tessere" scarica un PDF con una pagina per socio, in ordine di cognome
 - [ ] Il PDF di tutte le tessere pesa piu' o meno quanto lo sfondo (non lo sfondo moltiplicato per il numero di soci)
 - [ ] Stampa una pagina di prova su carta: misure e margini vanno bene per la tipografia
 
@@ -264,3 +264,35 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 - [ ] Salva, ricarica la pagina, scegli la configurazione: filtri e colonne tornano; il cestino chiede conferma e la toglie
 
 **Risultato atteso**: si costruisce un elenco senza scorrere la pagina, e il PDF stampa quello che si vede
+
+---
+
+## ✅ Test 13: Report PDF a modelli pronti
+
+### Test 13.1: Pagina
+
+- [ ] Report PDF mostra un anno di riferimento in alto e quattro gruppi: Votazioni, Soci, Rinnovi e quote, Tessere; niente barra laterale, niente schede
+- [ ] Cambiando l'anno cambiano le descrizioni ("Soci che hanno pagato il 2025 ma non ancora il 2026"); con un anno impossibile (es. 19) compare l'avviso in rosso e i pulsanti si spengono
+- [ ] Mentre un PDF si genera il suo pulsante gira e gli altri aspettano
+
+### Test 13.2: I PDF di sempre
+
+- [ ] Aventi diritto (una sezione per manicchia, tutti in un elenco, una manicchia), Lista rinnovi, Lista recupero, Soci per manicchia, Conteggio, Nuovi iscritti, Soci attivi, Cronologia pagamenti: ognuno scarica lo stesso PDF di prima
+- [ ] "Report votazioni" ha l'etichetta "Vecchia regola" e scarica il vecchio elenco
+- [ ] Minorenni (nuovo): il PDF elenca i soci che nell'anno non hanno 18 anni, con il riassunto sotto il titolo
+- [ ] "Scarica 5 PDF" scarica i cinque documenti dei rinnovi con le scelte fatte nelle righe sopra
+- [ ] Controllo quote: "Controlla" mostra l'elenco sotto la riga (o il messaggio verde se va tutto bene); PDF ed Excel si scaricano
+
+### Test 13.3: Personalizza
+
+- [ ] Su Soci per manicchia scegli manicchia e "Non in regola", poi Personalizza: il Report su misura si apre con lo stesso anno, le stesse scelte come etichette e gli ultimi tre anni come colonne
+- [ ] Personalizza di Aventi diritto apre il Report su misura con Diritto di voto, Arretrati e Firma, ordinato per manicchia
+- [ ] Personalizza di Minorenni e Soci attivi apre il Report su misura con lo stesso elenco del PDF
+
+### Test 13.4: Cose spostate
+
+- [ ] L'anteprima della tessera non c'e' piu' in Report PDF: il link porta a Impostazioni › Template tessera
+- [ ] Impostazioni › Dati › Controllo qualita' dei dati: "Esegui il controllo" mostra quanti soci hanno dati da sistemare, i primi dieci (con link al socio) e il PDF delle anomalie
+- [ ] Le vecchie statistiche di Report (demografia, entrate per manicchia) non ci sono piu'
+
+**Risultato atteso**: ogni elenco che chiedono alla segreteria si trova per nome, con l'anno scelto una volta sola
