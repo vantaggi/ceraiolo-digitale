@@ -4,6 +4,7 @@ import { calculatePaymentStatus } from '@/utils/payment'
 import { SENZA_MANICCHIA } from '@/utils/aventiDiritto'
 import { elencoRecupero } from '@/utils/recupero'
 import { calcolaStatisticheAnnuali } from '@/utils/statistiche'
+import { anniPagatiPerSocio, passaFiltri } from '@/utils/ricercaSoci'
 
 // Create a new Dexie database instance
 export const db = new Dexie('CeraioloDigitaleDB')
@@ -397,53 +398,19 @@ export async function applyFiltersAndSearch(filters) {
     collection = db.soci.toCollection()
   }
 
-  // Apply filters sequentially. Dexie will optimize this.
-  const finalResults = await collection
-    .filter((socio) => {
-      // 1. Age Filter
-      let ageMatch = true
-      if (ageCategory === 'maggiorenni' || ageCategory === 'minorenni') {
-        if (!socio.data_nascita || isNaN(new Date(socio.data_nascita))) {
-          ageMatch = false // Exclude records with invalid dates
-        } else {
-          const birthDate = new Date(socio.data_nascita)
-          const today = new Date()
-          let age = today.getFullYear() - birthDate.getFullYear()
-          const m = today.getMonth() - birthDate.getMonth()
-          if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-            age--
-          }
+  const anno = new Date().getFullYear()
+  return collection.filter((socio) => passaFiltri(socio, { searchTerm, ageCategory, group }, anno)).toArray()
+}
 
-          ageMatch = ageCategory === 'maggiorenni' ? age >= 18 : age < 18
-        }
-      }
-
-      // 2. Group Filter
-      let groupMatch = true
-      if (group && group !== 'Tutti') {
-        groupMatch = socio.gruppo_appartenenza === group
-      }
-
-      // 3. Search Term Filter (Multi-term AND logic)
-      let searchTermMatch = true
-      if (searchTerm && searchTerm.trim() !== '') {
-        const terms = searchTerm.toLowerCase().trim().split(/\s+/) // Split by whitespace
-
-        // Check if ALL terms match at least one field
-        searchTermMatch = terms.every((term) => {
-          const inNome = socio.nome && socio.nome.toLowerCase().includes(term)
-          const inCognome = socio.cognome && socio.cognome.toLowerCase().includes(term)
-          const inNote = socio.note && socio.note.toLowerCase().includes(term)
-          // We can also search in ID if useful, but usually names are enough
-          return inNome || inCognome || inNote
-        })
-      }
-
-      return ageMatch && groupMatch && searchTermMatch
-    })
-    .toArray()
-
-  return finalResults
+/**
+ * Anni pagati di piu' soci, con una sola lettura del database.
+ * @param {Array<number>} ids - id dei soci
+ * @returns {Promise<Map<number, number[]>>} id del socio -> anni pagati
+ */
+export async function getAnniPagatiDiSoci(ids) {
+  if (!ids || ids.length === 0) return new Map()
+  const tesseramenti = await db.tesseramenti.where('id_socio').anyOf(ids).toArray()
+  return anniPagatiPerSocio(tesseramenti)
 }
 
 /**

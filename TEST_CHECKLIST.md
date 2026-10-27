@@ -21,21 +21,19 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 ### Test 2.1: Filtro "Tutti" (Default)
 
 - [ ] Apri la home `/`
-- [ ] Il filtro "Età" dovrebbe essere su "Tutti"
+- [ ] L'etichetta "Età" dovrebbe dire "tutte"
 - [ ] NON dovrebbe mostrare risultati (nessuna ricerca attiva)
 
 ### Test 2.2: Filtro "Minorenni"
 
-- [ ] Seleziona "Minorenni" dal menu Età
-- [ ] Verifica che compaia il badge "2 filtri attivi" (o simile)
-- [ ] Dovrebbero comparire: **Luca Bianchi** (2008) e **Paolo Neri** (2012)
-- [ ] Verifica che abbiano il badge arancione "Minorenne"
+- [ ] Scegli "minorenni" nell'etichetta Età: l'etichetta diventa rossa e compare "Azzera"
+- [ ] Compaiono solo i nati da 18 anni fa in poi (conta l'anno di nascita, come per la quota)
+- [ ] Nella colonna Quota hanno tutti "O Esente"
 
 ### Test 2.3: Filtro "Maggiorenni"
 
-- [ ] Seleziona "Maggiorenni"
-- [ ] Dovrebbero comparire: **Mario Rossi**, **Giulia Verdi**, **Anna Gialli**
-- [ ] Nessun badge "Minorenne" visibile
+- [ ] Scegli "maggiorenni"
+- [ ] Nessuno ha "O Esente" nella colonna Quota
 
 **Risultato atteso**: I filtri età funzionano correttamente.
 
@@ -45,13 +43,11 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 
 ### Test 3.1: Verifica caricamento gruppi
 
-- [ ] Apri DevTools Console
-- [ ] Cerca il log "Gruppi caricati: [...]
-- [ ] Dovrebbero esserci: INTERNA, PADULE, MADONNA DEL PONTE, BRANCA
+- [ ] Apri l'etichetta Manicchia: ci sono tutte le manicchie dei soci e quelle definite in Impostazioni
 
 ### Test 3.2: Seleziona gruppo specifico
 
-- [ ] Seleziona "INTERNA" dal menu Gruppo
+- [ ] Scegli "INTERNA" nell'etichetta Manicchia
 - [ ] Dovrebbero comparire: **Mario Rossi** e **Anna Gialli**
 - [ ] Seleziona "BRANCA"
 - [ ] Dovrebbe comparire solo: **Paolo Neri**
@@ -77,7 +73,7 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 ### Test 4.3: Ricerca senza risultati
 
 - [ ] Digita "xyz123nonEsiste"
-- [ ] Dovrebbe comparire: "Nessun risultato trovato"
+- [ ] Dovrebbe comparire: "Nessun socio trovato" con il link "azzera i filtri"
 
 **Risultato atteso**: La ricerca funziona con debouncing di 300ms.
 
@@ -103,9 +99,9 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 
 ## ✅ Test 6: Navigazione al Dettaglio
 
-### Test 6.1: Click su "Vedi Dettagli"
+### Test 6.1: Clic sul nome
 
-- [ ] Dalla home, clicca "Vedi Dettagli" su Mario Rossi
+- [ ] Dalla pagina Soci, clicca il nome di un socio nell'elenco
 - [ ] Verifica che l'URL cambi a `/socio/1` (o simile)
 - [ ] Verifica che compaia la pagina di dettaglio
 
@@ -205,13 +201,13 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 
 - [ ] Aprendo l'app il cursore e' gia' nel campo di ricerca, in cima alla pagina
 - [ ] Cerca un cognome, apri un socio, torna indietro: ricerca e filtri sono ancora li'
-- [ ] I numeri sotto i filtri (Soci, Pagamenti anno, Pagamenti anno prossimo) filtrano l'elenco
+- [ ] Le etichette Pagamenti anno e Pagamenti anno prossimo filtrano l'elenco; "Azzera" toglie tutti i filtri
 - [ ] A ricerca vuota compare "Andamento del tesseramento": iscritti dell'ultimo anno con la differenza sull'anno prima, nuovi, rientri, non rinnovati e il grafico
 - [ ] I bottoni 5 anni / 10 anni / Tutto cambiano gli anni del grafico; la scelta resta dopo aver ricaricato la pagina
 - [ ] Il riquadro si chiude e si riapre dal titolo (anche con Tab e Invio) e resta chiuso dopo aver ricaricato la pagina
-- [ ] Con una ricerca attiva il riquadro sparisce e l'elenco dei soci parte subito sotto i numeri
+- [ ] Con una ricerca attiva il riquadro sparisce e l'elenco dei soci parte subito sotto i filtri
 - [ ] Nel tema scuro colori del grafico, assi e legenda si leggono; cambiando tema il grafico cambia colori senza ricaricare
-- [ ] Con una ricerca attiva l'elenco usa tutta la larghezza; a ricerca vuota compare "Attivita' recente"
+- [ ] Con una ricerca attiva l'elenco usa tutta la larghezza; a ricerca vuota compare "Ultime modifiche"
 
 ### Test 10.2: Manutenzione spostata
 
@@ -264,3 +260,32 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 - [ ] Salva, ricarica la pagina, scegli la configurazione: filtri e colonne tornano; il cestino chiede conferma e la toglie
 
 **Risultato atteso**: si costruisce un elenco senza scorrere la pagina, e il PDF stampa quello che si vede
+
+---
+
+## ✅ Test 16: Soci a righe compatte
+
+### Test 16.1: Elenco
+
+- [ ] Cerca un cognome: ogni socio e' una riga con nome, data di nascita, manicchia e quota dell'anno (V Pagata, X Da pagare, O Esente, - Non iscritto)
+- [ ] L'elenco e' in ordine di cognome e nome
+- [ ] Con un solo socio trovato, Invio nel campo di ricerca apre il socio
+- [ ] "Esporta PDF" scarica esattamente i soci in elenco (prova con manicchia + una parola cercata)
+
+### Test 16.2: Azioni rapide
+
+- [ ] Su un socio "Da pagare", "Paga ANNO" apre il modulo di pagamento; dopo il salvataggio la riga diventa "Pagata" e il numero "Pagamenti ANNO" sale di uno
+- [ ] Sui soci gia' pagati o esenti "Paga" non c'e'
+- [ ] L'icona tessera scarica la tessera del socio (serve lo sfondo in Impostazioni › Template Tessera)
+
+### Test 16.3: Ultimi soci aperti
+
+- [ ] Apri tre soci e torna a Soci con la ricerca vuota: "Ultimi soci aperti" li mostra dal piu' recente, al massimo cinque
+- [ ] Riaprendo un socio gia' in lista, torna in cima senza doppioni
+
+### Test 16.4: Schermi e temi
+
+- [ ] Da telefono (o finestra stretta) restano nome, quota e azioni; la pagina non scorre di lato
+- [ ] Tema chiaro e scuro leggibili; il fuoco con Tab si vede sulle etichette dei filtri
+
+**Risultato atteso**: si trova un socio e si vede subito se ha pagato, senza aprire la scheda

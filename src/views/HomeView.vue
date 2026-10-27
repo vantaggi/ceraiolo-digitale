@@ -1,159 +1,192 @@
 <template>
   <div class="home">
-    <main class="dashboard">
+    <div class="dashboard">
       <PageHeader title="Soci">
         <template #actions>
-          <router-link to="/socio/nuovo" class="add-socio-button accent">
+          <RouterLink to="/socio/nuovo" class="add-socio-button">
             <AppIcon name="nuovo-socio" /> Nuovo socio
-          </router-link>
+          </RouterLink>
         </template>
       </PageHeader>
 
       <div class="search-bar">
+        <label for="cerca-socio" class="sr-only">Cerca un socio per nome, cognome o note</label>
+        <AppIcon name="ricerca" class="search-bar__icona" />
         <input
-          aria-label="Cerca un socio per nome o cognome"
+          id="cerca-socio"
           ref="searchInput"
           v-model="searchTerm"
-          @input="onSearch"
           type="search"
-          placeholder="Scrivi un nome o cognome... (Ctrl+K)"
+          placeholder="Scrivi un nome o un cognome"
+          aria-describedby="cerca-socio-aiuto"
+          @input="onSearch"
+          @keydown.enter="apriUnico"
         />
+        <kbd class="search-bar__tasto" aria-hidden="true">Ctrl K</kbd>
+        <p id="cerca-socio-aiuto" class="sr-only">
+          Con un solo risultato, Invio apre il socio. Ctrl+K torna qui da ogni pagina.
+        </p>
       </div>
 
-      <FilterPanel :initial-filters="filters" @filters-changed="onFiltersChanged" />
-
-      <!-- Numeri dell'anno: ognuno filtra l'elenco; l'andamento sta sotto, a ricerca vuota -->
-      <div class="numbers-row">
+      <!-- Filtri a etichette in una riga; i numeri dell'anno filtrano l'elenco -->
+      <div class="filtri" role="group" aria-label="Filtri">
+        <label class="filtro" :class="{ 'filtro--attivo': filters.ageCategory !== 'tutti' }">
+          <span class="filtro__nome">Età</span>
+          <select v-model="filters.ageCategory">
+            <option value="tutti">tutte</option>
+            <option value="maggiorenni">maggiorenni</option>
+            <option value="minorenni">minorenni</option>
+          </select>
+        </label>
+        <label class="filtro" :class="{ 'filtro--attivo': filters.group !== 'Tutti' }">
+          <span class="filtro__nome">Manicchia</span>
+          <select v-model="filters.group">
+            <option value="Tutti">tutte</option>
+            <option v-for="g in manicchie" :key="g" :value="g">{{ g }}</option>
+          </select>
+        </label>
         <button
           type="button"
-          class="number-chip"
-          :aria-pressed="!hasSearchCriteria"
-          @click="setYearFilter(null)"
-        >
-          Soci <strong>{{ stats.totalSoci }}</strong>
-        </button>
-        <button
-          type="button"
-          class="number-chip"
+          class="filtro"
+          :class="{ 'filtro--attivo': filters.renewalYear === currentYear }"
           :aria-pressed="filters.renewalYear === currentYear"
           @click="setYearFilter(currentYear)"
         >
-          Pagamenti {{ currentYear }} <strong>{{ stats.renewalsCurrent }}</strong>
+          <span class="filtro__nome">Pagamenti {{ currentYear }}</span>
+          <strong>{{ stats.renewalsCurrent }}</strong>
         </button>
         <button
           type="button"
-          class="number-chip"
+          class="filtro"
+          :class="{ 'filtro--attivo': filters.renewalYear === currentYear + 1 }"
           :aria-pressed="filters.renewalYear === currentYear + 1"
           @click="setYearFilter(currentYear + 1)"
         >
-          Pagamenti {{ currentYear + 1 }} <strong>{{ stats.renewalsNext }}</strong>
+          <span class="filtro__nome">Pagamenti {{ currentYear + 1 }}</span>
+          <strong>{{ stats.renewalsNext }}</strong>
+        </button>
+        <span class="filtri__totale">{{ stats.totalSoci }} soci in archivio</span>
+        <button v-if="hasSearchCriteria" type="button" class="link-btn" @click="azzera">
+          <AppIcon name="chiudi" /> Azzera
         </button>
       </div>
 
-      <div class="dashboard-grid" :class="{ 'dashboard-grid--solo': hasSearchCriteria }">
-        <!-- Left Column: Search & Results -->
-        <div class="search-column">
-          <div class="results-container">
-            <!-- PDF Export Button -->
-            <div v-if="searchResults.length > 0" class="results-header">
-              <span class="results-count">{{ searchResults.length }} soci trovati</span>
-              <button @click="exportSociToPdf" :disabled="isExporting" class="pdf-export-button">
-                <AppIcon :name="isExporting ? 'caricamento' : 'esporta'" :spin="isExporting" />
-                Esporta PDF
-              </button>
-            </div>
+      <!-- Con una ricerca: solo i risultati, a tutta larghezza -->
+      <section v-if="hasSearchCriteria" class="risultati" aria-labelledby="titolo-risultati">
+        <header class="risultati__header">
+          <h2 id="titolo-risultati" aria-live="polite">
+            <template v-if="isSearching">Ricerca in corso…</template>
+            <template v-else>{{ searchResults.length }} {{ searchResults.length === 1 ? 'socio trovato' : 'soci trovati' }}</template>
+          </h2>
+          <BaseButton
+            v-if="searchResults.length > 0"
+            variant="secondary"
+            :loading="isExporting"
+            @click="exportSociToPdf"
+          >
+            <AppIcon name="esporta" /> Esporta PDF
+          </BaseButton>
+        </header>
 
-            <p v-if="isSearching" class="status-msg">Ricerca in corso...</p>
-            <div v-else-if="searchResults.length > 0" class="results-list">
-              <SocioCard
-                v-for="socio in searchResults"
-                :key="socio.id"
-                :socio="socio"
-                @generate-card="generateSingleCard"
-                @quick-renew="quickRenew"
-              />
-            </div>
-            <p v-else-if="hasSearchCriteria && !isSearching" class="status-msg">
-              Nessun risultato trovato.
-            </p>
+        <ElencoSoci
+          v-if="searchResults.length > 0"
+          :soci="searchResults"
+          :anni-pagati="anniPagati"
+          :anno="currentYear"
+          :generando="tesseraInCorso"
+          titolo="Soci trovati"
+          @paga="apriPagamento"
+          @tessera="generateSingleCard"
+        />
+        <p v-else-if="!isSearching" class="vuoto">
+          Nessun socio trovato. Controlla l'ortografia o
+          <button type="button" class="link-btn" @click="azzera">azzera i filtri</button>.
+        </p>
+      </section>
 
-            <!-- A ricerca vuota: andamento del tesseramento e ultimi soci visitati -->
-            <AndamentoTesseramento v-if="!hasSearchCriteria" />
+      <!-- A ricerca vuota: ultimi soci aperti, andamento, ultime modifiche -->
+      <div v-else class="dashboard-grid">
+        <div class="colonna">
+          <section v-if="recentMembers.length > 0" class="recenti" aria-labelledby="titolo-recenti">
+            <h2 id="titolo-recenti"><AppIcon name="recenti" /> Ultimi soci aperti</h2>
+            <ElencoSoci
+              :soci="recentMembers"
+              :anni-pagati="anniPagati"
+              :anno="currentYear"
+              :generando="tesseraInCorso"
+              titolo="Ultimi soci aperti"
+              @paga="apriPagamento"
+              @tessera="generateSingleCard"
+            />
+          </section>
 
-            <div v-if="!hasSearchCriteria && recentMembers.length > 0" class="recent-section">
-              <h3><AppIcon name="recenti" /> Ultimi Soci Visitati</h3>
-              <div class="results-list">
-                <SocioCard
-                  v-for="socio in recentMembers"
-                  :key="socio.id"
-                  :socio="socio"
-                  @generate-card="generateSingleCard"
-                  @quick-renew="quickRenew"
-                />
-              </div>
-            </div>
-          </div>
+          <AndamentoTesseramento />
         </div>
 
-        <!-- Right Column: Sidebar (Activity) -->
-        <aside v-if="!hasSearchCriteria" class="activity-sidebar">
-          <h3><AppIcon name="attivita" /> Attività Recente</h3>
-          <div v-if="activityLogs.length > 0" class="activity-list">
-            <div v-for="log in activityLogs" :key="log.id" class="activity-item">
-              <div class="activity-icon" :class="log.type">
+        <aside class="activity-sidebar" aria-labelledby="titolo-modifiche">
+          <h2 id="titolo-modifiche"><AppIcon name="attivita" /> Ultime modifiche</h2>
+          <ul v-if="activityLogs.length > 0" class="activity-list">
+            <li v-for="log in activityLogs" :key="log.id" class="activity-item">
+              <span class="activity-icon" :class="`activity-icon--${log.type}`">
                 <AppIcon
                   :name="log.type === 'create' ? 'aggiungi' : log.type === 'update' ? 'modifica' : 'elimina'"
                 />
-              </div>
-              <div class="activity-content">
-                <div class="activity-desc">{{ log.description }}</div>
-                <div class="activity-time">{{ formatActivityTime(log.timestamp) }}</div>
-              </div>
-            </div>
-          </div>
-          <div v-else class="empty-activity">Nessuna attività registrata di recente.</div>
-
+              </span>
+              <span class="activity-content">
+                <span class="activity-desc">{{ log.description }}</span>
+                <span class="activity-time">{{ formatActivityTime(log.timestamp) }}</span>
+              </span>
+            </li>
+          </ul>
+          <p v-else class="vuoto">Nessuna modifica recente.</p>
         </aside>
       </div>
 
-      <!-- Debug Panel -->
-      <div class="debug-panel" v-if="showDebug">
-        <h3>Debug Filtri</h3>
-        <pre>{{ JSON.stringify(filters, null, 2) }}</pre>
-      </div>
-
-    </main>
+      <AddPaymentModal
+        v-if="socioDaPagare"
+        :show="socioDaPagare !== null"
+        :socio-id="String(socioDaPagare.id)"
+        :years-to-pay="[currentYear]"
+        :anno-riferimento="currentYear"
+        @payments-saved="salvaPagamento"
+        @close="socioDaPagare = null"
+      />
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { useToast } from 'vue-toastification'
-import { askConfirm } from '@/composables/useDialog'
 import {
   db,
   getAllSociWithTesseramenti,
   addTesseramento,
-  getSetting,
   getRecentActivity,
   applyFiltersAndSearch,
+  getAnniPagatiDiSoci,
+  getUniqueGroups,
 } from '@/services/db'
 import { generateAndDownloadSociPDF, generateSingleCardPDF } from '@/services/export'
-import SocioCard from '@/components/SocioCard.vue'
-import FilterPanel from '@/components/FilterPanel.vue'
+import ElencoSoci from '@/components/ElencoSoci.vue'
+import AddPaymentModal from '@/components/AddPaymentModal.vue'
 import AndamentoTesseramento from '@/components/AndamentoTesseramento.vue'
 import AppIcon from '@/components/base/AppIcon.vue'
+import BaseButton from '@/components/base/BaseButton.vue'
 import PageHeader from '@/components/base/PageHeader.vue'
-import { leggiRicerca, salvaRicerca } from '@/utils/ricercaSoci'
+import { leggiRecenti, leggiRicerca, salvaRicerca } from '@/utils/ricercaSoci'
 
 // Stato dell'applicazione
 const searchTerm = ref('')
 const searchInput = ref(null)
 const searchResults = ref([])
 const isSearching = ref(false)
-const showDebug = ref(false)
 const isExporting = ref(false)
+const tesseraInCorso = ref(null)
+const socioDaPagare = ref(null)
+const manicchie = ref([])
+const anniPagati = ref(new Map())
 const currentYear = new Date().getFullYear()
 
 const stats = reactive({
@@ -172,15 +205,7 @@ const router = useRouter()
 // Handlers
 const checkSearchFocus = () => {
   if (route.query.action === 'search') {
-    setTimeout(() => {
-      searchInput.value?.focus()
-      const yOffset = -100
-      const element = searchInput.value
-      if (element) {
-        const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset
-        window.scrollTo({ top: y, behavior: 'smooth' })
-      }
-    }, 100)
+    setTimeout(() => searchInput.value?.focus(), 100)
     router.replace({ query: {} })
   }
 }
@@ -207,7 +232,7 @@ const loadStats = async () => {
 
 const loadRecentMembers = async () => {
   try {
-    const recentIds = JSON.parse(localStorage.getItem('recent_members') || '[]')
+    const recentIds = leggiRecenti(window.localStorage)
     if (recentIds.length > 0) {
       const soci = await db.soci.where('id').anyOf(recentIds).toArray()
       recentMembers.value = recentIds.map((id) => soci.find((s) => s.id === id)).filter((s) => s)
@@ -230,18 +255,26 @@ const formatActivityTime = (ts) => {
   return date.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })
 }
 
+// Stato della quota di chi e' in elenco (risultati e ultimi aperti), letto in una volta
+const caricaAnniPagati = async () => {
+  const ids = [...new Set([...searchResults.value, ...recentMembers.value].map((s) => s.id))]
+  try {
+    anniPagati.value = await getAnniPagatiDiSoci(ids)
+  } catch (e) {
+    console.error('Errore lettura pagamenti', e)
+  }
+}
+
 // Lifecycle
-onMounted(() => {
+onMounted(async () => {
   checkSearchFocus()
   loadStats()
-  loadRecentMembers()
   loadActivityLogs()
-
-  if (searchInput.value) {
-    searchInput.value.focus()
-  }
-
+  getUniqueGroups().then((g) => (manicchie.value = g))
+  searchInput.value?.focus()
   window.addEventListener('keydown', handleKeydown)
+  await loadRecentMembers()
+  caricaAnniPagati()
 })
 
 onUnmounted(() => {
@@ -274,46 +307,43 @@ const hasSearchCriteria = computed(() => {
   )
 })
 
-const onFiltersChanged = (newFilters) => {
-  filters.ageCategory = newFilters.ageCategory
-  filters.group = newFilters.group
+const setYearFilter = (year) => {
+  filters.renewalYear = filters.renewalYear === year ? null : year
 }
 
-const setYearFilter = (year) => {
-  if (year === null) {
-    filters.renewalYear = null
-    filters.group = 'Tutti'
-    filters.ageCategory = 'tutti'
-    filters.searchTerm = ''
-    searchTerm.value = ''
-    toast.info('Visualizzazione: Tutti i soci')
-  } else {
-    if (filters.renewalYear === year) {
-      filters.renewalYear = null
-      toast.info('Filtro anno rimosso')
-    } else {
-      filters.renewalYear = year
-      toast.info(`Visualizzazione: pagamenti ${year}`)
-    }
-  }
+const azzera = () => {
+  filters.renewalYear = null
+  filters.group = 'Tutti'
+  filters.ageCategory = 'tutti'
+  filters.searchTerm = ''
+  searchTerm.value = ''
+  searchInput.value?.focus()
 }
 
 const onSearch = () => {
   filters.searchTerm = searchTerm.value
 }
 
+const ordinaPerNome = (a, b) =>
+  `${a.cognome} ${a.nome}`.localeCompare(`${b.cognome} ${b.nome}`, 'it', { sensitivity: 'base' })
+
+const cerca = async () => {
+  searchResults.value = (await applyFiltersAndSearch(filters)).sort(ordinaPerNome)
+  await caricaAnniPagati()
+}
+
 const performSearch = async () => {
+  clearTimeout(searchTimeout)
   if (!hasSearchCriteria.value) {
     searchResults.value = []
+    isSearching.value = false
     return
   }
 
   isSearching.value = true
-  clearTimeout(searchTimeout)
-
   searchTimeout = setTimeout(async () => {
     try {
-      searchResults.value = await applyFiltersAndSearch(filters)
+      await cerca()
     } catch (error) {
       console.error('Search error:', error)
       searchResults.value = []
@@ -321,6 +351,13 @@ const performSearch = async () => {
       isSearching.value = false
     }
   }, 300)
+}
+
+// Invio nel campo di ricerca: con un solo socio trovato lo apre
+const apriUnico = () => {
+  if (!isSearching.value && searchResults.value.length === 1) {
+    router.push({ name: 'socio-detail', params: { id: searchResults.value[0].id } })
+  }
 }
 
 watch(
@@ -340,68 +377,63 @@ watch(searchResults, (results) => {
   }
 })
 
-// Database Actions
+// Azioni
 
-
-
+// Il PDF contiene esattamente i soci mostrati in elenco
 const exportSociToPdf = async () => {
   if (searchResults.value.length === 0) return
   try {
     isExporting.value = true
-    const allSoci = await getAllSociWithTesseramenti()
-    let sociToExport = allSoci
-    if (filters.group && filters.group !== 'Tutti') {
-      sociToExport = allSoci.filter((s) => s.gruppo_appartenenza === filters.group)
-    } else {
-      const ids = searchResults.value.map((s) => s.id)
-      sociToExport = allSoci.filter((s) => ids.includes(s.id))
-    }
+    const ids = new Set(searchResults.value.map((s) => s.id))
+    const sociToExport = (await getAllSociWithTesseramenti()).filter((s) => ids.has(s.id))
     await generateAndDownloadSociPDF(sociToExport)
-    toast.success('PDF generato!')
+    toast.success('PDF generato')
   } catch (error) {
     console.error('Export PDF fallito:', error)
-    toast.error('Errore PDF')
+    toast.error('PDF non generato: ' + error.message)
   } finally {
     isExporting.value = false
   }
 }
 
 const generateSingleCard = async (socio) => {
+  tesseraInCorso.value = socio.id
   try {
     await generateSingleCardPDF(socio, currentYear)
-    toast.success('Tessera generata!')
+    toast.success('Tessera generata')
   } catch (error) {
     console.error('Generazione tessera fallita:', error)
-    toast.error('Errore tessera')
+    toast.error('Tessera non generata: ' + error.message)
+  } finally {
+    tesseraInCorso.value = null
   }
 }
 
+const apriPagamento = (socio) => {
+  socioDaPagare.value = socio
+}
 
-const quickRenew = async (socio) => {
-  const conferma = await askConfirm({
-    title: `Rinnovare ${socio.nome} ${socio.cognome}?`,
-    message: `Viene registrato il pagamento ${currentYear} con la quota predefinita.`,
-    confirmLabel: 'Rinnova',
-  })
-  if (!conferma) return
+const salvaPagamento = async ({ details, years, socioId }) => {
   try {
-    const quota = await getSetting('defaultQuota', 10.0)
-    await addTesseramento({
-      id_socio: socio.id,
-      anno: currentYear,
-      data_pagamento: new Date().toISOString().split('T')[0],
-      quota_pagata: quota,
-      numero_ricevuta: 0,
-      numero_blocchetto: 0,
-    })
-    toast.success('Rinnovo completato!')
+    for (const anno of years) {
+      await addTesseramento({
+        id_socio: socioId,
+        anno,
+        quota_pagata: details.quota_pagata,
+        data_pagamento: details.data_pagamento,
+        numero_ricevuta: details.numero_ricevuta,
+        numero_blocchetto: details.numero_blocchetto,
+      })
+    }
+    toast.success(`Pagamento registrato per ${socioDaPagare.value.cognome} ${socioDaPagare.value.nome}`)
+    socioDaPagare.value = null
     loadStats()
     loadActivityLogs()
-    if (hasSearchCriteria.value) {
-      searchResults.value = await applyFiltersAndSearch(filters)
-    }
+    if (hasSearchCriteria.value) await cerca()
+    else await caricaAnniPagati()
   } catch (e) {
-    toast.error('Errore: ' + e.message)
+    console.error('Errore salvataggio pagamento:', e)
+    toast.error('Pagamento non registrato: ' + e.message)
   }
 }
 </script>
@@ -410,10 +442,76 @@ const quickRenew = async (socio) => {
 .dashboard {
   max-width: var(--page-width);
   margin: 0 auto;
-  padding: 2rem;
+  padding: var(--space-32);
 }
 
-.numbers-row {
+.add-socio-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-height: 2.5rem;
+  padding: var(--space-8) var(--space-16);
+  background-color: var(--color-accent);
+  color: var(--color-text-inverse);
+  text-decoration: none;
+  border-radius: var(--radius-control);
+  font-weight: 600;
+}
+
+.add-socio-button:hover {
+  background-color: var(--color-accent-hover);
+}
+
+/* Ricerca */
+.search-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: var(--space-12);
+}
+
+.search-bar__icona {
+  position: absolute;
+  left: var(--space-16);
+  color: var(--color-text-secondary);
+  pointer-events: none;
+}
+
+.search-bar input {
+  width: 100%;
+  min-height: 3rem;
+  padding: var(--space-12) 5.5rem var(--space-12) 3rem;
+  font-size: var(--font-size-section-heading);
+  border-radius: var(--radius-control);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+}
+
+.search-bar input:focus {
+  border-color: var(--color-accent);
+}
+
+/* La x del browser ha un colore suo; per svuotare c'e' "Azzera" (o Esc) */
+.search-bar input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.search-bar__tasto {
+  position: absolute;
+  right: var(--space-12);
+  padding: var(--space-4) var(--space-8);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: var(--font-size-caption);
+  pointer-events: none;
+}
+
+/* Filtri a etichette */
+.filtri {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -421,182 +519,246 @@ const quickRenew = async (socio) => {
   margin-bottom: var(--space-24);
 }
 
-.number-chip {
+.filtro {
   display: inline-flex;
-  align-items: baseline;
-  gap: var(--space-8);
-  padding: var(--space-4) var(--space-12);
-  border: 1px solid var(--color-border);
+  align-items: center;
+  gap: var(--space-4);
+  min-height: 2.25rem;
+  padding: 0 var(--space-12);
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-full);
   background-color: var(--color-surface);
   color: var(--color-text-secondary);
   font-size: var(--font-size-label);
+  font-weight: 400;
+  box-shadow: none;
   cursor: pointer;
 }
 
-.number-chip strong {
+.filtro:hover {
+  background-color: var(--color-surface-hover);
+}
+
+.filtro:focus-within {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.filtro__nome::after {
+  content: ':';
+}
+
+button.filtro .filtro__nome::after {
+  content: '';
+}
+
+.filtro select {
+  width: auto;
+  min-height: 0;
+  padding: 0 var(--space-4);
+  border: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.filtro select:focus-visible {
+  outline: none; /* il fuoco si vede sull'etichetta intera */
+}
+
+.filtro strong {
   color: var(--color-text-primary);
 }
 
-.number-chip:hover {
-  background-color: var(--color-surface-hover);
-  border-color: var(--color-border-strong);
-}
-
-.number-chip[aria-pressed='true'] {
+.filtro--attivo {
   border-color: var(--color-accent);
   color: var(--color-accent);
 }
 
-.add-socio-button {
+.filtro--attivo select,
+.filtro--attivo strong {
+  color: var(--color-accent);
+}
+
+.filtri__totale {
+  margin-left: auto;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-label);
+}
+
+.link-btn {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-8);
-  padding: 0.75rem 1.5rem;
-  background-color: var(--color-accent);
-  color: white;
-  text-decoration: none;
-  border-radius: 8px;
+  gap: var(--space-4);
+  min-height: 2rem;
+  padding: var(--space-4) var(--space-8);
+  border: none;
+  border-radius: var(--radius-control);
+  background: none;
+  box-shadow: none;
+  color: var(--color-accent);
+  font-size: var(--font-size-label);
   font-weight: 600;
-  transition: all 0.2s;
 }
 
-.add-socio-button:hover {
-  background-color: var(--color-accent-hover);
-  transform: translateY(-1px);
+.link-btn:hover {
+  background: var(--color-surface-hover);
 }
 
+/* Risultati */
+.risultati,
+.recenti,
+.activity-sidebar {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-surface);
+  padding: var(--space-16) var(--space-24);
+}
+
+.risultati__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+  margin-bottom: var(--space-12);
+}
+
+.risultati h2,
+.recenti h2,
+.activity-sidebar h2 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  margin: 0;
+  font-size: var(--font-size-section-heading);
+  color: var(--color-text-primary);
+}
+
+.recenti h2,
+.activity-sidebar h2 {
+  margin-bottom: var(--space-12);
+}
+
+.vuoto {
+  margin: 0;
+  padding: var(--space-16) 0;
+  color: var(--color-text-secondary);
+}
+
+/* A ricerca vuota */
 .dashboard-grid {
   display: grid;
   grid-template-columns: 1fr 320px;
-  gap: 2rem;
+  gap: var(--space-24);
+  align-items: start;
 }
 
 .dashboard-grid > * {
   min-width: 0;
 }
 
-.dashboard-grid--solo {
-  grid-template-columns: 1fr;
+.colonna {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-24);
 }
 
-.search-bar {
-  margin-bottom: var(--space-16);
-}
-
-.search-bar input {
-  width: 100%;
-  padding: 1rem;
-  font-size: 1.2rem;
-  border-radius: 8px;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-}
-
-.search-bar input:focus {
-  border-color: var(--color-accent);
-}
-
-.activity-sidebar {
-  background: var(--color-surface);
-  border-radius: 12px;
-  padding: 1.5rem;
-  border: 1px solid var(--color-border);
-}
-
-.activity-sidebar h3 {
-  margin-top: 0;
-  color: var(--color-primary);
-  font-size: 1.1rem;
-  margin-bottom: 1.2rem;
+.activity-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .activity-item {
   display: flex;
-  gap: 0.8rem;
-  padding: 0.8rem 0;
+  gap: var(--space-12);
+  padding: var(--space-8) 0;
   border-bottom: 1px solid var(--color-border);
 }
 
-.activity-icon {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 8px;
-  background: var(--color-background);
+.activity-item:last-child {
+  border-bottom: none;
 }
 
-.activity-icon.create {
-  background: rgba(56, 142, 60, 0.1);
+.activity-icon {
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-control);
+  background: var(--color-background);
+  color: var(--color-text-secondary);
 }
-.activity-icon.update {
-  background: rgba(2, 136, 209, 0.1);
+
+.activity-icon--create {
+  color: var(--color-success);
 }
-.activity-icon.delete {
-  background: rgba(211, 47, 47, 0.1);
+.activity-icon--update {
+  color: var(--color-info);
+}
+.activity-icon--delete {
+  color: var(--color-danger);
+}
+
+.activity-content {
+  display: flex;
+  flex-direction: column;
 }
 
 .activity-desc {
-  font-size: 0.9rem;
+  font-size: var(--font-size-label);
   color: var(--color-text-primary);
 }
 
 .activity-time {
-  font-size: 0.75rem;
+  font-size: var(--font-size-caption);
   color: var(--color-text-secondary);
 }
 
-
-
-
-.results-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
-
-.pdf-export-button {
-  padding: 0.5rem 1rem;
-  background: var(--color-primary);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.results-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.recent-section {
-  margin-top: 2rem;
-}
-
-.recent-section h3 {
-  font-size: 1rem;
-  color: var(--color-text-secondary);
-  text-transform: uppercase;
-  margin-bottom: 1rem;
-}
-
-.status-msg {
-  text-align: center;
-  padding: 2rem;
-  color: var(--color-text-secondary);
-}
-
-
-
-
 
 @media (max-width: 1024px) {
   .dashboard-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .dashboard {
+    padding: var(--space-16);
+  }
+
+  .search-bar__tasto {
+    display: none;
+  }
+
+  .search-bar input {
+    padding-right: var(--space-12);
+  }
+
+  .filtri__totale {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .risultati,
+  .recenti,
+  .activity-sidebar {
+    padding: var(--space-12);
   }
 }
 </style>
