@@ -1,67 +1,61 @@
 <template>
   <div class="home">
     <main class="dashboard">
-      <PageHeader title="Cerca Socio">
+      <PageHeader title="Soci">
         <template #actions>
           <router-link to="/socio/nuovo" class="add-socio-button accent">
-            + Aggiungi Nuovo Socio
+            <AppIcon name="nuovo-socio" /> Nuovo socio
           </router-link>
         </template>
       </PageHeader>
 
-      <!-- Stats Cards -->
-      <div class="stats-grid">
-        <div
-          class="stat-card clickable"
-          @click="setYearFilter(null)"
-          :class="{
-            active:
-              !filters.renewalYear &&
-              !filters.searchTerm &&
-              filters.group === 'Tutti' &&
-              filters.ageCategory === 'tutti',
-          }"
-        >
-          <span class="stat-label">Totale Soci</span>
-          <span class="stat-value">{{ stats.totalSoci }}</span>
-        </div>
-        <div
-          class="stat-card clickable"
-          @click="setYearFilter(currentYear)"
-          :class="{ active: filters.renewalYear === currentYear }"
-        >
-          <span class="stat-label">Rinnovi {{ currentYear }}</span>
-          <span class="stat-value">{{ stats.renewalsCurrent }}</span>
-        </div>
-        <div
-          class="stat-card highlight clickable"
-          @click="setYearFilter(currentYear + 1)"
-          :class="{ active: filters.renewalYear === currentYear + 1 }"
-        >
-          <span class="stat-label">Rinnovi {{ currentYear + 1 }}</span>
-          <span class="stat-value">{{ stats.renewalsNext }}</span>
-        </div>
+      <div class="search-bar">
+        <input
+          aria-label="Cerca un socio per nome o cognome"
+          ref="searchInput"
+          v-model="searchTerm"
+          @input="onSearch"
+          type="search"
+          placeholder="Scrivi un nome o cognome... (Ctrl+K)"
+        />
       </div>
 
-      <!-- Dashboard Charts -->
-      <DashboardCharts />
-
-      <!-- Main Content Area: Search Controls and Results -->
       <FilterPanel :initial-filters="filters" @filters-changed="onFiltersChanged" />
 
-      <div class="dashboard-grid">
+      <!-- Numeri dell'anno: ognuno filtra l'elenco; il resto sta in Statistiche -->
+      <div class="numbers-row">
+        <button
+          type="button"
+          class="number-chip"
+          :aria-pressed="!hasSearchCriteria"
+          @click="setYearFilter(null)"
+        >
+          Soci <strong>{{ stats.totalSoci }}</strong>
+        </button>
+        <button
+          type="button"
+          class="number-chip"
+          :aria-pressed="filters.renewalYear === currentYear"
+          @click="setYearFilter(currentYear)"
+        >
+          Pagamenti {{ currentYear }} <strong>{{ stats.renewalsCurrent }}</strong>
+        </button>
+        <button
+          type="button"
+          class="number-chip"
+          :aria-pressed="filters.renewalYear === currentYear + 1"
+          @click="setYearFilter(currentYear + 1)"
+        >
+          Pagamenti {{ currentYear + 1 }} <strong>{{ stats.renewalsNext }}</strong>
+        </button>
+        <router-link to="/statistiche" class="numbers-link">
+          <AppIcon name="statistiche" /> Statistiche
+        </router-link>
+      </div>
+
+      <div class="dashboard-grid" :class="{ 'dashboard-grid--solo': hasSearchCriteria }">
         <!-- Left Column: Search & Results -->
         <div class="search-column">
-          <div class="search-bar">
-            <input
-              ref="searchInput"
-              v-model="searchTerm"
-              @input="onSearch"
-              type="text"
-              placeholder="Scrivi un nome o cognome... (Ctrl+K)"
-            />
-          </div>
-
           <div class="results-container">
             <!-- PDF Export Button -->
             <div v-if="searchResults.length > 0" class="results-header">
@@ -107,7 +101,7 @@
         </div>
 
         <!-- Right Column: Sidebar (Activity) -->
-        <aside class="activity-sidebar">
+        <aside v-if="!hasSearchCriteria" class="activity-sidebar">
           <h3><AppIcon name="attivita" /> Attività Recente</h3>
           <div v-if="activityLogs.length > 0" class="activity-list">
             <div v-for="log in activityLogs" :key="log.id" class="activity-item">
@@ -124,16 +118,6 @@
           </div>
           <div v-else class="empty-activity">Nessuna attività registrata di recente.</div>
 
-          <div class="quick-links">
-            <h4><AppIcon name="link" /> Link Rapidi</h4>
-            <router-link to="/incassi/ricevute" class="q-link"
-              >
-              <AppIcon name="registrazione-seriale" /> Inserimento Rapido</router-link
-            >
-            <router-link to="/report-pdf" class="q-link">
-              <AppIcon name="report" /> Report Annuali
-            </router-link>
-          </div>
         </aside>
       </div>
 
@@ -143,24 +127,6 @@
         <pre>{{ JSON.stringify(filters, null, 2) }}</pre>
       </div>
 
-      <!-- Utility Footer -->
-      <footer class="dashboard-footer">
-        <div class="footer-actions">
-          <button @click="exportDatabase" class="utility-button secondary">
-            <AppIcon name="esporta" /> Backup DB
-          </button>
-          <button @click="exportChangeLogData" class="utility-button secondary">
-            <AppIcon name="changelog" /> Changelog
-          </button>
-          <button @click="runNormalization" class="utility-button warning" title="Sistema i blocchetti storici invertiti">
-            <AppIcon name="ripara" /> Fix DB Invertito
-          </button>
-          <button @click="clearDatabase" class="utility-button danger">
-            <AppIcon name="elimina" /> Reset DB
-          </button>
-        </div>
-        <p class="footer-note">Sistema Gestionale Ceraiolo Digitale - v1.0</p>
-      </footer>
     </main>
   </div>
 </template>
@@ -172,21 +138,18 @@ import { useToast } from 'vue-toastification'
 import { askConfirm } from '@/composables/useDialog'
 import {
   db,
-  downloadDatabaseExport,
-  exportChangeLog,
   getAllSociWithTesseramenti,
   addTesseramento,
   getSetting,
   getRecentActivity,
   applyFiltersAndSearch,
-  normalizeDatabaseData
 } from '@/services/db'
 import { generateAndDownloadSociPDF, generateSingleCardPDF } from '@/services/export'
 import SocioCard from '@/components/SocioCard.vue'
 import FilterPanel from '@/components/FilterPanel.vue'
-import DashboardCharts from '@/components/DashboardCharts.vue'
 import AppIcon from '@/components/base/AppIcon.vue'
 import PageHeader from '@/components/base/PageHeader.vue'
+import { leggiRicerca, salvaRicerca } from '@/utils/ricercaSoci'
 
 // Stato dell'applicazione
 const searchTerm = ref('')
@@ -297,6 +260,13 @@ const filters = reactive({
   renewalYear: null,
 })
 
+// La ricerca resta quando si torna dal dettaglio di un socio
+const ricercaSalvata = leggiRicerca(window.sessionStorage)
+if (ricercaSalvata) {
+  Object.assign(filters, ricercaSalvata)
+  searchTerm.value = filters.searchTerm || ''
+}
+
 let searchTimeout = null
 
 const hasSearchCriteria = computed(() => {
@@ -327,7 +297,7 @@ const setYearFilter = (year) => {
       toast.info('Filtro anno rimosso')
     } else {
       filters.renewalYear = year
-      toast.info(`Visualizzazione: Rinnovi ${year}`)
+      toast.info(`Visualizzazione: pagamenti ${year}`)
     }
   }
 }
@@ -357,7 +327,15 @@ const performSearch = async () => {
   }, 300)
 }
 
-watch(filters, performSearch, { deep: true })
+watch(
+  filters,
+  () => {
+    salvaRicerca(window.sessionStorage, filters)
+    performSearch()
+  },
+  { deep: true },
+)
+if (ricercaSalvata) performSearch()
 
 watch(searchResults, (results) => {
   if (results && results.length > 0) {
@@ -367,50 +345,8 @@ watch(searchResults, (results) => {
 })
 
 // Database Actions
-const clearDatabase = async () => {
-  const conferma = await askConfirm({
-    title: 'Cancellare tutto il database?',
-    message: "Tutti i soci e i pagamenti vengono cancellati da questo browser. L'operazione non si annulla.",
-    confirmLabel: 'Cancella database',
-    danger: true,
-  })
-  if (!conferma) return
-  try {
-    await db.delete()
-    await db.open()
-    window.location.reload()
-  } catch (error) {
-    console.error('Clear DB failed:', error)
-  }
-}
 
-const exportDatabase = async () => {
-  try {
-    await downloadDatabaseExport()
-    toast.success('Backup completato!')
-  } catch (error) {
-    console.error('Export failed:', error)
-    toast.error('Errore backup: ' + error.message)
-  }
-}
 
-const exportChangeLogData = async () => {
-  try {
-    const result = await exportChangeLog()
-    if (result.success) {
-      const url = URL.createObjectURL(result.blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = result.filename
-      a.click()
-      URL.revokeObjectURL(url)
-      toast.success('Changelog esportato!')
-    }
-  } catch (error) {
-    console.error('Export changelog failed:', error)
-    toast.error('Errore export changelog')
-  }
-}
 
 const exportSociToPdf = async () => {
   if (searchResults.value.length === 0) return
@@ -444,28 +380,6 @@ const generateSingleCard = async (socio) => {
   }
 }
 
-const runNormalization = async () => {
-  const conferma = await askConfirm({
-    title: 'Correggere blocchetti e ricevute?',
-    message:
-      'Il database viene controllato e i numeri di blocchetto e ricevuta scambiati (vecchio errore) vengono corretti automaticamente.',
-    confirmLabel: 'Correggi',
-  })
-  if (!conferma) return
-  try {
-    const fixedCount = await normalizeDatabaseData()
-    if (fixedCount > 0) {
-      toast.success(`Normalizzazione completata! Sistemati ${fixedCount} record.`)
-      // Ricarica per pulire cache locali
-      window.location.reload()
-    } else {
-      toast.info('Tutti i record sono già corretti! Non c\'era nulla da sistemare.')
-    }
-  } catch (error) {
-    console.error('Normalization error:', error)
-    toast.error('Errore durante la normalizzazione: ' + error.message)
-  }
-}
 
 const quickRenew = async (socio) => {
   const conferma = await askConfirm({
@@ -503,56 +417,59 @@ const quickRenew = async (socio) => {
   padding: 2rem;
 }
 
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 2rem;
-}
-
-.stat-card {
-  background: var(--color-surface);
-  padding: 1.5rem;
-  border-radius: 12px;
-  box-shadow: var(--shadow-sm);
+.numbers-row {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   align-items: center;
+  gap: var(--space-8);
+  margin-bottom: var(--space-24);
+}
+
+.number-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-8);
+  padding: var(--space-4) var(--space-12);
   border: 1px solid var(--color-border);
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.stat-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-}
-
-.stat-card.highlight {
-  border-color: var(--color-accent);
-  background: linear-gradient(to bottom right, var(--color-surface), rgba(183, 28, 28, 0.05));
-}
-
-.stat-card.active {
-  border: 2px solid var(--color-primary);
-  background-color: var(--color-surface-hover);
-}
-
-.stat-label {
-  font-size: 0.8rem;
+  border-radius: var(--radius-full);
+  background-color: var(--color-surface);
   color: var(--color-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 0.5rem;
+  font-size: var(--font-size-label);
+  cursor: pointer;
 }
 
-.stat-value {
-  font-size: 2rem;
-  font-weight: 700;
-  color: var(--color-primary);
+.number-chip strong {
+  color: var(--color-text-primary);
+}
+
+.number-chip:hover {
+  background-color: var(--color-surface-hover);
+  border-color: var(--color-border-strong);
+}
+
+.number-chip[aria-pressed='true'] {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.numbers-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-left: auto;
+  font-size: var(--font-size-label);
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.numbers-link:hover {
+  text-decoration: underline;
 }
 
 .add-socio-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
   padding: 0.75rem 1.5rem;
   background-color: var(--color-accent);
   color: white;
@@ -571,11 +488,14 @@ const quickRenew = async (socio) => {
   display: grid;
   grid-template-columns: 1fr 320px;
   gap: 2rem;
-  margin-top: 2rem;
+}
+
+.dashboard-grid--solo {
+  grid-template-columns: 1fr;
 }
 
 .search-bar {
-  margin-bottom: 2rem;
+  margin-bottom: var(--space-16);
 }
 
 .search-bar input {
@@ -588,7 +508,6 @@ const quickRenew = async (socio) => {
 }
 
 .search-bar input:focus {
-  outline: none;
   border-color: var(--color-accent);
 }
 
@@ -643,26 +562,8 @@ const quickRenew = async (socio) => {
   color: var(--color-text-secondary);
 }
 
-.quick-links {
-  margin-top: 2rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
 
-.q-link {
-  padding: 0.6rem;
-  background: var(--color-background);
-  border-radius: 6px;
-  text-decoration: none;
-  color: var(--color-text-primary);
-  font-size: 0.9rem;
-  border: 1px solid transparent;
-}
 
-.q-link:hover {
-  border-color: var(--color-accent);
-}
 
 .results-header {
   display: flex;
@@ -704,31 +605,9 @@ const quickRenew = async (socio) => {
   color: var(--color-text-secondary);
 }
 
-.dashboard-footer {
-  margin-top: 4rem;
-  padding: 2rem;
-  border-top: 1px solid var(--color-border);
-  text-align: center;
-}
 
-.footer-actions {
-  display: flex;
-  justify-content: center;
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
 
-.utility-button {
-  padding: 0.6rem 1.2rem;
-  border-radius: 6px;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-  cursor: pointer;
-}
 
-.utility-button.danger {
-  color: var(--color-danger);
-}
 
 @media (max-width: 1024px) {
   .dashboard-grid {
