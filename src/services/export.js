@@ -1689,7 +1689,7 @@ export async function generateChurnPDF(soci, year) {
         `${socio.cognome} ${socio.nome}`,
         socio.gruppo_appartenenza || '-',
         lastPaymentStr,
-        socio.telefono || '', // If phone exists in notes or structure? Standard schema has no phone.
+        socio.note || '', // lo schema non ha il telefono: le note sono l'unico recapito
         // We can put blank or look at notes? Standard schema: 'note'.
         '', // Checkbox / Notes manual
       ]
