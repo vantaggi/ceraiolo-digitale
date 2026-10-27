@@ -327,6 +327,7 @@ import { askConfirm, askText } from '@/composables/useDialog';
 import AppIcon from '@/components/base/AppIcon.vue';
 import { getAllSociWithTesseramenti, getUniqueGroups } from '@/services/db';
 import { generateBetaDynamicPDF } from '@/services/exportBeta';
+import { valutaDirittoVoto } from '@/utils/voto';
 
 const toast = useToast();
 const loading = ref(false);
@@ -576,96 +577,16 @@ const sortedYearColumns = computed(() => {
 const processedData = computed(() => {
   let result = [...allMembers.value];
 
-  // Avente Diritto Logic Evaluation (Attach it to each so it can be used for filters and table display)
-  const electionDateStr = reportState.value.filters.electionDate;
-  const targetDateObj = new Date(electionDateStr);
-  const targetYear = targetDateObj.getFullYear();
+  // Diritto di voto: regola in src/utils/voto.js (conta solo l'anno delle elezioni)
+  const targetYear = new Date(reportState.value.filters.electionDate).getFullYear();
+  const etichette = { si: 'Sì', regolarizza: 'Regolarizza', no: 'No' };
 
   result.forEach(member => {
-    let aventeDiritto = true; // Temporary boolean logic to track overall eligibility
-    let electionStatus = '';  // 'si', 'regolarizza', 'no'
-    let dirittoLabel = '';
-    let motivoEsclusione = '';
-
-    // 1. Age Rule
-    if (!member.data_nascita) {
-      aventeDiritto = false;
-      motivoEsclusione = 'Data di nascita mancante';
-    } else {
-      const birthDateObj = new Date(member.data_nascita);
-      let ageAtTarget = targetYear - birthDateObj.getFullYear();
-      const m = targetDateObj.getMonth() - birthDateObj.getMonth();
-      if (m < 0 || (m === 0 && targetDateObj.getDate() < birthDateObj.getDate())) {
-        ageAtTarget--;
-      }
-      if (ageAtTarget < 18) {
-        aventeDiritto = false;
-        motivoEsclusione = 'Minorenne alla data elettorale';
-      }
-    }
-
-    // Payments processing
     const paidYears = member.tesseramenti?.map(t => t.anno) || [];
-    const enrollmentYear = getEnrollmentYear(member);
-
-    // Logic evaluating "Sì", "Regolarizza", "No"
-    if (aventeDiritto) {
-      const windowStart = Math.max(targetYear - 3, enrollmentYear); // Only check from 3 years ago OR enrollment, whichever is later
-      const windowEnd = targetYear;
-      const recentWindow = [];
-      for (let y = windowStart; y <= windowEnd; y++) recentWindow.push(y);
-
-      let E = null;
-      for (let y of recentWindow) {
-        if (paidYears.includes(y) || isMinorInYear(member, y)) {
-          E = y;
-          break;
-        }
-      }
-
-      if (E === null) {
-        electionStatus = 'no';
-        dirittoLabel = 'No';
-        if (enrollmentYear > targetYear) {
-          motivoEsclusione = `Iscritto postumo (${enrollmentYear})`;
-        } else {
-          motivoEsclusione = `Nessun pagamento registrato o valido nel periodo ${windowStart} - ${windowEnd}`;
-        }
-      } else if (E === targetYear && !isMinorInYear(member, targetYear - 1)) {
-        // First active year is targetYear AND they weren't a minor the year before
-        electionStatus = 'no';
-        dirittoLabel = 'No';
-        if (enrollmentYear === targetYear) {
-           motivoEsclusione = `Nuovo iscritto nell'anno ${targetYear}`;
-        } else {
-           motivoEsclusione = `Socio rientrato nell'anno ${targetYear}`;
-        }
-      } else {
-        const missingYears = [];
-        for (let y = E; y <= targetYear; y++) {
-          if (!paidYears.includes(y) && !isMinorInYear(member, y)) {
-            missingYears.push(y);
-          }
-        }
-
-        if (missingYears.length === 0) {
-          electionStatus = 'si';
-          dirittoLabel = 'Sì';
-          motivoEsclusione = '';
-        } else {
-          electionStatus = 'regolarizza';
-          dirittoLabel = 'Regolarizza';
-          motivoEsclusione = `Mancano quote: ${missingYears.join(', ')}`;
-        }
-      }
-    } else {
-      electionStatus = 'no';
-      dirittoLabel = 'No';
-    }
-
-    member.aventeDiritto = electionStatus;
-    member.dirittoLabel = dirittoLabel;
-    member.motivoEsclusione = motivoEsclusione;
+    const { stato, motivo } = valutaDirittoVoto(member, paidYears, targetYear);
+    member.aventeDiritto = stato;
+    member.dirittoLabel = etichette[stato];
+    member.motivoEsclusione = motivo;
   });
 
   // Active Members Filter
