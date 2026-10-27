@@ -272,6 +272,35 @@
         <div v-if="currentTab === 'liste'">
           <h2><AppIcon name="elenco" /> Elenchi e Statistiche</h2>
 
+          <!-- Aventi diritto e arretrati (regola in utils/voto.js) -->
+          <section class="report-section">
+            <h3><AppIcon name="votazioni" /> Aventi diritto al voto e arretrati</h3>
+            <p>
+              Per le elezioni del <strong>{{ renewalYear }}</strong>: chi vota (Sì), chi può votare
+              dopo aver pagato gli arretrati (Regolarizza, con gli anni da pagare) e, se richiesto,
+              chi non ha diritto e perché.
+            </p>
+            <div class="filters-grid-compact">
+              <div class="f-group">
+                <label for="aventi-manicchia">Manicchie:</label>
+                <select id="aventi-manicchia" v-model="aventiFiltri.manicchia" class="small-input aventi-select">
+                  <option value="__sezioni">Tutte, una sezione per manicchia</option>
+                  <option value="">Tutte in un unico elenco</option>
+                  <option v-for="group in availableGroups" :key="group" :value="group">
+                    {{ group }}
+                  </option>
+                </select>
+              </div>
+            </div>
+            <label class="checkbox-label aventi-opzione">
+              <input v-model="aventiFiltri.includiNonAventi" type="checkbox" />
+              Includi chi non ha diritto (nuovi iscritti, rientri, minorenni)
+            </label>
+            <button @click="generaAventiDiritto" :disabled="loading" class="action-button wide">
+              <AppIcon name="documento" /> Genera PDF aventi diritto
+            </button>
+          </section>
+
           <!-- Nuovi Soci -->
           <section class="report-section">
             <h3><AppIcon name="nuovo-socio" /> Nuovi Soci</h3>
@@ -591,6 +620,7 @@ import {
   generateChurnPDF,
   generateAuditPDF,
   generateVotingListPDF,
+  generateAventiDirittoPDF,
   generateActiveMembersPDF,
   generateAuditQuotaPDF,
 } from '@/services/export'
@@ -612,6 +642,7 @@ import {
   getQuotaAuditList,
 } from '@/services/db'
 import TesseraTemplate from '@/components/TesseraTemplate.vue'
+import { elencoAventiDiritto } from '@/utils/aventiDiritto'
 import AgeCategoryFilter from '@/components/AgeCategoryFilter.vue'
 
 // Stato del componente
@@ -993,6 +1024,38 @@ const generateChurnReport = async () => {
     toast.error('Errore: ' + error.message)
   } finally {
     loading.value = false
+  }
+}
+
+/**
+ * Aventi diritto al voto e arretrati, per manicchia o generale
+ */
+const aventiFiltri = reactive({ manicchia: '__sezioni', includiNonAventi: false })
+
+const generaAventiDiritto = async () => {
+  if (!renewalYear.value) return
+  try {
+    loading.value = true
+    loadingMessage.value = 'Calcolo aventi diritto...'
+    const perManicchia = aventiFiltri.manicchia === '__sezioni'
+    const elenco = elencoAventiDiritto(await getAllSociWithTesseramenti(), renewalYear.value, {
+      includiNonAventi: aventiFiltri.includiNonAventi,
+      manicchia: perManicchia ? null : aventiFiltri.manicchia || null,
+    })
+    if (elenco.gruppi.length === 0) {
+      toast.warning(`Nessun socio da elencare per le elezioni del ${renewalYear.value}`)
+      return
+    }
+    loadingMessage.value = 'Generazione PDF...'
+    await generateAventiDirittoPDF(elenco, renewalYear.value, { perManicchia })
+    const { si, regolarizza } = elenco.totali
+    toast.success(`PDF generato: ${si} con diritto, ${regolarizza} da regolarizzare`)
+  } catch (error) {
+    console.error('Errore generazione aventi diritto:', error)
+    toast.error('Errore: ' + error.message)
+  } finally {
+    loading.value = false
+    loadingMessage.value = ''
   }
 }
 
@@ -1649,6 +1712,14 @@ watch(renewalYear, (newVal) => {
   to {
     transform: rotate(360deg);
   }
+}
+
+.aventi-select {
+  width: auto;
+}
+
+.aventi-opzione {
+  margin: var(--space-12) 0 var(--space-16);
 }
 
 /* Checkbox */
