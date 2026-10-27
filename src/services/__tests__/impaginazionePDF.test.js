@@ -105,3 +105,13 @@ describe('createPDFTable', () => {
     expect(intestazioni).toHaveLength(doc.internal.getNumberOfPages())
   })
 })
+
+describe('report su misura', () => {
+  it("usa l'impaginazione comune, non una copia sua", async () => {
+    const sorgente = (await import('../exportBeta.js?raw')).default
+    for (const funzione of ['addPDFHeader', 'createPDFTable', 'addPDFFooter']) {
+      expect(sorgente).not.toMatch(new RegExp(`function ${funzione}\\(`))
+    }
+    expect(sorgente).not.toContain('Generated on')
+  })
+})
