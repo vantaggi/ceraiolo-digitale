@@ -1,120 +1,100 @@
 <template>
-  <div v-if="show" class="modal-overlay" @click="closeModal">
-    <div class="modal-content" @click.stop>
-      <div class="modal-header">
-        <h3><AppIcon name="pagamento" /> Registra Pagamento</h3>
-        <button type="button" @click="closeModal" class="close-button" aria-label="Chiudi">
-          <AppIcon name="chiudi" />
-        </button>
+  <BaseModal
+    :open="show"
+    title="Registra pagamento"
+    size="sm"
+    :busy="isSubmitting"
+    @close="closeModal"
+  >
+    <form id="modulo-pagamento" class="modulo-pagamento" @submit.prevent="handleSubmit">
+      <div class="campo">
+        <label for="quota-pagata">Quota pagata (€)</label>
+        <input
+          id="quota-pagata"
+          ref="quotaInput"
+          v-model.number="paymentDetails.quota_pagata"
+          type="number"
+          step="0.01"
+          min="0"
+          required
+          placeholder="Es: 10.00"
+        />
       </div>
 
-      <form @submit.prevent="handleSubmit" class="payment-form">
-        <div class="form-group">
-          <label for="quota-pagata">
-            <AppIcon name="quota" class="field-icon" />
-            Quota Pagata (€)
-          </label>
+      <div class="campo">
+        <label for="data-pagamento">Data pagamento</label>
+        <input
+          id="data-pagamento"
+          v-model="paymentDetails.data_pagamento"
+          type="date"
+          required
+          :max="new Date().toISOString().split('T')[0]"
+        />
+      </div>
+
+      <div class="campo">
+        <label for="numero-blocchetto">Blocchetto</label>
+        <input
+          id="numero-blocchetto"
+          v-model.number="paymentDetails.numero_blocchetto"
+          type="number"
+          min="1"
+          required
+          placeholder="Es: 123"
+        />
+      </div>
+
+      <div class="campo">
+        <label for="numero-ricevuta">Ricevuta</label>
+        <input
+          id="numero-ricevuta"
+          v-model.number="paymentDetails.numero_ricevuta"
+          type="number"
+          min="1"
+          required
+          placeholder="Es: 456"
+        />
+      </div>
+
+      <fieldset class="anni">
+        <legend>Anni di tesseramento</legend>
+        <div v-for="year in availableYears" :key="year" class="anni__riga">
           <input
-            id="quota-pagata"
-            v-model.number="paymentDetails.quota_pagata"
-            type="number"
-            step="0.01"
-            min="0"
-            required
-            class="form-input"
-            placeholder="Es: 10.00"
-            ref="quotaInput"
+            :id="'year-' + year"
+            v-model="selectedYears"
+            type="checkbox"
+            :value="year"
+            :disabled="isSubmitting"
           />
-        </div>
-
-        <div class="form-group">
-          <label for="data-pagamento">
-            <AppIcon name="data" class="field-icon" />
-            Data Pagamento
+          <label :for="'year-' + year">
+            {{ year }}
+            <span v-if="year === props.annoRiferimento" class="anni__nota"
+              >anno di riferimento</span
+            >
           </label>
-          <input
-            id="data-pagamento"
-            v-model="paymentDetails.data_pagamento"
-            type="date"
-            required
-            class="form-input"
-            :max="new Date().toISOString().split('T')[0]"
-          />
         </div>
+      </fieldset>
+    </form>
 
-        <div class="form-group">
-          <label for="numero-blocchetto">
-            <AppIcon name="blocchetto" class="field-icon" />
-            N. Blocchetto
-          </label>
-          <input
-            id="numero-blocchetto"
-            v-model.number="paymentDetails.numero_blocchetto"
-            type="number"
-            min="1"
-            required
-            class="form-input"
-            placeholder="Es: 123"
-          />
-        </div>
-
-        <div class="form-group">
-          <label for="numero-ricevuta">
-            <AppIcon name="ricevuta" class="field-icon" />
-            N. Ricevuta
-          </label>
-          <input
-            id="numero-ricevuta"
-            v-model.number="paymentDetails.numero_ricevuta"
-            type="number"
-            min="1"
-            required
-            class="form-input"
-            placeholder="Es: 456"
-          />
-        </div>
-
-        <!-- Years Selection -->
-        <div class="form-group">
-          <label>
-            <AppIcon name="data" class="field-icon" />
-            Anni di Tesseramento
-          </label>
-          <div class="years-selection">
-            <div v-for="year in availableYears" :key="year" class="year-option">
-              <input
-                :id="'year-' + year"
-                type="checkbox"
-                :value="year"
-                v-model="selectedYears"
-                :disabled="isSubmitting"
-              />
-              <label :for="'year-' + year" class="year-label">
-                {{ year }}
-                <span v-if="year === props.annoRiferimento" class="reference-badge"
-                  >(anno riferimento)</span
-                >
-              </label>
-            </div>
-          </div>
-        </div>
-
-        <div class="modal-actions">
-          <button type="button" @click="closeModal" class="cancel-button" :disabled="isSubmitting">
-            Annulla
-          </button>
-          <button type="submit" class="save-button" :disabled="isSubmitting" ref="saveButton">
-            {{ isSubmitting ? 'Salvando...' : `Salva Pagamenti (${selectedYears.length} anni)` }}
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
+    <template #footer>
+      <BaseButton :disabled="isSubmitting" @click="closeModal">Annulla</BaseButton>
+      <BaseButton
+        type="submit"
+        form="modulo-pagamento"
+        variant="primary"
+        data-autofocus
+        :loading="isSubmitting"
+      >
+        Salva pagamenti ({{ selectedYears.length }} anni)
+      </BaseButton>
+    </template>
+  </BaseModal>
 </template>
 
 <script setup>
-import { ref, reactive, watch, nextTick } from 'vue'
-import AppIcon from '@/components/base/AppIcon.vue'
+import { ref, reactive, watch } from 'vue'
+import BaseModal from '@/components/base/BaseModal.vue'
+import BaseButton from '@/components/base/BaseButton.vue'
 import { getTesseramentiBySocioId, getSetting } from '@/services/db'
 import {
   isMinorenne,
@@ -155,7 +135,6 @@ const props = defineProps({
 
 const isSubmitting = ref(false)
 const quotaInput = ref(null)
-const saveButton = ref(null)
 
 const paymentDetails = reactive({
   quota_pagata: 10.0, // Will be updated from settings
@@ -251,17 +230,11 @@ const loadAvailableYears = async () => {
   }
 }
 
-// Reset form when modal opens
+// Reset form when modal opens (il fuoco va su Salva: BaseModal cerca data-autofocus)
 watch(
   () => props.show,
   (show) => {
-    if (show) {
-      resetForm()
-      nextTick(() => {
-        // Focus on Save button instead of quota input
-        saveButton.value?.focus()
-      })
-    }
+    if (show) resetForm()
   },
 )
 
@@ -322,290 +295,65 @@ const handleSubmit = () => {
 </script>
 
 <style scoped>
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-  animation: fadeIn 0.3s ease-out;
-}
-
-.modal-content {
-  background-color: var(--color-surface);
-  border-radius: 12px;
-  border: 2px solid var(--color-border);
-  box-shadow: var(--shadow-lg);
-  min-width: 400px;
-  max-width: 450px;
-  max-height: 80vh;
-  overflow-y: auto;
-  animation: slideIn 0.3s ease-out;
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1.5rem 2rem;
-  border-bottom: 2px solid var(--color-border);
-  background-color: var(--color-background);
-  border-radius: 12px 12px 0 0;
-}
-
-.modal-header h3 {
-  margin: 0;
-  font-size: 1.25rem;
-  color: var(--color-primary);
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.close-button {
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  cursor: pointer;
-  color: var(--color-text-secondary);
-  padding: 0.25rem;
-  border-radius: 4px;
-  transition: all 0.2s;
-}
-
-.close-button:hover {
-  background-color: var(--color-accent);
-  color: white;
-}
-
-.payment-form {
-  padding: 2rem;
+.modulo-pagamento {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: var(--space-12);
 }
 
-.form-group {
+.campo {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--space-4);
 }
 
-.form-group label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.95rem;
+.campo label,
+.anni legend {
+  font-size: var(--font-size-label);
   font-weight: 600;
-  color: var(--color-text-primary);
+  color: var(--text-primary);
 }
 
-.info-label {
-  background-color: var(--color-background);
-  padding: 0.75rem;
-  border-radius: 8px;
-  border: 2px solid var(--color-border);
-  font-weight: normal !important;
-}
-
-.field-icon {
-  font-size: 1.2rem;
-}
-
-.form-input {
-  padding: 0.75rem;
-  border-radius: 8px;
-  border: 2px solid var(--color-border);
-  background-color: var(--color-background);
-  color: var(--color-text-primary);
-  font-size: 1rem;
-  font-family: var(--font-family-body);
-  transition: all 0.2s;
-}
-
-.form-input:focus {
-  outline: none;
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 3px rgba(183, 28, 28, 0.1);
-}
-
-.form-input:invalid {
-  border-color: var(--color-accent);
-}
-
-.modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 1rem;
-  margin-top: 1rem;
-}
-
-.cancel-button,
-.save-button {
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 8px;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.cancel-button {
-  background-color: var(--color-text-secondary);
-  color: white;
-}
-
-.cancel-button:hover {
-  background-color: #666;
-  transform: scale(1.02);
-}
-
-.save-button {
-  background-color: var(--color-accent);
-  color: white;
-}
-
-.save-button:hover:not(:disabled) {
-  background-color: var(--color-accent-hover);
-  transform: scale(1.02);
-}
-
-.save-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-}
-
-/* Animations */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateY(-20px) scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-/* Years Selection */
-.years-selection {
+.anni {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
+  gap: var(--space-4);
+  border: none;
 }
 
-.year-option {
+.anni legend {
+  margin-bottom: var(--space-4);
+}
+
+.anni__riga {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.5rem;
-  background-color: var(--color-background);
-  border-radius: 6px;
-  border: 1px solid var(--color-border);
-  transition: all 0.2s;
+  gap: var(--space-8);
+  padding: var(--space-4) var(--space-8);
+  border-radius: var(--radius-control);
 }
 
-.year-option:hover {
-  border-color: var(--color-accent);
-  background-color: var(--color-surface-hover);
+.anni__riga:hover {
+  background-color: var(--state-hover);
 }
 
-.year-option input[type='checkbox'] {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--color-accent);
+.anni__riga input[type='checkbox'] {
+  width: auto;
+  accent-color: var(--accent-default);
+  box-shadow: none;
 }
 
-.year-label {
-  cursor: pointer;
-  font-weight: 500;
-  color: var(--color-text-primary);
+.anni__riga label {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
   flex: 1;
+  align-items: baseline;
+  gap: var(--space-8);
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
 }
 
-.reference-badge {
-  background-color: var(--color-accent);
-  color: white;
-  padding: 0.125rem 0.375rem;
-  border-radius: 10px;
-  font-size: 0.75rem;
-  font-weight: 600;
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-  .modal-content {
-    min-width: 90vw;
-    max-width: 95vw;
-    margin: 1rem;
-    max-height: 90vh;
-  }
-
-  .modal-header {
-    padding: 1rem 1.5rem;
-  }
-
-  .payment-form {
-    padding: 1.5rem;
-    gap: 1rem;
-  }
-
-  .modal-actions {
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .cancel-button,
-  .save-button {
-    width: 100%;
-    padding: 1rem 1.5rem;
-  }
-
-  .years-selection {
-    max-height: 200px;
-    overflow-y: auto;
-  }
-}
-
-@media (max-width: 480px) {
-  .modal-content {
-    min-width: 95vw;
-    margin: 0.5rem;
-  }
-
-  .modal-header {
-    padding: 1rem;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.5rem;
-  }
-
-  .close-button {
-    align-self: flex-end;
-  }
-
-  .payment-form {
-    padding: 1rem;
-  }
+.anni__nota {
+  font-size: var(--font-size-caption);
+  color: var(--text-secondary);
 }
 </style>
