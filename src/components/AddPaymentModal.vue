@@ -95,12 +95,14 @@
 import { ref, reactive, watch } from 'vue'
 import BaseModal from '@/components/base/BaseModal.vue'
 import BaseButton from '@/components/base/BaseButton.vue'
+import { getTesseramentiBySocioId, getSetting } from '@/services/db'
 import {
-  getTesseramentiBySocioId,
-  getSetting,
-  calculateAgeInYear,
-  isExemptFromPayment,
-} from '@/services/db'
+  isMinorenne,
+  QUOTA_NUOVI_PREDEFINITA,
+  QUOTA_ORDINARIA_PREDEFINITA,
+  quotaProposta,
+  tipoQuota,
+} from '@/utils/payment'
 
 const emit = defineEmits(['close', 'payments-saved'])
 
@@ -178,7 +180,7 @@ const loadAvailableYears = async () => {
     const currentYear = new Date().getFullYear()
 
     // Check if socio is minor
-    const isMinor = calculateAgeInYear(socio.data_nascita, currentYear) < 18
+    const isMinor = isMinorenne(socio.data_nascita, currentYear)
 
     // If minor, don't show "arrears" (past years), so start from current year
     let startYear
@@ -237,8 +239,12 @@ watch(
 )
 
 const resetForm = async () => {
-  // Load default quota from settings
-  let defaultQuota = await getSetting('defaultQuota', 10.0)
+  // Quote dalle impostazioni
+  const quote = {
+    quotaOrdinaria: await getSetting('defaultQuota', QUOTA_ORDINARIA_PREDEFINITA),
+    quotaNuovi: await getSetting('newMemberQuota', QUOTA_NUOVI_PREDEFINITA),
+  }
+  let defaultQuota = quote.quotaOrdinaria
 
   paymentDetails.data_pagamento = new Date().toISOString().split('T')[0]
   paymentDetails.numero_blocchetto = props.numeroBlocchetto
@@ -248,27 +254,11 @@ const resetForm = async () => {
   // This also populates paidYears and availableYears
   await loadAvailableYears()
 
-  // Calculate if the user should pay the 25 EUR penalty fee (New member or Returning)
+  // Nuovi e rientri pagano la quota dei nuovi: la regola sta in utils/payment.js (tipoQuota)
   try {
     const socio = await import('@/services/db').then((m) => m.getSocioById(props.socioId))
-    const targetYear = props.annoRiferimento
-
-    if (!isExemptFromPayment(socio, targetYear)) {
-      const pastPaidYears = Array.from(paidYears.value).sort((a, b) => a - b)
-
-      const isFirstPayment = pastPaidYears.length === 0 || pastPaidYears[0] >= targetYear
-      const missedPreviousYear = !pastPaidYears.includes(targetYear - 1) && !isFirstPayment
-
-      if (isFirstPayment) {
-        defaultQuota = 25.0 // Nuovo Iscritto
-      } else if (missedPreviousYear) {
-        // Rientro, a meno che l'anno del buco non fosse minorenne
-        const wasMinorInMissedYear = isExemptFromPayment(socio, targetYear - 1)
-        if (!wasMinorInMissedYear) {
-          defaultQuota = 25.0
-        }
-      }
-    }
+    const tipo = tipoQuota(socio, Array.from(paidYears.value), props.annoRiferimento)
+    defaultQuota = quotaProposta(tipo, quote)
   } catch (e) {
     console.warn('Could not calculate automatic quota', e)
   }

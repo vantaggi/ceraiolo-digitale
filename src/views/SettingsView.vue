@@ -428,6 +428,7 @@
 </template>
 
 <script setup>
+import { QUOTA_NUOVI_PREDEFINITA, QUOTA_ORDINARIA_PREDEFINITA } from '@/utils/payment'
 import { ref, onMounted, watch } from 'vue'
 import { useToast } from 'vue-toastification'
 import { askConfirm } from '@/composables/useDialog'
@@ -485,8 +486,8 @@ const isFileSystemSupported = ref(typeof window.showDirectoryPicker === 'functio
 
 const appConfig = ref({
   receiptsPerBlock: 10,
-  defaultQuota: 10.0,
-  newMemberQuota: 25.0,
+  defaultQuota: QUOTA_ORDINARIA_PREDEFINITA,
+  newMemberQuota: QUOTA_NUOVI_PREDEFINITA,
   defaultCity: '',
   minorsReferenceYear: new Date().getFullYear(),
 })
@@ -508,8 +509,8 @@ onMounted(async () => {
   // Carica configurazioni app
   try {
     appConfig.value.receiptsPerBlock = await getSetting('receiptsPerBlock', 10)
-    appConfig.value.defaultQuota = await getSetting('defaultQuota', 10.0)
-    appConfig.value.newMemberQuota = await getSetting('newMemberQuota', 25.0)
+    appConfig.value.defaultQuota = await getSetting('defaultQuota', QUOTA_ORDINARIA_PREDEFINITA)
+    appConfig.value.newMemberQuota = await getSetting('newMemberQuota', QUOTA_NUOVI_PREDEFINITA)
     appConfig.value.defaultCity = await getSetting('defaultCity', '')
     appConfig.value.minorsReferenceYear = await getSetting('minorsReferenceYear', currentYear)
   } catch (error) {

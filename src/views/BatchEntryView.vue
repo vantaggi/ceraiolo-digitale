@@ -310,13 +310,17 @@ import {
   addCustomGroup,
   getStatoQuote,
   findExistingPaymentYear,
-  calculateAgeInYear,
   deleteTesseramentiByReceipt,
   getSetting,
   getPagamentiBlocchetto,
   getNomiSoci,
   db,
 } from '@/services/db'
+import {
+  isMinorenne,
+  QUOTA_NUOVI_PREDEFINITA,
+  QUOTA_ORDINARIA_PREDEFINITA,
+} from '@/utils/payment'
 import {
   intervalloBlocchetto,
   pagamentiDelBlocchetto,
@@ -422,7 +426,7 @@ const cittaPredefinita = ref('Gubbio')
 const showPaymentModal = ref(false)
 const selectedSocio = ref(null)
 const paymentData = reactive({
-  quota: 25.0,
+  quota: QUOTA_NUOVI_PREDEFINITA,
   selectedYears: [],
 })
 
@@ -441,8 +445,8 @@ Questa operazione annullerà il pagamento registrato per questa sessione.`
 // Configuration
 const config = ref({
   receiptsPerBlock: 10,
-  defaultQuota: 10.0,
-  newMemberQuota: 25.0,
+  defaultQuota: QUOTA_ORDINARIA_PREDEFINITA,
+  newMemberQuota: QUOTA_NUOVI_PREDEFINITA,
 })
 
 // Audio
@@ -598,8 +602,8 @@ onMounted(async () => {
 
     // Carica configurazioni
     config.value.receiptsPerBlock = await getSetting('receiptsPerBlock', 10)
-    config.value.defaultQuota = await getSetting('defaultQuota', 10.0)
-    config.value.newMemberQuota = await getSetting('newMemberQuota', 25.0)
+    config.value.defaultQuota = await getSetting('defaultQuota', QUOTA_ORDINARIA_PREDEFINITA)
+    config.value.newMemberQuota = await getSetting('newMemberQuota', QUOTA_NUOVI_PREDEFINITA)
     cittaPredefinita.value = await getSetting('defaultCity', 'Gubbio')
     newSocioData.luogo_nascita = cittaPredefinita.value
 
@@ -807,7 +811,7 @@ const selectSocio = async (socio) => {
     isProcessing.value = true
 
     try {
-      const defaultQuota = await getSetting('defaultQuota', 10.0)
+      const defaultQuota = await getSetting('defaultQuota', QUOTA_ORDINARIA_PREDEFINITA)
       await handleSavePayments({
         details: {
           quota_pagata: defaultQuota,
@@ -1028,9 +1032,7 @@ const formatDate = (dateString) => {
     .replace(/\//g, '-')
 }
 
-const isMinor = (socio) => {
-  return calculateAgeInYear(socio.data_nascita, currentYear) < 18
-}
+const isMinor = (socio) => isMinorenne(socio.data_nascita, currentYear)
 
 const getSocioStatus = (socio) => {
   // 1. Check if already in current receipt
