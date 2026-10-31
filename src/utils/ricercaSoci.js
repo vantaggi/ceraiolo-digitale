@@ -1,6 +1,6 @@
 // Ricerca soci ricordata per la sessione del browser: tornando dal dettaglio
 // di un socio si ritrovano la stessa ricerca e gli stessi filtri.
-import { calculateAgeInYear } from './payment'
+import { isMinorenne } from './payment'
 
 const CHIAVE = 'ricerca_soci'
 const CAMPI = ['searchTerm', 'ageCategory', 'group', 'renewalYear']
@@ -46,8 +46,7 @@ export function passaFiltri(socio, filtri, anno) {
   if (ageCategory === 'maggiorenni' || ageCategory === 'minorenni') {
     // Senza una data di nascita valida non si sa: il socio resta fuori da entrambi
     if (!socio.data_nascita || isNaN(new Date(socio.data_nascita))) return false
-    const eta = calculateAgeInYear(socio.data_nascita, anno)
-    if ((ageCategory === 'maggiorenni') !== eta >= 18) return false
+    if ((ageCategory === 'maggiorenni') === isMinorenne(socio.data_nascita, anno)) return false
   }
 
   if (group && group !== 'Tutti' && socio.gruppo_appartenenza !== group) return false

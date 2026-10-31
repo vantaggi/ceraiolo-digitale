@@ -1,6 +1,13 @@
 import Dexie from 'dexie'
 import { caricaSqlJs } from './sqljs'
-import { calculatePaymentStatus } from '@/utils/payment'
+import {
+  calculateAgeInYear,
+  calculatePaymentStatus,
+  isExemptFromPayment,
+  isMinorenne,
+  QUOTA_NUOVI_PREDEFINITA,
+  tipoQuota,
+} from '@/utils/payment'
 import { SENZA_MANICCHIA } from '@/utils/aventiDiritto'
 import { elencoRecupero } from '@/utils/recupero'
 import { calcolaStatisticheAnnuali } from '@/utils/statistiche'
@@ -1279,32 +1286,9 @@ export async function addSocio(socioData) {
   }
 }
 
-/**
- * Calculates the age of a member in a specific year
- * @param {string} birthDateString - Date of birth (YYYY-MM-DD)
- * @param {number} year - The year to calculate age for
- * @returns {number} Age in that year
- */
-export function calculateAgeInYear(birthDateString, year) {
-  if (!birthDateString) return 99 // Assume adult if no birthdate
-  const birthDate = new Date(birthDateString)
-  if (isNaN(birthDate.getTime())) return 99
-
-  return year - birthDate.getFullYear()
-}
-
-/**
- * Checks if a member is exempt from payment for a specific year (e.g. minors)
- * @param {object} socio - The member object
- * @param {number} year - The year to check
- * @returns {boolean} True if exempt
- */
-export function isExemptFromPayment(socio, year) {
-  const age = calculateAgeInYear(socio.data_nascita, year)
-  // Minors (< 18) are exempt from payment/arrears after their first registration
-  // "negli anni successivi risultano sempre iscritti fino al 18 anno"
-  return age < 18
-}
+// Eta' e minorenni: le regole stanno solo in utils/payment.js. Qui si riesportano
+// per chi le importa ancora da db.js.
+export { calculateAgeInYear, isExemptFromPayment }
 
 // Stato delle quote di un socio per l'anno in corso: arretrati e "da reiscrivere"
 export async function getStatoQuote(socioId) {
@@ -1954,7 +1938,7 @@ export async function getDemographicStats(year) {
       // Age Stats
       const age = calculateAgeInYear(socio.data_nascita, year)
       if (age >= 150) stats.ageGroups['N/D']++
-      else if (age < 18) stats.ageGroups['Under 18']++
+      else if (isMinorenne(socio.data_nascita, year)) stats.ageGroups['Under 18']++
       else if (age <= 35) stats.ageGroups['18-35']++
       else if (age <= 50) stats.ageGroups['36-50']++
       else if (age <= 65) stats.ageGroups['51-65']++
@@ -2471,6 +2455,7 @@ export async function normalizeDatabaseData() {
 export async function getQuotaAuditList(targetYear) {
   try {
     const allSoci = await getAllSociWithTesseramenti()
+    const quotaNuovi = Number(await getSetting('newMemberQuota', QUOTA_NUOVI_PREDEFINITA))
     const anomalies = []
 
     for (const socio of allSoci) {
@@ -2480,40 +2465,28 @@ export async function getQuotaAuditList(targetYear) {
       const targetPayment = socio.tesseramenti.find((t) => t.anno === targetYear)
       if (!targetPayment) continue // Non ha pagato in questo anno
 
-      // Se ha già pagato 25€ (o più), va bene
+      // Se ha gia' pagato la quota dei nuovi (o piu'), va bene
       const quotaPagata = Number(targetPayment.quota_pagata) || 0
-      if (quotaPagata >= 25) continue
+      if (quotaPagata >= quotaNuovi) continue
 
-      // Se nell'anno in questione era minorenne (esente), non è un'anomalia pagare meno di 25
-      if (isExemptFromPayment(socio, targetYear)) continue
+      // Nuovo iscritto o rientro: la regola sta in utils/payment.js (tipoQuota)
+      const anniPagati = socio.tesseramenti.map((t) => t.anno)
+      const tipo = tipoQuota(socio, anniPagati, targetYear)
 
-      // Analizziamo lo storico dei pagamenti per capire se doveva pagare 25€
-      const paidYears = socio.tesseramenti.map((t) => t.anno).sort((a, b) => a - b)
-
-      const isFirstPayment = paidYears[0] === targetYear
-      const missedPreviousYear = !paidYears.includes(targetYear - 1) && !isFirstPayment
-
-      if (isFirstPayment) {
+      if (tipo === 'nuovo') {
         anomalies.push({
           socio,
           tesseramento: targetPayment,
-          expectedQuota: 25,
+          expectedQuota: quotaNuovi,
           reason: 'Nuovo Iscritto (primo pagamento registrato)',
         })
-      } else if (missedPreviousYear) {
-        // Rientro: ha pagato in passato, ma non l'anno prima (es. paga nel 2024, ma non ha pagato nel 2023)
-        // Ma aspetta: se l'anno in cui ha saltato il pagamento (targetYear - 1) era MINORENNE,
-        // allora quel "buco" è giustificato e non deve pagare la quota di rientro doppia.
-        const wasMinorInMissedYear = isExemptFromPayment(socio, targetYear - 1)
-
-        if (!wasMinorInMissedYear) {
-          anomalies.push({
-            socio,
-            tesseramento: targetPayment,
-            expectedQuota: 25,
-            reason: `Rientro (nessun pagamento registrato e maggiorenne nel ${targetYear - 1})`,
-          })
-        }
+      } else if (tipo === 'rientro') {
+        anomalies.push({
+          socio,
+          tesseramento: targetPayment,
+          expectedQuota: quotaNuovi,
+          reason: `Rientro (nessun pagamento registrato e maggiorenne nel ${targetYear - 1})`,
+        })
       }
     }
 

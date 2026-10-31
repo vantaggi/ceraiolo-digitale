@@ -5,6 +5,12 @@ import {
   calculatePaymentStatus,
   descriviArretrati,
   statoAnno,
+  isMinorenne,
+  MAGGIORE_ETA,
+  tipoQuota,
+  quotaProposta,
+  QUOTA_ORDINARIA_PREDEFINITA,
+  QUOTA_NUOVI_PREDEFINITA,
 } from '../payment'
 
 // Le regole sono descritte nei commenti di src/utils/payment.js: eta' contata sul solo anno,
@@ -156,5 +162,66 @@ describe('statoAnno (colonne V, X, O, - dei report)', () => {
 
   it('senza iscrizione ne pagamenti ogni anno e -', () => {
     expect(statoAnno(adulto, [], 2026)).toBe('-')
+  })
+})
+
+describe('isMinorenne', () => {
+  it("conta solo l'anno di nascita: chi nasce a dicembre e' maggiorenne da gennaio", () => {
+    expect(isMinorenne('2008-12-31', 2025)).toBe(true) // 17
+    expect(isMinorenne('2008-12-31', 2026)).toBe(false) // 18 nell'anno
+  })
+
+  it('senza data valida tratta il socio da maggiorenne', () => {
+    expect(isMinorenne(null, 2026)).toBe(false)
+    expect(isMinorenne('non una data', 2026)).toBe(false)
+  })
+
+  it("usa la stessa soglia dell'esenzione", () => {
+    expect(MAGGIORE_ETA).toBe(18)
+    const socio = { data_nascita: '2010-06-15' }
+    for (const anno of [2026, 2027, 2028, 2029]) {
+      expect(isMinorenne(socio.data_nascita, anno)).toBe(isExemptFromPayment(socio, anno))
+    }
+  })
+})
+
+describe('tipoQuota', () => {
+  const adulto = { data_nascita: '1980-01-01' }
+
+  it("nuovo: nessun pagamento prima di quell'anno (anche se ne ha dopo)", () => {
+    expect(tipoQuota(adulto, [], 2026)).toBe('nuovo')
+    expect(tipoQuota(adulto, [2026], 2026)).toBe('nuovo')
+    expect(tipoQuota(adulto, [2026], 2025)).toBe('nuovo')
+  })
+
+  it("rientro: non ha pagato l'anno prima da maggiorenne", () => {
+    expect(tipoQuota(adulto, [2023, 2024], 2026)).toBe('rientro')
+  })
+
+  it("ordinaria: ha pagato l'anno prima", () => {
+    expect(tipoQuota(adulto, [2024, 2025], 2026)).toBe('ordinaria')
+  })
+
+  it("ordinaria: l'anno saltato era da minorenne, quindi esente", () => {
+    const ragazzo = { data_nascita: '2008-03-01' } // 17 nel 2025, 18 nel 2026
+    expect(tipoQuota(ragazzo, [2023], 2026)).toBe('ordinaria')
+  })
+
+  it("esente: minorenne nell'anno", () => {
+    expect(tipoQuota({ data_nascita: '2012-01-01' }, [], 2026)).toBe('esente')
+  })
+})
+
+describe('quotaProposta', () => {
+  const quote = { quotaOrdinaria: 10, quotaNuovi: 25 }
+  it('nuovi e rientri pagano la quota dei nuovi, gli altri la ordinaria', () => {
+    expect(quotaProposta('nuovo', quote)).toBe(25)
+    expect(quotaProposta('rientro', quote)).toBe(25)
+    expect(quotaProposta('ordinaria', quote)).toBe(10)
+    expect(quotaProposta('esente', quote)).toBe(10)
+  })
+  it('i valori predefiniti sono quelli di oggi', () => {
+    expect(QUOTA_ORDINARIA_PREDEFINITA).toBe(10)
+    expect(QUOTA_NUOVI_PREDEFINITA).toBe(25)
   })
 })
