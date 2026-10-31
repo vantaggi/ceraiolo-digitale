@@ -7,7 +7,7 @@
  * Un solo anno di riferimento vale per tutto il report: eta' (dal solo anno di nascita),
  * pagato o no, arretrati e diritto di voto si calcolano per quell'anno.
  */
-import { calculateAgeInYear, calculatePaymentStatus, descriviArretrati, statoAnno } from './payment'
+import { calculatePaymentStatus, descriviArretrati, isMinorenne, statoAnno } from './payment'
 import { valutaDirittoVoto } from './voto'
 import { SENZA_MANICCHIA } from './aventiDiritto'
 
@@ -134,7 +134,7 @@ function scheda(socio, anno) {
   return {
     socio,
     anniPagati,
-    maggiorenne: calculateAgeInYear(socio.data_nascita, anno) >= 18,
+    maggiorenne: !isMinorenne(socio.data_nascita, anno),
     voto,
     pagamento: calculatePaymentStatus(socio, anniPagati, anno),
   }

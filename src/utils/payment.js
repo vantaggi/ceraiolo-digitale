@@ -16,6 +16,20 @@ export function calculateAgeInYear(birthDateString, year) {
   return year - birthDate.getFullYear()
 }
 
+/** Eta' dalla quale si e' maggiorenni (e si paga, e si vota). */
+export const MAGGIORE_ETA = 18
+
+/**
+ * Minorenne in un anno: conta solo l'anno di nascita, non il compleanno
+ * (regola del proprietario, 27 ottobre 2026). Senza data valida: maggiorenne.
+ * @param {string} dataNascita - YYYY-MM-DD
+ * @param {number} anno
+ * @returns {boolean}
+ */
+export function isMinorenne(dataNascita, anno) {
+  return calculateAgeInYear(dataNascita, anno) < MAGGIORE_ETA
+}
+
 /**
  * Checks if a member is exempt from payment for a specific year (e.g. minors)
  * @param {object} socio - The member object
@@ -23,10 +37,43 @@ export function calculateAgeInYear(birthDateString, year) {
  * @returns {boolean} True if exempt
  */
 export function isExemptFromPayment(socio, year) {
-  const age = calculateAgeInYear(socio.data_nascita, year)
-  // Minors (< 18) are exempt from payment/arrears after their first registration
+  // Minors are exempt from payment/arrears after their first registration
   // "negli anni successivi risultano sempre iscritti fino al 18 anno"
-  return age < 18
+  return isMinorenne(socio.data_nascita, year)
+}
+
+/** Quote predefinite, finche' l'impostazione non e' salvata (Impostazioni > Generale). */
+export const QUOTA_ORDINARIA_PREDEFINITA = 10
+export const QUOTA_NUOVI_PREDEFINITA = 25
+
+/**
+ * Che quota tocca a un socio per un anno.
+ * - 'esente': minorenne nell'anno.
+ * - 'nuovo': nessun pagamento registrato prima di quell'anno.
+ * - 'rientro': non ha pagato l'anno prima, e l'anno prima era maggiorenne.
+ * - 'ordinaria': tutti gli altri.
+ * Nuovi e rientri pagano la quota dei nuovi (impostazione newMemberQuota).
+ * @param {object} socio - con data_nascita
+ * @param {Array<number>} anniPagati - anni con un tesseramento (anche dopo l'anno: si ignorano)
+ * @param {number} anno
+ * @returns {'esente'|'nuovo'|'rientro'|'ordinaria'}
+ */
+export function tipoQuota(socio, anniPagati, anno) {
+  if (isExemptFromPayment(socio, anno)) return 'esente'
+  const prima = anniPagati.map(Number).filter((a) => a < anno)
+  if (prima.length === 0) return 'nuovo'
+  if (!prima.includes(anno - 1) && !isExemptFromPayment(socio, anno - 1)) return 'rientro'
+  return 'ordinaria'
+}
+
+/**
+ * Quota da proporre quando si registra il pagamento di un anno.
+ * @param {ReturnType<typeof tipoQuota>} tipo
+ * @param {{ quotaOrdinaria: number, quotaNuovi: number }} quote - dalle impostazioni
+ * @returns {number}
+ */
+export function quotaProposta(tipo, { quotaOrdinaria, quotaNuovi }) {
+  return tipo === 'nuovo' || tipo === 'rientro' ? quotaNuovi : quotaOrdinaria
 }
 
 /**
