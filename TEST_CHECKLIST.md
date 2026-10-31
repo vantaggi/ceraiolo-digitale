@@ -426,12 +426,12 @@ Lo stesso modulo e le stesse regole nei due punti: Soci › Nuovo socio e Incass
 ## ✅ Test 19: Incassi › Blocchetti
 
 - [ ] I numeri in alto (in elenco, in giro, con ricevute saltate) corrispondono alle righe della tabella
-- [ ] Ogni riga dice le ricevute del blocchetto (blocchetto 2: 11–20), quante sono registrate su 10, le saltate, quelle non ancora registrate, l'incassato e lo stato (in giro, rientrato il…, dallo storico)
+- [ ] Ogni riga dice le ricevute del blocchetto (blocchetto 2: 11–20), quante sono registrate su 10, le saltate, quelle non ancora registrate, l'incassato e lo stato (in giro, restituito il…, dallo storico)
 - [ ] I blocchetti trovati solo nei pagamenti risultano "Dallo storico" e non contano tra quelli in giro
 - [ ] L'occhio apre le ricevute del blocchetto: le saltate sono segnate, quelle con un numero fuori dal blocchetto dicono "fuori dal blocchetto", il nome apre la scheda del socio
 - [ ] "Registra" apre Registra ricevute con quel blocchetto e la prima ricevuta ancora da inserire
 - [ ] "Assegna un blocchetto" propone il numero successivo all'ultimo e mostra le sue ricevute; un numero gia' assegnato da' l'errore sotto il campo e non salva
-- [ ] Segna rientrato e Scollega chiedono conferma con la finestra dell'app
+- [ ] Segna restituito e Scollega chiedono conferma con la finestra dell'app
 - [ ] Cerca per numero di blocchetto, numero di ricevuta o nome di chi lo ha in consegna
 - [ ] Tema chiaro e scuro; sul telefono la tabella resta leggibile (scorre di lato dentro il riquadro)
 

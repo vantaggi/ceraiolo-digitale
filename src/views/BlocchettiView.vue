@@ -157,13 +157,13 @@ async function assegna() {
   }
 }
 
-// ---- Rientro e scollegamento ----
+// ---- Restituzione e scollegamento ----
 
-async function segnaRientrato(b) {
+async function segnaRestituito(b) {
   const conferma = await askConfirm({
-    title: `Segnare il blocchetto ${b.numero} come rientrato?`,
-    message: 'Come data di rientro viene usata la data di oggi.',
-    confirmLabel: 'Segna rientrato',
+    title: `Segnare il blocchetto ${b.numero} come restituito?`,
+    message: 'Come data di restituzione viene usata la data di oggi.',
+    confirmLabel: 'Segna restituito',
   })
   if (!conferma) return
   await returnBlocchetto(b.registrato.id)
@@ -188,7 +188,7 @@ async function scollega(b) {
   <div class="blocchetti">
     <PageHeader
       title="Incassi"
-      subtitle="Assegna e fai rientrare i blocchetti, controlla le ricevute di ciascuno"
+      subtitle="Assegna i blocchetti, segna quelli restituiti, controlla le ricevute di ciascuno"
     >
       <template #actions>
         <BaseButton v-if="!mostraAssegna" @click="apriAssegna">
@@ -344,7 +344,7 @@ async function scollega(b) {
                 <td>
                   <span v-if="b.stato === 'in-giro'" class="stato stato--giro">In giro</span>
                   <span v-else-if="b.stato === 'rientrato'" class="stato">
-                    Rientrato
+                    Restituito
                     <span class="sotto">il {{ data(b.registrato.data_restituzione) }}</span>
                   </span>
                   <span
@@ -380,9 +380,9 @@ async function scollega(b) {
                     v-if="b.stato === 'in-giro'"
                     type="button"
                     class="icona-btn"
-                    :aria-label="`Segna rientrato il blocchetto ${b.numero}`"
-                    title="Segna rientrato"
-                    @click="segnaRientrato(b)"
+                    :aria-label="`Segna restituito il blocchetto ${b.numero}`"
+                    title="Segna restituito"
+                    @click="segnaRestituito(b)"
                   >
                     <AppIcon name="restituisci" />
                   </button>
