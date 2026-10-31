@@ -4,6 +4,9 @@
 /* Official Color Palette & Variables */
 :root {
   /* Light Theme (Default) */
+  /* I controlli del browser (tendine aperte, calendario, spunte, barre di scorrimento)
+     seguono il tema dell'app, non quello del sistema */
+  color-scheme: light;
   --color-primary: #1a1a1a; /* Text Main */
   --color-primary-light: #333333; /* Text Light / Hover */
   --color-accent: #b71c1c; /* Red Brand */
@@ -109,6 +112,7 @@
 
 /* Dark Theme Overrides */
 [data-theme='dark'] {
+  color-scheme: dark;
   --color-primary: #e0e0e0; /* Text Main (Inverted) */
   --color-primary-light: #b0b0b0;
   --color-accent: #ef5350; /* Brighter Red for Dark Mode: 4.5:1 come testo */
@@ -190,6 +194,13 @@ textarea {
     border-color 0.2s,
     box-shadow 0.2s,
     background-color 0.3s;
+}
+
+/* Voci della tendina aperta: stessi colori del campo, in tutti e due i temi */
+option,
+optgroup {
+  background-color: var(--color-input-bg);
+  color: var(--color-text-primary);
 }
 
 input:focus,

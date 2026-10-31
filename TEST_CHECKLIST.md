@@ -212,6 +212,7 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 - [ ] Il riquadro si chiude e si riapre dal titolo (anche con Tab e Invio) e resta chiuso dopo aver ricaricato la pagina
 - [ ] Con una ricerca attiva il riquadro sparisce e l'elenco dei soci parte subito sotto i filtri
 - [ ] Nel tema scuro colori del grafico, assi e legenda si leggono; cambiando tema il grafico cambia colori senza ricaricare
+- [ ] Nel tema scuro le tendine aperte (Età, Manicchia, e quelle di Impostazioni e Report) sono scure con le voci leggibili; nel tema chiaro restano chiare. Vale anche per il calendario delle date
 - [ ] Con una ricerca attiva l'elenco usa tutta la larghezza; a ricerca vuota compare "Ultime modifiche"
 
 ### Test 10.2: Manutenzione spostata
