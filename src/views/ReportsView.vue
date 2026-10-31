@@ -212,7 +212,7 @@
 
         <ModelloReport
           titolo="Lista recupero"
-          :descrizione="`Soci che hanno pagato il ${anno - 1} ma non ancora il ${anno}.`"
+          :descrizione="`Non rinnovati: iscritti nel ${anno - 1} ma non ancora nel ${anno}, compresi i nuovi maggiorenni che non hanno pagato.`"
         >
           <template #azioni>
             <BaseButton
@@ -527,7 +527,7 @@ const generaRecupero = () =>
   genera('recupero', async () => {
     const soci = await getChurnList(anno.value)
     if (soci.length === 0) {
-      return `Nessuno da recuperare: chi ha pagato il ${anno.value - 1} ha pagato anche il ${anno.value}`
+      return `Nessuno da recuperare: gli iscritti del ${anno.value - 1} sono iscritti anche nel ${anno.value}`
     }
     const esito = verifica(await generateChurnPDF(soci, anno.value))
     return `PDF generato: ${esito.count} soci da contattare`

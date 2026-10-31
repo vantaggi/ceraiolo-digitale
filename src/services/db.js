@@ -12,6 +12,7 @@ import { SENZA_MANICCHIA } from '@/utils/aventiDiritto'
 import { elencoRecupero } from '@/utils/recupero'
 import { calcolaStatisticheAnnuali } from '@/utils/statistiche'
 import { anniPagatiPerSocio, passaFiltri } from '@/utils/ricercaSoci'
+import { isIscritto, isNuovo } from '@/utils/iscrizione'
 
 // Create a new Dexie database instance
 export const db = new Dexie('CeraioloDigitaleDB')
@@ -1359,43 +1360,24 @@ function passaFiltroEta(socio, ageCategory, anno) {
  */
 export async function getNewMembersByYear(year, ageCategory = 'tutti') {
   try {
-    // Get all members
-    const allMembers = await db.soci.toArray()
+    const [allMembers, tesseramenti] = await Promise.all([
+      db.soci.toArray(),
+      db.tesseramenti.toArray(),
+    ])
+    const anniPagati = anniPagatiPerSocio(tesseramenti)
+    const anno = Number(year)
 
-    // Filter members who have their first registration in the given year
-    const newMembers = []
-
-    for (const member of allMembers) {
-      // Check if this member has a payment in the given year
-      const paymentsInYear = await db.tesseramenti
-        .where({ id_socio: member.id, anno: year })
-        .toArray()
-
-      if (paymentsInYear.length > 0) {
-        // Check if this is their first year (no payments before this year)
-        const paymentsBeforeYear = await db.tesseramenti
-          .where('id_socio')
-          .equals(member.id)
-          .and((payment) => payment.anno < year)
-          .toArray()
-
-        if (paymentsBeforeYear.length === 0) {
-          // This is a new member for this year
-          // Apply age filter
-          const includeMember = passaFiltroEta(member, ageCategory, year)
-
-          if (includeMember) {
-            newMembers.push({
-              ...member,
-              primo_anno: year,
-              tesseramenti: paymentsInYear,
-            })
-          }
-        }
-      }
-    }
-
-    return newMembers
+    // Nuovo: primo anno di iscrizione, con la definizione del glossario (utils/iscrizione.js)
+    return allMembers
+      .filter((member) => isNuovo(member, anniPagati.get(Number(member.id)) || [], anno))
+      .filter((member) => passaFiltroEta(member, ageCategory, anno))
+      .map((member) => ({
+        ...member,
+        primo_anno: anno,
+        tesseramenti: tesseramenti.filter(
+          (t) => Number(t.id_socio) === Number(member.id) && Number(t.anno) === anno,
+        ),
+      }))
   } catch (error) {
     console.error('Error getting new members by year:', error)
     throw new Error(`Errore nel recupero dei nuovi soci per l'anno ${year}: ${error.message}`)
@@ -1548,64 +1530,28 @@ export async function getMembersByGroup(
  */
 export async function getGroupCountsForYear(year) {
   try {
-    // 1. Get all payments for the year
-    const payments = await db.tesseramenti.where('anno').equals(year).toArray()
-
-    // Use a Set to ensure unique members (though technically one payment per year should exist)
-    const paidMemberIds = new Set(payments.map((p) => p.id_socio))
-
-    // 2. Get all members to check their group
-    const allSoci = await db.soci.toArray()
-
+    const [allSoci, tesseramenti] = await Promise.all([
+      db.soci.toArray(),
+      db.tesseramenti.toArray(),
+    ])
+    const anniPagati = anniPagatiPerSocio(tesseramenti)
+    const numericYear = Number(year)
     const counts = {}
 
-    // 4. Ciclo su tutti i soci
-    allSoci.forEach((socio) => {
-      let isEnrolled = false
-      const numericYear = Number(year)
-
-      // 1. Ha pagato/rinnovato fisicamente quest'anno?
-      if (paidMemberIds.has(socio.id)) {
-        isEnrolled = true
-      } else {
-        // 2. Controllo Esenzione Minorenni
-        // Se minorenne E iscritto (data_prima_iscrizione <= anno corrente o non definita ma assunto attivo)
-        // Assumiamo che se è nel DB ed è minore, vada contato se la sua iscrizione non è FUTURA
-
-        // Verifica se è esente (minorenne)
-        const isMinor = isExemptFromPayment(socio, numericYear)
-
-        if (isMinor) {
-          // Verifica data inizio validità
-          // Se data_prima_iscrizione c'è, deve essere <= numericYear
-          // Se NON c'è, per sicurezza lo contiamo (magari importato senza data)
-          let isValidStart = true
-          if (socio.data_prima_iscrizione) {
-            isValidStart = socio.data_prima_iscrizione <= numericYear
-          }
-
-          if (isValidStart) {
-            isEnrolled = true
-          }
-        }
-      }
-
-      if (isEnrolled) {
-        // Normalize: trim and uppercase; senza manicchia si chiama come negli altri PDF
-        const group = socio.gruppo_appartenenza
-          ? socio.gruppo_appartenenza.trim().toUpperCase()
-          : SENZA_MANICCHIA
-        counts[group] = (counts[group] || 0) + 1
-      }
-    })
+    // Iscritto: in regola nell'anno, con la definizione del glossario (utils/iscrizione.js)
+    for (const socio of allSoci) {
+      if (!isIscritto(socio, anniPagati.get(Number(socio.id)) || [], numericYear)) continue
+      // Normalize: trim and uppercase; senza manicchia si chiama come negli altri PDF
+      const group = socio.gruppo_appartenenza
+        ? socio.gruppo_appartenenza.trim().toUpperCase()
+        : SENZA_MANICCHIA
+      counts[group] = (counts[group] || 0) + 1
+    }
 
     // Convert to array and sort by count descending
-    const result = Object.entries(counts)
+    return Object.entries(counts)
       .map(([group, count]) => ({ group, count }))
       .sort((a, b) => b.count - a.count)
-
-    // Add total count logic if needed by the consumer, but returning the breakdown is enough
-    return result
   } catch (error) {
     console.error('Error getting group counts:', error)
     throw new Error(`Errore nel calcolo dei totali per gruppo: ${error.message}`)

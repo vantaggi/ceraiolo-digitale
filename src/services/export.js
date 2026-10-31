@@ -9,6 +9,7 @@ import {
   isMinorenne,
   statoAnno,
 } from '@/utils/payment'
+import { annoIscrizione, isNuovo } from '@/utils/iscrizione'
 import logoUrl from '@/assets/logo_santantoniari.jpg'
 
 /**
@@ -1273,8 +1274,10 @@ export async function exportDataToExcel() {
     soci.forEach((socio) => {
       const tessSocio = tesseramentiBySocio[socio.id] || []
       const eta = calculateAge(socio.data_nascita)
-      const primoAnno = tessSocio.length > 0 ? Math.min(...tessSocio.map((t) => t.anno)) : null
-      const isNuovo = primoAnno === currentYear
+      // Anno di iscrizione e "nuovo" con le definizioni del glossario (utils/iscrizione.js)
+      const anniSocio = tessSocio.map((t) => Number(t.anno))
+      const primoAnno = annoIscrizione(socio, anniSocio)
+      const nuovo = isNuovo(socio, anniSocio, currentYear)
 
       const socioData = {
         Cognome: socio.cognome || '',
@@ -1292,13 +1295,13 @@ export async function exportDataToExcel() {
       }
 
       if (!isMinorenne(socio.data_nascita, currentYear)) {
-        if (isNuovo) {
+        if (nuovo) {
           sheetsData['Nuovi Maggiorenni'].push(socioData)
         } else {
           sheetsData['Maggiorenni'].push(socioData)
         }
       } else {
-        if (isNuovo) {
+        if (nuovo) {
           sheetsData['Nuovi Minorenni'].push(socioData)
         } else {
           sheetsData['Minorenni'].push(socioData)

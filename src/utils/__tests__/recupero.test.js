@@ -31,4 +31,20 @@ describe('elencoRecupero', () => {
     expect(Math.max(...mario.tesseramenti.map((x) => x.anno))).toBe(2025)
     expect(aldo.tesseramenti).toEqual([t(4, 2025)])
   })
+
+  it('ci sono i minorenni esenti diventati maggiorenni che non hanno ancora pagato', () => {
+    const neo = {
+      id: 9,
+      cognome: 'Zeta',
+      nome: 'Neo',
+      data_nascita: '2008-03-01',
+      data_prima_iscrizione: 2020,
+    }
+    expect(elencoRecupero([neo], [], 2026).map((s) => s.id)).toEqual([9])
+  })
+
+  it("non ci sono i minorenni che restano esenti, anche se l'anno prima hanno pagato", () => {
+    const ragazzo = { id: 8, cognome: 'Eta', nome: 'Ragazzo', data_nascita: '2012-03-01' }
+    expect(elencoRecupero([ragazzo], [t(8, 2025)], 2026)).toEqual([])
+  })
 })

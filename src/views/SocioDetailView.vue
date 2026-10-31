@@ -73,7 +73,7 @@
           <dt>Arretrati</dt>
           <dd>
             <template v-if="riepilogo.pagamento.daReiscrivere">
-              Da reiscrivere: fermo da più di 3 anni
+              Da reiscrivere: fermo da più di {{ MAX_ANNI_ARRETRATI }} anni
             </template>
             <template v-else-if="riepilogo.pagamento.arretrati.length > 0">
               {{ riepilogo.pagamento.arretrati.join(', ') }}
@@ -324,7 +324,8 @@ import {
 } from '@/services/db'
 import { generateSingleCardPDF } from '@/services/export'
 import { annoDaPagare, cronologiaSocio, riepilogoSocio } from '@/utils/schedaSocio'
-import { isMinorenne, TESTI_STATO_ANNO } from '@/utils/payment'
+import { isMinorenne, MAX_ANNI_ARRETRATI, TESTI_STATO_ANNO } from '@/utils/payment'
+import { annoIscrizione } from '@/utils/iscrizione'
 import BaseButton from '@/components/base/BaseButton.vue'
 import AddPaymentModal from '@/components/AddPaymentModal.vue'
 import ConfirmDeleteModal from '@/components/ConfirmDeleteModal.vue'
@@ -475,24 +476,13 @@ const isMinor = computed(() =>
 )
 
 /**
- * Calcola e mostra l'anno di prima iscrizione
+ * Anno di iscrizione: il primo tra l'anno dichiarato e il primo pagamento (glossario,
+ * utils/iscrizione.js). Senza nessuno dei due, l'anno in corso.
  */
 const primaIscrizioneDisplay = computed(() => {
   if (!socio.value) return '-'
-
-  // Prima controlla se è impostato esplicitamente
-  if (socio.value.data_prima_iscrizione && socio.value.data_prima_iscrizione > 0) {
-    return socio.value.data_prima_iscrizione
-  }
-
-  // Altrimenti calcola dal primo pagamento
-  if (tesseramenti.value && tesseramenti.value.length > 0) {
-    const anniPagati = tesseramenti.value.map((t) => t.anno).sort((a, b) => a - b)
-    return anniPagati[0]
-  }
-
-  // Se non ci sono pagamenti, mostra l'anno corrente come default
-  return new Date().getFullYear()
+  const anni = (tesseramenti.value || []).map((t) => Number(t.anno))
+  return annoIscrizione(socio.value, anni) ?? new Date().getFullYear()
 })
 
 /**

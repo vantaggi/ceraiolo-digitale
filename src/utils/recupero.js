@@ -1,6 +1,9 @@
 /**
- * Lista recupero: chi ha pagato l'anno prima ma non ancora l'anno scelto.
+ * Lista recupero: i non rinnovati dell'anno scelto, cioe' gli iscritti dell'anno prima
+ * che non sono iscritti in questo (definizione del glossario, in iscrizione.js). Ci sono
+ * anche i minorenni esenti diventati maggiorenni che non hanno ancora pagato.
  */
+import { movimentoAnno } from './iscrizione'
 
 const confrontaSoci = (a, b) =>
   `${a.cognome} ${a.nome}`.localeCompare(`${b.cognome} ${b.nome}`, 'it', { sensitivity: 'base' })
@@ -17,10 +20,10 @@ export function elencoRecupero(soci, tesseramenti, anno) {
     if (!perSocio.has(t.id_socio)) perSocio.set(t.id_socio, [])
     perSocio.get(t.id_socio).push(t)
   }
-  const haPagato = (id, a) => (perSocio.get(id) || []).some((t) => Number(t.anno) === a)
+  const anniDi = (id) => (perSocio.get(id) || []).map((t) => Number(t.anno))
 
   return soci
-    .filter((s) => haPagato(s.id, anno - 1) && !haPagato(s.id, anno))
-    .map((s) => ({ ...s, tesseramenti: perSocio.get(s.id) }))
+    .filter((s) => movimentoAnno(s, anniDi(s.id), anno) === 'non-rinnovato')
+    .map((s) => ({ ...s, tesseramenti: perSocio.get(s.id) || [] }))
     .sort(confrontaSoci)
 }

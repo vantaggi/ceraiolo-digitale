@@ -161,6 +161,12 @@ describe('statoAnno (colonne V, X, O, - dei report)', () => {
     expect(statoAnno(socio, [2020], 2030)).toBe('X') // 18 anni
   })
 
+  it("prima dell'anno di nascita e' -, anche con un anno dichiarato sbagliato", () => {
+    const socio = { data_nascita: '2010-06-01', data_prima_iscrizione: 2005 }
+    expect(statoAnno(socio, [], 2008)).toBe('-')
+    expect(statoAnno(socio, [], 2010)).toBe('O')
+  })
+
   it('senza iscrizione ne pagamenti ogni anno e -', () => {
     expect(statoAnno(adulto, [], 2026)).toBe('-')
   })
@@ -210,6 +216,19 @@ describe('tipoQuota', () => {
 
   it("esente: minorenne nell'anno", () => {
     expect(tipoQuota({ data_nascita: '2012-01-01' }, [], 2026)).toBe('esente')
+  })
+
+  it('ordinaria: minorenne esente iscritto senza pagamenti, al primo anno da maggiorenne', () => {
+    const ragazzo = { data_nascita: '2008-03-01', data_prima_iscrizione: 2020 }
+    expect(tipoQuota(ragazzo, [], 2026)).toBe('ordinaria')
+  })
+
+  it("rientro, non nuovo: anno dichiarato vecchio, nessun pagamento e l'anno prima fuori", () => {
+    expect(tipoQuota({ ...adulto, data_prima_iscrizione: 2010 }, [], 2026)).toBe('rientro')
+  })
+
+  it("nuovo: l'anno dichiarato e' proprio quello", () => {
+    expect(tipoQuota({ ...adulto, data_prima_iscrizione: 2026 }, [], 2026)).toBe('nuovo')
   })
 })
 

@@ -132,7 +132,7 @@
                 </div>
                 <div v-else class="action-area">
                   <div v-if="socio.daReiscrivere" class="arretrati-badge">
-                    <AppIcon name="attenzione" /> Da reiscrivere: fermo da più di 3 anni
+                    <AppIcon name="attenzione" /> Da reiscrivere: fermo da più di {{ MAX_ANNI_ARRETRATI }} anni
                   </div>
                   <div v-else-if="socio.arretrati.length > 0 && !isMinor(socio)" class="arretrati-badge">
                     <AppIcon name="attenzione" /> Arretrati: {{ socio.arretrati.join(', ') }}
@@ -318,6 +318,7 @@ import {
 } from '@/services/db'
 import {
   isMinorenne,
+  MAX_ANNI_ARRETRATI,
   QUOTA_NUOVI_PREDEFINITA,
   QUOTA_ORDINARIA_PREDEFINITA,
 } from '@/utils/payment'

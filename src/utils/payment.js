@@ -49,9 +49,12 @@ export const QUOTA_NUOVI_PREDEFINITA = 25
 /**
  * Che quota tocca a un socio per un anno.
  * - 'esente': minorenne nell'anno.
- * - 'nuovo': nessun pagamento registrato prima di quell'anno.
- * - 'rientro': non ha pagato l'anno prima, e l'anno prima era maggiorenne.
- * - 'ordinaria': tutti gli altri.
+ * - 'nuovo': primo anno di iscrizione (nessun anno dichiarato ne' pagamento prima).
+ * - 'rientro': non era iscritto l'anno prima (non ha pagato da maggiorenne).
+ * - 'ordinaria': iscritto l'anno prima, anche da minorenne esente senza pagamenti
+ *   (scelta del proprietario, 31 ottobre 2026).
+ * Le definizioni sono quelle di iscrizione.js; qui si usa statoAnno per non importarlo
+ * (iscrizione.js importa questo file).
  * Nuovi e rientri pagano la quota dei nuovi (impostazione newMemberQuota).
  * @param {object} socio - con data_nascita
  * @param {Array<number>} anniPagati - anni con un tesseramento (anche dopo l'anno: si ignorano)
@@ -61,9 +64,10 @@ export const QUOTA_NUOVI_PREDEFINITA = 25
 export function tipoQuota(socio, anniPagati, anno) {
   if (isExemptFromPayment(socio, anno)) return 'esente'
   const prima = anniPagati.map(Number).filter((a) => a < anno)
-  if (prima.length === 0) return 'nuovo'
-  if (!prima.includes(anno - 1) && !isExemptFromPayment(socio, anno - 1)) return 'rientro'
-  return 'ordinaria'
+  const iscrizione = annoIscrizione(socio, prima)
+  if (iscrizione === null || iscrizione >= anno) return 'nuovo'
+  const statoPrima = statoAnno(socio, prima, anno - 1)
+  return statoPrima === 'V' || statoPrima === 'O' ? 'ordinaria' : 'rientro'
 }
 
 /**
@@ -158,7 +162,7 @@ export function annoIscrizione(socio, anniPagati) {
 
 /**
  * Stato di un anno nelle colonne dei report (V, X, O, -).
- * - "-": non ancora iscritto in quell'anno
+ * - "-": non ancora iscritto in quell'anno (o non ancora nato)
  * - "V": pagato
  * - "O": minorenne, esente
  * - "X": non pagato
@@ -171,6 +175,9 @@ export function statoAnno(socio, anniPagati, anno) {
   const iscrizione = annoIscrizione(socio, anniPagati)
   if (iscrizione === null || anno < iscrizione) return '-'
   if (anniPagati.includes(anno)) return 'V'
+  // Anno dichiarato prima della nascita (dato sbagliato): prima di nascere non si e' iscritti
+  const nascita = socio.data_nascita ? new Date(socio.data_nascita).getFullYear() : NaN
+  if (anno < nascita) return '-'
   if (isExemptFromPayment(socio, anno)) return 'O'
   return 'X'
 }
