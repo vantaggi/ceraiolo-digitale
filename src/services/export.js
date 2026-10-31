@@ -2,7 +2,13 @@ import jsPDF from 'jspdf'
 import * as XLSX from 'xlsx'
 import { caricaModelloTessera, creaPDFTessere } from './tessere'
 import { db, updateSetting, exportAllSoci, exportAllTesseramenti } from './db'
-import { calculatePaymentStatus, descriviArretrati, statoAnno } from '@/utils/payment'
+import {
+  calculateAgeInYear,
+  calculatePaymentStatus,
+  descriviArretrati,
+  isMinorenne,
+  statoAnno,
+} from '@/utils/payment'
 import logoUrl from '@/assets/logo_santantoniari.jpg'
 
 /**
@@ -1250,21 +1256,10 @@ export async function exportDataToExcel() {
       return acc
     }, {})
 
-    // Calcola l'età per ogni socio
+    // Eta' nell'anno in corso dal solo anno di nascita (regola in utils/payment.js)
     const calculateAge = (birthDateString) => {
-      if (!birthDateString) return null
-      try {
-        const birthDate = new Date(birthDateString)
-        const today = new Date()
-        let age = today.getFullYear() - birthDate.getFullYear()
-        const monthDiff = today.getMonth() - birthDate.getMonth()
-        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-          age--
-        }
-        return age
-      } catch {
-        return null
-      }
+      if (!birthDateString || isNaN(new Date(birthDateString))) return null
+      return calculateAgeInYear(birthDateString, currentYear)
     }
 
     // Prepara i dati per ogni foglio
@@ -1296,7 +1291,7 @@ export async function exportDataToExcel() {
         'Totale Pagamenti': tessSocio.length,
       }
 
-      if (eta >= 18) {
+      if (!isMinorenne(socio.data_nascita, currentYear)) {
         if (isNuovo) {
           sheetsData['Nuovi Maggiorenni'].push(socioData)
         } else {

@@ -1338,6 +1338,20 @@ export async function findExistingPaymentYear(socioId, years) {
 }
 
 /**
+ * Filtro maggiorenni / minorenni dei report: l'eta' si conta nell'anno del report e dal solo
+ * anno di nascita (isMinorenne). Chi non ha una data di nascita valida resta fuori da entrambi.
+ * @param {object} socio
+ * @param {string} ageCategory - 'tutti', 'maggiorenni' o 'minorenni'
+ * @param {number} anno
+ * @returns {boolean}
+ */
+function passaFiltroEta(socio, ageCategory, anno) {
+  if (ageCategory !== 'maggiorenni' && ageCategory !== 'minorenni') return true
+  if (!socio.data_nascita || isNaN(new Date(socio.data_nascita))) return false
+  return isMinorenne(socio.data_nascita, anno) === (ageCategory === 'minorenni')
+}
+
+/**
  * Generates a list of new members for a specific year with age category filters
  * @param {number} year - The year to check for new members
  * @param {string} ageCategory - Filter: 'tutti', 'maggiorenni', or 'minorenni'
@@ -1368,23 +1382,7 @@ export async function getNewMembersByYear(year, ageCategory = 'tutti') {
         if (paymentsBeforeYear.length === 0) {
           // This is a new member for this year
           // Apply age filter
-          let includeMember = true
-
-          if (ageCategory === 'maggiorenni' || ageCategory === 'minorenni') {
-            if (!member.data_nascita || isNaN(new Date(member.data_nascita))) {
-              includeMember = false // Exclude records with invalid dates
-            } else {
-              const birthDate = new Date(member.data_nascita)
-              const today = new Date()
-              let age = today.getFullYear() - birthDate.getFullYear()
-              const monthDiff = today.getMonth() - birthDate.getMonth()
-              if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-                age--
-              }
-
-              includeMember = ageCategory === 'maggiorenni' ? age >= 18 : age < 18
-            }
-          }
+          const includeMember = passaFiltroEta(member, ageCategory, year)
 
           if (includeMember) {
             newMembers.push({
@@ -1407,9 +1405,13 @@ export async function getNewMembersByYear(year, ageCategory = 'tutti') {
 /**
  * Generates a complete list of all payments with age category filters
  * @param {string} ageCategory - Filter: 'tutti', 'maggiorenni', or 'minorenni'
+ * @param {number} [anno] - Anno in cui si conta l'eta' (quello scelto nei report; di default l'anno in corso)
  * @returns {Promise<Array>} Array of all payments with member info
  */
-export async function getCompletePaymentList(ageCategory = 'tutti') {
+export async function getCompletePaymentList(
+  ageCategory = 'tutti',
+  anno = new Date().getFullYear(),
+) {
   try {
     // Get all payments with member info
     const allPayments = await db.tesseramenti.toArray()
@@ -1426,23 +1428,7 @@ export async function getCompletePaymentList(ageCategory = 'tutti') {
 
       if (socio) {
         // Apply age filter
-        let includePayment = true
-
-        if (ageCategory === 'maggiorenni' || ageCategory === 'minorenni') {
-          if (!socio.data_nascita || isNaN(new Date(socio.data_nascita))) {
-            includePayment = false // Exclude records with invalid dates
-          } else {
-            const birthDate = new Date(socio.data_nascita)
-            const today = new Date()
-            let age = today.getFullYear() - birthDate.getFullYear()
-            const m = today.getMonth() - birthDate.getMonth()
-            if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-              age--
-            }
-
-            includePayment = ageCategory === 'maggiorenni' ? age >= 18 : age < 18
-          }
-        }
+        const includePayment = passaFiltroEta(socio, ageCategory, anno)
 
         if (includePayment) {
           filteredPayments.push({
@@ -1504,23 +1490,7 @@ export async function getMembersByGroup(
 
     for (const socio of soci) {
       // Apply age filter
-      let includeMember = true
-
-      if (ageCategory === 'maggiorenni' || ageCategory === 'minorenni') {
-        if (!socio.data_nascita || isNaN(new Date(socio.data_nascita))) {
-          includeMember = false // Exclude records with invalid dates
-        } else {
-          const birthDate = new Date(socio.data_nascita)
-          const today = new Date()
-          let age = today.getFullYear() - birthDate.getFullYear()
-          const monthDiff = today.getMonth() - birthDate.getMonth()
-          if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-            age--
-          }
-
-          includeMember = ageCategory === 'maggiorenni' ? age >= 18 : age < 18
-        }
-      }
+      const includeMember = passaFiltroEta(socio, ageCategory, targetYear)
 
       console.log(`Socio ${socio.cognome} ${socio.nome}: age filter = ${includeMember}`)
 

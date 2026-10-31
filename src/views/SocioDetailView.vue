@@ -64,7 +64,7 @@
       <dl class="riepilogo" aria-label="Riepilogo del socio">
         <div class="riepilogo__voce" :class="`riepilogo__voce--${CLASSI_QUOTA[riepilogo.quota]}`">
           <dt>Quota {{ riepilogo.anno }}</dt>
-          <dd>{{ TESTI_QUOTA[riepilogo.quota] }}</dd>
+          <dd>{{ TESTI_STATO_ANNO[riepilogo.quota] }}</dd>
         </div>
         <div
           class="riepilogo__voce"
@@ -186,7 +186,7 @@
                 <th scope="row">{{ riga.anno }}</th>
                 <td>
                   <span class="stato" :class="`stato--${CLASSI_QUOTA[riga.stato]}`">
-                    <span aria-hidden="true">{{ riga.stato }}</span> {{ TESTI_QUOTA[riga.stato] }}
+                    <span aria-hidden="true">{{ riga.stato }}</span> {{ TESTI_STATO_ANNO[riga.stato] }}
                   </span>
                 </td>
                 <template v-if="riga.pagamento">
@@ -324,6 +324,7 @@ import {
 } from '@/services/db'
 import { generateSingleCardPDF } from '@/services/export'
 import { annoDaPagare, cronologiaSocio, riepilogoSocio } from '@/utils/schedaSocio'
+import { isMinorenne, TESTI_STATO_ANNO } from '@/utils/payment'
 import BaseButton from '@/components/base/BaseButton.vue'
 import AddPaymentModal from '@/components/AddPaymentModal.vue'
 import ConfirmDeleteModal from '@/components/ConfirmDeleteModal.vue'
@@ -362,7 +363,6 @@ const prevSocioId = ref(null)
 const nextSocioId = ref(null)
 
 // Testi e colori degli stati, come nei report (V, X, O, -)
-const TESTI_QUOTA = { V: 'Pagata', X: 'Da pagare', O: 'Esente (minorenne)', '-': 'Non iscritto' }
 const CLASSI_QUOTA = { V: 'ok', X: 'errore', O: 'attenzione', '-': 'neutro' }
 const TESTI_VOTO = { si: 'Sì', regolarizza: 'Dopo gli arretrati', no: 'No' }
 const CLASSI_VOTO = { si: 'ok', regolarizza: 'attenzione', no: 'neutro' }
@@ -470,7 +470,9 @@ const calculateAge = computed(() => {
 /**
  * Verifica se è minorenne
  */
-const isMinor = computed(() => calculateAge.value < 18)
+const isMinor = computed(() =>
+  isMinorenne(socio.value?.data_nascita, new Date().getFullYear()),
+)
 
 /**
  * Calcola e mostra l'anno di prima iscrizione

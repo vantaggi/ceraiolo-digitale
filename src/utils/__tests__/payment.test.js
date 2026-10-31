@@ -11,6 +11,7 @@ import {
   quotaProposta,
   QUOTA_ORDINARIA_PREDEFINITA,
   QUOTA_NUOVI_PREDEFINITA,
+  TESTI_STATO_ANNO,
 } from '../payment'
 
 // Le regole sono descritte nei commenti di src/utils/payment.js: eta' contata sul solo anno,
@@ -223,5 +224,16 @@ describe('quotaProposta', () => {
   it('i valori predefiniti sono quelli di oggi', () => {
     expect(QUOTA_ORDINARIA_PREDEFINITA).toBe(10)
     expect(QUOTA_NUOVI_PREDEFINITA).toBe(25)
+  })
+})
+
+describe('TESTI_STATO_ANNO', () => {
+  it('ha una parola del glossario per ogni stato di statoAnno', () => {
+    expect(TESTI_STATO_ANNO).toEqual({
+      V: 'Pagata',
+      X: 'Da pagare',
+      O: 'Esente',
+      '-': 'Non iscritto',
+    })
   })
 })
