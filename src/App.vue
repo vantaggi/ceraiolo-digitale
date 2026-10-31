@@ -7,6 +7,7 @@ import KeyboardShortcutsModal from '@/components/KeyboardShortcutsModal.vue'
 import AppDialog from '@/components/AppDialog.vue'
 import AppIcon from '@/components/base/AppIcon.vue'
 import BackupStatus from '@/components/BackupStatus.vue'
+import AggiornamentoPronto from '@/components/AggiornamentoPronto.vue'
 import { SEZIONI, sezioneDi } from '@/router/sezioni'
 
 const themeStore = useThemeStore()
@@ -64,7 +65,10 @@ onBeforeUnmount(() => {
         />
         <div class="app-identity">
           <h1 class="app-title">Ceraiolo Digitale</h1>
-          <BackupStatus />
+          <div class="app-stato">
+            <BackupStatus />
+            <AggiornamentoPronto />
+          </div>
         </div>
       </div>
       <nav>
@@ -151,6 +155,11 @@ onBeforeUnmount(() => {
   align-items: flex-start;
   gap: var(--space-4);
 }
+.app-stato {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+}
 .app-title {
   font-size: 1.5rem;
   margin-bottom: 0;
@@ -166,6 +175,14 @@ nav {
   display: flex;
   gap: 1rem;
   align-items: center;
+}
+
+/* Sugli schermi larghi il menu non si stringe: quando compare un secondo stato (Nuova
+   versione pronta) va a capo la riga di stato sotto il titolo, non le voci del menu. */
+@media (min-width: 1200px) {
+  nav {
+    flex-shrink: 0;
+  }
 }
 
 .nav-link {

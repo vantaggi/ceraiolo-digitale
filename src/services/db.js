@@ -100,6 +100,15 @@ export async function isDatabaseEmpty() {
 }
 
 /**
+ * Quanti soci e pagamenti ci sono in questo browser (Impostazioni › Dati).
+ * @returns {Promise<{ soci: number, pagamenti: number }>}
+ */
+export async function contaArchivio() {
+  const [soci, pagamenti] = await Promise.all([db.soci.count(), db.tesseramenti.count()])
+  return { soci, pagamenti }
+}
+
+/**
  * Retrieves a sorted list of unique membership groups from the database.
  * @returns {Promise<Array<string>>} A promise that resolves to an array of group names.
  */

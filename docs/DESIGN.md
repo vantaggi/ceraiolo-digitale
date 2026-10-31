@@ -86,6 +86,7 @@ Da ricontrollare nelle PR delle pagine: testo `white` scritto a mano su fondo ac
 - **Densita'.** Compatta ovunque, anche nei moduli e nella scheda socio (decisione del 31 ottobre 2026).
 - **Lettere V, X, O, -.** I badge dello stato della quota usano le stesse lettere delle colonne dei PDF, sempre accanto alla parola (Pagata, Da pagare, Esente, Non iscritto): lo stato non dipende dal colore.
 - **Raggi.** 6 / 8 / 12 px invece di 10 / 16 / 22: l'interfaccia e' uno strumento da banco, geometria precisa.
+- **Offline.** Nessuna riga "Offline": l'app non manda e non riceve niente dalla rete (dati solo nel browser, caratteri e codice inclusi), quindi senza connessione funziona tutto e non c'e' niente in attesa da segnalare. Scelta della PR 7 (bozze <https://claude.ai/artifact/Gn5xrtpDhwDf3ocAPAzvTY>, 31 ottobre 2026). Se un giorno l'app usera' la rete, la riga torna.
 
 ## Icone
 
@@ -111,7 +112,7 @@ Le regole sulle icone sono quelle del sistema (Iconography). Qui la tabella conc
 | errore                             | CircleAlert                            | caricamento                 | LoaderCircle (gira)      |
 | recenti / attivita / changelog     | History / Activity / ScrollText        | ripara                      | Wrench                   |
 | in-aumento / in-calo / stabile     | TrendingUp / TrendingDown / Minus      | tema-chiaro / tema-scuro    | Sun / Moon               |
-| ripristina                         | RotateCcw                              |                             |                          |
+| ripristina                         | RotateCcw                              | ricarica (nuova versione)   | RotateCw                 |
 | automatico                         | RefreshCw                              | cartella                    | Folder                   |
 | archivio                           | Archive                                | foglio-calcolo              | FileSpreadsheet          |
 | configurazione                     | FileBraces                             | audio-attivo / audio-spento | Volume2 / VolumeX        |
