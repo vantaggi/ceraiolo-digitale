@@ -9,6 +9,7 @@ Regole ricavate da ScoreboardEssential e padel-dashboard, adattate a un progetto
 | Cosa                                                                              | Dove                                                               |
 | --------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
 | Regole di pagamento (eta', esenzione minorenni, condono, arretrati, quota 25 EUR) | `src/utils/payment.js`, unica fonte                                |
+| Iscritto, nuovo, rientro, non rinnovato; diritto di voto                          | `src/utils/iscrizione.js`, `src/utils/voto.js`                     |
 | Accesso ai dati e changelog                                                       | `src/services/db.js`                                               |
 | Regole di interfaccia                                                             | `AGENTS.md`, poi `docs/DESIGN.md`; valori in `src/assets/main.css` |
 | Parole dell'interfaccia                                                           | `docs/GLOSSARIO.md`                                                |

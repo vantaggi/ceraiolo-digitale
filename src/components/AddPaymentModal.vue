@@ -103,6 +103,7 @@ import {
   quotaProposta,
   tipoQuota,
 } from '@/utils/payment'
+import { annoIscrizione } from '@/utils/iscrizione'
 
 const emit = defineEmits(['close', 'payments-saved'])
 
@@ -167,13 +168,9 @@ const loadAvailableYears = async () => {
 
     // Get socio's first registration year
     // If data_prima_iscrizione is null but socio has payments, use the earliest payment year
-    let firstRegistrationYear = socio?.data_prima_iscrizione
-    if (!firstRegistrationYear && tesseramenti.length > 0) {
-      // Find the earliest payment year
-      const paymentYears = tesseramenti.map((t) => t.anno).sort((a, b) => a - b)
-      firstRegistrationYear = paymentYears[0]
-    }
-    firstRegistrationYear = firstRegistrationYear || new Date().getFullYear()
+    // Il primo tra l'anno dichiarato e il primo pagamento (glossario, utils/iscrizione.js)
+    const firstRegistrationYear =
+      annoIscrizione(socio || {}, Array.from(paidYears.value)) ?? new Date().getFullYear()
     console.log('First registration year:', firstRegistrationYear)
 
     // Get last 5 years, but not earlier than first registration

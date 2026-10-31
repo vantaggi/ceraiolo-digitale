@@ -10,7 +10,8 @@
  *
  * Gli anni da minorenne contano come anni in regola (esenzione, vedi payment.js).
  */
-import { annoIscrizione, isExemptFromPayment } from './payment'
+import { isExemptFromPayment, MAX_ANNI_ARRETRATI } from './payment'
+import { annoIscrizione, isIscritto } from './iscrizione'
 
 export { annoIscrizione }
 
@@ -36,12 +37,12 @@ export function valutaDirittoVoto(socio, anniPagati, annoElezione) {
   if (iscrizione > annoElezione) return no(`Iscritto dopo le elezioni (${iscrizione})`)
   if (iscrizione === annoElezione) return no(`Nuovo iscritto nell'anno ${annoElezione}`)
 
-  const pagati = new Set(anniPagati)
-  const inRegola = (anno) => pagati.has(anno) || isExemptFromPayment(socio, anno)
+  const inRegola = (anno) => isIscritto(socio, anniPagati, anno)
 
-  // Si guarda dall'anno delle elezioni a tre anni prima (o dall'iscrizione, se piu' recente):
-  // il primo anno in regola di questa finestra e' da dove il socio puo' regolarizzare.
-  const inizio = Math.max(annoElezione - 3, iscrizione)
+  // Si guarda dall'anno delle elezioni agli anni di arretrati possibili prima (o
+  // dall'iscrizione, se piu' recente): il primo anno in regola di questa finestra e' da
+  // dove il socio puo' regolarizzare.
+  const inizio = Math.max(annoElezione - MAX_ANNI_ARRETRATI, iscrizione)
   let primoInRegola = null
   for (let anno = inizio; anno <= annoElezione; anno++) {
     if (inRegola(anno)) {

@@ -2,7 +2,7 @@
 
 Una parola per ogni concetto, la stessa in ogni schermata, nei PDF e nei messaggi. Le etichette hanno solo la prima lettera maiuscola ("Nuovo socio", non "Nuovo Socio"). I nomi dei campi e i codici salvati (`gruppo_appartenenza`, `regolarizza`, V/X/O) non si mostrano mai come testo: si mostra la parola di questa tabella.
 
-Le regole che stanno dietro le parole vivono nel codice: `src/utils/payment.js` (eta', esenzione, arretrati, iscrizione), `src/utils/voto.js` (diritto di voto), `src/utils/statistiche.js` (iscritti, nuovi, rientri, non rinnovati), `src/utils/blocchetto.js` (blocchetti e ricevute). Se il glossario e il codice non dicono la stessa cosa, e' un difetto da segnalare.
+Le regole che stanno dietro le parole vivono nel codice: `src/utils/payment.js` (eta', esenzione, arretrati, iscrizione), `src/utils/voto.js` (diritto di voto), `src/utils/iscrizione.js` (iscritto, nuovo, rientro, non rinnovato), `src/utils/blocchetto.js` (blocchetti e ricevute). Se il glossario e il codice non dicono la stessa cosa, e' un difetto da segnalare.
 
 ## Termini
 

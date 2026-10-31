@@ -51,3 +51,27 @@ describe('Excel di tutti i dati: maggiorenni e minorenni', () => {
     expect(fogli.Minorenni).toEqual(['Beta'])
   })
 })
+
+describe('Excel di tutti i dati: nuovi', () => {
+  it("nuovo e' il primo anno di iscrizione, non il primo pagamento registrato", async () => {
+    soci.push(
+      {
+        id: 4,
+        cognome: 'Delta',
+        nome: 'Storico',
+        data_nascita: '1970-01-01',
+        data_prima_iscrizione: 2010,
+      },
+      { id: 5, cognome: 'Epsilon', nome: 'Nuovo', data_nascita: '1990-01-01' },
+    )
+    tesseramenti.push({ id_socio: 4, anno: 2026 }, { id_socio: 5, anno: 2026 })
+    try {
+      await exportDataToExcel()
+      expect(fogli['Nuovi Maggiorenni']).toEqual(['Epsilon'])
+      expect(fogli.Maggiorenni).toContain('Delta')
+    } finally {
+      soci.splice(3)
+      tesseramenti.splice(3)
+    }
+  })
+})

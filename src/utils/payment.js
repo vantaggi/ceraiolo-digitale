@@ -158,7 +158,7 @@ export function annoIscrizione(socio, anniPagati) {
 
 /**
  * Stato di un anno nelle colonne dei report (V, X, O, -).
- * - "-": non ancora iscritto in quell'anno
+ * - "-": non ancora iscritto in quell'anno (o non ancora nato)
  * - "V": pagato
  * - "O": minorenne, esente
  * - "X": non pagato
@@ -171,6 +171,9 @@ export function statoAnno(socio, anniPagati, anno) {
   const iscrizione = annoIscrizione(socio, anniPagati)
   if (iscrizione === null || anno < iscrizione) return '-'
   if (anniPagati.includes(anno)) return 'V'
+  // Anno dichiarato prima della nascita (dato sbagliato): prima di nascere non si e' iscritti
+  const nascita = socio.data_nascita ? new Date(socio.data_nascita).getFullYear() : NaN
+  if (anno < nascita) return '-'
   if (isExemptFromPayment(socio, anno)) return 'O'
   return 'X'
 }

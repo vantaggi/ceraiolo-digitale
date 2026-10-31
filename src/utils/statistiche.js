@@ -1,11 +1,10 @@
 /**
  * Statistiche annuali dei soci (grafico della Home).
  *
- * "Iscritto" in un anno = socio in regola in quell'anno: ha pagato, oppure e'
- * minorenne ed esente (vedi payment.js), a partire dall'anno di iscrizione.
+ * Iscritti, nuovi, rientri e non rinnovati hanno le definizioni del glossario, scritte
+ * una volta sola in iscrizione.js.
  */
-import { isExemptFromPayment } from './payment'
-import { annoIscrizione } from './voto'
+import { movimentoAnno } from './iscrizione'
 
 /**
  * @param {Array<object>} soci
@@ -22,38 +21,22 @@ export function calcolaStatisticheAnnuali(soci, tesseramenti, primoAnno, ultimoA
     if (!pagati.has(t.id_socio)) pagati.set(t.id_socio, new Set())
     pagati.get(t.id_socio).add(Number(t.anno))
   }
-
-  const schede = soci.map((socio) => {
-    const anni = pagati.get(socio.id) || new Set()
-    const nascita = socio.data_nascita ? new Date(socio.data_nascita).getFullYear() : null
-    return { socio, anni, iscrizione: annoIscrizione(socio, [...anni]), nascita }
-  })
-
-  const iscritto = ({ socio, anni, iscrizione, nascita }, anno) => {
-    if (iscrizione === null || anno < iscrizione) return false
-    if (anni.has(anno)) return true
-    if (nascita !== null && anno < nascita) return false
-    return isExemptFromPayment(socio, anno)
-  }
+  const schede = soci.map((socio) => ({ socio, anni: [...(pagati.get(socio.id) || [])] }))
 
   const stats = []
   for (let anno = primoAnno; anno <= ultimoAnno; anno++) {
-    let total = 0
-    let newMembers = 0
-    let returningMembers = 0
-    let lostMembers = 0
-    for (const scheda of schede) {
-      const ora = iscritto(scheda, anno)
-      const prima = iscritto(scheda, anno - 1)
-      if (ora) {
-        total++
-        if (scheda.iscrizione === anno) newMembers++
-        else if (!prima) returningMembers++
-      } else if (prima) {
-        lostMembers++
-      }
+    const conta = { nuovo: 0, rientro: 0, confermato: 0, 'non-rinnovato': 0 }
+    for (const { socio, anni } of schede) {
+      const movimento = movimentoAnno(socio, anni, anno)
+      if (movimento) conta[movimento]++
     }
-    stats.push({ year: anno, total, newMembers, returningMembers, lostMembers })
+    stats.push({
+      year: anno,
+      total: conta.nuovo + conta.rientro + conta.confermato,
+      newMembers: conta.nuovo,
+      returningMembers: conta.rientro,
+      lostMembers: conta['non-rinnovato'],
+    })
   }
   return stats
 }

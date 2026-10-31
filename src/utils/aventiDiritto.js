@@ -2,7 +2,7 @@
  * Elenco "Aventi diritto al voto e arretrati" per le elezioni di un anno,
  * diviso per manicchia. La regola del voto sta in voto.js.
  */
-import { statoAnno } from './payment'
+import { isIscritto } from './iscrizione'
 import { valutaDirittoVoto } from './voto'
 
 export const SENZA_MANICCHIA = 'Senza manicchia'
@@ -40,9 +40,7 @@ export function elencoAventiDiritto(soci, annoElezione, opzioni = {}) {
     const { stato, motivo, quoteMancanti } = valutaDirittoVoto(socio, anniPagati, annoElezione)
     if (stato === 'no') {
       if (!includiNonAventi) continue
-      const recente = [0, 1, 2, 3].some((d) =>
-        ['V', 'O'].includes(statoAnno(socio, anniPagati, annoElezione - d)),
-      )
+      const recente = [0, 1, 2, 3].some((d) => isIscritto(socio, anniPagati, annoElezione - d))
       if (!recente) continue
     }
 

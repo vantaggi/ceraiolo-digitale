@@ -161,6 +161,12 @@ describe('statoAnno (colonne V, X, O, - dei report)', () => {
     expect(statoAnno(socio, [2020], 2030)).toBe('X') // 18 anni
   })
 
+  it("prima dell'anno di nascita e' -, anche con un anno dichiarato sbagliato", () => {
+    const socio = { data_nascita: '2010-06-01', data_prima_iscrizione: 2005 }
+    expect(statoAnno(socio, [], 2008)).toBe('-')
+    expect(statoAnno(socio, [], 2010)).toBe('O')
+  })
+
   it('senza iscrizione ne pagamenti ogni anno e -', () => {
     expect(statoAnno(adulto, [], 2026)).toBe('-')
   })
