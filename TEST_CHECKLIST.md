@@ -137,6 +137,7 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 - [ ] Verifica che il badge età sia **arancione**
 - [ ] Apri dettaglio di Mario Rossi (maggiorenne)
 - [ ] Verifica che il badge età sia **verde**
+- [ ] Un socio nato a dicembre di 18 anni fa (per esempio nel 2008, se l'anno e' il 2026) ha il badge **verde** anche prima del compleanno: conta solo l'anno di nascita
 
 ### Test 7.3: Storico pagamenti
 
@@ -274,10 +275,11 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 ### Test 13.2: I PDF di sempre
 
 - [ ] Aventi diritto (una sezione per manicchia, tutti in un elenco, una manicchia), Lista rinnovi, Lista recupero, Soci per manicchia, Conteggio, Nuovi iscritti, Soci attivi, Cronologia pagamenti: ognuno scarica lo stesso PDF di prima
+- [ ] Filtro Maggiorenni / Minorenni di Soci per manicchia, Nuovi iscritti e Cronologia pagamenti: l'eta' e' quella nell'anno di riferimento, dal solo anno di nascita (con l'anno 2020 chi e' nato nel 2005 sta tra i minorenni)
 - [ ] "Report votazioni" ha l'etichetta "Vecchia regola" e scarica il vecchio elenco
 - [ ] Minorenni (nuovo): il PDF elenca i soci che nell'anno non hanno 18 anni, con il riassunto sotto il titolo
 - [ ] "Scarica 5 PDF" scarica i cinque documenti dei rinnovi con le scelte fatte nelle righe sopra
-- [ ] Controllo quote: "Controlla" mostra l'elenco sotto la riga (o il messaggio verde se va tutto bene); PDF ed Excel si scaricano
+- [ ] Controllo quote: la descrizione parla di "quota dei nuovi soci" (quella di Impostazioni), non di 25 €; "Controlla" mostra l'elenco sotto la riga (o il messaggio verde se va tutto bene); PDF ed Excel si scaricano
 
 ### Test 13.3: Personalizza
 
@@ -326,7 +328,7 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 - [ ] Apri un socio in regola: Quota "Pagata", Arretrati "Nessuno", Voto "Sì"
 - [ ] Apri un socio con uno o due anni scoperti: Arretrati elenca gli anni, Voto "Dopo gli arretrati" con il motivo sotto
 - [ ] Apri un socio fermo da piu' di 3 anni: Arretrati "Da reiscrivere", Voto "No"
-- [ ] Apri un minorenne: Quota "Esente (minorenne)", Voto "No" con il motivo dell'eta'
+- [ ] Apri un minorenne: Quota "Esente", Voto "No" con il motivo dell'eta'
 
 ### Test 15.2: Pagamenti a tabella
 

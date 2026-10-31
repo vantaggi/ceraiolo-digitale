@@ -1,7 +1,7 @@
 <template>
   <ModelloReport
     titolo="Controllo quote di nuovi e rientri"
-    :descrizione="`Pagamenti del ${anno ?? '...'} sotto i 25 € di chi era al primo pagamento o tornava dopo un anno saltato.`"
+    :descrizione="`Pagamenti del ${anno ?? '...'} sotto la quota dei nuovi soci di chi era al primo pagamento o tornava dopo un anno saltato.`"
   >
     <template #azioni>
       <BaseButton :loading="inCorso" :disabled="disabilitato" @click="esegui">

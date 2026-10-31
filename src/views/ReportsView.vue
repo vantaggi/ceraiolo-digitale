@@ -535,7 +535,7 @@ const generaRecupero = () =>
 
 const generaPagamenti = () =>
   genera('pagamenti', async () => {
-    const elenco = await getCompletePaymentList(pagamenti.eta)
+    const elenco = await getCompletePaymentList(pagamenti.eta, anno.value)
     if (elenco.length === 0) return avviso('Nessun pagamento registrato')
     const esito = verifica(await generateCompletePaymentListPDF(elenco, pagamenti.eta))
     return `PDF generato: ${esito.totalPayments} pagamenti`
@@ -553,7 +553,7 @@ const generaTutti = () =>
       fatti.push('nuovi iscritti')
     }
 
-    const elenco = await getCompletePaymentList(pagamenti.eta)
+    const elenco = await getCompletePaymentList(pagamenti.eta, anno.value)
     if (elenco.length > 0) {
       verifica(await generateCompletePaymentListPDF(elenco, pagamenti.eta))
       fatti.push('cronologia pagamenti')

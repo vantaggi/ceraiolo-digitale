@@ -174,3 +174,11 @@ export function statoAnno(socio, anniPagati, anno) {
   if (isExemptFromPayment(socio, anno)) return 'O'
   return 'X'
 }
+
+/** Parole del glossario per lo stato di un anno (statoAnno), le stesse in ogni schermata. */
+export const TESTI_STATO_ANNO = {
+  V: 'Pagata',
+  X: 'Da pagare',
+  O: 'Esente',
+  '-': 'Non iscritto',
+}

@@ -23,7 +23,7 @@
           <td>
             <span class="stato" :class="`stato--${CLASSI_QUOTA[riga.stato]}`">
               <span aria-hidden="true">{{ riga.stato }}</span>
-              <span class="stato__testo">{{ TESTI_QUOTA[riga.stato] }}</span>
+              <span class="stato__testo">{{ TESTI_STATO_ANNO[riga.stato] }}</span>
             </span>
           </td>
           <td class="elenco-soci__azioni">
@@ -64,7 +64,7 @@ import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import AppIcon from '@/components/base/AppIcon.vue'
 import { formatDate } from '@/services/export'
-import { statoAnno } from '@/utils/payment'
+import { statoAnno, TESTI_STATO_ANNO } from '@/utils/payment'
 import { SENZA_MANICCHIA } from '@/utils/aventiDiritto'
 
 const props = defineProps({
@@ -80,7 +80,6 @@ const props = defineProps({
 
 defineEmits(['paga', 'tessera'])
 
-const TESTI_QUOTA = { V: 'Pagata', X: 'Da pagare', O: 'Esente', '-': 'Non iscritto' }
 const CLASSI_QUOTA = { V: 'ok', X: 'errore', O: 'attenzione', '-': 'neutro' }
 
 const righe = computed(() =>
