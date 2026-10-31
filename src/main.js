@@ -12,6 +12,7 @@ import 'vue-toastification/dist/index.css'
 import App from './App.vue'
 import router from './router'
 import { registerSW } from 'virtual:pwa-register'
+import { impostaAggiornamento, segnalaVersionePronta } from './composables/useAggiornamento'
 
 const app = createApp(App)
 
@@ -35,6 +36,8 @@ app.use(Toast, {
 app.mount('#app')
 
 // Service worker: dopo la prima apertura online l'app si apre anche offline.
-// Una versione nuova si scarica in silenzio e parte alla riapertura successiva
-// dell'app, mai a meta' lavoro (nessun ricaricamento automatico).
-registerSW({ immediate: true })
+// Una versione nuova si scarica in silenzio: la riga di stato dice "Nuova versione
+// pronta" e l'app si ricarica solo se la persona preme Ricarica, mai a meta' lavoro.
+// Senza la scelta, la versione nuova parte alla riapertura successiva.
+const aggiornaApp = registerSW({ immediate: true, onNeedRefresh: segnalaVersionePronta })
+impostaAggiornamento(aggiornaApp)

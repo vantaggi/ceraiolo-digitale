@@ -11,6 +11,15 @@
           <span v-if="row.value !== undefined" class="list-rows__value">{{ row.value }}</span>
           <AppIcon name="successivo" class="list-rows__chevron" />
         </RouterLink>
+        <div v-else-if="row.readonly" class="list-rows__row list-rows__row--readonly">
+          <span class="list-rows__text">
+            <span class="list-rows__label">{{ row.label }}</span>
+            <span v-if="row.help" class="list-rows__help">{{ row.help }}</span>
+          </span>
+          <span class="list-rows__value" :class="row.tone && `list-rows__value--${row.tone}`">
+            {{ row.value }}
+          </span>
+        </div>
         <button
           v-else
           type="button"
@@ -36,13 +45,15 @@
 // - Riga nome-valore: il nome a sinistra, il valore attuale a destra; premendola la pagina
 //   apre la scelta (evento `select`) e il valore nuovo torna nella riga.
 // - Riga con `to`: porta a un'altra pagina, con la freccia; non e' mai un bottone.
+// - Riga `readonly`: solo da leggere (nome e valore), non si preme. `tone` 'ok' o
+//   'attenzione' colora il valore, che resta una parola: lo stato non dipende dal colore.
 // Le azioni sulla pagina restano bottoni, fuori dalle righe.
 import { useId } from 'vue'
 import AppIcon from '@/components/base/AppIcon.vue'
 
 defineProps({
   title: { type: String, default: '' },
-  /** @type {Array<{ id: string, label: string, value?: string, help?: string, to?: string|object, disabled?: boolean, reason?: string }>} */
+  /** @type {Array<{ id: string, label: string, value?: string, help?: string, to?: string|object, readonly?: boolean, tone?: 'ok'|'attenzione', disabled?: boolean, reason?: string }>} */
   rows: { type: Array, required: true },
   note: { type: String, default: '' },
 })
@@ -103,7 +114,11 @@ const headingId = `list-rows-${useId()}`
   transform: none;
 }
 
-.list-rows__row:hover:not(:disabled) {
+.list-rows__row--readonly {
+  cursor: default;
+}
+
+.list-rows__row:not(.list-rows__row--readonly):hover:not(:disabled) {
   background: var(--state-hover);
 }
 
@@ -132,8 +147,18 @@ const headingId = `list-rows-${useId()}`
 
 .list-rows__value {
   margin-left: auto;
+  min-width: 0;
+  overflow-wrap: anywhere; /* un indirizzo lungo va a capo invece di uscire dalla riga */
   color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
+}
+
+.list-rows__value--ok {
+  color: var(--status-success);
+}
+
+.list-rows__value--attenzione {
+  color: var(--status-warning);
 }
 
 .list-rows__chevron {

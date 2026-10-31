@@ -53,4 +53,21 @@ describe('ListRows', () => {
     expect(wrapper.get('button').attributes('disabled')).toBeDefined()
     expect(wrapper.text()).toContain('Il browser non lo permette')
   })
+
+  it("una riga di sola lettura non e' ne' un bottone ne' un link, e porta il tono del valore", () => {
+    const wrapper = monta([
+      {
+        id: 'c',
+        label: 'Conservazione',
+        value: 'Non protetti',
+        help: 'Il browser può cancellarli',
+        tone: 'attenzione',
+        readonly: true,
+      },
+    ])
+    expect(wrapper.findAll('button')).toHaveLength(0)
+    expect(wrapper.findAll('a')).toHaveLength(0)
+    expect(wrapper.text()).toContain('ConservazioneIl browser può cancellarliNon protetti')
+    expect(wrapper.get('.list-rows__value').classes()).toContain('list-rows__value--attenzione')
+  })
 })

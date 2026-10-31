@@ -155,6 +155,8 @@
           <h2><AppIcon name="salva" /> Dati e backup</h2>
           <p>Dall'alto in basso: copie di sicurezza, esportazioni, ripristino, controllo dei dati. Le operazioni che cancellano dati stanno in fondo.</p>
 
+          <DatiComputer />
+
           <!-- Sezione Backup Automatico -->
           <div class="subsection">
             <h3><AppIcon name="automatico" /> Backup</h3>
@@ -437,6 +439,7 @@ import PageHeader from '@/components/base/PageHeader.vue'
 import SectionTabs from '@/components/base/SectionTabs.vue'
 import { SCHEDE_IMPOSTAZIONI } from '@/router/sezioni'
 import ControlloQualitaDati from '@/components/ControlloQualitaDati.vue'
+import DatiComputer from '@/components/DatiComputer.vue'
 
 const toast = useToast()
 // Citta' proposta se l'impostazione non e' mai stata salvata (come Nuovo socio e Registra ricevute)

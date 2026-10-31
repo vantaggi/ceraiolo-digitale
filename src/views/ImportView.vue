@@ -2,62 +2,83 @@
   <div class="import-view">
     <PageHeader
       title="Benvenuto"
-      subtitle="L'archivio di questo computer è vuoto. Importa il database dei soci per iniziare."
+      subtitle="In questo browser, a questo indirizzo, non ci sono dati."
     />
 
-    <section class="importa" aria-labelledby="importa-titolo">
-      <h2 id="importa-titolo" class="importa__titolo">Importa il database</h2>
+    <!-- Scelta 3A delle bozze della PR 7: chi apre la pagina per sbaglio (altro browser,
+         altro indirizzo) legge prima dove sono i suoi dati; importare e' la seconda strada,
+         con un pulsante secondario. -->
+    <div class="casi">
+      <section class="caso" aria-labelledby="caso-gia">
+        <h2 id="caso-gia" class="caso__titolo">Usi già l'app?</h2>
+        <p class="caso__testo">
+          I dati stanno solo nel browser dove li hai inseriti. Aprila dal solito computer, con il
+          solito browser e dal solito indirizzo (questo è <strong>{{ indirizzo }}</strong
+          >).
+        </p>
+        <p class="caso__testo">
+          Se l'archivio è davvero sparito, importa l'ultimo backup
+          (<code>ceraiolo_backup.sqlite</code>) come per la prima volta: tornano soci e pagamenti,
+          le impostazioni e i blocchetti vanno rimessi a mano.
+        </p>
+      </section>
 
-      <div class="importa__campo">
-        <span id="file-etichetta" class="importa__etichetta">File del database (.sqlite)</span>
-        <input
-          ref="fileInput"
-          type="file"
-          class="sr-only"
-          tabindex="-1"
-          aria-labelledby="file-etichetta"
-          accept=".sqlite, .sqlite3"
-          @change="handleFileSelect"
-        />
-        <div class="importa__scelta">
-          <BaseButton
-            :disabled="isLoading"
-            aria-describedby="file-scelto"
-            @click="fileInput?.click()"
-          >
-            Scegli il file
-          </BaseButton>
-          <span id="file-scelto" class="importa__file">
-            {{ selectedFile ? `${selectedFile.name} · ${dimensione(selectedFile.size)}` : 'Nessun file scelto' }}
-          </span>
+      <section class="caso" aria-labelledby="caso-primo">
+        <h2 id="caso-primo" class="caso__titolo">È la prima volta?</h2>
+        <p class="caso__testo">
+          Importa il database dei soci (.sqlite). Se l'app è già usata su un altro computer,
+          importare qui crea una seconda copia separata.
+        </p>
+
+        <div class="caso__campo">
+          <span id="file-etichetta" class="caso__etichetta">File del database (.sqlite)</span>
+          <input
+            ref="fileInput"
+            type="file"
+            class="sr-only"
+            tabindex="-1"
+            aria-labelledby="file-etichetta"
+            accept=".sqlite, .sqlite3"
+            @change="handleFileSelect"
+          />
+          <div class="caso__scelta">
+            <BaseButton
+              :disabled="isLoading"
+              aria-describedby="file-scelto"
+              @click="fileInput?.click()"
+            >
+              Scegli il file
+            </BaseButton>
+            <span id="file-scelto" class="caso__file">
+              {{
+                selectedFile
+                  ? `${selectedFile.name} · ${dimensione(selectedFile.size)}`
+                  : 'Nessun file scelto'
+              }}
+            </span>
+          </div>
         </div>
-      </div>
 
-      <p class="importa__nota">
-        I dati restano solo in questo browser. Dopo l'importazione attiva il backup automatico da
-        Impostazioni › Dati e backup.
-      </p>
+        <div>
+          <BaseButton :disabled="!selectedFile" :loading="isLoading" @click="importDatabase">
+            Importa
+          </BaseButton>
+        </div>
 
-      <div>
-        <BaseButton
-          variant="primary"
-          :disabled="!selectedFile"
-          :loading="isLoading"
-          @click="importDatabase"
+        <p class="caso__nota">
+          Dopo l'importazione attiva il backup automatico da Impostazioni › Dati e backup.
+        </p>
+
+        <p
+          v-if="importStatus"
+          class="caso__stato"
+          :class="{ 'caso__stato--errore': statoErrore }"
+          :role="statoErrore ? 'alert' : 'status'"
         >
-          Importa
-        </BaseButton>
-      </div>
-
-      <p
-        v-if="importStatus"
-        class="importa__stato"
-        :class="{ 'importa__stato--errore': statoErrore }"
-        :role="statoErrore ? 'alert' : 'status'"
-      >
-        {{ importStatus }}
-      </p>
-    </section>
+          {{ importStatus }}
+        </p>
+      </section>
+    </div>
   </div>
 </template>
 
@@ -76,8 +97,13 @@ const statoErrore = ref(false)
 const fileInput = ref(null)
 const router = useRouter()
 
+// Indirizzo da cui e' aperta l'app: i dati di un altro indirizzo qui non si vedono.
+const indirizzo = `${window.location.host}${window.location.pathname}`.replace(/\/$/, '')
+
 const dimensione = (byte) =>
-  byte >= 1024 * 1024 ? `${(byte / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(byte / 1024))} KB`
+  byte >= 1024 * 1024
+    ? `${(byte / 1024 / 1024).toFixed(1)} MB`
+    : `${Math.max(1, Math.round(byte / 1024))} KB`
 
 const errore = (testo) => {
   importStatus.value = testo
@@ -177,53 +203,64 @@ const importDatabase = async () => {
   padding: var(--space-32);
 }
 
-.importa {
+.casi {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-16);
+  align-items: start;
+}
+
+.caso {
   display: flex;
   flex-direction: column;
   gap: var(--space-16);
-  max-width: var(--page-width-form);
   padding: var(--space-24);
   background: var(--background-surface);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-surface);
 }
 
-.importa__titolo {
+.caso__titolo {
   margin: 0;
   font-size: var(--font-size-section-heading);
 }
 
-.importa__campo {
+.caso__testo {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.caso__campo {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
 }
 
-.importa__etichetta {
+.caso__etichetta {
   font-size: var(--font-size-label);
   font-weight: 500;
 }
 
-.importa__scelta {
+.caso__scelta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-12);
 }
 
-.importa__file,
-.importa__nota,
-.importa__stato {
+.caso__file,
+.caso__nota,
+.caso__stato {
   color: var(--text-secondary);
 }
 
-.importa__nota,
-.importa__stato {
+.caso__nota,
+.caso__stato {
   margin: 0;
   font-size: var(--font-size-caption);
 }
 
-.importa__stato--errore {
+.caso__stato--errore {
   color: var(--status-error);
 }
 
@@ -242,6 +279,10 @@ const importDatabase = async () => {
 @media (max-width: 640px) {
   .import-view {
     padding: var(--space-24) var(--space-16);
+  }
+
+  .casi {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 </style>

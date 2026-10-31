@@ -16,6 +16,9 @@ export default defineConfig([
     languageOptions: {
       globals: {
         ...globals.browser,
+        // Valori scritti da vite.config.js (define) al momento della build
+        __APP_VERSION__: 'readonly',
+        __BUILD_TIME__: 'readonly',
       },
     },
   },

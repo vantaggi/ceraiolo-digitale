@@ -5,7 +5,9 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 ## ✅ Test 1: Importazione Database
 
 - [ ] Avvia l'app con `npm run dev`
-- [ ] Verifica che si apra automaticamente la pagina `/import`: intestazione "Benvenuto" nella stessa posizione delle altre pagine, riquadro "Importa il database"
+- [ ] Verifica che si apra automaticamente la pagina `/import`: intestazione "Benvenuto" nella stessa posizione delle altre pagine, sotto "In questo browser, a questo indirizzo, non ci sono dati."
+- [ ] Due riquadri affiancati (uno sotto l'altro sul telefono): "Usi già l'app?" con l'indirizzo di questa pagina in grassetto e il nome del file di backup, ed "È la prima volta?" con l'importazione
+- [ ] Nessun pulsante rosso nella pagina: anche "Importa" e' un pulsante normale
 - [ ] "Importa" e' spento finche' non scegli il file; "Scegli il file" si apre anche con Tab e Invio, e accanto compaiono nome e peso del file
 - [ ] Un file che non finisce in .sqlite da' un errore in rosso sotto il bottone
 - [ ] Esegui `python generate_mock_data.py` per creare il database
@@ -398,7 +400,10 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 
 ### Test 17.3: Dati e backup
 
-- [ ] Dall'alto: Backup, Esporta, Ripristina da un file, Controllo qualita' dei dati, Zona pericolosa
+- [ ] In cima, "I dati di questo computer": Dove sono (l'indirizzo, es. vantaggi.github.io/ceraiolo-digitale), Contenuto (soci e pagamenti come in Andamento), Conservazione, Backup automatico, Versione dell'app. Le righe non si premono
+- [ ] Conservazione "Protetti" in verde con l'app installata; "Non protetti" o "Non si sa" in arancione negli altri casi
+- [ ] Backup automatico: "Spento" senza cartella, "In pausa" dopo la riapertura finche' non premi Riattiva, "Attivo · ultimo …" con la cartella sotto
+- [ ] Poi, dall'alto: Backup, Esporta, Ripristina da un file, Controllo qualita' dei dati, Zona pericolosa
 - [ ] Non c'e' piu' il riquadro "Stato salute dati" in cima (lo dice il Controllo qualita')
 - [ ] "Importa JSON" si raggiunge anche con Tab e si apre con Invio
 - [ ] Ripristina da un file chiede conferma prima di sostituire i dati
@@ -487,6 +492,8 @@ Lo stesso modulo e le stesse regole nei due punti: Soci › Nuovo socio e Incass
 ### Test 21.4: Aggiornamenti
 
 - [ ] Dopo un aggiornamento pubblicato, apri l'app con internet e lavora: la pagina non si ricarica da sola
-- [ ] Chiudi e riapri l'app: la versione nuova e' attiva
+- [ ] Accanto allo stato del backup compare "Nuova versione pronta · Ricarica" (blu, con la freccia circolare); finche' non lo premi resta li' e non succede nulla
+- [ ] Premendolo l'app si ricarica con la versione nuova e i dati sono quelli di prima; Impostazioni › Dati › Versione dell'app mostra la data nuova
+- [ ] Senza premerlo: chiudi e riapri l'app, la versione nuova e' attiva
 
 **Risultato atteso**: dopo la prima apertura online l'app si apre e lavora senza internet, con gli stessi dati
