@@ -26,7 +26,7 @@
           </li>
           <li>
             <span class="key">Invio</span>
-            <span class="desc">Apri dettaglio / Paga (Turbo)</span>
+            <span class="desc">Apri dettaglio</span>
           </li>
         </ul>
       </div>
@@ -56,11 +56,23 @@
 
       <!-- Batch Entry -->
       <div class="shortcut-group">
-        <h4>Registrazione Seriale</h4>
+        <h4>Registra ricevute</h4>
         <ul class="shortcut-list">
           <li>
-            <span class="key">Turbo Mode</span>
-            <span class="desc">Pagamento istantaneo</span>
+            <span class="key">Invio</span>
+            <span class="desc">Registra il socio scelto</span>
+          </li>
+          <li>
+            <span class="key">Ctrl</span> + <span class="key">Invio</span>
+            <span class="desc">Ricevuta successiva</span>
+          </li>
+          <li>
+            <span class="key">Esc</span>
+            <span class="desc">Svuota la ricerca</span>
+          </li>
+          <li>
+            <span class="key">←</span> / <span class="key">→</span>
+            <span class="desc">Cambia ricevuta (ricerca vuota)</span>
           </li>
         </ul>
       </div>

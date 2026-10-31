@@ -24,6 +24,7 @@ const ICONA_TESTUALE = /(?![©®™])\p{Extended_Pictographic}|[←-↓✓✕✗
 // Eccezioni motivate; il test fallisce se un'eccezione non serve piu'.
 const ECCEZIONI = {
   'components/KeyboardShortcutsModal.vue': 'le frecce sono i tasti da premere, non icone',
+  'views/BatchEntryView.vue': 'le frecce nella riga delle scorciatoie sono i tasti da premere',
 }
 
 // Componenti che passano ad AppIcon un nome ricevuto come prop: [file, prop, tag]

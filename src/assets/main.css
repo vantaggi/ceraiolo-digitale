@@ -28,6 +28,8 @@
   --color-danger-hover: #b71c1c;
   --focus-ring: #b71c1c;
   --color-scrim: rgba(0, 0, 0, 0.5); /* Sfondo dietro le modali */
+  --state-selected: #f1f2f4; /* riga scelta con le frecce (Registra ricevute, PR 8) */
+  --status-success-subtle: #e8f3ea; /* fondo della conferma "Registrato ..." */
 
   --font-family-heading: 'Merriweather', serif;
   --font-family-body: 'Inter', sans-serif;
@@ -73,9 +75,10 @@
  * Ruoli della UI Constitution (docs/DESIGN.md, "Token e ruoli").
  * Sono alias dei valori del progetto qui sopra: stesso colore, nome del ruolo.
  * Il codice nuovo usa questi nomi; i vecchi --color-* spariscono pagina per pagina.
- * I ruoli senza un valore in uso oggi (accent-pressed, state-pressed, state-selected,
+ * I ruoli senza un valore in uso oggi (accent-pressed, state-pressed, gli altri
  * status-*-subtle, chart-*, text-disabled, border-group, durate, curve) si definiscono
- * nella PR che li usa per prima, con le bozze A/B/C.
+ * nella PR che li usa per prima, con le bozze A/B/C. state-selected e status-success-subtle
+ * hanno un valore dalla PR 8 (Registra ricevute) e stanno sopra, con i colori del tema.
  * Gli alias seguono il tema da soli: data-theme sta sullo stesso elemento di :root.
  */
 :root {
@@ -130,6 +133,8 @@
   --color-danger-hover: #e57373;
   --focus-ring: #ef5350;
   --color-scrim: rgba(0, 0, 0, 0.7);
+  --state-selected: #333639;
+  --status-success-subtle: #1c2e1e;
 
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.5);

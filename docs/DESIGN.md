@@ -40,10 +40,12 @@ Colori:
 | `status-warning`                      | `--color-warning`                                    | `#b45309` | `#ffa726` |                                                                                         |
 | `status-error`                        | `--color-danger` (+ `-hover`)                        | `#c62828` | `#ef5350` |                                                                                         |
 | `status-info`                         | `--color-info`                                       | `#026aa7` | `#29b6f6` |                                                                                         |
-| `status-*-subtle`                     | mancano                                              |           |           | fondi degli avvisi                                                                      |
+| `status-success-subtle`               | `--status-success-subtle`                            | `#e8f3ea` | `#1c2e1e` | fondo della conferma "Registrato ..." (PR 8, bozza 2A)                                  |
+| altri `status-*-subtle`               | mancano                                              |           |           | fondi degli avvisi                                                                      |
 | `focus-ring`                          | `--focus-ring`                                       | `#b71c1c` | `#ef5350` | 2px, distanza 2px                                                                       |
 | `state-hover`                         | `--color-surface-hover`                              | `#f9fafb` | `#2c2c2c` | oggi e' un fondo pieno, non una sovrapposizione                                         |
-| `state-pressed`, `state-selected`     | mancano                                              |           |           |                                                                                         |
+| `state-selected`                      | `--state-selected`                                   | `#f1f2f4` | `#333639` | riga scelta con le frecce, con il filo rosso a sinistra (PR 8, bozza 1A)                |
+| `state-pressed`                       | manca                                                |           |           |                                                                                         |
 | `scrim`                               | `--color-scrim`                                      | nero 50%  | nero 70%  |                                                                                         |
 | `chart-1` ... `chart-5`, `chart-grid` | mancano                                              |           |           | il grafico Andamento oggi usa i colori di stato                                         |
 | `user-1` ... `user-8`                 | non servono                                          |           |           | nessun colore scelto dall'utente                                                        |
