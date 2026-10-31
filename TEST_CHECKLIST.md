@@ -214,6 +214,8 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 - [ ] Nel tema scuro colori del grafico, assi e legenda si leggono; cambiando tema il grafico cambia colori senza ricaricare
 - [ ] Nel tema scuro le tendine aperte (Età, Manicchia, e quelle di Impostazioni e Report) sono scure con le voci leggibili; nel tema chiaro restano chiare. Vale anche per il calendario delle date
 - [ ] Con una ricerca attiva l'elenco usa tutta la larghezza; a ricerca vuota compare "Ultime modifiche"
+- [ ] Nell'elenco la quota si legge a parole con l'icona (Pagata, Da pagare, Esente); le righe sono compatte e tutte della stessa altezza, anche quelle con "Paga 2026"
+- [ ] Sotto i 600 px di larghezza resta solo l'icona della quota; il bottone Paga e la tessera restano raggiungibili
 
 ### Test 10.2: Manutenzione spostata
 
