@@ -6,12 +6,13 @@ Regole ricavate da ScoreboardEssential e padel-dashboard, adattate a un progetto
 
 ## Dove stanno le regole
 
-| Cosa | Dove |
-| --- | --- |
-| Regole di pagamento (eta', esenzione minorenni, condono, arretrati, quota 25 EUR) | `src/utils/payment.js`, unica fonte |
-| Accesso ai dati e changelog | `src/services/db.js` |
-| Token e regole di interfaccia | `src/assets/main.css` e `docs/DESIGN.md` |
-| Verifica manuale per area | `TEST_CHECKLIST.md` |
+| Cosa                                                                              | Dove                                                               |
+| --------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| Regole di pagamento (eta', esenzione minorenni, condono, arretrati, quota 25 EUR) | `src/utils/payment.js`, unica fonte                                |
+| Accesso ai dati e changelog                                                       | `src/services/db.js`                                               |
+| Regole di interfaccia                                                             | `AGENTS.md`, poi `docs/DESIGN.md`; valori in `src/assets/main.css` |
+| Parole dell'interfaccia                                                           | `docs/GLOSSARIO.md`                                                |
+| Verifica manuale per area                                                         | `TEST_CHECKLIST.md`                                                |
 
 ## Dati
 
@@ -45,13 +46,9 @@ La sessione che apre la PR la porta al verde e riferisce. Dal 27 ottobre 2026 il
 
 ## Interfaccia
 
-Il design system e' la UI Constitution del proprietario: <https://claude.ai/artifact/8DhrtZW85wiHTsfw1vmXSn> (sola lettura). Prima di toccare l'interfaccia leggere `docs/DESIGN.md`: identita' del prodotto, mappatura dei token, conflitti dichiarati. In breve:
+Le regole dell'interfaccia stanno in `AGENTS.md` (importato qui sotto): design system UI Constitution, identita' del progetto, file dei token, glossario. Leggerlo prima di toccare l'interfaccia.
 
-- Solo token: niente colori, spaziature, raggi o ombre scritti a mano. Un token nuovo solo se nomina un ruolo riusabile.
-- Riusare prima di creare: un componente nuovo solo se passa il test di creazione della Constitution (riusato, stabile, non componibile con cio' che c'e').
-- Niente emoji come icone e niente `confirm()` del browser nel codice nuovo; quelli esistenti si tolgono a lotti.
-- Ogni stato che vale: normale, hover, premuto, fuoco, disattivo, in corso, vuoto, errore, sola lettura.
-- Chiudere con il rapporto della Constitution (Review): cosa cambia, token e componenti riusati, stati, accessibilita' verificata, temi provati, rischi.
+@AGENTS.md
 
 ## Commit
 
