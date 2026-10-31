@@ -81,7 +81,7 @@ Da ricontrollare nelle PR delle pagine: testo `white` scritto a mano su fondo ac
 
 ## Conflitti dichiarati
 
-- **Caratteri.** Il sistema usa il font di sistema; il progetto usa Merriweather (titoli) e Inter (testo), inclusi nell'app perche' funzioni offline. Si tengono per ora (decisione del 31 ottobre 2026); la scelta definitiva arriva con bozze A/B/C nella PR dei componenti base.
+- **Caratteri.** Il sistema usa il font di sistema; il progetto usa Merriweather (titoli) e Inter (testo), inclusi nell'app perche' funzioni offline. Si tengono: scelta 3A delle bozze della PR 4 (<https://claude.ai/artifact/VgUjAJZCoV5qrHwzRTmGs7>, 31 ottobre 2026), per non cambiare l'aspetto prima della stampa delle tessere. Le alternative provate erano Merriweather con il font di sistema e il solo font di sistema.
 - **Tema ad alto contrasto.** Non previsto: poche persone, sempre allo stesso computer (decisione del 31 ottobre 2026).
 - **Densita'.** Compatta ovunque, anche nei moduli e nella scheda socio (decisione del 31 ottobre 2026).
 - **Lettere V, X, O, -.** I badge dello stato della quota usano le stesse lettere delle colonne dei PDF, sempre accanto alla parola (Pagata, Da pagare, Esente, Non iscritto): lo stato non dipende dal colore.
