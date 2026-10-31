@@ -6,86 +6,59 @@
 
       <div class="settings-content">
         <!-- Tab: Generale -->
-        <section v-if="scheda === 'generale'" class="settings-section">
-          <h2><AppIcon name="configurazione" /> Generale</h2>
-          <p>Valori proposti quando si inseriscono soci e pagamenti.</p>
+        <div v-if="scheda === 'generale'" class="generale">
+          <ListRows
+            title="Valori proposti"
+            :rows="righeGenerale"
+            note="Premi una riga per cambiare il valore. I pagamenti e i soci già registrati non cambiano."
+            @select="apriModifica"
+          />
+        </div>
 
-          <div class="config-grid">
-            <!-- Nuovi Parametri -->
-            <div class="control-group">
-              <label for="default-city">Città di Default (Nuovi Soci):</label>
-              <input
-                id="default-city"
-                v-model="appConfig.defaultCity"
-                type="text"
-                class="form-input"
-                placeholder="Es. Gubbio"
-              />
-              <small class="help-text">Città precompilata quando aggiungi un nuovo socio.</small>
-            </div>
-
-            <div class="control-group">
-              <label for="minors-year">Anno Riferimento Minorenni:</label>
-              <input
-                id="minors-year"
-                v-model.number="appConfig.minorsReferenceYear"
-                type="number"
-                class="form-input"
-              />
-              <small class="help-text"
-                >Anno usato per calcolare se un socio è minorenne nei report.</small
-              >
-            </div>
-
-            <div class="control-group">
-              <label for="receipts-per-block">Ricevute per Blocchetto:</label>
-              <input
-                id="receipts-per-block"
-                v-model.number="appConfig.receiptsPerBlock"
-                type="number"
-                min="1"
-                max="100"
-                class="form-input"
-                aria-describedby="receipts-per-block-aiuto"
-              />
-              <small id="receipts-per-block-aiuto" class="help-text">
-                I numeri delle ricevute sono progressivi: con 10, il blocchetto 1 va da 1 a 10 e il 2
-                da 11 a 20. Lo usa Incassi › Registra ricevute.
-              </small>
-            </div>
-
-            <div class="control-group">
-              <label for="default-quota">Quota Rinnovo Default (€):</label>
-              <input
-                id="default-quota"
-                v-model.number="appConfig.defaultQuota"
-                type="number"
-                min="0"
-                step="0.5"
-                class="form-input"
-              />
-            </div>
-
-            <div class="control-group">
-              <label for="new-member-quota">Quota Nuovi Soci Default (€):</label>
-              <input
-                id="new-member-quota"
-                v-model.number="appConfig.newMemberQuota"
-                type="number"
-                min="0"
-                step="0.5"
-                class="form-input"
-              />
-            </div>
-
-            <div class="action-buttons">
-              <button @click="saveAppConfig" :disabled="isSavingConfig" class="save-button">
-                <AppIcon :name="isSavingConfig ? 'caricamento' : 'salva'" :spin="isSavingConfig" />
-                {{ isSavingConfig ? 'Salvataggio...' : 'Salva Configurazione' }}
-              </button>
-            </div>
-          </div>
-        </section>
+        <BaseModal
+          :open="!!modifica"
+          :title="modifica?.label ?? ''"
+          size="sm"
+          :busy="salvataggioInCorso"
+          @close="chiudiModifica"
+        >
+          <form
+            v-if="modifica"
+            id="modulo-impostazione"
+            class="modifica"
+            novalidate
+            @submit.prevent="salvaModifica"
+          >
+            <label for="valore-impostazione" class="modifica__label">{{ modifica.campo }}</label>
+            <input
+              id="valore-impostazione"
+              v-model="modifica.valore"
+              type="text"
+              :inputmode="modifica.inputmode"
+              autocomplete="off"
+              class="modifica__campo"
+              :class="{ 'modifica__campo--numero': modifica.inputmode }"
+              :aria-invalid="!!modifica.errore || undefined"
+              :aria-describedby="modifica.errore ? 'valore-errore' : 'valore-aiuto'"
+              data-autofocus
+            />
+            <p v-if="modifica.errore" id="valore-errore" class="modifica__errore" role="alert">
+              {{ modifica.errore }}
+            </p>
+            <p v-else id="valore-aiuto" class="modifica__aiuto">{{ modifica.aiuto }}</p>
+          </form>
+          <template #footer>
+            <BaseButton :disabled="salvataggioInCorso" @click="chiudiModifica">Annulla</BaseButton>
+            <BaseButton
+              variant="primary"
+              type="submit"
+              form="modulo-impostazione"
+              :loading="salvataggioInCorso"
+            >
+              Salva
+            </BaseButton>
+          </template>
+        </BaseModal>
 
         <!-- Tab: Template -->
         <section v-if="scheda === 'tessera'" class="settings-section">
@@ -429,7 +402,7 @@
 
 <script setup>
 import { QUOTA_NUOVI_PREDEFINITA, QUOTA_ORDINARIA_PREDEFINITA } from '@/utils/payment'
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useToast } from 'vue-toastification'
 import { askConfirm } from '@/composables/useDialog'
 import {
@@ -458,13 +431,16 @@ import {
 } from '@/services/tessere'
 import AppIcon from '@/components/base/AppIcon.vue'
 import BaseButton from '@/components/base/BaseButton.vue'
+import BaseModal from '@/components/base/BaseModal.vue'
+import ListRows from '@/components/base/ListRows.vue'
 import PageHeader from '@/components/base/PageHeader.vue'
 import SectionTabs from '@/components/base/SectionTabs.vue'
 import { SCHEDE_IMPOSTAZIONI } from '@/router/sezioni'
 import ControlloQualitaDati from '@/components/ControlloQualitaDati.vue'
 
 const toast = useToast()
-const currentYear = new Date().getFullYear()
+// Citta' proposta se l'impostazione non e' mai stata salvata (come Nuovo socio e Registra ricevute)
+const CITTA_PREDEFINITA = 'Gubbio'
 
 // Stato del componente
 // Sfondo della tessera: quello salvato e quello scelto ma non ancora salvato
@@ -477,7 +453,6 @@ const isSaving = ref(false)
 const isExporting = ref(false)
 const isSavingBackup = ref(false)
 
-const isSavingConfig = ref(false)
 // La scheda arriva dall'indirizzo (/settings, /settings/tessera, /settings/dati, ...)
 const props = defineProps({
   scheda: { type: String, default: 'generale' },
@@ -488,8 +463,7 @@ const appConfig = ref({
   receiptsPerBlock: 10,
   defaultQuota: QUOTA_ORDINARIA_PREDEFINITA,
   newMemberQuota: QUOTA_NUOVI_PREDEFINITA,
-  defaultCity: '',
-  minorsReferenceYear: new Date().getFullYear(),
+  defaultCity: CITTA_PREDEFINITA,
 })
 
 const backupStore = useBackupStore()
@@ -511,8 +485,7 @@ onMounted(async () => {
     appConfig.value.receiptsPerBlock = await getSetting('receiptsPerBlock', 10)
     appConfig.value.defaultQuota = await getSetting('defaultQuota', QUOTA_ORDINARIA_PREDEFINITA)
     appConfig.value.newMemberQuota = await getSetting('newMemberQuota', QUOTA_NUOVI_PREDEFINITA)
-    appConfig.value.defaultCity = await getSetting('defaultCity', '')
-    appConfig.value.minorsReferenceYear = await getSetting('minorsReferenceYear', currentYear)
+    appConfig.value.defaultCity = await getSetting('defaultCity', CITTA_PREDEFINITA)
   } catch (error) {
     console.error('Errore caricamento config:', error)
   }
@@ -799,23 +772,119 @@ const exportExcel = async () => {
   }
 }
 
-/**
- * Salva la configurazione dell'applicazione
- */
-const saveAppConfig = async () => {
+// Impostazioni > Generale: una riga per valore, la modifica in una finestra (bozza 1A).
+const IMPOSTAZIONI_GENERALI = {
+  defaultCity: {
+    label: 'Città proposta per i nuovi soci',
+    campo: 'Città',
+    aiuto: 'Si propone come luogo di nascita in Nuovo socio e in Registra ricevute.',
+    mostra: (v) => v || 'Nessuna',
+    leggi: (testo) => {
+      const citta = testo.trim()
+      return citta ? { valore: citta } : { errore: 'Scrivi il nome di una città.' }
+    },
+  },
+  receiptsPerBlock: {
+    label: 'Ricevute per blocchetto',
+    campo: 'Numero di ricevute',
+    inputmode: 'numeric',
+    aiuto: 'Le ricevute sono numerate di seguito: con 10, il blocchetto 2 va da 11 a 20.',
+    mostra: (v) => String(v),
+    leggi: (testo) => {
+      const n = Number(testo)
+      return Number.isInteger(n) && n >= 1 && n <= 100
+        ? { valore: n }
+        : { errore: 'Scrivi un numero intero da 1 a 100.' }
+    },
+  },
+  defaultQuota: {
+    label: 'Quota ordinaria',
+    campo: 'Importo (€)',
+    inputmode: 'decimal',
+    aiuto: 'Proposta nel pagamento di chi rinnova.',
+    mostra: (v) => formatoEuro(v),
+    leggi: leggiImporto,
+  },
+  newMemberQuota: {
+    label: 'Quota dei nuovi soci',
+    campo: 'Importo (€)',
+    inputmode: 'decimal',
+    aiuto: 'Proposta nel pagamento di chi è al primo anno o rientra dopo almeno un anno fuori.',
+    mostra: (v) => formatoEuro(v),
+    leggi: leggiImporto,
+  },
+}
+
+function formatoNumero(v) {
+  return Number(v).toLocaleString('it-IT', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+    useGrouping: false,
+  })
+}
+
+function formatoEuro(v) {
+  return `€ ${formatoNumero(v)}`
+}
+
+function leggiImporto(testo) {
+  const n = Number(String(testo).replace(',', '.'))
+  return String(testo).trim() !== '' && Number.isFinite(n) && n >= 0
+    ? { valore: n }
+    : { errore: 'Scrivi un importo uguale o maggiore di zero.' }
+}
+
+const righeGenerale = computed(() =>
+  Object.entries(IMPOSTAZIONI_GENERALI).map(([id, def]) => ({
+    id,
+    label: def.label,
+    value: def.mostra(appConfig.value[id]),
+  })),
+)
+
+const modifica = ref(null)
+const salvataggioInCorso = ref(false)
+
+const apriModifica = (riga) => {
+  const def = IMPOSTAZIONI_GENERALI[riga.id]
+  modifica.value = {
+    id: riga.id,
+    label: def.label,
+    campo: def.campo,
+    inputmode: def.inputmode,
+    aiuto: def.aiuto,
+    valore:
+      def.inputmode === 'decimal'
+        ? formatoNumero(appConfig.value[riga.id])
+        : String(appConfig.value[riga.id] ?? ''),
+    errore: '',
+  }
+}
+
+const chiudiModifica = () => {
+  if (!salvataggioInCorso.value) modifica.value = null
+}
+
+const salvaModifica = async () => {
+  const { id, valore } = modifica.value
+  const letto = IMPOSTAZIONI_GENERALI[id].leggi(String(valore ?? ''))
+  if (letto.errore) {
+    modifica.value.errore = letto.errore
+    return
+  }
   try {
-    isSavingConfig.value = true
-    await updateSetting('receiptsPerBlock', appConfig.value.receiptsPerBlock)
-    await updateSetting('defaultQuota', appConfig.value.defaultQuota)
-    await updateSetting('newMemberQuota', appConfig.value.newMemberQuota)
-    await updateSetting('defaultCity', appConfig.value.defaultCity)
-    await updateSetting('minorsReferenceYear', appConfig.value.minorsReferenceYear)
-    toast.success('Configurazione salvata con successo!')
+    salvataggioInCorso.value = true
+    await updateSetting(id, letto.valore)
+    appConfig.value[id] = letto.valore
+    toast.success(
+      `${IMPOSTAZIONI_GENERALI[id].label}: ${IMPOSTAZIONI_GENERALI[id].mostra(letto.valore)}`,
+    )
+    salvataggioInCorso.value = false
+    modifica.value = null
   } catch (error) {
-    console.error('Errore salvataggio configurazione:', error)
-    toast.error('Errore nel salvataggio della configurazione')
-  } finally {
-    isSavingConfig.value = false
+    console.error('Errore salvataggio impostazione:', error)
+    modifica.value.errore = 'Non sono riuscito a salvare. Riprova.'
+    salvataggioInCorso.value = false
   }
 }
 
@@ -1037,9 +1106,40 @@ const saveZoneRename = async (oldName) => {
   padding-bottom: 3rem;
 }
 
+/* Generale: righe nome-valore e finestra di modifica */
+.modifica {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.modifica__label {
+  font-size: var(--font-size-label);
+  font-weight: 500;
+}
+
+.modifica__campo {
+  padding: var(--space-8) var(--space-12);
+}
+
+.modifica__campo--numero {
+  max-width: 10rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.modifica__aiuto,
+.modifica__errore {
+  margin: 0;
+  font-size: var(--font-size-caption);
+  color: var(--text-secondary);
+}
+
+.modifica__errore {
+  color: var(--status-error);
+}
+
 /* Card Styles */
-.backup-grid,
-.config-grid {
+.backup-grid {
   display: grid;
   gap: 1.5rem;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));

@@ -5,7 +5,9 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 ## ✅ Test 1: Importazione Database
 
 - [ ] Avvia l'app con `npm run dev`
-- [ ] Verifica che si apra automaticamente la pagina `/import`
+- [ ] Verifica che si apra automaticamente la pagina `/import`: intestazione "Benvenuto" nella stessa posizione delle altre pagine, riquadro "Importa il database"
+- [ ] "Importa" e' spento finche' non scegli il file; "Scegli il file" si apre anche con Tab e Invio, e accanto compaiono nome e peso del file
+- [ ] Un file che non finisce in .sqlite da' un errore in rosso sotto il bottone
 - [ ] Esegui `python generate_mock_data.py` per creare il database
 - [ ] Importa il file `santantoniari_test.sqlite`
 - [ ] Verifica che dopo l'import vieni reindirizzato alla home
@@ -387,14 +389,21 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 - [ ] I vecchi indirizzi `#/settings?tab=dati` e `#/settings?tab=template` portano alla scheda giusta
 - [ ] "Backup automatico spento" in alto apre Dati e backup; il link di Report PDF › Tessere apre Tessera
 
-### Test 17.2: Dati e backup
+### Test 17.2: Generale
+
+- [ ] Quattro righe sotto "Valori proposti": Citta' proposta per i nuovi soci, Ricevute per blocchetto, Quota ordinaria, Quota dei nuovi soci, ognuna con il valore attuale a destra. Non c'e' piu' "Anno Riferimento Minorenni"
+- [ ] Premendo una riga (anche con Tab e Invio) si apre una finestra con il campo gia' selezionato; Invio salva, Esc annulla e il fuoco torna sulla riga
+- [ ] Le quote accettano la virgola ("27,5" diventa "€ 27,50"); 0 o 101 ricevute per blocchetto danno un errore in rosso e non salvano
+- [ ] Dopo il salvataggio la riga mostra il valore nuovo; la quota dei nuovi soci cambiata si vede in "Paga" su un socio nuovo
+
+### Test 17.3: Dati e backup
 
 - [ ] Dall'alto: Backup, Esporta, Ripristina da un file, Controllo qualita' dei dati, Zona pericolosa
 - [ ] Non c'e' piu' il riquadro "Stato salute dati" in cima (lo dice il Controllo qualita')
 - [ ] "Importa JSON" si raggiunge anche con Tab e si apre con Invio
 - [ ] Ripristina da un file chiede conferma prima di sostituire i dati
 
-### Test 17.3: Manicchie
+### Test 17.4: Manicchie
 
 - [ ] Aggiungi una manicchia (anche con Invio): compare nell'elenco e nel filtro Manicchia della pagina Soci
 - [ ] Matita: il nome diventa modificabile, Invio chiede conferma e rinomina per tutti i soci, Esc annulla

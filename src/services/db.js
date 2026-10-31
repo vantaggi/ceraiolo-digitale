@@ -1827,36 +1827,6 @@ export async function getYearlyStats(startYear, endYear) {
 }
 
 /**
- * Gets the reference year for minors list (configurable)
- * @returns {Promise<number>} The reference year for minors
- */
-export async function getMinorsReferenceYear() {
-  try {
-    const setting = await getSetting('minorsReferenceYear')
-    return setting || new Date().getFullYear()
-  } catch (error) {
-    console.error('Error getting minors reference year:', error)
-    return new Date().getFullYear()
-  }
-}
-
-/**
- * Sets the reference year for minors list
- * @param {number} year - The reference year
- * @returns {Promise<void>}
- */
-export async function setMinorsReferenceYear(year) {
-  try {
-    await updateSetting('minorsReferenceYear', year)
-  } catch (error) {
-    console.error('Error setting minors reference year:', error)
-    throw new Error(
-      `Errore nel salvataggio dell'anno di riferimento per i minorenni: ${error.message}`,
-    )
-  }
-}
-
-/**
  * Retrieves demographic statistics for a specific year
  * @param {number} year - The reference year
  * @returns {Promise<Object>} Stats object (ageGroups, places, total)
