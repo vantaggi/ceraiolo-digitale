@@ -1,79 +1,64 @@
 <template>
-  <div class="socio-detail">
-    <!-- Loading State -->
-    <div v-if="loading" class="loading-container">
-      <div class="spinner"></div>
-      <p>Caricamento dati socio...</p>
-    </div>
+  <div class="scheda">
+    <p v-if="loading" class="scheda__stato" role="status">
+      <AppIcon name="caricamento" spin /> Caricamento della scheda…
+    </p>
 
-    <!-- Error State -->
-    <div v-else-if="error" class="error-container">
-      <h2><AppIcon name="errore" /> Errore</h2>
+    <div v-else-if="error" class="scheda__stato scheda__stato--errore" role="alert">
+      <h1><AppIcon name="errore" /> Scheda non aperta</h1>
       <p>{{ error }}</p>
-      <router-link to="/" class="back-button">
-        <AppIcon name="indietro" /> Torna alla ricerca
-      </router-link>
+      <RouterLink to="/" class="scheda__torna">
+        <AppIcon name="indietro" /> Torna ai soci
+      </RouterLink>
     </div>
 
-    <!-- Main Content -->
-    <div v-else-if="socio" class="detail-content">
-      <!-- Header con nome e azioni -->
-      <PageHeader :title="`${socio.cognome} ${socio.nome}`" back-to="/" back-label="Lista">
+    <template v-else-if="socio">
+      <PageHeader :title="`${socio.cognome} ${socio.nome}`" back-to="/" back-label="Soci">
         <template #nav>
-          <div class="nav-buttons" v-if="prevSocioId || nextSocioId">
-            <router-link
-              v-if="prevSocioId"
-              :to="'/socio/' + prevSocioId"
-              class="nav-btn"
-              title="Precedente"
-              >
-              <AppIcon name="precedente" /> Prec</router-link
-            >
-            <router-link
-              v-if="nextSocioId"
-              :to="'/socio/' + nextSocioId"
-              class="nav-btn"
-              title="Successivo"
-              >
-              Succ <AppIcon name="successivo" /></router-link
-            >
+          <div v-if="prevSocioId || nextSocioId" class="scheda__scorri">
+            <RouterLink v-if="prevSocioId" :to="'/socio/' + prevSocioId" title="Socio precedente">
+              <AppIcon name="precedente" /> Prec
+            </RouterLink>
+            <RouterLink v-if="nextSocioId" :to="'/socio/' + nextSocioId" title="Socio successivo">
+              Succ <AppIcon name="successivo" />
+            </RouterLink>
           </div>
         </template>
         <template #actions>
-          <div class="header-actions">
+          <div class="scheda__azioni">
             <BaseButton :loading="stampaTessera" :disabled="editMode" @click="generaTessera">
               <AppIcon name="tessera" /> Tessera {{ annoCorrente }}
             </BaseButton>
-            <BaseButton :loading="isSaving" @click="toggleEditMode">
-              <AppIcon :name="editMode ? 'conferma' : 'modifica'" />
-              {{ editMode ? 'Salva' : 'Modifica' }}
-            </BaseButton>
-            <BaseButton
-              v-if="annoProposto"
-              variant="primary"
-              :disabled="editMode"
-              @click="payYear(annoProposto)"
-            >
-              <AppIcon name="pagamento" /> Paga {{ annoProposto }}
-            </BaseButton>
+            <template v-if="!editMode">
+              <BaseButton ref="bottoneModifica" @click="apriModifica">
+                <AppIcon name="modifica" /> Modifica
+              </BaseButton>
+              <BaseButton v-if="annoProposto" variant="primary" @click="payYear(annoProposto)">
+                <AppIcon name="pagamento" /> Paga {{ annoProposto }}
+              </BaseButton>
+            </template>
           </div>
         </template>
       </PageHeader>
 
-      <!-- Riepilogo: le tre domande che si fanno su un socio -->
+      <!-- Riepilogo in una riga: le tre domande che si fanno su un socio (bozza 1B) -->
       <dl class="riepilogo" aria-label="Riepilogo del socio">
-        <div class="riepilogo__voce" :class="`riepilogo__voce--${CLASSI_QUOTA[riepilogo.quota]}`">
+        <div class="riepilogo__voce">
           <dt>Quota {{ riepilogo.anno }}</dt>
-          <dd>{{ TESTI_STATO_ANNO[riepilogo.quota] }}</dd>
+          <dd :class="`tono--${TONI_QUOTA[riepilogo.quota]}`">
+            <AppIcon
+              v-if="ICONE_TONO[TONI_QUOTA[riepilogo.quota]]"
+              :name="ICONE_TONO[TONI_QUOTA[riepilogo.quota]]"
+            />
+            {{ TESTI_STATO_ANNO[riepilogo.quota] }}
+          </dd>
         </div>
-        <div
-          class="riepilogo__voce"
-          :class="`riepilogo__voce--${riepilogo.pagamento.inRegola ? 'ok' : riepilogo.pagamento.daReiscrivere ? 'errore' : 'attenzione'}`"
-        >
+        <div class="riepilogo__voce">
           <dt>Arretrati</dt>
-          <dd>
+          <dd :class="`tono--${tonoArretrati}`">
             <template v-if="riepilogo.pagamento.daReiscrivere">
-              Da reiscrivere: fermo da più di {{ MAX_ANNI_ARRETRATI }} anni
+              <AppIcon name="errore" /> Da reiscrivere: fermo da più di
+              {{ MAX_ANNI_ARRETRATI }} anni
             </template>
             <template v-else-if="riepilogo.pagamento.arretrati.length > 0">
               {{ riepilogo.pagamento.arretrati.join(', ') }}
@@ -81,300 +66,330 @@
             <template v-else>Nessuno</template>
           </dd>
         </div>
-        <div class="riepilogo__voce" :class="`riepilogo__voce--${CLASSI_VOTO[riepilogo.voto.stato]}`">
+        <div class="riepilogo__voce">
           <dt>Voto alle elezioni {{ riepilogo.anno }}</dt>
-          <dd>
+          <dd :class="`tono--${TONI_VOTO[riepilogo.voto.stato]}`">
+            <AppIcon
+              v-if="ICONE_TONO[TONI_VOTO[riepilogo.voto.stato]]"
+              :name="ICONE_TONO[TONI_VOTO[riepilogo.voto.stato]]"
+            />
             {{ TESTI_VOTO[riepilogo.voto.stato] }}
-            <span v-if="riepilogo.voto.motivo" class="riepilogo__motivo">
-              {{ riepilogo.voto.motivo }}
-            </span>
+          </dd>
+          <dd v-if="riepilogo.voto.motivo" class="riepilogo__motivo">
+            {{ riepilogo.voto.motivo }}
           </dd>
         </div>
       </dl>
 
-      <!-- Sezione Dati Anagrafici -->
-      <section class="info-section">
-        <h2><AppIcon name="anagrafica" /> Dati Anagrafici</h2>
-        <div class="info-grid">
-          <div class="info-item">
-            <span class="label">Cognome</span>
-            <input v-if="editMode" v-model="socio.cognome" type="text" class="edit-input" />
-            <span v-else class="value">{{ socio.cognome }}</span>
-          </div>
-
-          <div class="info-item">
-            <span class="label">Nome</span>
-            <input v-if="editMode" v-model="socio.nome" type="text" class="edit-input" />
-            <span v-else class="value">{{ socio.nome }}</span>
-          </div>
-
-          <div class="info-item">
-            <span class="label">Data di Nascita</span>
-            <input v-if="editMode" v-model="socio.data_nascita" type="date" class="edit-input" />
-            <span v-else class="value">
-              {{ formatDate(socio.data_nascita) }}
-              <span class="age-badge" :class="{ minor: isMinor }"> {{ calculateAge }} anni </span>
-            </span>
-          </div>
-
-          <div class="info-item">
-            <span class="label">Luogo di Nascita</span>
-            <input v-if="editMode" v-model="socio.luogo_nascita" type="text" class="edit-input" />
-            <span v-else class="value">{{ socio.luogo_nascita }}</span>
-          </div>
-
-          <div class="info-item">
-            <span class="label">Manicchia di Appartenenza</span>
-            <input
-              v-if="editMode"
-              v-model="socio.gruppo_appartenenza"
-              type="text"
-              class="edit-input"
-            />
-            <span v-else class="value">{{ socio.gruppo_appartenenza }}</span>
-          </div>
-
-          <div class="info-item">
-            <span class="label">Prima Iscrizione</span>
-            <input
-              v-if="editMode"
-              v-model.number="socio.data_prima_iscrizione"
-              type="number"
-              class="edit-input"
-            />
-            <span v-else class="value">{{ primaIscrizioneDisplay }}</span>
-          </div>
-        </div>
-
-        <!-- Note -->
-        <div class="notes-section">
-          <span class="label"><AppIcon name="nota" /> Note</span>
-          <textarea
-            v-if="editMode"
-            v-model="socio.note"
-            class="edit-textarea"
-            rows="3"
-            placeholder="Aggiungi note..."
-          ></textarea>
-          <p v-else class="notes-text">
-            {{ socio.note || 'Nessuna nota disponibile' }}
-          </p>
-        </div>
-      </section>
-
-      <!-- Pagamenti: una riga per anno -->
-      <section class="payments-section" aria-labelledby="titolo-pagamenti">
-        <h2 id="titolo-pagamenti"><AppIcon name="quota" /> Pagamenti</h2>
-        <div class="tabella-scorre">
-          <table class="pagamenti">
-            <thead>
-              <tr>
-                <th scope="col">Anno</th>
-                <th scope="col">Stato</th>
-                <th scope="col">Data</th>
-                <th scope="col" class="pagamenti__numero">Quota</th>
-                <th scope="col">Ricevuta / blocchetto</th>
-                <th scope="col"><span class="sr-only">Azioni</span></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="riga in cronologia"
-                :key="riga.chiave"
-                :class="{ 'pagamenti__riga--futura': riga.anno > annoCorrente }"
-              >
-                <th scope="row">{{ riga.anno }}</th>
-                <td>
-                  <span class="stato" :class="`stato--${CLASSI_QUOTA[riga.stato]}`">
-                    <span aria-hidden="true">{{ riga.stato }}</span> {{ TESTI_STATO_ANNO[riga.stato] }}
-                  </span>
-                </td>
-                <template v-if="riga.pagamento">
-                  <td>{{ formatDate(riga.pagamento.data_pagamento) }}</td>
-                  <td class="pagamenti__numero">
-                    <span
-                      v-if="editingQuotaId === riga.pagamento.id_tesseramento"
-                      class="quota-modifica"
-                    >
-                      <label :for="`quota-${riga.chiave}`" class="sr-only">
-                        Quota {{ riga.anno }}
-                      </label>
-                      €
-                      <input
-                        :id="`quota-${riga.chiave}`"
-                        v-model="editQuotaValue"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        class="quota-modifica__input"
-                        @keydown.enter="saveQuotaStatus(riga.pagamento.id_tesseramento)"
-                        @keydown.esc="cancelEditQuota"
-                      />
-                      <button
-                        type="button"
-                        class="icona-btn"
-                        aria-label="Salva quota"
-                        :disabled="saveQuotaLoading"
-                        @click="saveQuotaStatus(riga.pagamento.id_tesseramento)"
-                      >
-                        <AppIcon name="conferma" />
-                      </button>
-                      <button
-                        type="button"
-                        class="icona-btn"
-                        aria-label="Annulla modifica quota"
-                        @click="cancelEditQuota"
-                      >
-                        <AppIcon name="chiudi" />
-                      </button>
-                    </span>
-                    <template v-else>€ {{ euro(riga.pagamento.quota_pagata) }}</template>
-                  </td>
+      <div class="scheda__corpo">
+        <!-- Pagamenti: una riga per anno -->
+        <section class="scheda__sezione" aria-labelledby="titolo-pagamenti">
+          <h2 id="titolo-pagamenti" class="scheda__titolo">Pagamenti</h2>
+          <div class="gruppo tabella-scorre">
+            <table class="pagamenti">
+              <thead>
+                <tr>
+                  <th scope="col">Anno</th>
+                  <th scope="col">Stato</th>
+                  <th scope="col">Data</th>
+                  <th scope="col" class="pagamenti__numero">Quota</th>
+                  <th scope="col">Ricevuta</th>
+                  <th scope="col"><span class="sr-only">Azioni</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="riga in cronologia"
+                  :key="riga.chiave"
+                  :class="{ 'pagamenti__riga--futura': riga.anno > annoCorrente }"
+                >
+                  <th scope="row">{{ riga.anno }}</th>
                   <td>
-                    {{ riga.pagamento.numero_ricevuta || '-' }} /
-                    {{ riga.pagamento.numero_blocchetto || '-' }}
+                    <span class="stato" :class="`tono--${TONI_QUOTA[riga.stato]}`">
+                      <AppIcon
+                        v-if="ICONE_TONO[TONI_QUOTA[riga.stato]]"
+                        :name="ICONE_TONO[TONI_QUOTA[riga.stato]]"
+                      />
+                      {{ TESTI_STATO_ANNO[riga.stato] }}
+                    </span>
                   </td>
-                  <td class="pagamenti__azioni">
-                    <button
-                      v-if="editingQuotaId !== riga.pagamento.id_tesseramento"
-                      type="button"
-                      class="icona-btn"
-                      :aria-label="`Modifica la quota del ${riga.anno}`"
-                      :title="`Modifica la quota del ${riga.anno}`"
-                      @click="startEditQuota(riga.pagamento)"
-                    >
-                      <AppIcon name="modifica" />
-                    </button>
-                    <button
-                      type="button"
-                      class="icona-btn icona-btn--pericolo"
-                      :aria-label="`Elimina il pagamento del ${riga.anno}`"
-                      :title="`Elimina il pagamento del ${riga.anno}`"
-                      @click="deleteTesseramento(riga.pagamento.id_tesseramento)"
-                    >
-                      <AppIcon name="elimina" />
-                    </button>
-                  </td>
-                </template>
-                <template v-else>
-                  <td colspan="3" class="pagamenti__vuoto">-</td>
-                  <td class="pagamenti__azioni">
-                    <button
-                      v-if="riga.stato !== '-' && riga.anno !== annoProposto"
-                      type="button"
-                      class="link-btn"
-                      @click="payYear(riga.anno)"
-                    >
-                      Paga {{ riga.anno }}
-                    </button>
-                  </td>
-                </template>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
+                  <template v-if="riga.pagamento">
+                    <td class="pagamenti__cifre">
+                      {{ dataItaliana(riga.pagamento.data_pagamento) }}
+                    </td>
+                    <td class="pagamenti__numero">
+                      <span
+                        v-if="editingQuotaId === riga.pagamento.id_tesseramento"
+                        class="quota-modifica"
+                      >
+                        <label :for="`quota-${riga.chiave}`" class="sr-only">
+                          Quota {{ riga.anno }}
+                        </label>
+                        €
+                        <input
+                          :id="`quota-${riga.chiave}`"
+                          v-model="editQuotaValue"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          class="quota-modifica__input"
+                          @keydown.enter="saveQuotaStatus(riga.pagamento.id_tesseramento)"
+                          @keydown.esc="cancelEditQuota"
+                        />
+                        <button
+                          type="button"
+                          class="icona-btn"
+                          aria-label="Salva quota"
+                          :disabled="saveQuotaLoading"
+                          @click="saveQuotaStatus(riga.pagamento.id_tesseramento)"
+                        >
+                          <AppIcon name="conferma" />
+                        </button>
+                        <button
+                          type="button"
+                          class="icona-btn"
+                          aria-label="Annulla modifica quota"
+                          @click="cancelEditQuota"
+                        >
+                          <AppIcon name="chiudi" />
+                        </button>
+                      </span>
+                      <template v-else>€ {{ euro(riga.pagamento.quota_pagata) }}</template>
+                    </td>
+                    <td class="pagamenti__ricevuta">{{ testoRicevuta(riga.pagamento) }}</td>
+                    <td class="pagamenti__azioni">
+                      <button
+                        v-if="editingQuotaId !== riga.pagamento.id_tesseramento"
+                        type="button"
+                        class="icona-btn"
+                        :aria-label="`Modifica la quota del ${riga.anno}`"
+                        :title="`Modifica la quota del ${riga.anno}`"
+                        @click="startEditQuota(riga.pagamento)"
+                      >
+                        <AppIcon name="modifica" />
+                      </button>
+                      <button
+                        type="button"
+                        class="icona-btn icona-btn--pericolo"
+                        :aria-label="`Elimina il pagamento del ${riga.anno}`"
+                        :title="`Elimina il pagamento del ${riga.anno}`"
+                        @click="eliminaPagamento(riga)"
+                      >
+                        <AppIcon name="elimina" />
+                      </button>
+                    </td>
+                  </template>
+                  <template v-else>
+                    <td colspan="3"></td>
+                    <td class="pagamenti__azioni">
+                      <button
+                        v-if="riga.stato !== '-'"
+                        type="button"
+                        class="link-btn"
+                        @click="payYear(riga.anno)"
+                      >
+                        Paga {{ riga.anno }}
+                      </button>
+                    </td>
+                  </template>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
 
-      <!-- Azioni rare, in fondo -->
+        <!-- Anagrafica: righe nome-valore; Modifica apre il modulo del Nuovo socio (bozza 3A) -->
+        <ListRows v-if="!editMode" title="Anagrafica" :rows="righeAnagrafica" />
+
+        <section v-else class="scheda__sezione" aria-labelledby="titolo-modifica">
+          <h2 id="titolo-modifica" class="scheda__titolo">Modifica anagrafica</h2>
+          <form
+            class="gruppo modifica"
+            novalidate
+            @submit.prevent="salvaModifiche"
+            @keydown.esc="annullaModifica"
+          >
+            <ModuloSocio
+              ref="modulo"
+              v-model:dati="bozza"
+              id-prefisso="scheda"
+              :manicchie="manicchie"
+              :anno-predefinito="primaIscrizioneDisplay"
+              :mostra-errori="tentato"
+              :disabilitato="isSaving"
+              compatto
+            />
+            <div class="modifica__azioni">
+              <BaseButton variant="ghost" :disabled="isSaving" @click="annullaModifica">
+                Annulla
+              </BaseButton>
+              <BaseButton type="submit" variant="primary" :loading="isSaving">
+                <AppIcon name="salva" /> Salva le modifiche
+              </BaseButton>
+            </div>
+          </form>
+        </section>
+      </div>
+
+      <!-- Azioni rare, in fondo; la pericolosa a destra e non piena -->
       <section class="altre-azioni" aria-labelledby="titolo-altre-azioni">
-        <h2 id="titolo-altre-azioni">Altre azioni</h2>
-        <div class="altre-azioni__elenco">
-          <BaseButton variant="ghost" @click="exportSocio">
-            <AppIcon name="esporta" /> Esporta i dati del socio (JSON)
-          </BaseButton>
-          <BaseButton variant="danger" :disabled="isDeleting || editMode" @click="showDeleteModal">
-            <AppIcon name="elimina" /> Elimina socio
-          </BaseButton>
-        </div>
+        <h2 id="titolo-altre-azioni" class="scheda__titolo">Altre azioni</h2>
+        <BaseButton @click="exportSocio">
+          <AppIcon name="esporta" /> Esporta i dati del socio (JSON)
+        </BaseButton>
+        <BaseButton
+          class="altre-azioni__elimina"
+          :disabled="isDeleting || editMode"
+          @click="showDeleteModal"
+        >
+          <AppIcon name="elimina" /> Elimina socio…
+        </BaseButton>
       </section>
 
-      <!-- Modal Aggiungi Pagamento -->
       <AddPaymentModal
         :show="showAddPaymentModal"
         :socio-id="socio?.id?.toString()"
         :years-to-pay="paymentYearToAdd ? [paymentYearToAdd] : []"
-        :anno-riferimento="paymentYearToAdd || new Date().getFullYear()"
+        :anno-riferimento="paymentYearToAdd || annoCorrente"
         @payments-saved="handlePaymentSaved"
         @close="closeAddPaymentModal"
       />
 
-      <!-- Modal Conferma Eliminazione -->
       <ConfirmDeleteModal
         :is-visible="showDeleteConfirmModal"
-        :socio-name="socio ? `${socio.cognome} ${socio.nome}` : ''"
+        :socio-name="`${socio.cognome} ${socio.nome}`"
         @close="closeDeleteModal"
         @confirm="confirmDeleteSocio"
       />
-    </div>
+    </template>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch, onBeforeUnmount } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { ref, computed, nextTick, onMounted, watch, onBeforeUnmount } from 'vue'
+import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { useToast } from 'vue-toastification'
 import { askConfirm } from '@/composables/useDialog'
 import {
-  db,
   getSocioById,
   getTesseramentiBySocioId,
   addTesseramento,
   deleteSocio,
+  deleteTesseramento,
+  updateSocio,
   updateTesseramentoQuota,
+  getUniqueGroups,
+  addCustomGroup,
 } from '@/services/db'
 import { generateSingleCardPDF } from '@/services/export'
 import { annoDaPagare, cronologiaSocio, riepilogoSocio } from '@/utils/schedaSocio'
 import { isMinorenne, MAX_ANNI_ARRETRATI, TESTI_STATO_ANNO } from '@/utils/payment'
 import { annoIscrizione } from '@/utils/iscrizione'
+import { euro } from '@/utils/registrazione'
+import { datiDaSalvare } from '@/utils/socio'
+import { SENZA_MANICCHIA } from '@/utils/aventiDiritto'
 import BaseButton from '@/components/base/BaseButton.vue'
+import ListRows from '@/components/base/ListRows.vue'
 import AddPaymentModal from '@/components/AddPaymentModal.vue'
 import ConfirmDeleteModal from '@/components/ConfirmDeleteModal.vue'
+import ModuloSocio from '@/components/ModuloSocio.vue'
 import AppIcon from '@/components/base/AppIcon.vue'
 import PageHeader from '@/components/base/PageHeader.vue'
 
 const route = useRoute()
+const router = useRouter()
+const toast = useToast()
 
-// Stato del componente
 const socio = ref(null)
 const tesseramenti = ref([])
 const loading = ref(true)
 const error = ref(null)
-const editMode = ref(false)
-const isSaving = ref(false)
 const showAddPaymentModal = ref(false)
-const paymentYearToAdd = ref(new Date().getFullYear())
+const paymentYearToAdd = ref(null)
 const showDeleteConfirmModal = ref(false)
 const isDeleting = ref(false)
 
-// Dirty check for unsaved changes
-const originalMemberData = ref(null)
-const hasUnsavedChanges = ref(false)
-
-// Edit Quota State
-const editingQuotaId = ref(null)
-const editQuotaValue = ref(0)
-const saveQuotaLoading = ref(false)
-
-// Toast notifications
-const toast = useToast()
-const router = useRouter()
-
-// Navigation State
+// Navigazione tra i soci dell'ultima ricerca
 const prevSocioId = ref(null)
 const nextSocioId = ref(null)
 
-// Testi e colori degli stati, come nei report (V, X, O, -)
-const CLASSI_QUOTA = { V: 'ok', X: 'errore', O: 'attenzione', '-': 'neutro' }
+// Stato -> tono (colore e icona). Lo stato si legge sempre anche a parole.
+const TONI_QUOTA = { V: 'ok', X: 'errore', O: 'neutro', '-': 'neutro' }
 const TESTI_VOTO = { si: 'Sì', regolarizza: 'Dopo gli arretrati', no: 'No' }
-const CLASSI_VOTO = { si: 'ok', regolarizza: 'attenzione', no: 'neutro' }
+const TONI_VOTO = { si: 'ok', regolarizza: 'attenzione', no: 'neutro' }
+const ICONE_TONO = { ok: 'ok', errore: 'errore', attenzione: 'attenzione' }
 
 const annoCorrente = new Date().getFullYear()
 const annoProposto = computed(() => annoDaPagare(tesseramenti.value, annoCorrente))
 const riepilogo = computed(() => riepilogoSocio(socio.value, tesseramenti.value, annoCorrente))
 const cronologia = computed(() => cronologiaSocio(socio.value, tesseramenti.value, annoCorrente))
-const euro = (valore) => Number(valore || 0).toFixed(2)
+const tonoArretrati = computed(() => {
+  const p = riepilogo.value.pagamento
+  if (p.daReiscrivere) return 'errore'
+  return p.arretrati.length > 0 ? 'attenzione' : 'neutro'
+})
 
-// Tessera dell'anno in corso, come dalla scheda nella Home
+/** Date all'italiana: 2024-01-18 -> 18/01/2024. */
+const dataItaliana = (valore) => {
+  if (!valore) return ''
+  const data = new Date(valore)
+  if (isNaN(data)) return String(valore)
+  return data.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
+const testoRicevuta = (p) => {
+  if (!p.numero_ricevuta && !p.numero_blocchetto) return ''
+  if (!p.numero_blocchetto) return String(p.numero_ricevuta)
+  return `${p.numero_ricevuta || '?'}, blocchetto ${p.numero_blocchetto}`
+}
+
+/** Eta' compiuta oggi, dal compleanno; minorenne invece dal solo anno di nascita. */
+const eta = computed(() => {
+  const nascita = new Date(socio.value?.data_nascita)
+  if (isNaN(nascita)) return null
+  const oggi = new Date()
+  let anni = oggi.getFullYear() - nascita.getFullYear()
+  const mese = oggi.getMonth() - nascita.getMonth()
+  if (mese < 0 || (mese === 0 && oggi.getDate() < nascita.getDate())) anni--
+  return anni
+})
+
+/** Anno di iscrizione: il primo tra l'anno dichiarato e il primo pagamento (glossario). */
+const primaIscrizioneDisplay = computed(() => {
+  const anni = tesseramenti.value.map((t) => Number(t.anno))
+  return annoIscrizione(socio.value, anni) ?? annoCorrente
+})
+
+const righeAnagrafica = computed(() => {
+  const s = socio.value
+  const nascita = [dataItaliana(s.data_nascita), s.luogo_nascita].filter(Boolean).join(', ')
+  const dettagli = []
+  if (eta.value !== null) dettagli.push(`${eta.value} anni`)
+  if (isMinorenne(s.data_nascita, annoCorrente)) dettagli.push(`minorenne nel ${annoCorrente}`)
+  return [
+    {
+      id: 'nascita',
+      label: 'Nascita',
+      value: [nascita || 'Non indicata', ...dettagli].join(' · '),
+      readonly: true,
+    },
+    {
+      id: 'manicchia',
+      label: 'Manicchia',
+      value: s.gruppo_appartenenza || SENZA_MANICCHIA,
+      readonly: true,
+    },
+    {
+      id: 'iscrizione',
+      label: 'Anno di iscrizione',
+      value: String(primaIscrizioneDisplay.value),
+      readonly: true,
+    },
+    { id: 'note', label: 'Note', value: s.note || 'Nessuna', readonly: true },
+  ]
+})
+
+// ---- Tessera dell'anno in corso ----
 const stampaTessera = ref(false)
 const generaTessera = async () => {
   stampaTessera.value = true
@@ -388,31 +403,53 @@ const generaTessera = async () => {
   }
 }
 
-/**
- * Calcola ID precedente/successivo basandosi sulla lista in localStorage
- */
 const calculateNavigation = () => {
   try {
     const stored = localStorage.getItem('search_context_ids')
-    if (stored) {
-      const ids = JSON.parse(stored)
-      const currentId = parseInt(route.params.id)
-      const idx = ids.indexOf(currentId)
-
-      if (idx !== -1) {
-        prevSocioId.value = idx > 0 ? ids[idx - 1] : null
-        nextSocioId.value = idx < ids.length - 1 ? ids[idx + 1] : null
-      } else {
-        prevSocioId.value = null
-        nextSocioId.value = null
-      }
-    }
+    if (!stored) return
+    const ids = JSON.parse(stored)
+    const idx = ids.indexOf(parseInt(route.params.id))
+    prevSocioId.value = idx > 0 ? ids[idx - 1] : null
+    nextSocioId.value = idx !== -1 && idx < ids.length - 1 ? ids[idx + 1] : null
   } catch (e) {
-    console.error('Nav calc error', e)
+    console.error('Navigazione tra i soci non calcolata', e)
   }
 }
 
-// ---- Modifica Quota Logic ----
+const loadSocioData = async () => {
+  loading.value = true
+  error.value = null
+  try {
+    const socioId = parseInt(route.params.id)
+    socio.value = await getSocioById(socioId)
+    if (!socio.value) {
+      error.value = 'Il socio non è in archivio: forse è stato eliminato.'
+      return
+    }
+    tesseramenti.value = await getTesseramentiBySocioId(socioId)
+    calculateNavigation()
+  } catch (err) {
+    console.error('Errore nel caricamento:', err)
+    error.value = 'Non sono riuscito a leggere il socio: ' + err.message
+  } finally {
+    loading.value = false
+  }
+}
+
+watch(
+  () => route.params.id,
+  (nuovo) => {
+    if (!nuovo) return
+    editMode.value = false
+    loadSocioData()
+  },
+)
+
+// ---- Quota di un pagamento ----
+const editingQuotaId = ref(null)
+const editQuotaValue = ref(0)
+const saveQuotaLoading = ref(false)
+
 const startEditQuota = (tesseramento) => {
   editingQuotaId.value = tesseramento.id_tesseramento
   editQuotaValue.value = Number(tesseramento.quota_pagata || 0)
@@ -426,170 +463,104 @@ const cancelEditQuota = () => {
 const saveQuotaStatus = async (id_tesseramento) => {
   try {
     saveQuotaLoading.value = true
-    const newQuota = Number(editQuotaValue.value)
-
-    // Fallback import: updateTesseramentoQuota is now exported from db.js
-    await updateTesseramentoQuota(id_tesseramento, newQuota)
-
-    toast.success('Quota aggiornata con successo!')
-    await loadSocioData() // Ricarica tutto
-  } catch (error) {
-    console.error('Errore aggiornamento quota:', error)
-    toast.error('Errore durante l\'aggiornamento della quota: ' + error.message)
+    await updateTesseramentoQuota(id_tesseramento, Number(editQuotaValue.value))
+    toast.success('Quota aggiornata')
+    await loadSocioData()
+  } catch (err) {
+    console.error('Errore aggiornamento quota:', err)
+    toast.error('Quota non aggiornata: ' + err.message)
   } finally {
     saveQuotaLoading.value = false
     cancelEditQuota()
   }
 }
 
-// Watch per ricaricare i dati se cambia l'URL (navigazione next/prev)
-watch(
-  () => route.params.id,
-  (newId) => {
-    if (newId) loadSocioData()
-  },
+// ---- Modifica dell'anagrafica (bozza 3A): stesso modulo e stesse regole del Nuovo socio ----
+const editMode = ref(false)
+const isSaving = ref(false)
+const tentato = ref(false)
+const modulo = ref(null)
+const manicchie = ref([])
+const bozza = ref({})
+let originale = ''
+
+const CAMPI = [
+  'cognome',
+  'nome',
+  'data_nascita',
+  'luogo_nascita',
+  'gruppo_appartenenza',
+  'data_prima_iscrizione',
+  'note',
+]
+const campiDi = (s) => Object.fromEntries(CAMPI.map((c) => [c, s?.[c] ?? '']))
+const modificheNonSalvate = computed(
+  () => editMode.value && JSON.stringify(bozza.value) !== originale,
 )
 
-/**
- * Calcola l'età del socio
- */
-const calculateAge = computed(() => {
-  if (!socio.value?.data_nascita) return '?'
-
-  const birthDate = new Date(socio.value.data_nascita)
-  const today = new Date()
-  let age = today.getFullYear() - birthDate.getFullYear()
-  const monthDiff = today.getMonth() - birthDate.getMonth()
-
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-    age--
-  }
-
-  return age
-})
-
-/**
- * Verifica se è minorenne
- */
-const isMinor = computed(() =>
-  isMinorenne(socio.value?.data_nascita, new Date().getFullYear()),
-)
-
-/**
- * Anno di iscrizione: il primo tra l'anno dichiarato e il primo pagamento (glossario,
- * utils/iscrizione.js). Senza nessuno dei due, l'anno in corso.
- */
-const primaIscrizioneDisplay = computed(() => {
-  if (!socio.value) return '-'
-  const anni = (tesseramenti.value || []).map((t) => Number(t.anno))
-  return annoIscrizione(socio.value, anni) ?? new Date().getFullYear()
-})
-
-/**
- * Formatta una data
- */
-const formatDate = (dateString) => {
-  if (!dateString) return 'N/D'
-
+const apriModifica = async () => {
+  if (editMode.value || !socio.value) return
   try {
-    const date = new Date(dateString)
-    return date
-      .toLocaleDateString('it-IT', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-      })
-      .replace(/\//g, '-')
-  } catch {
-    return dateString
-  }
-}
-
-/**
- * Carica i dati del socio e i suoi tesseramenti
- */
-const loadSocioData = async () => {
-  loading.value = true
-  error.value = null
-
-  try {
-    const socioId = parseInt(route.params.id)
-
-    // Carica dati socio
-    socio.value = await getSocioById(socioId)
-
-    if (!socio.value) {
-      error.value = 'Socio non trovato'
-      return
-    }
-
-    // Carica tesseramenti
-    tesseramenti.value = await getTesseramentiBySocioId(socioId)
-
-    calculateNavigation()
-
+    manicchie.value = await getUniqueGroups()
   } catch (err) {
-    console.error('Errore nel caricamento:', err)
-    error.value = 'Errore nel caricamento dei dati: ' + err.message
-  } finally {
-    loading.value = false
+    console.warn('Manicchie non lette', err)
+    manicchie.value = []
   }
+  bozza.value = campiDi(socio.value)
+  originale = JSON.stringify(bozza.value)
+  tentato.value = false
+  editMode.value = true
 }
 
-/**
- * Attiva/disattiva la modalità modifica o salva i dati
- */
-const toggleEditMode = async () => {
-  if (editMode.value) {
-    // Salva modifiche
-    await saveSocioChanges()
-  } else {
-    // Entra in modalità modifica
-    editMode.value = true
-  }
+const bottoneModifica = ref(null)
+
+/** Chiude il modulo e riporta il fuoco su Modifica, da dove si era partiti. */
+const chiudiModifica = async () => {
+  editMode.value = false
+  await nextTick()
+  bottoneModifica.value?.$el?.focus()
 }
 
-/**
- * Salva le modifiche ai dati anagrafici del socio
- */
-const saveSocioChanges = async () => {
-  //const oldData = { ...socio.value }
-  if (!socio.value) return
+const annullaModifica = () => {
+  if (isSaving.value) return
+  chiudiModifica()
+}
 
+const salvaModifiche = async () => {
+  if (isSaving.value || !socio.value) return
+  tentato.value = true
+  if (modulo.value?.vaiAlPrimoErrore()) return
+
+  isSaving.value = true
   try {
-    isSaving.value = true
-    const newData = {
-      cognome: socio.value.cognome,
-      nome: socio.value.nome,
-      data_nascita: socio.value.data_nascita,
-      luogo_nascita: socio.value.luogo_nascita,
-      gruppo_appartenenza: socio.value.gruppo_appartenenza,
-      data_prima_iscrizione: socio.value.data_prima_iscrizione,
-      note: socio.value.note,
-      timestamp_modifica: Date.now(),
+    const dati = datiDaSalvare(bozza.value)
+    // Un anno di prima iscrizione cancellato si cancella anche in archivio
+    dati.data_prima_iscrizione = dati.data_prima_iscrizione ?? null
+
+    const manicchia = dati.gruppo_appartenenza
+    if (manicchia && !manicchie.value.includes(manicchia)) {
+      try {
+        await addCustomGroup(manicchia)
+      } catch (err) {
+        console.warn('Manicchia nuova non aggiunta alla lista', err)
+      }
     }
 
-    await db.soci.update(socio.value.id, newData)
-
-    // Logga la modifica per il tracking
-    // await logLocalChange('soci', socio.value.id, 'update', oldData, newData)
-
-    editMode.value = false
-    toast.success('Modifiche salvate con successo!')
+    // updateSocio registra la modifica: compare in Home › Ultime modifiche
+    await updateSocio(socio.value.id, { ...dati, timestamp_modifica: Date.now() })
+    socio.value = { ...socio.value, ...dati }
+    toast.success('Modifiche salvate')
+    chiudiModifica()
   } catch (err) {
     console.error('Errore nel salvataggio socio:', err)
-    toast.error('Errore nel salvataggio: ' + err.message)
+    toast.error('Modifiche non salvate: ' + err.message)
   } finally {
     isSaving.value = false
   }
 }
 
-/**
- * Esporta i dati del socio corrente in formato JSON
- */
-const exportSocio = async () => {
+const exportSocio = () => {
   if (!socio.value) return
-
   try {
     const exportData = {
       export_type: 'single_socio',
@@ -602,11 +573,8 @@ const exportSocio = async () => {
         anni_totali_cronologia: cronologia.value.length,
       },
     }
-
-    const jsonString = JSON.stringify(exportData, null, 2)
-    const blob = new Blob([jsonString], { type: 'application/json' })
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
-
     const a = document.createElement('a')
     a.href = url
     a.download = `socio_${socio.value.cognome}_${socio.value.nome}_${new Date().toISOString().split('T')[0]}.json`
@@ -616,185 +584,106 @@ const exportSocio = async () => {
     URL.revokeObjectURL(url)
   } catch (err) {
     console.error('Errore esportazione socio:', err)
-    toast.error("Errore nell'esportazione: " + err.message)
+    toast.error('Dati del socio non esportati: ' + err.message)
   }
 }
 
-/**
-/**
- * Gestisce il salvataggio di un nuovo pagamento dal modal
- */
+// ---- Pagamenti ----
 const handlePaymentSaved = async ({ details, years, socioId }) => {
   try {
-    isSaving.value = true
-
-    // Save payments for all selected years
     for (const year of years) {
-      const tesseramentoData = {
+      await addTesseramento({
         id_socio: socioId,
         anno: year,
         quota_pagata: details.quota_pagata,
         data_pagamento: details.data_pagamento,
         numero_ricevuta: details.numero_ricevuta,
         numero_blocchetto: details.numero_blocchetto,
-      }
-
-      await addTesseramento(tesseramentoData)
+      })
     }
-
-    await loadSocioData() // Ricarica i dati del socio
+    await loadSocioData()
     closeAddPaymentModal()
-    toast.success('Pagamenti registrati con successo!')
+    toast.success('Pagamento registrato')
   } catch (err) {
     console.error('Errore salvataggio pagamento:', err)
-    toast.error('Errore nel salvataggio: ' + err.message)
-  } finally {
-    isSaving.value = false
+    toast.error('Pagamento non registrato: ' + err.message)
   }
 }
 
-/**
- * Apre il modal per pagare un anno specifico
- */
 const payYear = (anno) => {
   paymentYearToAdd.value = anno
   showAddPaymentModal.value = true
 }
 
-/**
- * Chiude il modal di aggiunta pagamento
- */
 const closeAddPaymentModal = () => {
   showAddPaymentModal.value = false
   paymentYearToAdd.value = null
 }
 
-/**
- * Elimina un tesseramento
- */
-const deleteTesseramento = async (id) => {
+const eliminaPagamento = async (riga) => {
   const conferma = await askConfirm({
-    title: 'Eliminare il pagamento?',
-    message: "Il pagamento viene tolto dalla cronologia del socio. L'operazione non si annulla.",
+    title: `Eliminare il pagamento del ${riga.anno}?`,
+    message: `Il pagamento di € ${euro(riga.pagamento.quota_pagata)} viene tolto dalla scheda di ${socio.value.cognome} ${socio.value.nome}. L'operazione non si annulla.`,
     confirmLabel: 'Elimina pagamento',
     danger: true,
   })
   if (!conferma) return
 
   try {
-    await db.tesseramenti.delete(id)
+    await deleteTesseramento(riga.pagamento.id_tesseramento)
     await loadSocioData()
     toast.success('Pagamento eliminato')
   } catch (err) {
-    toast.error('Errore: ' + err.message)
+    toast.error('Pagamento non eliminato: ' + err.message)
   }
 }
 
-/**
- * Mostra il modale di conferma eliminazione socio
- */
+// ---- Eliminazione del socio ----
 const showDeleteModal = () => {
   showDeleteConfirmModal.value = true
 }
 
-/**
- * Chiudi il modale di conferma eliminazione
- */
 const closeDeleteModal = () => {
   showDeleteConfirmModal.value = false
 }
 
-/**
- * Conferma ed esegui l'eliminazione del socio
- */
 const confirmDeleteSocio = async () => {
   if (!socio.value) return
-
   try {
     isDeleting.value = true
     await deleteSocio(socio.value.id)
-    toast.success('Socio eliminato con successo!')
+    toast.success('Socio eliminato')
     router.push('/')
-  } catch (error) {
-    console.error('Errore eliminazione socio:', error)
-    toast.error("Errore durante l'eliminazione: " + error.message)
+  } catch (err) {
+    console.error('Errore eliminazione socio:', err)
+    toast.error('Socio non eliminato: ' + err.message)
     showDeleteConfirmModal.value = false
   } finally {
     isDeleting.value = false
   }
 }
 
-// Carica i dati al mount
-onMounted(() => {
-  loadSocioData()
-})
-
-// Watch for changes in edit mode to store original data
-watch(editMode, (newEditMode) => {
-  if (newEditMode && socio.value) {
-    // Store original data when entering edit mode
-    originalMemberData.value = {
-      cognome: socio.value.cognome,
-      nome: socio.value.nome,
-      data_nascita: socio.value.data_nascita,
-      luogo_nascita: socio.value.luogo_nascita,
-      gruppo_appartenenza: socio.value.gruppo_appartenenza,
-      data_prima_iscrizione: socio.value.data_prima_iscrizione,
-      note: socio.value.note,
-    }
-    hasUnsavedChanges.value = false
-  }
-})
-
-// Watch for changes in socio data during edit mode
-watch(
-  () => socio.value,
-  (newSocio) => {
-    if (editMode.value && originalMemberData.value && newSocio) {
-      hasUnsavedChanges.value =
-        newSocio.cognome !== originalMemberData.value.cognome ||
-        newSocio.nome !== originalMemberData.value.nome ||
-        newSocio.data_nascita !== originalMemberData.value.data_nascita ||
-        newSocio.luogo_nascita !== originalMemberData.value.luogo_nascita ||
-        newSocio.gruppo_appartenenza !== originalMemberData.value.gruppo_appartenenza ||
-        newSocio.data_prima_iscrizione !== originalMemberData.value.data_prima_iscrizione ||
-        newSocio.note !== originalMemberData.value.note
-    }
-  },
-  { deep: true },
-)
-
-// Prevent navigation with unsaved changes
+// ---- Tastiera e uscita con modifiche non salvate ----
 const handleBeforeUnload = (event) => {
-  if (hasUnsavedChanges.value) {
-    event.preventDefault()
-    event.returnValue = 'Hai modifiche non salvate. Vuoi davvero lasciare la pagina?'
-    return event.returnValue
-  }
+  if (!modificheNonSalvate.value) return
+  event.preventDefault()
+  event.returnValue = ''
 }
 
-// Keyboard Navigation
-// Keyboard Navigation
 const handleKeydown = (e) => {
-  // Shortcuts working everywhere (Global context of this view)
   if ((e.ctrlKey || e.metaKey) && e.key === 's') {
     e.preventDefault()
-    if (editMode.value) toggleEditMode() // Saves changes
+    if (editMode.value) salvaModifiche()
     return
   }
   if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
     e.preventDefault()
-    if (!editMode.value)
-      toggleEditMode() // Enters edit mode
-    // If already in edit mode, Ctrl+E could cancel? Or just do nothing. Let's toggle.
-    else toggleEditMode()
+    apriModifica()
     return
   }
 
-  // Ignore navigation keys if typing in input/textarea
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
-  // Ignore if modals are open
-  if (showAddPaymentModal.value || showDeleteConfirmModal.value) return
+  if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return
+  if (showAddPaymentModal.value || showDeleteConfirmModal.value || editMode.value) return
 
   if (e.key === 'j' || e.key === 'ArrowRight') {
     if (nextSocioId.value) router.push('/socio/' + nextSocioId.value)
@@ -804,8 +693,8 @@ const handleKeydown = (e) => {
   }
 }
 
-// Add beforeunload listener
 onMounted(() => {
+  loadSocioData()
   window.addEventListener('beforeunload', handleBeforeUnload)
   window.addEventListener('keydown', handleKeydown)
 })
@@ -817,226 +706,149 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.socio-detail {
-  max-width: var(--page-width);
+.scheda {
+  max-width: var(--content-max);
   margin: 0 auto;
-  padding: 2rem;
+  padding: var(--space-32);
 }
 
-/* Loading & Error States */
-.loading-container,
-.error-container {
-  text-align: center;
-  padding: 4rem 2rem;
-}
-
-.spinner {
-  width: 50px;
-  height: 50px;
-  border: 4px solid var(--color-border);
-  border-top-color: var(--color-accent);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin: 0 auto 1rem;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.error-container h2 {
-  color: var(--color-accent);
-}
-
-.back-button {
-  display: inline-block;
-  padding: 0.75rem 1.5rem;
-  background-color: var(--color-primary);
-  color: white;
-  text-decoration: none;
-  border-radius: 8px;
-  margin-top: 1rem;
-}
-
-.nav-buttons {
+/* Caricamento ed errore */
+.scheda__stato {
   display: flex;
-  gap: 4px;
-}
-
-.nav-btn {
-  text-decoration: none;
-  color: var(--color-text-secondary);
-  background: var(--color-surface);
-  padding: 3px 8px;
-  border-radius: 4px;
-  font-size: 0.8rem;
-  transition: all 0.2s;
-  border: 1px solid var(--color-border);
-  font-weight: 600;
-}
-
-.nav-btn:hover {
-  background: var(--color-primary);
-  color: white;
-  border-color: var(--color-primary);
-}
-
-.header-actions {
-  display: flex;
-  gap: 0.5rem;
   align-items: center;
-  flex-wrap: wrap;
+  gap: var(--space-8);
+  padding: var(--space-32) 0;
+  color: var(--text-secondary);
 }
 
-/* Info Section */
-.info-section {
-  background-color: var(--color-surface);
-  padding: 2rem;
-  border-radius: 12px;
-  margin-bottom: 2rem;
-  box-shadow: var(--shadow-md);
-}
-
-.info-section h2 {
-  margin-top: 0;
-  margin-bottom: 1.5rem;
-  color: var(--color-primary);
-}
-
-.info-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 2rem;
-}
-
-.info-item {
-  display: flex;
+.scheda__stato--errore {
   flex-direction: column;
-  gap: 0.5rem;
+  align-items: flex-start;
+  color: var(--text-primary);
 }
 
-.label {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.value {
-  font-size: 1.1rem;
-  color: var(--color-text-primary);
+.scheda__stato--errore h1 {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-8);
+  margin: 0;
+  font-size: var(--font-size-section-heading);
 }
 
-.age-badge {
-  display: inline-block;
-  padding: 0.25rem 0.75rem;
-  background-color: var(--color-success);
-  color: white;
-  border-radius: 12px;
-  font-size: 0.85rem;
+.scheda__stato--errore p {
+  margin: 0;
+}
+
+.scheda__torna {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  color: var(--accent-default);
   font-weight: 600;
 }
 
-.age-badge.minor {
-  background-color: var(--color-warning);
-}
-
-.edit-input,
-.edit-textarea {
-  padding: 0.75rem;
-  border: 2px solid var(--color-border);
-  border-radius: 8px;
-  font-size: 1rem;
-  font-family: var(--font-family-body);
-  transition: border-color 0.2s;
-}
-
-.edit-input:focus,
-.edit-textarea:focus {
-  outline: none;
-  border-color: var(--color-accent);
-}
-
-.notes-section {
-  margin-top: 2rem;
-  padding-top: 2rem;
-  border-top: 1px solid var(--color-border);
-}
-
-.notes-text {
-  margin: 0.5rem 0 0 0;
-  color: var(--color-text-secondary);
-  font-style: italic;
-}
-
-/* Riepilogo: quota, arretrati, voto */
-.riepilogo {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+.scheda__scorri {
+  display: flex;
   gap: var(--space-12);
-  margin: 0 0 var(--space-24);
 }
 
-.riepilogo__voce {
+.scheda__scorri a {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  color: var(--text-secondary);
+  font-size: var(--font-size-label);
+  text-decoration: none;
+}
+
+.scheda__scorri a:hover {
+  color: var(--text-primary);
+}
+
+.scheda__azioni {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+/* Riepilogo in una riga */
+.riepilogo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8) var(--space-48);
+  margin: 0 0 var(--space-24);
   padding: var(--space-12) var(--space-16);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-left: 4px solid var(--color-border-strong);
+  background: var(--background-surface);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-surface);
 }
 
 .riepilogo__voce dt {
   font-size: var(--font-size-caption);
-  font-weight: 600;
-  color: var(--color-text-secondary);
+  color: var(--text-secondary);
 }
 
 .riepilogo__voce dd {
-  margin: var(--space-4) 0 0;
-  font-size: var(--font-size-body);
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.riepilogo__motivo {
-  display: block;
-  font-size: var(--font-size-label);
-  font-weight: 400;
-  color: var(--color-text-secondary);
-}
-
-.riepilogo__voce--ok {
-  border-left-color: var(--color-success);
-}
-
-.riepilogo__voce--attenzione {
-  border-left-color: var(--color-warning);
-}
-
-.riepilogo__voce--errore {
-  border-left-color: var(--color-danger);
-}
-
-/* Pagamenti */
-.payments-section {
-  background-color: var(--color-surface);
-  padding: var(--space-24);
-  border-radius: var(--radius-surface);
-  box-shadow: var(--shadow-md);
-}
-
-.payments-section h2 {
   display: flex;
   align-items: center;
+  gap: var(--space-4);
+  margin: var(--space-4) 0 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.riepilogo__voce dd.riepilogo__motivo {
+  margin: 0;
+  font-size: var(--font-size-caption);
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+.tono--ok {
+  color: var(--status-success);
+}
+
+.tono--attenzione {
+  color: var(--status-warning);
+}
+
+.tono--errore {
+  color: var(--status-error);
+}
+
+.tono--neutro {
+  color: var(--text-primary);
+}
+
+/* Pagamenti a sinistra, anagrafica a destra */
+.scheda__corpo {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-24);
+}
+
+.scheda__sezione {
+  display: flex;
+  flex-direction: column;
   gap: var(--space-8);
-  margin: 0 0 var(--space-16);
+  min-width: 0;
+}
+
+/* Stesso titolo di sezione di ListRows */
+.scheda__titolo {
+  margin: 0;
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-label);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.gruppo {
+  background: var(--background-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
 }
 
 .tabella-scorre {
@@ -1052,30 +864,33 @@ onBeforeUnmount(() => {
 
 .pagamenti th,
 .pagamenti td {
-  padding: var(--space-8) var(--space-12);
-  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-4) var(--space-12);
   text-align: left;
   white-space: nowrap;
 }
 
+.pagamenti tbody tr {
+  border-top: 1px solid var(--border-subtle);
+}
+
 .pagamenti thead th {
-  color: var(--color-text-secondary);
+  padding-block: var(--space-8) var(--space-4);
+  color: var(--text-secondary);
   font-size: var(--font-size-caption);
   font-weight: 600;
 }
 
 .pagamenti tbody th {
-  font-size: var(--font-size-body);
   font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.pagamenti tbody tr:hover {
-  background: var(--color-surface-hover);
+  font-variant-numeric: tabular-nums;
 }
 
 .pagamenti__riga--futura {
-  color: var(--color-text-secondary);
+  color: var(--text-secondary);
+}
+
+.pagamenti__cifre {
+  font-variant-numeric: tabular-nums;
 }
 
 .pagamenti__numero {
@@ -1087,8 +902,9 @@ onBeforeUnmount(() => {
   text-align: right;
 }
 
-.pagamenti__vuoto {
-  color: var(--color-text-secondary);
+.pagamenti__ricevuta {
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
 }
 
 .pagamenti__azioni {
@@ -1099,35 +915,8 @@ onBeforeUnmount(() => {
 .stato {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-8);
+  gap: var(--space-4);
   font-weight: 600;
-}
-
-.stato > span {
-  display: inline-grid;
-  place-items: center;
-  width: 1.5rem;
-  height: 1.5rem;
-  border-radius: var(--radius-control);
-  color: var(--color-text-inverse);
-  background: var(--color-text-secondary);
-  font-size: var(--font-size-caption);
-}
-
-.stato--ok > span {
-  background: var(--color-success);
-}
-
-.stato--attenzione > span {
-  background: var(--color-warning);
-}
-
-.stato--errore > span {
-  background: var(--color-danger);
-}
-
-.stato--errore {
-  color: var(--color-danger);
 }
 
 .quota-modifica {
@@ -1144,25 +933,7 @@ onBeforeUnmount(() => {
   text-align: right;
 }
 
-.icona-btn {
-  min-height: 2rem;
-  padding: var(--space-4) var(--space-8);
-  border: none;
-  border-radius: var(--radius-control);
-  background: none;
-  box-shadow: none;
-  color: var(--color-text-secondary);
-}
-
-.icona-btn:hover:not(:disabled) {
-  background: var(--color-surface-hover);
-  color: var(--color-text-primary);
-}
-
-.icona-btn--pericolo:hover:not(:disabled) {
-  color: var(--color-danger);
-}
-
+.icona-btn,
 .link-btn {
   min-height: 2rem;
   padding: var(--space-4) var(--space-8);
@@ -1170,32 +941,57 @@ onBeforeUnmount(() => {
   border-radius: var(--radius-control);
   background: none;
   box-shadow: none;
-  color: var(--color-accent);
-  font-size: var(--font-size-label);
 }
 
+.icona-btn {
+  color: var(--text-secondary);
+}
+
+.icona-btn:hover:not(:disabled),
 .link-btn:hover {
-  background: var(--color-surface-hover);
+  background: var(--state-hover);
+  color: var(--text-primary);
+}
+
+.icona-btn--pericolo:hover:not(:disabled) {
+  color: var(--status-error);
+}
+
+.link-btn {
+  color: var(--accent-default);
+  font-size: var(--font-size-label);
+  font-weight: 600;
+}
+
+/* Modifica dell'anagrafica */
+.modifica {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  padding: var(--space-16);
+}
+
+.modifica__azioni {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-8);
 }
 
 /* Azioni rare */
 .altre-azioni {
-  margin-top: var(--space-32);
-  padding-top: var(--space-16);
-  border-top: 1px solid var(--color-border);
-}
-
-.altre-azioni h2 {
-  margin: 0 0 var(--space-12);
-  font-size: var(--font-size-label);
-  color: var(--color-text-secondary);
-}
-
-.altre-azioni__elenco {
   display: flex;
   flex-wrap: wrap;
-  justify-content: space-between;
-  gap: var(--space-12);
+  align-items: center;
+  gap: var(--space-12) var(--space-16);
+  margin-top: var(--space-32);
+  padding-top: var(--space-16);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.altre-azioni__elimina {
+  margin-left: auto;
+  color: var(--status-error);
+  border-color: var(--status-error);
 }
 
 .sr-only {
@@ -1207,52 +1003,15 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-/* Responsive */
-@media (max-width: 768px) {
-  .socio-detail {
-    padding: 1rem;
+@media (max-width: 900px) {
+  .scheda__corpo {
+    grid-template-columns: minmax(0, 1fr);
   }
+}
 
-  .header-actions {
-    flex-direction: column;
-    width: 100%;
-    gap: 0.5rem;
-  }
-
-  .header-actions button,
-  .header-actions a {
-    width: 100%;
-    text-align: center;
-    justify-content: center;
-  }
-
-  .info-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .table-header,
-  .table-row {
-    grid-template-columns: 1fr;
-    gap: 0.5rem;
-  }
-
-  .table-header {
-    display: none;
-  }
-
-  .table-row {
-    padding: 1rem;
-    border: 1px solid var(--color-border);
-    border-radius: 8px;
-    margin-bottom: 1rem;
-  }
-
-  .table-row > span::before {
-    content: attr(data-label);
-    font-weight: 600;
-    display: block;
-    margin-bottom: 0.25rem;
-    color: var(--color-text-secondary);
+@media (max-width: 600px) {
+  .scheda {
+    padding: var(--space-16);
   }
 }
 </style>

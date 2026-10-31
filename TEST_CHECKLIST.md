@@ -135,13 +135,11 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
   - Gruppo di appartenenza
   - Prima iscrizione
 
-### Test 7.2: Badge età
+### Test 7.2: Minorenne
 
-- [ ] Apri dettaglio di Luca Bianchi (minorenne)
-- [ ] Verifica che il badge età sia **arancione**
-- [ ] Apri dettaglio di Mario Rossi (maggiorenne)
-- [ ] Verifica che il badge età sia **verde**
-- [ ] Un socio nato a dicembre di 18 anni fa (per esempio nel 2008, se l'anno e' il 2026) ha il badge **verde** anche prima del compleanno: conta solo l'anno di nascita
+- [ ] Apri il dettaglio di Luca Bianchi (minorenne): la riga Nascita finisce con "minorenne nel ANNO"
+- [ ] Apri il dettaglio di Mario Rossi (maggiorenne): la riga Nascita dice solo data, luogo ed eta'
+- [ ] Un socio nato a dicembre di 18 anni fa (per esempio nel 2008, se l'anno e' il 2026) non e' "minorenne" anche prima del compleanno: conta solo l'anno di nascita
 
 ### Test 7.3: Storico pagamenti
 
@@ -354,15 +352,20 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 ### Test 15.2: Pagamenti a tabella
 
 - [ ] La tabella parte dall'anno di iscrizione (o dal primo pagamento, se e' prima) e arriva all'anno corrente, dal piu' recente
-- [ ] Gli anni non pagati hanno la riga "X Da pagare" e un link "Paga ANNO"; il pulsante in alto "Paga ANNO" propone l'anno corrente (o il successivo se e' gia' pagato)
+- [ ] Gli anni non pagati hanno la riga "Da pagare" e un link "Paga ANNO"; il pulsante in alto "Paga ANNO" propone l'anno corrente (o il successivo se e' gia' pagato)
+- [ ] Date come 18/01/2024, importi come € 10,00, ricevuta come "381, blocchetto 304"
 - [ ] Matita su una quota: cambia l'importo, Invio salva, Esc annulla
-- [ ] Cestino su un pagamento: chiede conferma, poi la riga torna "Da pagare"
+- [ ] Cestino su un pagamento: la conferma nomina anno, importo e socio, poi la riga torna "Da pagare" e in Home › Ultime modifiche compare "Cancellato pagamento ANNO"
 
 ### Test 15.3: Azioni
 
 - [ ] "Tessera ANNO" scarica la tessera del socio (serve lo sfondo in Impostazioni › Template Tessera)
-- [ ] "Modifica" apre i campi, "Salva" li salva; ricaricando la pagina i dati restano
-- [ ] In fondo, "Altre azioni": "Esporta JSON" scarica il file, "Elimina socio" chiede conferma
+- [ ] A 1366×768 si vedono insieme riepilogo, pagamenti (a sinistra) e anagrafica in righe (a destra)
+- [ ] "Modifica" (o Ctrl+E) apre al posto dell'anagrafica lo stesso modulo del Nuovo socio, con gli errori accanto al campo
+- [ ] "Salva le modifiche" (o Ctrl+S) salva: le righe mostrano i dati nuovi, ricaricando restano, in Home › Ultime modifiche compare "Modificata anagrafica: COGNOME NOME"
+- [ ] "Annulla" o Esc chiudono il modulo senza salvare e il fuoco torna su "Modifica"
+- [ ] Con il nome vuoto non salva: il cursore va sul nome e sotto c'e' "Scrivi il nome"
+- [ ] In fondo, "Altre azioni": "Esporta i dati del socio (JSON)" scarica il file; "Elimina socio…" a destra, bordato di rosso, chiede conferma
 - [ ] Da telefono (o finestra stretta) la tabella scorre di lato senza spostare la pagina
 - [ ] Tema chiaro e scuro leggibili
 
