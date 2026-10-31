@@ -305,20 +305,36 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 
 ### Test 14.1: Pagina
 
-- [ ] In alto una riga sola con anno, blocchetto e data delle ricevute; sotto, a sinistra "Cerca il socio" con il cursore gia' nel campo, a destra la ricevuta e il riquadro del blocchetto
+- [ ] In alto una riga sola con anno, blocchetto (con "ricevute 1–10" accanto), data delle ricevute e "Suoni"; sotto, a sinistra "Cerca il socio" con il cursore gia' nel campo, a destra la ricevuta e sotto il riquadro del blocchetto
+- [ ] Al computer (1366×768) con 3 soci sulla ricevuta si vedono ricerca, ricevuta, totale e "Ricevuta successiva" senza scorrere
 - [ ] Ricaricando la pagina anno, blocchetto e data restano quelli di prima
-- [ ] Blocchetto vuoto: errore in rosso nella riga dei dati
+- [ ] Blocchetto vuoto: errore in rosso nella riga dei dati, e Invio non registra
+- [ ] Niente "Turbo Mode" e niente finestra del pagamento in questa pagina
+- [ ] Tema chiaro e scuro leggibili; da telefono (320 px) tutto in colonna, niente scorrimento di lato
+
+### Test 14.3: Registrare con la tastiera
+
+- [ ] Scrivi un cognome: il primo socio trovato e' gia' scelto (filo rosso a sinistra) e dice "Invio registra € 10,00"; le frecce su e giu' cambiano il socio scelto
+- [ ] Invio registra subito l'anno di riferimento: nella ricevuta compare "Registrato Cognome Nome, 2026, € 10,00", la ricerca si svuota e il cursore resta nel campo
+- [ ] Socio nuovo o fuori da almeno un anno (rientro): Invio registra la quota dei nuovi (25), non la ordinaria
+- [ ] Socio con arretrati: dopo Invio la sua riga nella ricevuta dice "Aggiungi l'arretrato 2025"; il clic lo registra sulla stessa ricevuta e il totale sale
+- [ ] Socio che ha gia' pagato, gia' sulla ricevuta o minorenne esente: Invio non registra e la ricevuta dice perche'
+- [ ] Un clic su un socio trovato fa come Invio
+- [ ] Ctrl+Invio passa alla ricevuta successiva (anche dalla ricerca); Esc svuota la ricerca; con la ricerca vuota le frecce a sinistra e a destra cambiano ricevuta
+- [ ] La X su una riga chiede "Togliere Cognome Nome dalla ricevuta N?" e, confermato, cancella il pagamento
+- [ ] Nessun socio trovato: "Registra come nuovo socio" apre il modulo con cognome e nome gia' scritti; "Salva e registra il 2026" lo mette sulla ricevuta
+- [ ] Importi sempre all'italiana: "€ 10,00", mai "10.00"
 
 ### Test 14.2: Riquadro del blocchetto
 
 - [ ] Con 10 ricevute per blocchetto (Impostazioni › Generale) il riquadro del blocchetto 2 dice "ricevute 11–20"
 - [ ] Scelto un blocchetto vuoto la ricevuta parte dalla prima del blocchetto (blocchetto 2: 11); gia' iniziato, dalla prima ancora da inserire
-- [ ] Il riquadro dice quante ricevute su 10, quanti soci e quanto incassato; se manca una ricevuta (anche la prima del blocchetto) la elenca, e un clic porta li'
+- [ ] Il riquadro dice in una riga quante ricevute su 10, quanti soci e quanto incassato; se manca una ricevuta (anche la prima del blocchetto) la elenca, e un clic porta li'
 - [ ] "Da inserire" dice quali ricevute restano fino alla fine del blocchetto; finito il blocchetto dice che e' arrivato all'ultima
 - [ ] Andando con la freccia oltre l'ultima ricevuta compare l'avviso "La ricevuta N non e' del blocchetto"
 - [ ] Sui blocchetti gia' registrati: se compare "ricevute registrate con un numero fuori dal blocchetto", la regola delle 10 ricevute non vale per quel blocchetto (segnarlo nel foglio esiti)
 - [ ] Una ricevuta inserita in un altro giorno mostra i suoi soci (anche dopo aver ricaricato la pagina)
-- [ ] Dopo ogni pagamento (anche in Turbo e con "Nuovo socio") ricevuta, totale e riquadro si aggiornano; togliendo un socio dalla ricevuta il buco ricompare
+- [ ] Dopo ogni pagamento (anche con "Nuovo socio" e "Aggiungi l'arretrato") ricevuta, totale e riquadro si aggiornano; togliendo un socio dalla ricevuta il buco ricompare
 - [ ] "Passa al blocchetto N+1" cambia blocchetto e rimette il cursore nella ricerca
 
 **Risultato atteso**: si ricopia un blocchetto di carta vedendo sempre a che punto si e' e cosa manca

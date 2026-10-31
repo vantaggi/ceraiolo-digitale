@@ -1,17 +1,17 @@
 <template>
-  <div class="batch-entry">
+  <div class="registra">
     <PageHeader title="Incassi" subtitle="Registra in fila le ricevute dei blocchetti di carta" />
     <SectionTabs :tabs="SCHEDE_INCASSI" label="Schede di Incassi" />
 
-    <!-- Dati della sessione: si impostano una volta e si ricordano -->
+    <!-- Dati della sessione: una riga sola, si impostano una volta e si ricordano -->
     <section class="sessione" aria-label="Dati della sessione">
       <div class="sessione__campo">
-        <label for="anno-riferimento">Anno di riferimento</label>
+        <label for="anno-riferimento">Anno</label>
         <input
           id="anno-riferimento"
           v-model.number="sessionData.annoRiferimento"
           type="number"
-          class="sessione__input"
+          class="sessione__input sessione__input--anno"
           :aria-invalid="!!sessionErrors.annoRiferimento"
           :min="currentYear"
           :max="currentYear + 5"
@@ -23,10 +23,14 @@
           id="numero-blocchetto"
           v-model.number="sessionData.numeroBlocchetto"
           type="number"
-          class="sessione__input"
+          class="sessione__input sessione__input--blocchetto"
           :aria-invalid="!!sessionErrors.numeroBlocchetto"
+          aria-describedby="intervallo-blocchetto"
           min="1"
         />
+        <span v-if="intervallo" id="intervallo-blocchetto" class="sessione__nota">
+          ricevute {{ intervallo.da }}–{{ intervallo.a }}
+        </span>
       </div>
       <div class="sessione__campo">
         <label for="data-pagamento">Data delle ricevute</label>
@@ -39,137 +43,109 @@
           :max="today"
         />
       </div>
+      <label class="sessione__suoni">
+        <input v-model="soundEnabled" type="checkbox" />
+        Suoni
+      </label>
       <p v-if="erroriSessione" class="sessione__errore" role="alert">
         <AppIcon name="errore" /> {{ erroriSessione }}
       </p>
     </section>
 
     <div class="lavoro">
-      <!-- Ricerca socio: la cosa che si usa a ogni ricevuta -->
-      <div class="work-area">
-        <div class="work-area-header">
-          <h2><AppIcon name="ricerca" /> Cerca il socio</h2>
-          <div class="search-controls">
-            <label
-              class="turbo-toggle"
-              :class="{ active: turboMode }"
-              title="Salta la conferma pagamento (Invio = Paga)"
-            >
-              <input type="checkbox" v-model="turboMode" />
-              <AppIcon name="rapido" class="toggle-icon" />
-              <span class="toggle-label">Turbo Mode</span>
-            </label>
-
-            <label
-              class="turbo-toggle sound-toggle"
-              :class="{ active: soundEnabled }"
-              title="Attiva/Disattiva suoni di feedback"
-            >
-              <input type="checkbox" v-model="soundEnabled" />
-              <AppIcon :name="soundEnabled ? 'audio-attivo' : 'audio-spento'" class="toggle-icon" />
-              <span class="toggle-label">Suoni</span>
-            </label>
-            <button
-              @click="openNewSocioForm()"
-              class="add-socio-header-btn"
-              title="Registra Nuovo Socio"
-              :disabled="isProcessing"
-            >
-              <AppIcon name="aggiungi" class="icon" />
-              <span class="label">Nuovo Socio</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- Barra di Ricerca -->
-        <div class="search-section">
-          <div class="search-input-group">
+      <!-- Ricerca del socio: Invio registra subito l'anno con la quota proposta -->
+      <section class="gruppo cerca" aria-label="Cerca il socio">
+        <div class="cerca__campo">
+          <label for="cerca-socio" class="cerca__etichetta">Cerca il socio</label>
+          <div class="cerca__input">
             <input
+              id="cerca-socio"
+              ref="searchInput"
               v-model="searchQuery"
               type="text"
-              class="search-input"
-              placeholder="Cerca socio per cognome o nome..."
+              role="combobox"
+              autocomplete="off"
+              aria-autocomplete="list"
+              aria-controls="risultati-ricerca"
+              :aria-expanded="risultati.length > 0 ? 'true' : 'false'"
+              :aria-activedescendant="
+                selezionato >= 0 && risultati.length > 0 ? `risultato-${selezionato}` : undefined
+              "
+              aria-describedby="scorciatoie"
+              placeholder="Cognome e nome"
               @input="debouncedSearch"
               @keydown="handleSearchKeydown"
               @focus="$event.target.select()"
-              :disabled="isProcessing"
-              ref="searchInput"
             />
             <button
-              @click="clearSearch"
-              class="clear-search-btn"
               v-if="searchQuery"
-              aria-label="Svuota ricerca"
+              type="button"
+              class="cerca__svuota"
+              aria-label="Svuota la ricerca"
+              @click="svuotaEFocus"
             >
               <AppIcon name="chiudi" />
             </button>
           </div>
         </div>
 
-        <!-- Risultati Ricerca -->
-        <div v-if="searchResults.length > 0" class="search-results">
-          <h3><AppIcon name="ricerca" /> Risultati ({{ searchResults.length }})</h3>
-          <div class="results-list" ref="resultsListRef">
-            <div
-              v-for="(socio, index) in searchResults"
-              :key="socio.id"
-              class="result-item"
-              :class="{ selected: index === selectedResultIndex }"
-              @click="selectSocio(socio)"
-              @mouseenter="selectedResultIndex = index"
-            >
-              <div class="socio-info">
-                <strong>{{ socio.cognome }} {{ socio.nome }}</strong>
-                <small>Nato il {{ formatDate(socio.data_nascita) }}</small>
-                <small>Manicchia: {{ socio.gruppo_appartenenza }}</small>
-              </div>
-              <div class="socio-status">
-                <div v-if="getSocioStatus(socio) === 'IN_RECEIPT'" class="status-badge success">
-                  <AppIcon name="ok" /> In Ricevuta
-                </div>
-                <div v-else-if="getSocioStatus(socio) === 'IN_ORDER'" class="status-badge success">
-                  <AppIcon name="ok" /> In Regola
-                </div>
-                <div v-else class="action-area">
-                  <div v-if="socio.daReiscrivere" class="arretrati-badge">
-                    <AppIcon name="attenzione" /> Da reiscrivere: fermo da più di {{ MAX_ANNI_ARRETRATI }} anni
-                  </div>
-                  <div v-else-if="socio.arretrati.length > 0 && !isMinor(socio)" class="arretrati-badge">
-                    <AppIcon name="attenzione" /> Arretrati: {{ socio.arretrati.join(', ') }}
-                  </div>
-                  <button class="pay-btn" :disabled="isProcessing" @click.stop="selectSocio(socio)">
-                    <AppIcon name="pagamento" /> Paga
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Nessun Risultato - Nuovo Socio -->
-        <div
-          v-else-if="searchQuery && searchResults.length === 0 && !isSearching && !showNewSocioForm"
-          class="no-results"
+        <ul
+          v-show="risultati.length > 0"
+          id="risultati-ricerca"
+          ref="resultsListRef"
+          class="risultati"
+          role="listbox"
+          aria-label="Soci trovati"
         >
-          <div class="no-results-content">
-            <h3><AppIcon name="socio" /> Socio non trovato</h3>
-            <p>
-              "<strong>{{ searchQuery }}</strong
-              >" non corrisponde a nessun socio esistente.
-            </p>
-            <button
-              @click="openNewSocioForm({ daRicerca: true })"
-              class="new-socio-btn"
-              :disabled="isProcessing"
+          <li
+            v-for="(r, index) in risultati"
+            :id="`risultato-${index}`"
+            :key="r.socio.id"
+            class="risultato"
+            :class="{ 'risultato--selezionato': index === selezionato }"
+            role="option"
+            :aria-selected="index === selezionato ? 'true' : 'false'"
+            @mousedown.prevent
+            @mousemove="selezionato = index"
+            @click="registraRisultato(index)"
+          >
+            <span class="risultato__chi">
+              <span class="risultato__nome">{{ r.socio.cognome }} {{ r.socio.nome }}</span>
+              <span class="risultato__dettaglio">{{ dettaglioSocio(r.socio) }}</span>
+            </span>
+            <span class="risultato__stato" :class="`tono--${proposte[index].stato.tono}`">
+              <AppIcon
+                v-if="ICONA_TONO[proposte[index].stato.tono]"
+                :name="ICONA_TONO[proposte[index].stato.tono]"
+              />
+              {{ proposte[index].stato.testo }}
+            </span>
+            <span
+              v-if="index === selezionato && proposte[index].registra"
+              class="risultato__suggerimento"
+              aria-hidden="true"
             >
-              <AppIcon name="nuovo-socio" /> Registra Nuovo Socio
-            </button>
-          </div>
+              <kbd>Invio</kbd> registra € {{ euro(proposte[index].quota) }}
+            </span>
+          </li>
+        </ul>
+
+        <!-- Nessun risultato: si registra un socio nuovo con quello che si e' cercato -->
+        <div
+          v-if="
+            searchQuery.trim().length >= 2 && cercato && risultati.length === 0 && !showNewSocioForm
+          "
+          class="cerca__vuoto"
+        >
+          <p>Nessun socio trovato per «{{ searchQuery.trim() }}».</p>
+          <BaseButton :disabled="isProcessing" @click="openNewSocioForm({ daRicerca: true })">
+            <AppIcon name="nuovo-socio" /> Registra come nuovo socio
+          </BaseButton>
         </div>
 
-        <!-- Form Nuovo Socio -->
-        <div v-if="showNewSocioForm" class="new-socio-form">
-          <h3><AppIcon name="nuovo-socio" /> Registra Nuovo Socio</h3>
+        <!-- Nuovo socio -->
+        <div v-if="showNewSocioForm" class="nuovo">
+          <h2 class="nuovo__titolo">Nuovo socio</h2>
           <form novalidate @submit.prevent="saveNewSocio">
             <ModuloSocio
               ref="moduloNuovo"
@@ -182,83 +158,118 @@
               :disabilitato="isProcessing"
               compatto
             />
-            <div class="form-actions">
+            <div class="nuovo__azioni">
               <BaseButton variant="ghost" :disabled="isProcessing" @click="cancelNewSocio">
                 Annulla
               </BaseButton>
-              <BaseButton type="submit" variant="primary" :loading="isProcessing">
-                <AppIcon name="salva" /> Salva e registra il pagamento
-                {{ sessionData.annoRiferimento }}
+              <BaseButton type="submit" :loading="isProcessing">
+                <AppIcon name="salva" /> Salva e registra il {{ sessionData.annoRiferimento }}
               </BaseButton>
             </div>
           </form>
         </div>
-      </div>
+
+        <div class="cerca__piede">
+          <p id="scorciatoie" class="cerca__scorciatoie">
+            <kbd>↑↓</kbd> scegli · <kbd>Invio</kbd> registra · <kbd>Ctrl+Invio</kbd> ricevuta
+            successiva · <kbd>Esc</kbd> svuota
+          </p>
+          <BaseButton
+            v-if="!showNewSocioForm"
+            class="cerca__nuovo"
+            :disabled="isProcessing"
+            @click="openNewSocioForm()"
+          >
+            <AppIcon name="aggiungi" /> Nuovo socio
+          </BaseButton>
+        </div>
+      </section>
 
       <div class="lavoro__lato">
         <!-- Ricevuta in corso -->
-      <div class="receipt-context">
-        <div class="receipt-header">
-          <h2><AppIcon name="ricevuta" /> Ricevuta</h2>
-          <div class="receipt-controls">
-            <label for="numero-ricevuta" class="sr-only">Numero ricevuta</label>
-            <div class="receipt-number-controls">
+        <section class="gruppo ricevuta" aria-labelledby="ricevuta-titolo">
+          <div class="ricevuta__testa">
+            <h2 id="ricevuta-titolo" class="ricevuta__titolo">
+              Ricevuta {{ currentReceipt.numero }}
+            </h2>
+            <span class="ricevuta__frecce">
               <button
-                @click="decrementReceipt"
-                class="receipt-btn"
-                :disabled="isProcessing"
+                type="button"
+                class="ricevuta__freccia"
+                :disabled="isProcessing || currentReceipt.numero <= 1"
                 aria-label="Ricevuta precedente"
+                @click="decrementReceipt"
               >
                 <AppIcon name="precedente" />
               </button>
-              <input
-                id="numero-ricevuta"
-                v-model.number="currentReceipt.numero"
-                type="number"
-                class="receipt-number-input"
-                min="1"
-                readonly
-                :disabled="isProcessing"
-              />
               <button
-                @click="incrementReceipt"
-                class="receipt-btn"
+                type="button"
+                class="ricevuta__freccia"
                 :disabled="isProcessing"
                 aria-label="Ricevuta successiva"
+                @click="incrementReceipt"
               >
                 <AppIcon name="successivo" />
               </button>
-            </div>
+            </span>
           </div>
-        </div>
 
-        <!-- Riepilogo Soci sulla Ricevuta -->
-        <div class="receipt-summary">
-          <h3><AppIcon name="gruppo" /> Soci su questa ricevuta ({{ currentReceipt.soci.length }})</h3>
-          <div v-if="currentReceipt.soci.length === 0" class="empty-receipt">
-            <p>Nessun socio aggiunto ancora</p>
-            <small>Inizia cercando un socio esistente o registrane uno nuovo</small>
-          </div>
-          <TransitionGroup name="list" tag="div" class="receipt-soci-list">
-            <div v-for="socio in currentReceipt.soci" :key="socio.id" class="receipt-socio-item">
-              <span class="socio-name">{{ socio.cognome }} {{ socio.nome }}</span>
-              <span class="socio-payment">{{ socio.anniPagati.join(', ') }}</span>
-              <span class="socio-importo">€ {{ euro(socio.importo) }}</span>
+          <!-- Esito dell'ultima azione: sempre nel DOM, cosi' il lettore di schermo lo legge -->
+          <p class="esito" :class="esito && `esito--${esito.tono}`" role="status">
+            <template v-if="esito">
+              <AppIcon v-if="ICONA_TONO[esito.tono]" :name="ICONA_TONO[esito.tono]" />
+              {{ esito.testo }}
+            </template>
+          </p>
+
+          <p v-if="currentReceipt.soci.length === 0" class="ricevuta__vuota">
+            Nessun socio su questa ricevuta. Cerca il socio e premi Invio.
+          </p>
+          <ul v-else class="ricevuta__righe">
+            <li v-for="socio in currentReceipt.soci" :key="socio.id" class="riga">
+              <span class="riga__chi">
+                <span class="riga__nome">{{ socio.cognome }} {{ socio.nome }}</span>
+                <button
+                  v-for="anno in arretratiDaOffrire(socio)"
+                  :key="anno"
+                  type="button"
+                  class="riga__arretrato"
+                  :disabled="isProcessing"
+                  @click="aggiungiArretrato(socio, anno)"
+                >
+                  <AppIcon name="aggiungi" /> Aggiungi l'arretrato {{ anno }}
+                </button>
+              </span>
+              <span class="riga__anni">{{ socio.anniPagati.join(', ') }}</span>
+              <span class="riga__importo">€ {{ euro(socio.importo) }}</span>
               <button
-                @click="removeFromReceipt(socio)"
-                class="remove-btn"
+                type="button"
+                class="riga__togli"
                 :disabled="isProcessing"
                 :aria-label="`Togli ${socio.cognome} ${socio.nome} dalla ricevuta`"
+                @click="removeFromReceipt(socio)"
               >
                 <AppIcon name="chiudi" />
               </button>
-            </div>
-          </TransitionGroup>
-          <p v-if="currentReceipt.soci.length > 0" class="receipt-total">
-            Totale ricevuta <strong>€ {{ euro(totaleRicevuta) }}</strong>
+            </li>
+          </ul>
+
+          <p v-if="currentReceipt.soci.length > 0" class="ricevuta__totale">
+            Totale <strong>€ {{ euro(totaleRicevuta) }}</strong>
           </p>
-        </div>
-      </div>
+
+          <div class="ricevuta__azioni">
+            <BaseButton
+              variant="primary"
+              class="ricevuta__successiva"
+              :disabled="isProcessing"
+              aria-keyshortcuts="Control+Enter"
+              @click="incrementReceipt"
+            >
+              Ricevuta successiva <span class="ricevuta__tasti">(Ctrl+Invio)</span>
+            </BaseButton>
+          </div>
+        </section>
 
         <RiquadroBlocchetto
           :numero="sessionData.numeroBlocchetto || 0"
@@ -271,56 +282,31 @@
         />
       </div>
     </div>
-
-    <!-- Modal Errore -->
-    <ErrorModal v-if="errorMessage" :message="errorMessage" @close="errorMessage = ''" />
-
-    <!-- Modal Conferma Cancellazione -->
-    <ConfirmDeleteModal
-      v-if="showDeleteConfirm"
-      :is-visible="showDeleteConfirm"
-      title="Conferma eliminazione pagamento"
-      :message="deleteConfirmMessage"
-      @close="cancelDelete"
-      @confirm="confirmRemoveFromReceipt"
-    />
-
-    <!-- Modal Pagamento -->
-    <AddPaymentModal
-      :show="showPaymentModal"
-      :socio-id="selectedSocio?.id?.toString() || ''"
-      :years-to-pay="paymentData.selectedYears"
-      :numero-blocchetto="sessionData.numeroBlocchetto"
-      :numero-ricevuta="currentReceipt.numero"
-      :anno-riferimento="sessionData.annoRiferimento"
-      @close="closePaymentModal"
-      @payments-saved="handleSavePayments"
-    />
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
-import { useToast } from 'vue-toastification'
+import { useRoute } from 'vue-router'
 import {
   searchSoci,
   addSocio,
   addTesseramento,
   getUniqueGroups,
   addCustomGroup,
-  getStatoQuote,
   findExistingPaymentYear,
   deleteTesseramentiByReceipt,
   getSetting,
   getPagamentiBlocchetto,
   getNomiSoci,
+  getAnniPagatiDiSoci,
   db,
 } from '@/services/db'
 import {
-  isMinorenne,
-  MAX_ANNI_ARRETRATI,
   QUOTA_NUOVI_PREDEFINITA,
   QUOTA_ORDINARIA_PREDEFINITA,
+  quotaProposta,
+  tipoQuota,
 } from '@/utils/payment'
 import {
   intervalloBlocchetto,
@@ -329,21 +315,21 @@ import {
   riepilogoBlocchetto,
   sociDellaRicevuta,
 } from '@/utils/blocchetto'
-import ErrorModal from '@/components/ErrorModal.vue'
-import ConfirmDeleteModal from '@/components/ConfirmDeleteModal.vue'
-import { useRoute } from 'vue-router'
-import AddPaymentModal from '@/components/AddPaymentModal.vue'
+import { euro, propostaRegistrazione } from '@/utils/registrazione'
+import { askConfirm, dialogState } from '@/composables/useDialog'
 import AppIcon from '@/components/base/AppIcon.vue'
 import PageHeader from '@/components/base/PageHeader.vue'
 import SectionTabs from '@/components/base/SectionTabs.vue'
+import BaseButton from '@/components/base/BaseButton.vue'
 import RiquadroBlocchetto from '@/components/RiquadroBlocchetto.vue'
 import ModuloSocio from '@/components/ModuloSocio.vue'
-import BaseButton from '@/components/base/BaseButton.vue'
 import { datiDaSalvare } from '@/utils/socio'
 import { SCHEDE_INCASSI } from '@/router/sezioni'
 
-const toast = useToast()
 const searchInput = ref(null)
+const resultsListRef = ref(null)
+
+const ICONA_TONO = { ok: 'ok', attenzione: 'attenzione', errore: 'errore', neutro: 'info' }
 
 // Dati di sessione: si ricordano tra una visita e l'altra (solo comodita', nel browser)
 const CHIAVE_SESSIONE = 'incassi_sessione'
@@ -355,7 +341,9 @@ const sessioneSalvata = () => {
       ...(Number.isInteger(s.numeroBlocchetto) && s.numeroBlocchetto > 0
         ? { numeroBlocchetto: s.numeroBlocchetto }
         : {}),
-      ...(/^\d{4}-\d{2}-\d{2}$/.test(s.dataPagamento || '') ? { dataPagamento: s.dataPagamento } : {}),
+      ...(/^\d{4}-\d{2}-\d{2}$/.test(s.dataPagamento || '')
+        ? { dataPagamento: s.dataPagamento }
+        : {}),
     }
   } catch {
     return {}
@@ -386,7 +374,7 @@ const sessionErrors = reactive({
   dataPagamento: '',
 })
 
-// Contesto ricevuta attuale
+// Ricevuta in corso
 const currentReceipt = reactive({
   numero: 1,
   soci: [],
@@ -399,16 +387,22 @@ const riepilogoBlocco = ref(null)
 const erroreBlocco = ref('')
 const nomiSoci = new Map()
 
-// Area di lavoro
+// Ricerca
 const searchQuery = ref('')
-const searchResults = ref([])
-const selectedResultIndex = ref(-1)
-const isSearching = ref(false)
-const showNewSocioForm = ref(false)
+const risultati = ref([]) // [{ socio, anniPagati }]
+const selezionato = ref(-1)
+const cercato = ref(false) // la ricerca del testo attuale e' finita
 const isProcessing = ref(false)
-const turboMode = ref(false)
+
+// Esito dell'ultima azione, mostrato nella ricevuta: { testo, tono: ok|attenzione|errore|neutro }
+const esito = ref(null)
+
+// Arretrati da proporre sulla riga della ricevuta per i soci registrati in questa sessione:
+// id socio -> { socio, anni }
+const arretratiOfferti = reactive(new Map())
 
 // Nuovo socio
+const showNewSocioForm = ref(false)
 const newSocioData = reactive({
   cognome: '',
   nome: '',
@@ -422,93 +416,49 @@ const moduloNuovo = ref(null)
 const tentatoNuovo = ref(false)
 const sociInArchivio = ref([])
 const cittaPredefinita = ref('Gubbio')
+const availableGroups = ref([])
 
-// Modal pagamento
-const showPaymentModal = ref(false)
-const selectedSocio = ref(null)
-const paymentData = reactive({
-  quota: QUOTA_NUOVI_PREDEFINITA,
-  selectedYears: [],
-})
-
-// Error handling
-const errorMessage = ref('')
-const showDeleteConfirm = ref(false)
-const socioToDelete = ref(null)
-
-const deleteConfirmMessage = computed(() => {
-  if (!socioToDelete.value) return ''
-  if (!socioToDelete.value) return ''
-  return `Sei sicuro di voler rimuovere ${socioToDelete.value.cognome} ${socioToDelete.value.nome} dalla ricevuta?
-Questa operazione annullerà il pagamento registrato per questa sessione.`
-})
-
-// Configuration
+// Impostazioni
 const config = ref({
   receiptsPerBlock: 10,
   defaultQuota: QUOTA_ORDINARIA_PREDEFINITA,
   newMemberQuota: QUOTA_NUOVI_PREDEFINITA,
 })
+const quote = computed(() => ({
+  quotaOrdinaria: Number(config.value.defaultQuota),
+  quotaNuovi: Number(config.value.newMemberQuota),
+}))
 
-// Audio
+// Suoni di conferma e di errore (Web Audio, nessun file)
 const soundEnabled = ref(true)
-
-const playSuccessSound = () => {
+const suona = ({ tipo, da, a, durata }) => {
   if (!soundEnabled.value) return
   try {
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)()
     const oscillator = audioCtx.createOscillator()
     const gainNode = audioCtx.createGain()
-
     oscillator.connect(gainNode)
     gainNode.connect(audioCtx.destination)
-
-    oscillator.type = 'sine'
-    oscillator.frequency.setValueAtTime(523.25, audioCtx.currentTime) // C5
-    oscillator.frequency.exponentialRampToValueAtTime(1046.5, audioCtx.currentTime + 0.1) // C6
-
+    oscillator.type = tipo
+    oscillator.frequency.setValueAtTime(da, audioCtx.currentTime)
+    oscillator.frequency.exponentialRampToValueAtTime(a, audioCtx.currentTime + durata)
     gainNode.gain.setValueAtTime(0.05, audioCtx.currentTime)
-    gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1)
-
+    gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + durata)
     oscillator.start()
-    oscillator.stop(audioCtx.currentTime + 0.15)
-  } catch (e) {
-    console.error('Audio play failed', e)
+    oscillator.stop(audioCtx.currentTime + durata + 0.05)
+  } catch {
+    // senza audio la pagina funziona lo stesso
   }
 }
+const playSuccessSound = () => suona({ tipo: 'sine', da: 523.25, a: 1046.5, durata: 0.1 })
+const playErrorSound = () => suona({ tipo: 'sawtooth', da: 150, a: 100, durata: 0.2 })
 
-const playErrorSound = () => {
-  if (!soundEnabled.value) return
-  try {
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)()
-    const oscillator = audioCtx.createOscillator()
-    const gainNode = audioCtx.createGain()
-
-    oscillator.connect(gainNode)
-    gainNode.connect(audioCtx.destination)
-
-    oscillator.type = 'sawtooth'
-    oscillator.frequency.setValueAtTime(150, audioCtx.currentTime)
-    oscillator.frequency.linearRampToValueAtTime(100, audioCtx.currentTime + 0.2)
-
-    gainNode.gain.setValueAtTime(0.05, audioCtx.currentTime)
-    gainNode.gain.linearRampToValueAtTime(0.001, audioCtx.currentTime + 0.2)
-
-    oscillator.start()
-    oscillator.stop(audioCtx.currentTime + 0.25)
-  } catch (e) {
-    console.error(e)
-  }
-}
-
-// Utility
 const today = new Date().toISOString().split('T')[0]
 const currentYear = new Date().getFullYear()
-const availableGroups = ref([])
 
-// Computed
-
-const euro = (valore) => Number(valore || 0).toFixed(2)
+const intervallo = computed(() =>
+  intervalloBlocchetto(sessionData.numeroBlocchetto, config.value.receiptsPerBlock),
+)
 const totaleRicevuta = computed(() =>
   currentReceipt.soci.reduce((somma, s) => somma + (Number(s.importo) || 0), 0),
 )
@@ -518,6 +468,31 @@ const erroriSessione = computed(() =>
     .join(' · '),
 )
 
+/** Che cosa farebbe Invio su ciascun socio trovato (utils/registrazione.js). */
+const proposte = computed(() =>
+  risultati.value.map((r) =>
+    propostaRegistrazione({
+      socio: r.socio,
+      anniPagati: r.anniPagati,
+      anno: sessionData.annoRiferimento,
+      quote: quote.value,
+      sullaRicevuta: currentReceipt.soci.some((s) => s.id === r.socio.id),
+    }),
+  ),
+)
+
+const nomeDi = (socio) => `${socio.cognome} ${socio.nome}`.trim()
+
+const dettaglioSocio = (socio) =>
+  [socio.data_nascita ? `nascita ${formatDate(socio.data_nascita)}` : '', socio.gruppo_appartenenza]
+    .filter(Boolean)
+    .join(' · ')
+
+const formatDate = (dateString) => {
+  const date = new Date(dateString)
+  return Number.isNaN(date.getTime()) ? dateString : date.toLocaleDateString('it-IT')
+}
+
 /** Soci della ricevuta in corso, dai pagamenti del blocchetto. */
 const aggiornaRicevuta = async () => {
   const soci = sociDellaRicevuta(pagamentiBlocco.value, currentReceipt.numero)
@@ -525,11 +500,14 @@ const aggiornaRicevuta = async () => {
   if (daCercare.length > 0) {
     for (const [id, nome] of await getNomiSoci(daCercare)) nomiSoci.set(id, nome)
   }
-  currentReceipt.soci = soci.map((s) => ({
-    ...s,
-    cognome: nomiSoci.get(s.id)?.cognome || '(socio non trovato)',
-    nome: nomiSoci.get(s.id)?.nome || '',
-  }))
+  // In ordine di cognome e nome: i pagamenti non dicono in che ordine sono stati scritti
+  currentReceipt.soci = soci
+    .map((s) => ({
+      ...s,
+      cognome: nomiSoci.get(s.id)?.cognome || '(socio non trovato)',
+      nome: nomiSoci.get(s.id)?.nome || '',
+    }))
+    .sort((a, b) => nomeDi(a).localeCompare(nomeDi(b), 'it'))
 }
 
 /**
@@ -561,19 +539,31 @@ const caricaBlocchetto = async ({ riprendi = false } = {}) => {
   await aggiornaRicevuta()
 }
 
+const focusRicerca = () =>
+  nextTick(() => {
+    searchInput.value?.focus()
+    searchInput.value?.select()
+  })
+
 const vaiARicevuta = async (numero) => {
   currentReceipt.numero = numero
+  esito.value = null
   clearSearch()
   await aggiornaRicevuta()
-  nextTick(() => searchInput.value?.focus())
+  focusRicerca()
 }
 
 const blocchettoSuccessivo = () => {
   sessionData.numeroBlocchetto = (sessionData.numeroBlocchetto || 0) + 1
-  nextTick(() => searchInput.value?.focus())
+  focusRicerca()
 }
 
-// Methods
+const incrementReceipt = () => vaiARicevuta(currentReceipt.numero + 1)
+
+const decrementReceipt = () => {
+  if (currentReceipt.numero > 1) vaiARicevuta(currentReceipt.numero - 1)
+}
+
 const validateSessionData = () => {
   sessionErrors.annoRiferimento = !sessionData.annoRiferimento ? 'Anno obbligatorio' : ''
   sessionErrors.numeroBlocchetto =
@@ -585,23 +575,17 @@ const validateSessionData = () => {
 
 const loadGroups = async () => {
   try {
-    const groups = await getUniqueGroups()
-    availableGroups.value = groups || []
+    availableGroups.value = (await getUniqueGroups()) || []
   } catch (error) {
     console.error('Errore caricamento gruppi:', error)
     availableGroups.value = []
-    // Non mostrare toast per evitare spam all'avvio
   }
 }
 
-// Lifecycle
 onMounted(async () => {
   window.addEventListener('keydown', handleGlobalKeydown)
   try {
-    // Assicurati che il database sia aperto
     await db.open()
-
-    // Carica configurazioni
     config.value.receiptsPerBlock = await getSetting('receiptsPerBlock', 10)
     config.value.defaultQuota = await getSetting('defaultQuota', QUOTA_ORDINARIA_PREDEFINITA)
     config.value.newMemberQuota = await getSetting('newMemberQuota', QUOTA_NUOVI_PREDEFINITA)
@@ -611,14 +595,13 @@ onMounted(async () => {
     await loadGroups()
     validateSessionData()
     await caricaBlocchetto({ riprendi: true })
-    nextTick(() => searchInput.value?.focus())
+    focusRicerca()
   } catch (error) {
     console.error('Errore inizializzazione database:', error)
-    toast.error("Errore nell'inizializzazione dell'applicazione")
+    esito.value = { testo: 'Non sono riuscito ad aprire i dati di questo browser.', tono: 'errore' }
   }
 })
 
-// Watchers
 watch(() => sessionData.annoRiferimento, validateSessionData)
 watch(() => sessionData.numeroBlocchetto, validateSessionData)
 watch(
@@ -632,50 +615,46 @@ watch(() => sessionData.dataPagamento, validateSessionData)
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleGlobalKeydown)
+  clearTimeout(searchTimeout)
 })
 
+const conCtrl = (e) => e.ctrlKey || e.metaKey
+
+/**
+ * Tasti di tutta la pagina: Ctrl+Invio passa alla ricevuta successiva; le frecce a
+ * sinistra e a destra cambiano ricevuta quando non si sta scrivendo (o la ricerca e' vuota).
+ */
 const handleGlobalKeydown = (e) => {
-  const activeElement = document.activeElement
-  const isInput = ['INPUT', 'TEXTAREA'].includes(activeElement.tagName)
+  if (dialogState.open || showNewSocioForm.value) return
+  const attivo = document.activeElement
+  const inRicerca = searchInput.value && attivo === searchInput.value
 
-  // Special exception: Allow navigation from search input if it's empty
-  // This allows rapid skipping of receipts without leaving the search field
-  const isSearchInput = searchInput.value && activeElement === searchInput.value
-
-  if (isInput) {
-    // If we are in the search input and it's empty, we allow the navigation keys
-    if (isSearchInput && !searchQuery.value) {
-      // Allow execution
-    } else {
-      // Otherwise (other inputs, or search has text), we block to preserve cursor navigation/editing
-      return
-    }
+  if (e.key === 'Enter' && conCtrl(e)) {
+    if (inRicerca) return // ci pensa handleSearchKeydown
+    e.preventDefault()
+    incrementReceipt()
+    return
   }
 
-  // Ignore if modals are open
-  if (showPaymentModal.value || showDeleteConfirm.value || showNewSocioForm.value) return
-
-  switch (e.key) {
-    case 'ArrowLeft':
-      decrementReceipt()
-      break
-    case 'ArrowRight':
-      incrementReceipt()
-      break
-  }
-}
-
-const incrementReceipt = () => vaiARicevuta(currentReceipt.numero + 1)
-
-const decrementReceipt = () => {
-  if (currentReceipt.numero > 1) vaiARicevuta(currentReceipt.numero - 1)
+  const scrivendo = ['INPUT', 'TEXTAREA', 'SELECT'].includes(attivo?.tagName)
+  if (scrivendo && !(inRicerca && !searchQuery.value)) return
+  if (e.key === 'ArrowLeft') decrementReceipt()
+  else if (e.key === 'ArrowRight') incrementReceipt()
 }
 
 const clearSearch = () => {
+  clearTimeout(searchTimeout)
   searchQuery.value = ''
-  searchResults.value = []
+  risultati.value = []
+  selezionato.value = -1
+  cercato.value = false
   showNewSocioForm.value = false
   resetNewSocioForm()
+}
+
+const svuotaEFocus = () => {
+  clearSearch()
+  focusRicerca()
 }
 
 const resetNewSocioForm = () => {
@@ -693,19 +672,19 @@ const resetNewSocioForm = () => {
 }
 
 /**
- * Apre il modulo del nuovo socio. Da "Socio non trovato" porta con se' quello che
+ * Apre il modulo del nuovo socio. Da "Nessun socio trovato" porta con se' quello che
  * si era cercato: la prima parola come cognome, il resto come nome.
  */
 const openNewSocioForm = async ({ daRicerca = false } = {}) => {
-  const cercato = daRicerca ? searchQuery.value.trim().split(/\s+/) : []
+  const parole = daRicerca ? searchQuery.value.trim().split(/\s+/) : []
   if (!daRicerca) {
     searchQuery.value = ''
-    searchResults.value = []
+    risultati.value = []
   }
   showNewSocioForm.value = true
   resetNewSocioForm()
-  newSocioData.cognome = cercato[0] || ''
-  newSocioData.nome = cercato.slice(1).join(' ')
+  newSocioData.cognome = parole[0] || ''
+  newSocioData.nome = parole.slice(1).join(' ')
   nextTick(() => moduloNuovo.value?.primoCampo())
   try {
     sociInArchivio.value = await db.soci.toArray()
@@ -715,216 +694,194 @@ const openNewSocioForm = async ({ daRicerca = false } = {}) => {
 }
 
 let searchTimeout = null
+let ricercaInCorso = null
 const debouncedSearch = () => {
   clearTimeout(searchTimeout)
+  cercato.value = false
   if (searchQuery.value.trim().length < 2) {
-    searchResults.value = []
+    risultati.value = []
+    selezionato.value = -1
     showNewSocioForm.value = false
     return
   }
-
-  searchTimeout = setTimeout(async () => {
-    await performSearch()
+  searchTimeout = setTimeout(() => {
+    searchTimeout = null
+    performSearch()
   }, 150)
 }
 
-const handleSearchKeydown = (e) => {
-  if (searchResults.value.length === 0) return
-
-  switch (e.key) {
-    case 'ArrowDown':
-      e.preventDefault()
-      selectedResultIndex.value = Math.min(
-        selectedResultIndex.value + 1,
-        searchResults.value.length - 1,
-      )
-      scrollToSelected()
-      break
-    case 'ArrowUp':
-      e.preventDefault()
-      selectedResultIndex.value = Math.max(selectedResultIndex.value - 1, -1)
-      scrollToSelected()
-      break
-    case 'Enter':
-      e.preventDefault()
-      if (selectedResultIndex.value >= 0) {
-        selectSocio(searchResults.value[selectedResultIndex.value])
-      } else if (searchResults.value.length > 0) {
-        // Turbo mode: Enter without arrow keys selects first result
-        selectSocio(searchResults.value[0])
-      }
-      break
+const performSearch = async () => {
+  const testo = searchQuery.value.trim()
+  if (testo.length < 2) return
+  const corrente = (ricercaInCorso = Symbol())
+  try {
+    const soci = await searchSoci(testo)
+    const anni = await getAnniPagatiDiSoci(soci.map((s) => s.id))
+    if (corrente !== ricercaInCorso) return // nel frattempo si e' scritto altro
+    risultati.value = soci.map((socio) => ({ socio, anniPagati: anni.get(Number(socio.id)) || [] }))
+    selezionato.value = risultati.value.length > 0 ? 0 : -1
+    showNewSocioForm.value = false
+    cercato.value = true
+  } catch (error) {
+    console.error('Errore ricerca:', error)
+    risultati.value = []
+    esito.value = { testo: 'La ricerca non è riuscita: riprova.', tono: 'errore' }
   }
 }
-
-// Add ref for the results container
-const resultsListRef = ref(null)
 
 const scrollToSelected = () => {
   nextTick(() => {
-    if (!resultsListRef.value || selectedResultIndex.value < 0) return
-    const selectedEl = resultsListRef.value.children[selectedResultIndex.value]
-    if (selectedEl) {
-      selectedEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
-    }
+    const el = resultsListRef.value?.children[selezionato.value]
+    el?.scrollIntoView?.({ block: 'nearest' })
   })
 }
 
-const performSearch = async () => {
-  if (!searchQuery.value.trim()) return
-
-  isSearching.value = true
-  try {
-    const results = await searchSoci(searchQuery.value.trim())
-    // Aggiungi informazioni sugli arretrati per ogni socio (con gestione errori migliorata)
-    const resultsWithArretrati = await Promise.all(
-      results.map(async (socio) => {
-        try {
-          const { arretrati, daReiscrivere } = await getStatoQuote(socio.id)
-          const paidCurrentYear = await findExistingPaymentYear(socio.id, [
-            sessionData.annoRiferimento,
-          ])
-          return { ...socio, arretrati, daReiscrivere, paidCurrentYear: !!paidCurrentYear }
-        } catch (error) {
-          console.error('Errore caricamento arretrati per socio:', socio.id, error)
-          return { ...socio, arretrati: [] }
-        }
-      }),
-    )
-    searchResults.value = resultsWithArretrati
-    showNewSocioForm.value = false
-    selectedResultIndex.value = -1 // Reset selection
-  } catch (error) {
-    console.error('Errore ricerca:', error)
-    toast.error('Errore durante la ricerca')
-    searchResults.value = []
-  } finally {
-    isSearching.value = false
+const handleSearchKeydown = async (e) => {
+  if (e.key === 'Escape') {
+    if (searchQuery.value) {
+      e.preventDefault()
+      clearSearch()
+    }
+    return
+  }
+  if (e.key === 'Enter' && conCtrl(e)) {
+    e.preventDefault()
+    incrementReceipt()
+    return
+  }
+  if (e.key === 'Enter') {
+    e.preventDefault()
+    if (searchTimeout) {
+      // Invio prima che la ricerca sia partita: si cerca subito e si mostrano i risultati,
+      // senza registrare un socio che non si e' ancora visto
+      clearTimeout(searchTimeout)
+      searchTimeout = null
+      await performSearch()
+      return
+    }
+    if (selezionato.value >= 0) await registraRisultato(selezionato.value)
+    return
+  }
+  if (risultati.value.length === 0) return
+  if (e.key === 'ArrowDown') {
+    e.preventDefault()
+    selezionato.value = Math.min(selezionato.value + 1, risultati.value.length - 1)
+    scrollToSelected()
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault()
+    selezionato.value = Math.max(selezionato.value - 1, 0)
+    scrollToSelected()
   }
 }
 
-const selectSocio = async (socio) => {
-  selectedSocio.value = socio
-
-  if (turboMode.value) {
-    // Turbo Mode: Direct save with defaults
-    if (isProcessing.value) return
-    isProcessing.value = true
-
-    try {
-      const defaultQuota = await getSetting('defaultQuota', QUOTA_ORDINARIA_PREDEFINITA)
-      await handleSavePayments({
-        details: {
-          quota_pagata: defaultQuota,
-          data_pagamento: sessionData.dataPagamento,
-          numero_ricevuta: currentReceipt.numero,
-          numero_blocchetto: sessionData.numeroBlocchetto,
-        },
-        years: [sessionData.annoRiferimento],
-        socioId: socio.id,
-      })
-
-      // Manual cleanup because closePaymentModal might skipped if isProcessing is true
-      // Actually, handleSavePayments logic assumes it can close.
-      // We will ensure cleanup here just in case.
-      selectedSocio.value = null
-      paymentData.selectedYears = []
-    } catch (e) {
-      console.error('Turbo mode error:', e)
-      toast.error('Errore Turbo Mode: ' + e.message)
+/**
+ * Registra un anno sulla ricevuta in corso, con data e blocchetto della sessione.
+ * @returns {Promise<boolean>} true se il pagamento e' stato salvato
+ */
+const registraPagamento = async (socio, anno, quota) => {
+  if (erroriSessione.value) {
+    esito.value = { testo: `Controlla i dati in alto: ${erroriSessione.value}.`, tono: 'errore' }
+    playErrorSound()
+    return false
+  }
+  isProcessing.value = true
+  try {
+    if (await findExistingPaymentYear(socio.id, [anno])) {
+      esito.value = {
+        testo: `${nomeDi(socio)} ha già pagato la quota ${anno}.`,
+        tono: 'attenzione',
+      }
       playErrorSound()
-    } finally {
-      isProcessing.value = false
+      return false
     }
-  } else {
-    // Classic Mode: Open Modal
-    paymentData.selectedYears = [sessionData.annoRiferimento] // Default: anno di riferimento
-    paymentData.quota = config.value.defaultQuota // Default quota da config
-    showPaymentModal.value = true
-  }
-}
-
-const closePaymentModal = () => {
-  if (!isProcessing.value) {
-    showPaymentModal.value = false
-    selectedSocio.value = null
-    paymentData.selectedYears = []
-  }
-}
-
-// This function is called by the payment component when user clicks "Save"
-const handleSavePayments = async ({ details, years, socioId }) => {
-  console.log('Saving payments:', { details, years, socioId })
-
-  // --- Security Check ---
-  const existingYear = await findExistingPaymentYear(socioId, years)
-  if (existingYear) {
-    errorMessage.value = `ERRORE: L'anno ${existingYear} risulta già pagato per questo socio. Operazione annullata.`
-    return // Block the operation
-  }
-
-  // If check passes, save all payments
-  try {
-    console.log('Saving tesseramenti for years:', years)
-    for (const year of years) {
-      const tesseramentoData = {
-        id_socio: socioId,
-        anno: year,
-        quota_pagata: details.quota_pagata,
-        data_pagamento: details.data_pagamento,
-        numero_ricevuta: currentReceipt.numero,
-        numero_blocchetto: sessionData.numeroBlocchetto,
-      }
-      console.log('Saving tesseramento:', tesseramentoData)
-
-      const result = await addTesseramento(tesseramentoData)
-      console.log('Tesseramento saved with ID:', result)
-    }
-
-    // Ricevuta e riquadro del blocchetto si rileggono dal database
-    nomiSoci.set(socioId, { cognome: selectedSocio.value.cognome, nome: selectedSocio.value.nome })
-    await caricaBlocchetto()
-
-    // Aggiorna la cache globale del socio per riflettere i nuovi pagamenti
-    // Questo assicura che quando si visita SocioDetailView, i dati siano aggiornati
-    if (selectedSocio.value) {
-      // Rimuovi il socio dalla cache per forzare un ricaricamento
-      // Nota: Questo è un workaround, idealmente servirebbe un sistema di cache più sofisticato
-      const socioKey = `socio_${selectedSocio.value.id}`
-      if (localStorage.getItem(socioKey)) {
-        localStorage.removeItem(socioKey)
-      }
-    }
-
-    toast.success(
-      `Pagamenti registrati per ${selectedSocio.value.cognome} ${selectedSocio.value.nome} (${years.join(', ')})`,
-    )
-
-    playSuccessSound()
-
-    closePaymentModal()
-    clearSearch()
-    nextTick(() => {
-      if (searchInput.value) {
-        searchInput.value.focus()
-        searchInput.value.select() // Select text to type over immediately
-      }
+    await addTesseramento({
+      id_socio: socio.id,
+      anno,
+      quota_pagata: quota,
+      data_pagamento: sessionData.dataPagamento,
+      numero_ricevuta: currentReceipt.numero,
+      numero_blocchetto: sessionData.numeroBlocchetto,
     })
-  } catch (err) {
-    console.error('Error saving payments:', err)
-    errorMessage.value = `Si è verificato un errore durante il salvataggio: ${err.message}`
+    nomiSoci.set(socio.id, { cognome: socio.cognome, nome: socio.nome })
+    // La scheda del socio rilegge i pagamenti
+    localStorage.removeItem(`socio_${socio.id}`)
+    await caricaBlocchetto()
+    esito.value = { testo: `Registrato ${nomeDi(socio)}, ${anno}, € ${euro(quota)}`, tono: 'ok' }
+    playSuccessSound()
+    return true
+  } catch (error) {
+    console.error('Registrazione non riuscita:', error)
+    esito.value = {
+      testo: `Non sono riuscito a registrare ${nomeDi(socio)}: ${error.message}`,
+      tono: 'errore',
+    }
+    playErrorSound()
+    return false
+  } finally {
+    isProcessing.value = false
   }
+}
+
+/** Invio o clic su un socio trovato: registra subito l'anno con la quota proposta. */
+const registraRisultato = async (indice) => {
+  const r = risultati.value[indice]
+  const proposta = proposte.value[indice]
+  if (!r || !proposta || isProcessing.value) return
+  if (!proposta.registra) {
+    esito.value = { testo: proposta.messaggio, tono: 'neutro' }
+    playErrorSound()
+    return
+  }
+  if (await registraPagamento(r.socio, proposta.anno, proposta.quota)) {
+    if (proposta.arretrati.length > 0) {
+      arretratiOfferti.set(r.socio.id, { socio: r.socio, anni: [...proposta.arretrati] })
+    }
+    clearSearch()
+    focusRicerca()
+  }
+}
+
+/** Arretrati proposti sulla riga della ricevuta, tolti quelli gia' su questa ricevuta. */
+const arretratiDaOffrire = (riga) =>
+  (arretratiOfferti.get(riga.id)?.anni || []).filter((a) => !riga.anniPagati.includes(a))
+
+/** "Aggiungi l'arretrato": stesso socio, stessa ricevuta, quota proposta per quell'anno. */
+const aggiungiArretrato = async (riga, anno) => {
+  const offerta = arretratiOfferti.get(riga.id)
+  if (!offerta || isProcessing.value) return
+  let quota
+  try {
+    const anniPagati = (await getAnniPagatiDiSoci([riga.id])).get(Number(riga.id)) || []
+    quota = quotaProposta(tipoQuota(offerta.socio, anniPagati, anno), quote.value)
+  } catch (error) {
+    console.error('Anni pagati non letti:', error)
+    esito.value = {
+      testo: `Non sono riuscito a leggere i pagamenti di ${nomeDi(riga)}.`,
+      tono: 'errore',
+    }
+    return
+  }
+  if (await registraPagamento(offerta.socio, anno, quota)) {
+    offerta.anni = offerta.anni.filter((a) => a !== anno)
+    if (offerta.anni.length === 0) arretratiOfferti.delete(riga.id)
+  }
+  focusRicerca()
 }
 
 const cancelNewSocio = () => {
   showNewSocioForm.value = false
   resetNewSocioForm()
+  focusRicerca()
 }
 
 const saveNewSocio = async () => {
   if (isProcessing.value) return
   tentatoNuovo.value = true
   if (moduloNuovo.value?.vaiAlPrimoErrore()) return
+  if (erroriSessione.value) {
+    esito.value = { testo: `Controlla i dati in alto: ${erroriSessione.value}.`, tono: 'errore' }
+    return
+  }
 
   isProcessing.value = true
   try {
@@ -938,12 +895,11 @@ const saveNewSocio = async () => {
     }
 
     const socioId = await addSocio(socioData)
-
-    // Registra il pagamento per l'anno corrente
+    const quota = config.value.newMemberQuota
     await addTesseramento({
       id_socio: socioId,
       anno: sessionData.annoRiferimento,
-      quota_pagata: config.value.newMemberQuota, // Quota maggiorata per nuovi soci
+      quota_pagata: quota,
       data_pagamento: sessionData.dataPagamento,
       numero_ricevuta: currentReceipt.numero,
       numero_blocchetto: sessionData.numeroBlocchetto,
@@ -951,166 +907,172 @@ const saveNewSocio = async () => {
 
     nomiSoci.set(socioId, { cognome: socioData.cognome, nome: socioData.nome })
     await caricaBlocchetto()
-
-    toast.success(
-      `Nuovo socio ${socioData.cognome} ${socioData.nome} creato e pagamento ${sessionData.annoRiferimento} registrato`,
-    )
-
-    showNewSocioForm.value = false
+    esito.value = {
+      testo: `Nuovo socio ${nomeDi(socioData)}, registrato ${sessionData.annoRiferimento}, € ${euro(quota)}`,
+      tono: 'ok',
+    }
+    playSuccessSound()
     clearSearch()
-    nextTick(() => {
-      if (searchInput.value) {
-        searchInput.value.focus()
-        searchInput.value.select()
-      }
-    })
+    focusRicerca()
   } catch (error) {
     console.error('Errore creazione socio:', error)
-    toast.error('Errore durante la creazione del socio')
+    esito.value = { testo: 'Non sono riuscito a salvare il nuovo socio.', tono: 'errore' }
+    playErrorSound()
   } finally {
     isProcessing.value = false
   }
 }
 
-const removeFromReceipt = (socio) => {
-  socioToDelete.value = socio
-  showDeleteConfirm.value = true
-}
+const removeFromReceipt = async (socio) => {
+  const nome = nomeDi(socio)
+  const anni = socio.anniPagati.join(', ')
+  const cosa =
+    socio.anniPagati.length > 1
+      ? `Si cancellano i pagamenti ${anni} registrati`
+      : `Si cancella il pagamento ${anni} registrato`
+  const conferma = await askConfirm({
+    title: `Togliere ${nome} dalla ricevuta ${currentReceipt.numero}?`,
+    message: `${cosa} su questa ricevuta.`,
+    confirmLabel: 'Togli dalla ricevuta',
+    danger: true,
+  })
+  if (!conferma) {
+    focusRicerca()
+    return
+  }
 
-const cancelDelete = () => {
-  showDeleteConfirm.value = false
-  socioToDelete.value = null
-}
-
-const confirmRemoveFromReceipt = async () => {
-  if (!socioToDelete.value) return
-
-  const socio = socioToDelete.value
   isProcessing.value = true
-
   try {
-    // Delete from DB
-    const tolti = await deleteTesseramentiByReceipt(socio.id, currentReceipt.numero, socio.anniPagati)
+    const tolti = await deleteTesseramentiByReceipt(
+      socio.id,
+      currentReceipt.numero,
+      socio.anniPagati,
+    )
     await caricaBlocchetto()
-
-    // Clear socio from search/details cache inside DB service (workaround)
-    const socioKey = `socio_${socio.id}`
-    if (localStorage.getItem(socioKey)) {
-      localStorage.removeItem(socioKey)
-    }
-
-    if (tolti > 0) {
-      toast.success(`${socio.cognome} ${socio.nome} rimosso e pagamenti eliminati`)
-    } else {
-      toast.error(
-        `Non ho trovato i pagamenti di ${socio.cognome} ${socio.nome} su questa ricevuta: niente è stato tolto`,
-      )
-    }
+    localStorage.removeItem(`socio_${socio.id}`)
+    arretratiOfferti.delete(socio.id)
+    esito.value =
+      tolti > 0
+        ? { testo: `Tolto ${nome} dalla ricevuta ${currentReceipt.numero}.`, tono: 'ok' }
+        : {
+            testo: `Non ho trovato i pagamenti di ${nome} su questa ricevuta: niente è stato tolto.`,
+            tono: 'attenzione',
+          }
   } catch (error) {
     console.error('Error deleting payments:', error)
-    toast.error("Errore durante l'eliminazione dei pagamenti")
+    esito.value = { testo: `Non sono riuscito a togliere ${nome} dalla ricevuta.`, tono: 'errore' }
   } finally {
     isProcessing.value = false
-    showDeleteConfirm.value = false
-    socioToDelete.value = null
-
-    // Refresh search if active to update statuses
-    if (searchQuery.value) {
-      performSearch()
-    }
+    if (searchQuery.value) performSearch()
+    focusRicerca()
   }
-}
-
-const formatDate = (dateString) => {
-  if (!dateString) return ''
-  const date = new Date(dateString)
-  return date
-    .toLocaleDateString('it-IT', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    })
-    .replace(/\//g, '-')
-}
-
-const isMinor = (socio) => isMinorenne(socio.data_nascita, currentYear)
-
-const getSocioStatus = (socio) => {
-  // 1. Check if already in current receipt
-  if (currentReceipt.soci.some((s) => s.id === socio.id)) {
-    return 'IN_RECEIPT'
-  }
-
-  // 2. Check if exempt or all paid
-  // If minor, they are in order if they paid current year (optional? usually voluntary) OR we just hide pay button if paid
-  // If adult, must have paid current year AND no arrears
-  const hasArrears = socio.arretrati.length > 0 && !isMinor(socio)
-
-  if (socio.paidCurrentYear && !hasArrears) {
-    return 'IN_ORDER'
-  }
-
-  // 3. Otherwise, needs action
-  return 'TO_PAY'
 }
 </script>
 
 <style scoped>
-.batch-entry {
-  max-width: var(--page-width);
+.registra {
+  max-width: var(--content-max);
   margin: 0 auto;
-  padding: 2rem;
+  padding: var(--space-32);
+}
+
+/* Gruppi: superficie con bordo sottile, righe separate da un filo */
+.gruppo {
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  min-width: 0;
+  background: var(--background-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+}
+
+kbd {
+  display: inline-block;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--background-surface);
+  color: var(--text-secondary);
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-caption);
+  line-height: 1.4;
 }
 
 /* Dati della sessione: una riga sola */
 .sessione {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
-  gap: var(--space-12) var(--space-24);
-  padding: var(--space-12) var(--space-16);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  align-items: center;
+  gap: var(--space-8) var(--space-24);
+  margin-bottom: var(--space-16);
+  padding: var(--space-8) var(--space-16);
+  background: var(--background-surface);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-surface);
 }
 
 .sessione__campo {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
+  align-items: center;
+  gap: var(--space-8);
 }
 
 .sessione__campo label {
   font-size: var(--font-size-caption);
   font-weight: 600;
-  color: var(--color-text-secondary);
+  color: var(--text-secondary);
 }
 
 .sessione__input {
-  width: 7rem;
   padding: var(--space-4) var(--space-8);
   box-shadow: none;
   font-size: var(--font-size-body);
-  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.sessione__input--anno {
+  width: 5.5rem;
+}
+
+.sessione__input--blocchetto {
+  width: 4.5rem;
 }
 
 .sessione__input--data {
-  width: 11rem;
+  width: 10.5rem;
 }
 
 .sessione__input[aria-invalid='true'] {
-  border-color: var(--color-danger);
+  border-color: var(--status-error);
 }
 
-.sessione__errore {
+.sessione__nota {
+  font-size: var(--font-size-label);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.sessione__suoni {
   display: flex;
   align-items: center;
   gap: var(--space-8);
-  margin: 0;
-  color: var(--color-danger);
+  margin-left: auto;
+  font-size: var(--font-size-label);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.sessione__suoni input {
+  width: auto;
+  accent-color: var(--accent-default);
+}
+
+.sessione__errore {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  color: var(--status-error);
   font-size: var(--font-size-label);
 }
 
@@ -1118,7 +1080,7 @@ const getSocioStatus = (socio) => {
 .lavoro {
   display: grid;
   grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
-  gap: var(--space-24);
+  gap: var(--space-16);
   align-items: start;
 }
 
@@ -1126,27 +1088,360 @@ const getSocioStatus = (socio) => {
   display: flex;
   flex-direction: column;
   gap: var(--space-16);
+  min-width: 0;
   position: sticky;
   top: var(--space-16);
 }
 
-.socio-importo {
-  margin-right: var(--space-8);
-  color: var(--color-text-secondary);
+/* Ricerca */
+.cerca__campo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-12) var(--space-16) var(--space-8);
+}
+
+.cerca__etichetta {
+  font-size: var(--font-size-caption);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.cerca__input {
+  position: relative;
+}
+
+.cerca__input input {
+  padding: var(--space-8) var(--space-48) var(--space-8) var(--space-12);
+  box-shadow: none;
+}
+
+.cerca__input input:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.cerca__svuota {
+  position: absolute;
+  top: 50%;
+  right: var(--space-8);
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-control);
+  background: none;
+  box-shadow: none;
+  color: var(--text-secondary);
+}
+
+.cerca__svuota:hover {
+  background: var(--state-hover);
+  color: var(--text-primary);
+}
+
+.risultati {
+  list-style: none;
+  max-height: min(24rem, 50vh);
+  overflow-y: auto;
+}
+
+.risultato {
+  line-height: 1.4;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4) var(--space-16);
+  padding: var(--space-8) var(--space-16) var(--space-8) var(--space-12);
+  border-top: 1px solid var(--border-subtle);
+  border-left: 4px solid transparent;
+  cursor: pointer;
+}
+
+.risultato--selezionato {
+  background: var(--state-selected);
+  border-left-color: var(--accent-default);
+}
+
+.risultato__chi {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.risultato__nome {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.risultato__dettaglio {
+  font-size: var(--font-size-caption);
+  color: var(--text-secondary);
+}
+
+.risultato__stato {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  font-size: var(--font-size-label);
   font-variant-numeric: tabular-nums;
 }
 
-.receipt-total {
-  display: flex;
-  justify-content: space-between;
-  margin: var(--space-12) 0 0;
-  padding-top: var(--space-12);
-  border-top: 1px solid var(--color-border);
-  color: var(--color-text-secondary);
+.risultato__suggerimento {
+  font-size: var(--font-size-label);
+  color: var(--text-secondary);
+  white-space: nowrap;
 }
 
-.receipt-total strong {
-  color: var(--color-text-primary);
+.tono--ok {
+  color: var(--status-success);
+}
+
+.tono--attenzione {
+  color: var(--status-warning);
+}
+
+.tono--neutro {
+  color: var(--text-secondary);
+}
+
+.cerca__vuoto {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8) var(--space-16);
+  padding: var(--space-12) var(--space-16);
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+}
+
+.nuovo {
+  padding: var(--space-12) var(--space-16) var(--space-16);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.nuovo__titolo {
+  margin: 0 0 var(--space-12);
+  font-size: var(--font-size-section-heading);
+}
+
+.nuovo__azioni {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-8);
+  margin-top: var(--space-16);
+}
+
+.cerca__piede {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8) var(--space-12);
+  padding: var(--space-8) var(--space-16);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.cerca__scorciatoie {
+  font-size: var(--font-size-caption);
+  color: var(--text-secondary);
+}
+
+.cerca__nuovo {
+  margin-left: auto;
+}
+
+/* Ricevuta */
+.ricevuta__testa {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-12) var(--space-16) var(--space-8);
+}
+
+.ricevuta__titolo {
+  margin: 0;
+  font-size: var(--font-size-section-heading);
+  font-variant-numeric: tabular-nums;
+}
+
+.ricevuta__frecce {
+  display: flex;
+  gap: var(--space-4);
+  margin-left: auto;
+}
+
+.ricevuta__freccia {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--background-surface);
+  box-shadow: none;
+  color: var(--text-primary);
+}
+
+.ricevuta__freccia:hover:not(:disabled) {
+  background: var(--state-hover);
+}
+
+.ricevuta__freccia:disabled {
+  opacity: var(--opacity-disabled);
+  cursor: not-allowed;
+}
+
+.esito {
+  line-height: 1.4;
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  margin: 0 var(--space-16) var(--space-8);
+  padding: var(--space-4) var(--space-12);
+  border-radius: var(--radius-control);
+  font-size: var(--font-size-label);
+}
+
+.esito:empty {
+  display: none;
+}
+
+.esito--ok {
+  background: var(--status-success-subtle);
+}
+
+.esito--ok :deep(svg) {
+  color: var(--status-success);
+}
+
+.esito--attenzione {
+  border-left: 3px solid var(--status-warning);
+  border-radius: 0;
+  background: var(--state-hover);
+}
+
+.esito--errore {
+  color: var(--status-error);
+}
+
+.esito--neutro {
+  background: var(--state-hover);
+}
+
+.ricevuta__vuota {
+  padding: var(--space-12) var(--space-16);
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: var(--font-size-label);
+}
+
+.ricevuta__righe {
+  list-style: none;
+}
+
+.riga {
+  line-height: 1.4;
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  padding: var(--space-4) var(--space-8) var(--space-4) var(--space-16);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.riga__chi {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  flex: 1;
+  min-width: 0;
+}
+
+.riga__nome {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.riga__arretrato {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: 0;
+  border: none;
+  background: none;
+  box-shadow: none;
+  color: var(--accent-default);
+  font-size: var(--font-size-caption);
+  font-weight: 600;
+}
+
+.riga__arretrato:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.riga__anni {
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.riga__importo {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.riga__togli {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-control);
+  background: none;
+  box-shadow: none;
+  color: var(--text-secondary);
+}
+
+.riga__togli:hover:not(:disabled) {
+  background: var(--state-hover);
+  color: var(--status-error);
+}
+
+.ricevuta__totale {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--space-8) var(--space-16);
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+}
+
+.ricevuta__totale strong {
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.ricevuta__azioni {
+  padding: var(--space-8) var(--space-16) var(--space-16);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.ricevuta__successiva {
+  width: 100%;
+}
+
+.ricevuta__tasti {
+  font-weight: 400;
 }
 
 @media (max-width: 1100px) {
@@ -1159,588 +1454,21 @@ const getSocioStatus = (socio) => {
   }
 }
 
-/* Receipt Context */
-.receipt-context {
-  background-color: var(--color-surface);
-  border-radius: var(--radius-surface);
-  padding: var(--space-24);
-  box-shadow: var(--shadow-md);
-}
-
-.receipt-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--space-12);
-  margin-bottom: var(--space-16);
-}
-
-.receipt-header h2 {
-  margin: 0;
-  color: var(--color-primary);
-}
-
-.receipt-controls {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.receipt-number-controls {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.receipt-number-input {
-  width: 80px;
-  text-align: center;
-  padding: 0.5rem;
-  border: 2px solid var(--color-border);
-  border-radius: 8px;
-  font-size: 1.1rem;
-  font-weight: bold;
-}
-
-.receipt-btn {
-  padding: 0.5rem 1rem;
-  background-color: var(--color-accent);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 1.1rem;
-  transition: all 0.2s;
-}
-
-.status-badge {
-  padding: 0.5rem 1rem;
-  border-radius: 20px;
-  font-weight: bold;
-  font-size: 0.9rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.status-badge.success {
-  background-color: var(--color-success); /* Ensure you have this or use custom color */
-  background-color: #e8f5e9;
-  color: var(--color-success);
-  border: 1px solid #a5d6a7;
-}
-
-.action-area {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.receipt-btn:hover:not(:disabled) {
-  background-color: var(--color-accent-hover);
-  transform: scale(1.05);
-}
-
-.receipt-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.receipt-summary h3 {
-  margin-top: 0;
-  color: var(--color-text-primary);
-}
-
-.empty-receipt {
-  text-align: center;
-  padding: 2rem;
-  color: var(--color-text-secondary);
-}
-
-.empty-receipt p {
-  margin: 0 0 0.5rem 0;
-  font-size: 1.2rem;
-}
-
-.receipt-soci-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.receipt-socio-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem;
-  background-color: var(--color-background);
-  border-radius: 8px;
-  border: 1px solid var(--color-border);
-}
-
-.socio-name {
-  font-weight: 600;
-  flex: 1;
-}
-
-.socio-payment {
-  color: var(--color-accent);
-  font-weight: 500;
-  margin-right: 1rem;
-}
-
-.remove-btn:hover {
-  background-color: rgba(220, 53, 69, 0.1);
-}
-
-.add-socio-btn {
-  background: var(--color-surface);
-  border: 2px solid var(--color-accent);
-  color: var(--color-accent);
-  width: 42px;
-  height: 42px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  font-size: 1.2rem;
-  transition: all 0.2s;
-  margin-left: 0.5rem;
-  flex-shrink: 0;
-}
-
-.add-socio-btn:hover:not(:disabled) {
-  background-color: var(--color-accent);
-  color: white;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-.add-socio-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  border-color: var(--color-border);
-  color: var(--color-text-secondary);
-}
-
-.work-area-header {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--space-12);
-  margin-bottom: var(--space-16);
-}
-
-.work-area-header h2 {
-  margin: 0;
-}
-
-.add-socio-header-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  background-color: var(--color-primary);
-  color: var(--color-text-inverse);
-  border: none;
-  border-radius: var(--radius-control);
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  box-shadow: var(--shadow-sm);
-}
-
-.add-socio-header-btn:hover:not(:disabled) {
-  background-color: var(--color-primary-light);
-  filter: brightness(1.1);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-}
-
-.add-socio-header-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.remove-btn {
-  background: none;
-  border: none;
-  color: var(--color-danger);
-  cursor: pointer;
-  font-size: 1.2rem;
-  padding: 0.25rem;
-  border-radius: 4px;
-  transition: all 0.2s;
-}
-
-.remove-btn:hover {
-  background-color: var(--color-danger);
-  color: white;
-}
-
-/* Work Area */
-.work-area {
-  background-color: var(--color-surface);
-  border-radius: var(--radius-surface);
-  padding: var(--space-24);
-  box-shadow: var(--shadow-md);
-}
-
-.work-area h2 {
-  margin-top: 0;
-  color: var(--color-primary);
-  border-bottom: 2px solid var(--color-accent);
-  padding-bottom: 0.5rem;
-}
-
-/* Search */
-.result-item.selected {
-  background-color: var(--color-surface-hover, #e0e0e0); /* Fallback to a visible gray */
-  border-left-color: var(--color-accent);
-  border-left-width: 4px; /* Ensure border is visible */
-  padding-left: calc(1rem - 3px); /* Adjust padding */
-  transform: translateX(4px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-/* Ensure visibility in dark mode if vars aren't sufficient */
-@media (prefers-color-scheme: dark) {
-  .result-item.selected {
-    background-color: rgba(255, 255, 255, 0.1);
-  }
-}
-
-.search-section {
-  margin-bottom: var(--space-16);
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.search-controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-8);
-}
-
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-  white-space: nowrap;
-}
-
-.turbo-toggle {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  background-color: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 20px;
-  cursor: pointer;
-  transition: all 0.2s;
-  user-select: none;
-}
-
-.turbo-toggle:hover {
-  border-color: var(--color-accent);
-}
-
-.turbo-toggle.active {
-  background-color: var(--color-surface-hover);
-  border-color: var(--color-warning);
-  color: var(--color-warning);
-}
-
-.turbo-toggle input {
-  display: none;
-}
-
-.toggle-icon {
-  font-size: 1.2rem;
-}
-
-.toggle-label {
-  font-weight: 600;
-  font-size: 0.9rem;
-}
-
-.search-input-group {
-  position: relative;
-  max-width: 500px;
-}
-
-.search-input {
-  width: 100%;
-  padding: 1rem 3rem 1rem 1rem;
-  border: 2px solid var(--color-border);
-  border-radius: 8px;
-  font-size: 1.1rem;
-  transition: all 0.2s;
-}
-
-.search-input:focus {
-  outline: none;
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 3px rgba(183, 28, 28, 0.1);
-}
-
-.clear-search-btn {
-  position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  background-color: var(--color-background);
-  border: 1px solid var(--color-border);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  font-size: 0.9rem;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-  z-index: 2;
-}
-
-.clear-search-btn:hover {
-  background-color: var(--color-surface-hover);
-  color: var(--color-danger); /* Red color on hover */
-  border-color: var(--color-danger);
-}
-
-/* Search Results */
-.search-results h3 {
-  margin-top: 0;
-  color: var(--color-text-primary);
-}
-
-.results-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  margin-top: 1rem;
-}
-
-.result-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem;
-  background-color: var(--color-background);
-  border-radius: 8px;
-  border: 1px solid var(--color-border);
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.result-item:hover {
-  border-color: var(--color-accent);
-  box-shadow: 0 2px 8px rgba(183, 28, 28, 0.1);
-}
-
-.socio-info {
-  flex: 1;
-}
-
-.socio-info strong {
-  display: block;
-  font-size: 1.1rem;
-  color: var(--color-text-primary);
-}
-
-.socio-info small {
-  display: block;
-  color: var(--color-text-secondary);
-  margin-top: 0.25rem;
-}
-
-.socio-status {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.5rem;
-}
-
-.arretrati-badge {
-  background-color: #fff3cd;
-  color: #856404;
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.9rem;
-  font-weight: 500;
-}
-
-.pay-btn {
-  padding: 0.5rem 1rem;
-  background-color: var(--color-success);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.2s;
-}
-
-.pay-btn:hover:not(:disabled) {
-  background-color: var(--color-success-hover, #218838);
-  transform: scale(1.05);
-}
-
-.pay-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-/* No Results */
-.no-results {
-  text-align: center;
-  padding: 3rem 2rem;
-  background-color: var(--color-background);
-  border-radius: 8px;
-  border: 2px dashed var(--color-border);
-}
-
-.no-results-content h3 {
-  color: var(--color-text-primary);
-  margin-bottom: 1rem;
-}
-
-.no-results-content p {
-  color: var(--color-text-secondary);
-  margin-bottom: 2rem;
-}
-
-.new-socio-btn {
-  padding: 1rem 2rem;
-  background-color: var(--color-accent);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 1.1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.new-socio-btn:hover:not(:disabled) {
-  background-color: #a22a2a;
-  transform: scale(1.05);
-}
-
-.new-socio-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-/* New Socio Form */
-.new-socio-form {
-  margin-top: 2rem;
-  padding: 2rem;
-  background-color: var(--color-background);
-  border-radius: 8px;
-  border: 1px solid var(--color-border);
-}
-
-.new-socio-form h3 {
-  margin-top: 0;
-  color: var(--color-primary);
-}
-
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 1rem;
-  margin-top: 2rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--color-border);
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-  .batch-entry {
-    padding: 1rem;
+@media (max-width: 640px) {
+  .registra {
+    padding: var(--space-16);
   }
 
-  .receipt-header {
-    flex-direction: column;
-    gap: 1rem;
-    align-items: flex-start;
+  .sessione__suoni {
+    margin-left: 0;
   }
 
-  .result-item {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1rem;
+  .cerca__scorciatoie {
+    display: none;
   }
 
-  .socio-status {
-    align-items: flex-start;
+  .riga {
+    flex-wrap: wrap;
   }
-
-  .receipt-socio-item {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.5rem;
-  }
-
-  /* Nuove correzioni mobili */
-  .receipt-controls {
-    width: 100%;
-    margin-top: 1rem;
-    justify-content: space-between;
-  }
-
-  .search-controls {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.5rem;
-  }
-
-  .turbo-toggle {
-    width: 100%;
-    justify-content: center;
-    padding: 0.75rem;
-  }
-
-  .cancel-btn,
-  .save-btn {
-    width: 100%;
-    text-align: center;
-  }
-}
-
-/* List Transitions */
-.list-move, /* apply transition to moving elements */
-.list-enter-active,
-.list-leave-active {
-  transition: all 0.5s ease;
-}
-
-.list-enter-from {
-  opacity: 0;
-  transform: translateX(-30px);
-}
-
-.list-leave-to {
-  opacity: 0;
-  transform: translateX(30px);
-}
-
-/* ensure leaving items are taken out of layout flow so that moving
-   animations can be calculated correctly. */
-.list-leave-active {
-  position: absolute;
 }
 </style>

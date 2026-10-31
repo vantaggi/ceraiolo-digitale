@@ -1,10 +1,8 @@
 <template>
   <section class="blocchetto" aria-labelledby="blocchetto-titolo">
     <h2 id="blocchetto-titolo" class="blocchetto__titolo">
-      <AppIcon name="blocchetto" /> Blocchetto {{ numero }}
-      <span v-if="intervallo" class="blocchetto__intervallo">
-        ricevute {{ intervallo.da }}–{{ intervallo.a }}
-      </span>
+      Blocchetto {{ numero }}
+      <template v-if="intervallo"> · ricevute {{ intervallo.da }}–{{ intervallo.a }}</template>
     </h2>
 
     <p v-if="ricevutaFuori" class="blocchetto__nota blocchetto__nota--attenzione" role="status">
@@ -22,28 +20,18 @@
       Nessuna ricevuta ancora inserita in questo blocchetto.
     </p>
     <template v-else>
-      <dl class="blocchetto__numeri">
-        <div>
-          <dt>Ricevute</dt>
-          <dd>
-            {{ intervallo ? riepilogo.ricevute - riepilogo.fuori.length : riepilogo.ricevute }}
-            <span v-if="intervallo" class="blocchetto__dettaglio">
-              su {{ intervallo.a - intervallo.da + 1 }}
-            </span>
-            <span v-else class="blocchetto__dettaglio">
-              (dalla {{ riepilogo.prima }} alla {{ riepilogo.ultima }})
-            </span>
-          </dd>
-        </div>
-        <div>
-          <dt>Soci</dt>
-          <dd>{{ riepilogo.soci }}</dd>
-        </div>
-        <div>
-          <dt>Incassato</dt>
-          <dd>€ {{ euro(riepilogo.incassato) }}</dd>
-        </div>
-      </dl>
+      <p class="blocchetto__conti">
+        <template v-if="intervallo">
+          {{ riepilogo.ricevute - riepilogo.fuori.length }} su
+          {{ intervallo.a - intervallo.da + 1 }} registrate
+        </template>
+        <template v-else>
+          {{ riepilogo.ricevute }} registrate (dalla {{ riepilogo.prima }} alla
+          {{ riepilogo.ultima }})
+        </template>
+        · {{ riepilogo.soci }} {{ riepilogo.soci === 1 ? 'socio' : 'soci' }} ·
+        <span class="blocchetto__importo">€ {{ euro(riepilogo.incassato) }}</span>
+      </p>
 
       <div v-if="riepilogo.mancanti.length > 0" class="blocchetto__mancanti">
         <p class="blocchetto__nota">
@@ -119,6 +107,7 @@ import { computed } from 'vue'
 import AppIcon from '@/components/base/AppIcon.vue'
 import BaseButton from '@/components/base/BaseButton.vue'
 import { ricevutaDaCuiRiprendere } from '@/utils/blocchetto'
+import { euro } from '@/utils/registrazione'
 
 // Il blocchetto che si sta ricopiando: cosa e' gia' inserito, i buchi nella
 // numerazione (con un clic si va alla ricevuta), cosa resta da inserire, i numeri
@@ -148,53 +137,36 @@ const fuoriVisibili = computed(() => {
 })
 const mancantiVisibili = computed(() => props.riepilogo.mancanti.slice(0, MOSTRATE))
 const altreMancanti = computed(() => Math.max(0, props.riepilogo.mancanti.length - MOSTRATE))
-const euro = (valore) => Number(valore || 0).toFixed(2)
 </script>
 
 <style scoped>
 .blocchetto {
   display: flex;
   flex-direction: column;
-  gap: var(--space-12);
-  padding: var(--space-16) var(--space-24);
+  gap: var(--space-8);
+  padding: var(--space-12) var(--space-16);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-surface);
 }
 
 .blocchetto__titolo {
-  display: flex;
-  align-items: center;
-  gap: var(--space-8);
   margin: 0;
-  font-size: var(--font-size-section-heading);
-}
-
-.blocchetto__numeri {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
-  gap: var(--space-12);
-  margin: 0;
-}
-
-.blocchetto__numeri dt {
-  font-size: var(--font-size-caption);
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-body);
   font-weight: 600;
-  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
 }
 
-.blocchetto__numeri dd {
+.blocchetto__importo {
+  white-space: nowrap;
+}
+
+.blocchetto__conti {
   margin: 0;
-  font-size: var(--font-size-section-heading);
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.blocchetto__dettaglio {
-  display: block;
-  font-size: var(--font-size-caption);
-  font-weight: 400;
-  color: var(--color-text-secondary);
+  font-size: var(--font-size-label);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
 }
 
 .blocchetto__nota {
@@ -219,14 +191,6 @@ const euro = (valore) => Number(valore || 0).toFixed(2)
   padding: var(--space-8) var(--space-12);
   border-left: 3px solid var(--color-warning);
   background: var(--color-surface-hover);
-}
-
-.blocchetto__intervallo {
-  margin-left: auto;
-  font-family: var(--font-family-body);
-  font-size: var(--font-size-label);
-  font-weight: 400;
-  color: var(--color-text-secondary);
 }
 
 .blocchetto__mancanti {
