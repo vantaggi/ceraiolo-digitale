@@ -69,6 +69,41 @@
   --font-size-display: 2.25rem;
 }
 
+/*
+ * Ruoli della UI Constitution (docs/DESIGN.md, "Token e ruoli").
+ * Sono alias dei valori del progetto qui sopra: stesso colore, nome del ruolo.
+ * Il codice nuovo usa questi nomi; i vecchi --color-* spariscono pagina per pagina.
+ * I ruoli senza un valore in uso oggi (accent-pressed, state-pressed, state-selected,
+ * status-*-subtle, chart-*, text-disabled, border-group, durate, curve) si definiscono
+ * nella PR che li usa per prima, con le bozze A/B/C.
+ * Gli alias seguono il tema da soli: data-theme sta sullo stesso elemento di :root.
+ */
+:root {
+  --background-canvas: var(--color-background);
+  --background-surface: var(--color-surface);
+  --background-elevated: var(--color-surface-elevated);
+  --text-primary: var(--color-text-primary);
+  --text-secondary: var(--color-text-secondary);
+  --border-subtle: var(--color-border);
+  --border-strong: var(--color-border-strong);
+  --accent-default: var(--color-accent);
+  --accent-hover: var(--color-accent-hover);
+  --on-accent: var(--color-text-inverse);
+  --status-success: var(--color-success);
+  --status-warning: var(--color-warning);
+  --status-error: var(--color-danger);
+  --status-info: var(--color-info);
+  --state-hover: var(--color-surface-hover);
+  --scrim: var(--color-scrim);
+
+  --shadow-floating: var(--shadow-md); /* barra in alto, elementi fissi */
+  --shadow-overlay: var(--shadow-lg); /* modali */
+
+  --z-overlay: var(--z-modal);
+  --content-max: var(--page-width);
+  --opacity-disabled: 0.6; /* il valore gia' usato dai controlli disattivi */
+}
+
 /* Dark Theme Overrides */
 [data-theme='dark'] {
   --color-primary: #e0e0e0; /* Text Main (Inverted) */

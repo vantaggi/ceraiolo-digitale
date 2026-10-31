@@ -14,7 +14,7 @@ Le regole che stanno dietro le parole vivono nel codice: `src/utils/payment.js` 
 | Ricevuta      | Il foglio del blocchetto dato al socio quando paga. Ogni pagamento registrato porta il numero di ricevuta e il blocchetto.                                                                                                        | Scontrino, bolletta                                                      |
 | Iscritto      | Socio in regola in un anno: ha pagato, oppure e' minorenne ed esente, dall'anno di iscrizione in poi. Si dice sempre di un anno ("iscritti nel 2026").                                                                            | Attivo, tesserato                                                        |
 | Nuovo         | Socio al primo anno di iscrizione (il primo tra l'anno dichiarato e il primo pagamento). Paga la quota dei nuovi (impostazione "Quota Nuovi Soci Default", oggi 25 EUR) e quell'anno non vota.                                    | Neo-iscritto, new                                                        |
-| Rientro       | Socio di nuovo in regola dopo almeno un anno fuori. Da maggiorenne paga la quota dei nuovi. Vedi la nota sotto.                                                                                                                   | Ritorno                                                                  |
+| Rientro       | Socio di nuovo in regola dopo almeno un anno fuori. Da maggiorenne paga la quota dei nuovi.                                                                                                                                       | Ritorno; "rientrato" per un blocchetto o per chi era da reiscrivere      |
 | Non rinnovato | Iscritto l'anno prima ma non in questo. Nell'anno in corso il numero scende man mano che si registrano i pagamenti.                                                                                                               | Perso, decaduto, cessato                                                 |
 | Regolarizza   | Stato del diritto di voto: il socio ha quote mancanti negli ultimi tre anni ma un anno in regola nella finestra; pagando le quote mancanti puo' votare. Gli altri due stati sono "Si'" e "No".                                    | Sanare, mettersi in pari                                                 |
 
@@ -26,7 +26,9 @@ Parole collegate, usate nelle stesse schermate:
 | Esente         | Minorenne nell'anno, dopo l'iscrizione: non paga e conta come in regola. L'eta' si decide dal solo anno di nascita, non dal compleanno. |
 | Arretrati      | Anni da pagare dopo l'ultimo anno in regola, al massimo 3.                                                                              |
 | Da reiscrivere | Piu' di 3 anni di fila senza pagare: nessun arretrato, il socio si iscrive di nuovo e quell'anno conta come primo anno.                 |
+| Reiscritto     | Socio che era da reiscrivere e si e' iscritto di nuovo. L'anno della reiscrizione non vota.                                             |
+| Restituito     | Blocchetto consegnato in segreteria dall'incaricato.                                                                                    |
 
-## Da decidere
+## Decisioni
 
-- **Rientro ha tre usi.** Oggi la stessa parola indica (1) il socio di nuovo in regola dopo almeno un anno fuori (Andamento nella Home, quota dei nuovi), (2) il socio che torna dopo essere stato da reiscrivere (`voto.js`: "Socio rientrato"), (3) la consegna dei blocchetti in segreteria ("blocchetto rientrato"). Proposta: Rientro solo per (1), "Reiscritto" per (2), "Restituito" per (3), che e' gia' il concetto `restituisci` delle icone. Da confermare con il proprietario prima di cambiare i testi.
+- **Rientro, Reiscritto, Restituito** (deciso il 31 ottobre 2026). Rientro si dice solo del socio di nuovo in regola dopo almeno un anno fuori. Il socio che era da reiscrivere e torna e' "Reiscritto". Il blocchetto consegnato in segreteria e' "Restituito", come il concetto `restituisci` delle icone. I codici salvati (lo stato `rientrato` dei blocchetti) restano: cambiano solo i testi mostrati.
