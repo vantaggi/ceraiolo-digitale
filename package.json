@@ -13,7 +13,8 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write src/",
-    "test": "vitest"
+    "test": "vitest",
+    "controlli:ui": "node scripts/controlli-ui.mjs"
   },
   "dependencies": {
     "@fontsource/inter": "^5.3.0",

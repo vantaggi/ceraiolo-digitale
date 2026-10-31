@@ -15,7 +15,9 @@ Le regole dell'interfaccia sono quelle della UI Constitution (<https://claude.ai
 
 ## Token e ruoli
 
-Un solo file di valori: `src/assets/main.css`. Oggi i nomi sono quelli con prefisso `--color-` (circa 600 usi); la PR 2 del piano di adozione aggiunge i nomi dei ruoli come alias degli stessi valori, e i vecchi nomi spariscono pagina per pagina. I valori sono quelli del progetto, non i predefiniti del sistema.
+Un solo file di valori: `src/assets/main.css`. I vecchi nomi con prefisso `--color-` (circa 600 usi) restano; dal 31 ottobre 2026 ogni ruolo che ha gia' un valore e' definito anche con il nome del ruolo, come alias dello stesso valore (`--accent-default: var(--color-accent)`). Il codice nuovo usa i nomi dei ruoli; i vecchi spariscono pagina per pagina. I valori sono quelli del progetto, non i predefiniti del sistema. I ruoli segnati "manca" si definiscono nella PR che li usa per prima, con le bozze A/B/C: i predefiniti del sistema per stati, avvisi e grafici sono costruiti su un accento blu e non vanno bene col rosso.
+
+Gli alias definiti sono quelli delle righe con un token in "Token oggi", piu' `--shadow-floating` (= `--shadow-md`), `--shadow-overlay` (= `--shadow-lg`), `--z-overlay` (= `--z-modal`), `--content-max` (= `--page-width`) e `--opacity-disabled` (0,6, il valore gia' usato dai controlli disattivi).
 
 Colori:
 

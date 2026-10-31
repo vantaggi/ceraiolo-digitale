@@ -12,6 +12,7 @@ File di questo progetto:
 - Glossario, da leggere prima di scrivere testi: `docs/GLOSSARIO.md`.
 - Componenti base: `src/components/base/` (`BaseButton`, `BaseModal`, `PageHeader`, `SectionTabs`, `FilterSection`, `AppIcon` con la tabella concetto -> icona in `icons.js`) e `useDialog` per le conferme.
 - Verifica manuale per area: `TEST_CHECKLIST.md`.
+- Conteggio dei valori scritti a mano e delle regole ricopiate: `npm run controlli:ui` (in CI come avviso).
 
 Prima di ogni modifica all'interfaccia:
 

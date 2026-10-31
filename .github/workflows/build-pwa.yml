@@ -42,6 +42,10 @@ jobs:
       - name: Build application
         run: npm run build
 
+      # Avvisi, non blocca: i conteggi sono la base dell'adozione della UI Constitution
+      - name: Controlli UI (avvisi)
+        run: node scripts/controlli-ui.mjs --ci
+
       - name: Prepare release package
         if: github.event_name != 'pull_request'
         run: |
