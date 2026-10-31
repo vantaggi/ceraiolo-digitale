@@ -11,6 +11,9 @@
  * (src/assets/__tests__/tokens.test.js), emoji (icone.test.js), confirm/alert/prompt del
  * browser (dialoghiNativi.test.js).
  *
+ * I controlli in BLOCCANTI sono arrivati a zero: da li' in poi un test
+ * (scripts/__tests__/controlli-bloccanti.test.js) fa fallire la CI se il conteggio risale.
+ *
  * Uso: node scripts/controlli-ui.mjs [--ci]
  */
 import fs from 'node:fs'
@@ -123,6 +126,12 @@ export const CONTROLLI = [
   },
 ]
 
+/**
+ * Controlli arrivati a zero, che ora bloccano (passo 13 del piano di adozione).
+ * Un controllo entra qui nella PR che porta il suo conteggio a zero, mai prima.
+ */
+export const BLOCCANTI = ['modali', 'minorenne']
+
 const fileSorgente = (dir) =>
   fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const full = path.join(dir, entry.name)
@@ -159,7 +168,8 @@ function tabella(risultati) {
       .slice(0, 4)
       .map(([f, n]) => `${f.replace(/^src\//, '')} ${n}`)
       .join(', ')
-    righe.push(`| ${r.nome} | ${r.totale} | ${principali} |`)
+    const nome = BLOCCANTI.includes(r.id) ? `${r.nome} (bloccante)` : r.nome
+    righe.push(`| ${nome} | ${r.totale} | ${principali} |`)
   }
   return righe.join('\n')
 }
@@ -171,7 +181,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   console.log(testo)
 
   if (process.argv.includes('--ci')) {
-    for (const r of risultati.filter((r) => r.totale > 0)) {
+    for (const r of risultati.filter((r) => r.totale > 0 && !BLOCCANTI.includes(r.id))) {
       console.log(`::warning title=Controlli UI::${r.nome}: ${r.totale}`)
     }
     if (process.env.GITHUB_STEP_SUMMARY) {
