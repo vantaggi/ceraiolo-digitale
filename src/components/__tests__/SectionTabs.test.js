@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
 import { mount } from '@vue/test-utils'
 import SectionTabs from '../base/SectionTabs.vue'
 
@@ -21,5 +23,16 @@ describe('SectionTabs', () => {
       ['/incassi/ricevute', 'Registra ricevute'],
       ['/incassi/blocchetti', 'Blocchetti'],
     ])
+  })
+
+  // jsdom non calcola il layout: si controlla lo stile. Con overflow-x auto il browser
+  // rende auto anche overflow-y, e il margine negativo delle schede sporgeva di 1px:
+  // su Windows compariva una barra di scorrimento verticale accanto alle schede.
+  it('le schede non possono scorrere in verticale', () => {
+    const sorgente = readFileSync(path.resolve(__dirname, '../base/SectionTabs.vue'), 'utf8')
+    const regola = (selettore) =>
+      sorgente.match(new RegExp(`\\${selettore} \\{([^}]*)\\}`))?.[1] ?? ''
+    expect(regola('.section-tabs')).toMatch(/overflow-y:\s*hidden/)
+    expect(regola('.section-tabs__tab')).not.toMatch(/margin-bottom:\s*-/)
   })
 })

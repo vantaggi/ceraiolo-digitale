@@ -29,8 +29,11 @@ defineProps({
   gap: var(--space-4);
   border-bottom: 1px solid var(--color-border);
   margin-bottom: var(--space-24);
-  /* Se le schede non stanno in larghezza scorrono di lato, senza tagliarne una */
+  /* Se le schede non stanno in larghezza scorrono di lato, senza tagliarne una. In
+     verticale niente scorrimento: con overflow-x auto il browser mette auto anche in
+     verticale, e su Windows compariva una barra di scorrimento accanto alle schede. */
   overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .section-tabs__tab {
@@ -42,7 +45,6 @@ defineProps({
   text-decoration: none;
   font-weight: 600;
   border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
   flex: none;
   white-space: nowrap;
 }
