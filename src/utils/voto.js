@@ -4,7 +4,7 @@
  * - Si vota solo da maggiorenni: conta l'anno di nascita, non il compleanno.
  * - Il primo anno di iscrizione non si vota, dal secondo si'.
  * - Tre anni di fila senza pagare = socio "cancellato": deve reiscriversi e
- *   l'anno del rientro conta come un primo anno.
+ *   l'anno della reiscrizione conta come un primo anno.
  * - Se mancano gli ultimi anni ma il quarto anno indietro e' pagato, il socio
  *   puo' regolarizzare (pagare gli arretrati) e poi votare.
  *
@@ -53,9 +53,9 @@ export function valutaDirittoVoto(socio, anniPagati, annoElezione) {
   if (primoInRegola === null) {
     return no(`Nessun pagamento dal ${inizio} al ${annoElezione}`)
   }
-  // Rientro dopo la cancellazione: l'anno del rientro conta come primo anno
+  // Reiscritto dopo la cancellazione: l'anno della reiscrizione conta come primo anno
   if (primoInRegola === annoElezione) {
-    return no(`Socio rientrato nell'anno ${annoElezione}`)
+    return no(`Socio reiscritto nell'anno ${annoElezione}`)
   }
 
   const quoteMancanti = []

@@ -68,13 +68,13 @@ describe('valutaDirittoVoto', () => {
     expect(r.motivo).toMatch(/Nessun pagamento dal 2023 al 2026/)
   })
 
-  it("chi rientra dopo la cancellazione non vota nell'anno del rientro", () => {
+  it("chi si reiscrive dopo la cancellazione non vota nell'anno della reiscrizione", () => {
     const r = valutaDirittoVoto(adulto(), [2020, 2021, 2022, 2026], ELEZIONI)
     expect(r.stato).toBe('no')
-    expect(r.motivo).toMatch(/rientrato/)
+    expect(r.motivo).toBe("Socio reiscritto nell'anno 2026")
   })
 
-  it("chi e' rientrato l'anno prima vota", () => {
+  it("chi si e' reiscritto l'anno prima vota", () => {
     expect(valutaDirittoVoto(adulto(), [2018, 2019, 2025, 2026], ELEZIONI).stato).toBe('si')
   })
 
