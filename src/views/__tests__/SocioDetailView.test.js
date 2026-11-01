@@ -191,6 +191,20 @@ describe('SocioDetailView: Modifica apre il modulo del Nuovo socio (bozza 3A)', 
     expect(wrapper.get('h1').text()).toBe('Verdini Giulia')
   })
 
+  it("salva anche senza luogo di nascita, che in modifica e' facoltativo", async () => {
+    const wrapper = await monta()
+    await bottone(wrapper, 'Modifica').trigger('click')
+    await flushPromises()
+    expect(wrapper.get('label[for="scheda-luogo_nascita"]').text()).toContain('facoltativo')
+    await wrapper.get('#scheda-luogo_nascita').setValue('')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(salvati).toHaveLength(1)
+    expect(salvati[0][1].luogo_nascita).toBe('')
+    expect(wrapper.find('form').exists()).toBe(false)
+  })
+
   it('con un campo obbligatorio vuoto non salva e dice cosa manca', async () => {
     const wrapper = await monta()
     await bottone(wrapper, 'Modifica').trigger('click')
@@ -227,5 +241,60 @@ describe('SocioDetailView: Modifica apre il modulo del Nuovo socio (bozza 3A)', 
     await flushPromises()
 
     expect(salvati[0][1].data_prima_iscrizione).toBeNull()
+  })
+})
+
+describe('SocioDetailView: Anni precedenti', () => {
+  const pagamento = (id, anno) => ({ id_tesseramento: id, anno, quota_pagata: 10 })
+
+  it("chiude gli anni prima dell'ultimo pagamento in una riga che si apre, senza rosso", async () => {
+    socio = {
+      id: 1,
+      cognome: 'Gialli',
+      nome: 'Prova',
+      data_nascita: '1970-01-01',
+      data_prima_iscrizione: 2010,
+    }
+    pagamenti = [pagamento(1, 2015), pagamento(2, 2024)]
+    const wrapper = await monta()
+    const anni = () => wrapper.findAll('.pagamenti tbody th').map((th) => th.text())
+    expect(anni()).toEqual(['2026', '2025', '2024', '2010–2023'])
+    const gruppo = wrapper.get('.pagamenti__gruppo')
+    expect(gruppo.text()).toContain(
+      'Anni precedenti: 13 anni senza pagamento, 1 pagato: non sono arretrati',
+    )
+    // Rossi solo gli arretrati veri
+    expect(wrapper.findAll('.pagamenti .tono--errore')).toHaveLength(2)
+
+    const mostra = gruppo.get('button')
+    expect(mostra.attributes('aria-expanded')).toBe('false')
+    await mostra.trigger('click')
+    expect(mostra.attributes('aria-expanded')).toBe('true')
+    expect(anni()).toHaveLength(4 + 14)
+    expect(wrapper.findAll('.pagamenti .tono--errore')).toHaveLength(2)
+    const riga2016 = wrapper
+      .findAll('.pagamenti tbody tr')
+      .find((tr) => tr.find('th').text() === '2016')
+    expect(riga2016.text()).toContain('Non pagata')
+    expect(riga2016.text()).toContain('Registra 2016')
+  })
+
+  it('chi ha sempre pagato vede tutti gli anni, senza gruppo', async () => {
+    socio = {
+      id: 1,
+      cognome: 'Verdi',
+      nome: 'Prova',
+      data_nascita: '1970-01-01',
+      data_prima_iscrizione: 2023,
+    }
+    pagamenti = [pagamento(1, 2023), pagamento(2, 2024), pagamento(3, 2025)]
+    const wrapper = await monta()
+    expect(wrapper.find('.pagamenti__gruppo').exists()).toBe(false)
+    expect(wrapper.findAll('.pagamenti tbody th').map((th) => th.text())).toEqual([
+      '2026',
+      '2025',
+      '2024',
+      '2023',
+    ])
   })
 })

@@ -98,101 +98,125 @@
                 </tr>
               </thead>
               <tbody>
-                <tr
-                  v-for="riga in cronologia"
-                  :key="riga.chiave"
-                  :class="{ 'pagamenti__riga--futura': riga.anno > annoCorrente }"
-                >
-                  <th scope="row">{{ riga.anno }}</th>
-                  <td>
-                    <span class="stato" :class="`tono--${TONI_QUOTA[riga.stato]}`">
-                      <AppIcon
-                        v-if="ICONE_TONO[TONI_QUOTA[riga.stato]]"
-                        :name="ICONE_TONO[TONI_QUOTA[riga.stato]]"
-                      />
-                      {{ TESTI_STATO_ANNO[riga.stato] }}
-                    </span>
-                  </td>
-                  <template v-if="riga.pagamento">
-                    <td class="pagamenti__cifre">
-                      {{ dataItaliana(riga.pagamento.data_pagamento) }}
-                    </td>
-                    <td class="pagamenti__numero">
-                      <span
-                        v-if="editingQuotaId === riga.pagamento.id_tesseramento"
-                        class="quota-modifica"
-                      >
-                        <label :for="`quota-${riga.chiave}`" class="sr-only">
-                          Quota {{ riga.anno }}
-                        </label>
-                        €
-                        <input
-                          :id="`quota-${riga.chiave}`"
-                          v-model="editQuotaValue"
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          class="quota-modifica__input"
-                          @keydown.enter="saveQuotaStatus(riga.pagamento.id_tesseramento)"
-                          @keydown.esc="cancelEditQuota"
-                        />
-                        <button
-                          type="button"
-                          class="icona-btn"
-                          aria-label="Salva quota"
-                          :disabled="saveQuotaLoading"
-                          @click="saveQuotaStatus(riga.pagamento.id_tesseramento)"
-                        >
-                          <AppIcon name="conferma" />
-                        </button>
-                        <button
-                          type="button"
-                          class="icona-btn"
-                          aria-label="Annulla modifica quota"
-                          @click="cancelEditQuota"
-                        >
-                          <AppIcon name="chiudi" />
-                        </button>
-                      </span>
-                      <template v-else>€ {{ euro(riga.pagamento.quota_pagata) }}</template>
-                    </td>
-                    <td class="pagamenti__ricevuta">{{ testoRicevuta(riga.pagamento) }}</td>
+                <template v-for="riga in righeTabella" :key="riga.chiave">
+                  <!-- Anni precedenti: prima dell'ultimo pagamento, non sono arretrati (bozza 2A) -->
+                  <tr v-if="riga.gruppo" class="pagamenti__gruppo">
+                    <th scope="row">{{ riga.da }}–{{ riga.a }}</th>
+                    <td colspan="4">Anni precedenti: {{ testoAnniPrecedenti(riga) }}</td>
                     <td class="pagamenti__azioni">
                       <button
-                        v-if="editingQuotaId !== riga.pagamento.id_tesseramento"
-                        type="button"
-                        class="icona-btn"
-                        :aria-label="`Modifica la quota del ${riga.anno}`"
-                        :title="`Modifica la quota del ${riga.anno}`"
-                        @click="startEditQuota(riga.pagamento)"
-                      >
-                        <AppIcon name="modifica" />
-                      </button>
-                      <button
-                        type="button"
-                        class="icona-btn icona-btn--pericolo"
-                        :aria-label="`Elimina il pagamento del ${riga.anno}`"
-                        :title="`Elimina il pagamento del ${riga.anno}`"
-                        @click="eliminaPagamento(riga)"
-                      >
-                        <AppIcon name="elimina" />
-                      </button>
-                    </td>
-                  </template>
-                  <template v-else>
-                    <td colspan="3"></td>
-                    <td class="pagamenti__azioni">
-                      <button
-                        v-if="riga.stato !== '-'"
                         type="button"
                         class="link-btn"
-                        @click="payYear(riga.anno)"
+                        :aria-expanded="mostraPrecedenti ? 'true' : 'false'"
+                        @click="mostraPrecedenti = !mostraPrecedenti"
                       >
-                        Paga {{ riga.anno }}
+                        {{ mostraPrecedenti ? 'Nascondi' : 'Mostra' }}
+                        <span class="sr-only">gli anni precedenti</span>
+                        <AppIcon
+                          name="espandi"
+                          :class="{ 'pagamenti__freccia--aperta': mostraPrecedenti }"
+                        />
                       </button>
                     </td>
-                  </template>
-                </tr>
+                  </tr>
+                  <tr
+                    v-else
+                    :class="{
+                      'pagamenti__riga--futura': riga.anno > annoCorrente,
+                      'pagamenti__riga--precedente': riga.precedente,
+                    }"
+                  >
+                    <th scope="row">{{ riga.anno }}</th>
+                    <td>
+                      <span class="stato" :class="`tono--${tonoRiga(riga)}`">
+                        <AppIcon
+                          v-if="ICONE_TONO[tonoRiga(riga)]"
+                          :name="ICONE_TONO[tonoRiga(riga)]"
+                        />
+                        {{ testoRiga(riga) }}
+                      </span>
+                    </td>
+                    <template v-if="riga.pagamento">
+                      <td class="pagamenti__cifre">
+                        {{ dataItaliana(riga.pagamento.data_pagamento) }}
+                      </td>
+                      <td class="pagamenti__numero">
+                        <span
+                          v-if="editingQuotaId === riga.pagamento.id_tesseramento"
+                          class="quota-modifica"
+                        >
+                          <label :for="`quota-${riga.chiave}`" class="sr-only">
+                            Quota {{ riga.anno }}
+                          </label>
+                          €
+                          <input
+                            :id="`quota-${riga.chiave}`"
+                            v-model="editQuotaValue"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            class="quota-modifica__input"
+                            @keydown.enter="saveQuotaStatus(riga.pagamento.id_tesseramento)"
+                            @keydown.esc="cancelEditQuota"
+                          />
+                          <button
+                            type="button"
+                            class="icona-btn"
+                            aria-label="Salva quota"
+                            :disabled="saveQuotaLoading"
+                            @click="saveQuotaStatus(riga.pagamento.id_tesseramento)"
+                          >
+                            <AppIcon name="conferma" />
+                          </button>
+                          <button
+                            type="button"
+                            class="icona-btn"
+                            aria-label="Annulla modifica quota"
+                            @click="cancelEditQuota"
+                          >
+                            <AppIcon name="chiudi" />
+                          </button>
+                        </span>
+                        <template v-else>€ {{ euro(riga.pagamento.quota_pagata) }}</template>
+                      </td>
+                      <td class="pagamenti__ricevuta">{{ testoRicevuta(riga.pagamento) }}</td>
+                      <td class="pagamenti__azioni">
+                        <button
+                          v-if="editingQuotaId !== riga.pagamento.id_tesseramento"
+                          type="button"
+                          class="icona-btn"
+                          :aria-label="`Modifica la quota del ${riga.anno}`"
+                          :title="`Modifica la quota del ${riga.anno}`"
+                          @click="startEditQuota(riga.pagamento)"
+                        >
+                          <AppIcon name="modifica" />
+                        </button>
+                        <button
+                          type="button"
+                          class="icona-btn icona-btn--pericolo"
+                          :aria-label="`Elimina il pagamento del ${riga.anno}`"
+                          :title="`Elimina il pagamento del ${riga.anno}`"
+                          @click="eliminaPagamento(riga)"
+                        >
+                          <AppIcon name="elimina" />
+                        </button>
+                      </td>
+                    </template>
+                    <template v-else>
+                      <td colspan="3"></td>
+                      <td class="pagamenti__azioni">
+                        <button
+                          v-if="riga.stato !== '-'"
+                          type="button"
+                          class="link-btn"
+                          @click="payYear(riga.anno)"
+                        >
+                          {{ riga.precedente ? 'Registra' : 'Paga' }} {{ riga.anno }}
+                        </button>
+                      </td>
+                    </template>
+                  </tr>
+                </template>
               </tbody>
             </table>
           </div>
@@ -218,6 +242,7 @@
               :mostra-errori="tentato"
               :disabilitato="isSaving"
               compatto
+              modifica
             />
             <div class="modifica__azioni">
               <BaseButton variant="ghost" :disabled="isSaving" @click="annullaModifica">
@@ -282,7 +307,13 @@ import {
   addCustomGroup,
 } from '@/services/db'
 import { generateSingleCardPDF } from '@/services/export'
-import { annoDaPagare, cronologiaSocio, riepilogoSocio } from '@/utils/schedaSocio'
+import {
+  annoDaPagare,
+  cronologiaSocio,
+  dividiCronologia,
+  riepilogoSocio,
+  testoAnniPrecedenti,
+} from '@/utils/schedaSocio'
 import { isMinorenne, MAX_ANNI_ARRETRATI, TESTI_STATO_ANNO } from '@/utils/payment'
 import { annoIscrizione } from '@/utils/iscrizione'
 import { euro } from '@/utils/registrazione'
@@ -323,6 +354,20 @@ const annoCorrente = new Date().getFullYear()
 const annoProposto = computed(() => annoDaPagare(tesseramenti.value, annoCorrente))
 const riepilogo = computed(() => riepilogoSocio(socio.value, tesseramenti.value, annoCorrente))
 const cronologia = computed(() => cronologiaSocio(socio.value, tesseramenti.value, annoCorrente))
+
+// Anni precedenti (bozza 2A): chiusi, una riga che si apre con "Mostra"
+const mostraPrecedenti = ref(false)
+const righeTabella = computed(() => {
+  const { recenti, precedenti, riassunto } = dividiCronologia(cronologia.value, annoCorrente)
+  if (!riassunto) return recenti
+  const gruppo = { chiave: 'anni-precedenti', gruppo: true, ...riassunto }
+  const aperti = mostraPrecedenti.value ? precedenti.map((r) => ({ ...r, precedente: true })) : []
+  return [...recenti, gruppo, ...aperti]
+})
+// Tra gli anni precedenti un anno senza pagamento non e' un arretrato: niente rosso
+const nonArretrato = (riga) => riga.precedente && riga.stato === 'X'
+const tonoRiga = (riga) => (nonArretrato(riga) ? 'neutro' : TONI_QUOTA[riga.stato])
+const testoRiga = (riga) => (nonArretrato(riga) ? 'Non pagata' : TESTI_STATO_ANNO[riga.stato])
 const tonoArretrati = computed(() => {
   const p = riepilogo.value.pagamento
   if (p.daReiscrivere) return 'errore'
@@ -887,6 +932,26 @@ onBeforeUnmount(() => {
 
 .pagamenti__riga--futura {
   color: var(--text-secondary);
+}
+
+.pagamenti__gruppo,
+.pagamenti__riga--precedente {
+  background: var(--background-canvas);
+}
+
+.pagamenti__gruppo th,
+.pagamenti__gruppo td {
+  color: var(--text-secondary);
+}
+
+/* Rosso solo per gli arretrati veri: "Mostra" e "Registra" degli anni precedenti restano neutri */
+.pagamenti__gruppo .link-btn,
+.pagamenti__riga--precedente .link-btn {
+  color: var(--text-primary);
+}
+
+.pagamenti__freccia--aperta {
+  transform: rotate(180deg);
 }
 
 .pagamenti__cifre {

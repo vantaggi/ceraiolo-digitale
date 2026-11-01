@@ -145,7 +145,7 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 
 - [ ] Verifica la tabella pagamenti di Mario Rossi
 - [ ] Dovrebbero esserci pagamenti per: 2022, 2023, 2025
-- [ ] Verifica che il 2024 compaia come riga "X Da pagare" con il link "Paga 2024"
+- [ ] Il 2024 (prima del pagamento 2025) sta nella riga chiusa "Anni precedenti"; "Mostra" lo fa vedere come "Non pagata", senza rosso, con il link "Registra 2024"
 
 ### Test 7.4: Arretrati
 
@@ -352,7 +352,9 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 ### Test 15.2: Pagamenti a tabella
 
 - [ ] La tabella parte dall'anno di iscrizione (o dal primo pagamento, se e' prima) e arriva all'anno corrente, dal piu' recente
-- [ ] Gli anni non pagati hanno la riga "Da pagare" e un link "Paga ANNO"; il pulsante in alto "Paga ANNO" propone l'anno corrente (o il successivo se e' gia' pagato)
+- [ ] Gli anni non pagati dopo l'ultimo pagamento (gli arretrati) hanno la riga "Da pagare" e un link "Paga ANNO"; il pulsante in alto "Paga ANNO" propone l'anno corrente (o il successivo se e' gia' pagato)
+- [ ] Un socio con anni non pagati prima dell'ultimo pagamento: quegli anni stanno in una riga chiusa "ANNO–ANNO Anni precedenti: N anni senza pagamento, …: non sono arretrati". "Mostra" li apre (grigi, "Non pagata", link "Registra ANNO"), "Nascondi" li richiude. Con Tab si arriva su "Mostra" e Invio lo apre
+- [ ] Un socio che ha sempre pagato vede tutti gli anni, senza la riga "Anni precedenti"
 - [ ] Date come 18/01/2024, importi come € 10,00, ricevuta come "381, blocchetto 304"
 - [ ] Matita su una quota: cambia l'importo, Invio salva, Esc annulla
 - [ ] Cestino su un pagamento: la conferma nomina anno, importo e socio, poi la riga torna "Da pagare" e in Home › Ultime modifiche compare "Cancellato pagamento ANNO"
@@ -365,6 +367,7 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 - [ ] "Salva le modifiche" (o Ctrl+S) salva: le righe mostrano i dati nuovi, ricaricando restano, in Home › Ultime modifiche compare "Modificata anagrafica: COGNOME NOME"
 - [ ] "Annulla" o Esc chiudono il modulo senza salvare e il fuoco torna su "Modifica"
 - [ ] Con il nome vuoto non salva: il cursore va sul nome e sotto c'e' "Scrivi il nome"
+- [ ] Il luogo di nascita e' "(facoltativo)": svuotato, il socio si salva lo stesso. Nel Nuovo socio resta obbligatorio
 - [ ] In fondo, "Altre azioni": "Esporta i dati del socio (JSON)" scarica il file; "Elimina socio…" a destra, bordato di rosso, chiede conferma
 - [ ] Da telefono (o finestra stretta) la tabella scorre di lato senza spostare la pagina
 - [ ] Tema chiaro e scuro leggibili

@@ -62,3 +62,55 @@ export function cronologiaSocio(socio, tesseramenti, annoCorrente) {
   }
   return righe
 }
+
+/**
+ * Divide la cronologia in due: gli anni dall'ultimo pagamento (fino all'anno in
+ * corso) in poi, che contano per quota e arretrati, e gli "Anni precedenti".
+ * Pagare un anno condona quelli prima (calculatePaymentStatus), quindi gli anni
+ * precedenti senza pagamento non sono arretrati: la scheda li raggruppa in una
+ * riga che si apre (bozza 2A, parola scelta da Cioti il 1 novembre 2026). Se
+ * prima dell'ultimo pagamento sono tutti pagati o esenti, non si raggruppa niente.
+ * @param {Array<{ anno: number, stato: string }>} righe - da cronologiaSocio
+ * @param {number} annoCorrente
+ * @returns {{ recenti: Array<object>, precedenti: Array<object>,
+ *   riassunto: { da: number, a: number, pagati: number, esenti: number, nonPagati: number }|null }}
+ */
+export function dividiCronologia(righe, annoCorrente) {
+  const pagati = righe.filter((r) => r.pagamento && r.anno <= annoCorrente).map((r) => r.anno)
+  if (pagati.length === 0) return { recenti: righe, precedenti: [], riassunto: null }
+  const soglia = Math.max(...pagati)
+  const recenti = righe.filter((r) => r.anno >= soglia)
+  const precedenti = righe.filter((r) => r.anno < soglia)
+  // Si raggruppa solo se c'e' almeno un anno senza pagamento: chi ha sempre pagato vede tutto
+  if (!precedenti.some((r) => r.stato === 'X')) {
+    return { recenti: righe, precedenti: [], riassunto: null }
+  }
+  const anni = (stato) =>
+    new Set(precedenti.filter((r) => r.stato === stato).map((r) => r.anno)).size
+  return {
+    recenti,
+    precedenti,
+    riassunto: {
+      da: Math.min(...precedenti.map((r) => r.anno)),
+      a: Math.max(...precedenti.map((r) => r.anno)),
+      pagati: anni('V'),
+      esenti: anni('O'),
+      nonPagati: anni('X'),
+    },
+  }
+}
+
+/**
+ * Testo della riga "Anni precedenti": quanti pagati, esenti e senza pagamento.
+ * @param {{ pagati: number, esenti: number, nonPagati: number }} riassunto
+ * @returns {string}
+ */
+export function testoAnniPrecedenti({ pagati, esenti, nonPagati }) {
+  const conta = (n, uno, piu) => `${n} ${n === 1 ? uno : piu}`
+  const parti = []
+  if (nonPagati > 0) parti.push(conta(nonPagati, 'anno senza pagamento', 'anni senza pagamento'))
+  if (pagati > 0) parti.push(conta(pagati, 'pagato', 'pagati'))
+  if (esenti > 0) parti.push(conta(esenti, 'esente', 'esenti'))
+  const testo = parti.join(', ')
+  return nonPagati > 0 ? `${testo}: non sono arretrati` : testo
+}
