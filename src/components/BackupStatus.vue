@@ -14,7 +14,7 @@
     v-else-if="stato === 'spento'"
     to="/settings/dati"
     class="backup-status backup-status--attenzione"
-    title="Scegli una cartella in Impostazioni > Dati e attiva l'auto-salvataggio"
+    title="Scegli una cartella in Impostazioni › Dati e attiva il backup automatico"
   >
     <AppIcon name="attenzione" /> Backup automatico spento
   </RouterLink>

@@ -182,6 +182,31 @@ describe('Registra ricevute: Invio registra subito (bozza 2A)', () => {
   })
 })
 
+describe('Registra ricevute: nuovo socio dal modulo', () => {
+  const registraNuovo = async (wrapper, dataNascita) => {
+    await wrapper.get('.cerca__nuovo').trigger('click')
+    await flushPromises()
+    await wrapper.get('#nuovo-socio-incassi-cognome').setValue('Piccoli')
+    await wrapper.get('#nuovo-socio-incassi-nome').setValue('Luca')
+    await wrapper.get('#nuovo-socio-incassi-data_nascita').setValue(dataNascita)
+    await wrapper.get('#nuovo-socio-incassi-luogo_nascita').setValue('Gubbio')
+    await wrapper.get('.nuovo form').trigger('submit')
+    await flushPromises()
+  }
+
+  it('un minorenne nuovo paga la quota ordinaria, non quella dei nuovi', async () => {
+    const wrapper = await monta()
+    await registraNuovo(wrapper, '2012-03-04')
+    expect(salvati.map((p) => [p.id_socio, p.anno, p.quota_pagata])).toEqual([[99, 2026, 10]])
+  })
+
+  it('un maggiorenne nuovo paga la quota dei nuovi', async () => {
+    const wrapper = await monta()
+    await registraNuovo(wrapper, '1990-03-04')
+    expect(salvati.map((p) => [p.id_socio, p.anno, p.quota_pagata])).toEqual([[99, 2026, 25]])
+  })
+})
+
 describe('Registra ricevute: tastiera', () => {
   it('Ctrl+Invio passa alla ricevuta successiva, anche dalla ricerca', async () => {
     const wrapper = await monta()

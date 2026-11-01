@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import jsPDF from 'jspdf'
-import { addPDFHeader, adattaColonne, createPDFTable } from '../export'
+import { addPDFFooter, addPDFHeader, adattaColonne, createPDFTable } from '../export'
 
 // Registra dove il PDF scrive testo e disegna rettangoli
 const nuovoDoc = (orientation = 'portrait') => {
@@ -95,6 +95,19 @@ describe('createPDFTable', () => {
     expect(righe[1].h).toBeGreaterThan(righe[0].h)
   })
 
+  it('scrive intestazione e righe ad almeno 10 pt (07-output)', () => {
+    const { doc, testi } = nuovoDoc('portrait')
+    const corpi = []
+    const text = doc.text
+    doc.text = (...arg) => {
+      corpi.push(doc.getFontSize())
+      return text(...arg)
+    }
+    createPDFTable(doc, colonne, [['Rossi Mario', 'V', 'O', 'X']], 40)
+    expect(testi.length).toBeGreaterThan(0)
+    expect(Math.min(...corpi)).toBeGreaterThanOrEqual(10)
+  })
+
   it('va a pagina nuova prima di uscire dal foglio e ripete l intestazione', () => {
     const { doc, rettangoli, testi } = nuovoDoc('portrait')
     const righe = Array.from({ length: 80 }, (_, i) => [`Socio ${i}`, 'V', 'V', 'V'])
@@ -103,6 +116,48 @@ describe('createPDFTable', () => {
     for (const r of rettangoli) expect(r.y + r.h).toBeLessThanOrEqual(297 - 14 + 0.001)
     const intestazioni = testi.filter((t) => t.t === 'Socio')
     expect(intestazioni).toHaveLength(doc.internal.getNumberOfPages())
+  })
+})
+
+describe('addPDFFooter', () => {
+  const colonne = [
+    { text: 'Socio', width: 60 },
+    { text: '2026', width: 10 },
+  ]
+  const piediDi = (testi, doc) =>
+    Array.from({ length: doc.internal.getNumberOfPages() }, (_, i) =>
+      testi.filter((t) => t.pagina === i + 1 && t.y > 280).map((t) => String(t.t)),
+    )
+
+  it('ogni pagina porta titolo, data di generazione e "Pagina n di N" (07-output)', () => {
+    const { doc, testi } = nuovoDoc('portrait')
+    const y = addPDFHeader(doc, 'Aventi diritto al voto 2026', 'Tutte le manicchie')
+    createPDFTable(
+      doc,
+      colonne,
+      Array.from({ length: 80 }, (_, i) => [`Socio ${i}`, 'V']),
+      y,
+    )
+    addPDFFooter(doc)
+    const pagine = piediDi(testi, doc)
+    expect(pagine.length).toBeGreaterThan(1)
+    pagine.forEach((piede, i) => {
+      expect(piede).toContain(`Pagina ${i + 1} di ${pagine.length}`)
+      expect(
+        piede.some((t) => /^Aventi diritto al voto 2026 · Generato il \d{2}\/\d{2}\/\d{4}/.test(t)),
+      ).toBe(true)
+    })
+  })
+
+  it('un titolo lunghissimo si accorcia e non tocca il numero di pagina', () => {
+    const { doc, testi } = nuovoDoc('portrait')
+    addPDFHeader(doc, 'Report su misura '.repeat(12))
+    addPDFFooter(doc)
+    const sinistra = testi.find((t) => t.y > 280 && String(t.t).includes('Generato il'))
+    expect(String(sinistra.t)).toContain('...')
+    doc.setFontSize(8)
+    const fine = sinistra.x + doc.getTextWidth(String(sinistra.t))
+    expect(fine).toBeLessThan(210 - 12 - doc.getTextWidth('Pagina 1 di 1'))
   })
 })
 
@@ -124,7 +179,13 @@ describe('report su misura: contenuto del PDF', () => {
     stato.display.baseColumns = ['dirittoVoto', 'cognomeNome', 'firma']
     stato.display.yearColumns = [2026]
     const soci = [
-      { id: 1, cognome: 'Prova', nome: 'Uno', data_nascita: '1980-01-01', tesseramenti: [{ anno: 2025 }, { anno: 2026 }] },
+      {
+        id: 1,
+        cognome: 'Prova',
+        nome: 'Uno',
+        data_nascita: '1980-01-01',
+        tesseramenti: [{ anno: 2025 }, { anno: 2026 }],
+      },
     ]
     const colonne = colonneReport(stato)
     const { headers, rows } = tabellaReport(filtraSoci(soci, stato), colonne)
@@ -132,7 +193,12 @@ describe('report su misura: contenuto del PDF', () => {
     expect(headers.map((h) => h.text)).toEqual(['Diritto di voto', 'Socio', '2026', 'Firma'])
     expect(headers[2].orientation).toBe('vertical')
     expect(rows).toEqual([
-      [{ text: 'Sì', color: [0, 150, 0] }, 'Prova Uno', { text: 'V', color: expect.any(Array) }, ''],
+      [
+        { text: 'Sì', color: [0, 150, 0] },
+        'Prova Uno',
+        { text: 'V', color: expect.any(Array) },
+        '',
+      ],
     ])
   })
 })

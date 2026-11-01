@@ -59,7 +59,7 @@ export function righeDatiComputer({
       'backup',
       'Backup automatico',
       'Non disponibile',
-      'Questo browser non salva in una cartella: usa Scarica backup qui sotto.',
+      'Questo browser non salva in una cartella: usa Scarica una copia qui sotto.',
       'attenzione',
     )
   } else if (!backup.cartella || !backup.attivo) {
@@ -67,7 +67,7 @@ export function righeDatiComputer({
       'backup',
       'Backup automatico',
       'Spento',
-      "Scegli una cartella qui sotto e attiva l'auto-salvataggio.",
+      'Scegli una cartella qui sotto e attiva il backup automatico.',
       'attenzione',
     )
   } else if (!backup.autorizzato) {
