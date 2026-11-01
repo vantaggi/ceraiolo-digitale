@@ -895,7 +895,9 @@ const saveNewSocio = async () => {
     }
 
     const socioId = await addSocio(socioData)
-    const quota = config.value.newMemberQuota
+    // Regola in payment.js: il maggiorenne nuovo paga la quota dei nuovi, il minorenne
+    // la quota ordinaria (o un'offerta, da correggere poi nella scheda)
+    const quota = quotaProposta(tipoQuota(socioData, [], sessionData.annoRiferimento), quote.value)
     await addTesseramento({
       id_socio: socioId,
       anno: sessionData.annoRiferimento,
