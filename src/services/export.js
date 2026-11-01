@@ -61,8 +61,10 @@ export function createPDFDocument(orientation = 'landscape', format = 'a4') {
 // Impaginazione comune dei PDF (mm). I margini valgono sia in verticale sia in orizzontale.
 const MARGINE = 12
 const MARGINE_BASSO = 14 // spazio lasciato al numero di pagina
-const FONT_TABELLA = 9
-const INTERLINEA = (FONT_TABELLA * 1.15 * 25.4) / 72 // altezza di una riga di testo a 9pt
+const FONT_TABELLA = 10 // 07-output: testo delle tabelle stampate almeno 10 pt (scelta di Cioti, 1 novembre 2026)
+// Titolo e data scritti da addPDFHeader, ripetuti nel piede da addPDFFooter
+const piediPDF = new WeakMap()
+const INTERLINEA = (FONT_TABELLA * 1.15 * 25.4) / 72 // altezza di una riga di testo della tabella
 
 /**
  * Aggiunge header standard al PDF, centrato sulla larghezza della pagina
@@ -123,6 +125,10 @@ export function addPDFHeader(doc, title, subtitle = '', summary = '', logoData =
   doc.text(`Generato il: ${generationDate}`, centro, currentY, { align: 'center' })
   doc.setTextColor(0, 0, 0)
   currentY += 4
+
+  // Il piede di ogni pagina ripete titolo e data (07-output): un foglio staccato si
+  // riconosce anche senza la prima pagina.
+  piediPDF.set(doc, { titolo: String(title).replace(/\s+/g, ' ').trim(), data: generationDate })
 
   return logoData ? Math.max(currentY, 32) : currentY
 }
@@ -253,13 +259,27 @@ export function addPDFFooter(doc) {
   const pageHeight = doc.internal.pageSize.getHeight()
   const pageWidth = doc.internal.pageSize.getWidth()
   const pageCount = doc.internal.getNumberOfPages()
+  const piede = piediPDF.get(doc)
 
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i)
     doc.setFontSize(8)
     doc.setFont('helvetica', 'normal')
     doc.setTextColor(110, 110, 110)
-    doc.text(`Pagina ${i} di ${pageCount}`, pageWidth - MARGINE, pageHeight - 7, { align: 'right' })
+    const numero = `Pagina ${i} di ${pageCount}`
+    doc.text(numero, pageWidth - MARGINE, pageHeight - 7, { align: 'right' })
+    if (piede) {
+      // Titolo e data a sinistra; un titolo lungo si accorcia prima del numero di pagina
+      const spazio = pageWidth - 2 * MARGINE - doc.getTextWidth(numero) - 6
+      const coda = ` · Generato il ${piede.data}`
+      let testo = `${piede.titolo}${coda}`
+      let titolo = piede.titolo
+      while (titolo.length > 1 && doc.getTextWidth(testo) > spazio) {
+        titolo = titolo.slice(0, -1)
+        testo = `${titolo.trimEnd()}...${coda}`
+      }
+      doc.text(testo, MARGINE, pageHeight - 7)
+    }
     doc.setTextColor(0, 0, 0)
   }
 }
