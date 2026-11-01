@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { euro, propostaRegistrazione } from '../registrazione'
+import { euro, propostaRegistrazione, quoteDopoArretrato } from '../registrazione'
 
 const quote = { quotaOrdinaria: 10, quotaNuovi: 25 }
 const socio = (extra = {}) => ({
@@ -89,5 +89,52 @@ describe('propostaRegistrazione (Invio su un socio trovato)', () => {
     const p = proposta(socio({ data_nascita: '2012-07-30', data_prima_iscrizione: null }), [])
     expect(p.registra).toBe(true)
     expect(p.quota).toBe(10)
+  })
+})
+
+describe("quoteDopoArretrato (Aggiungi l'arretrato sulla ricevuta)", () => {
+  // Inventato: pagato fino al 2023, arretrati 2024 e 2025; Invio ha registrato il 2026 a 25
+  const s = socio({ data_prima_iscrizione: 2020 })
+  const prima = [2020, 2021, 2022, 2023, 2026]
+
+  it("saldato l'ultimo arretrato, la quota del rientro scende alla ordinaria", () => {
+    const pagamenti = [
+      { id_tesseramento: 7, anno: 2026, quota_pagata: 25 },
+      { id_tesseramento: 8, anno: 2025, quota_pagata: 25 },
+    ]
+    expect(
+      quoteDopoArretrato({
+        socio: s,
+        pagamenti,
+        anniPrima: prima,
+        anniDopo: [...prima, 2025],
+        quote,
+      }),
+    ).toEqual([{ id_tesseramento: 7, anno: 2026, da: 25, a: 10 }])
+  })
+
+  it('saldati tutti gli arretrati, anche il primo arretrato aggiunto scende', () => {
+    const pagamenti = [
+      { id_tesseramento: 7, anno: 2026, quota_pagata: 10 },
+      { id_tesseramento: 8, anno: 2025, quota_pagata: 25 },
+      { id_tesseramento: 9, anno: 2024, quota_pagata: 10 },
+    ]
+    const anniPrima = [...prima, 2025]
+    expect(
+      quoteDopoArretrato({ socio: s, pagamenti, anniPrima, anniDopo: [...anniPrima, 2024], quote }),
+    ).toEqual([{ id_tesseramento: 8, anno: 2025, da: 25, a: 10 }])
+  })
+
+  it("un importo scritto a mano resta com'e'", () => {
+    const pagamenti = [{ id_tesseramento: 7, anno: 2026, quota_pagata: 50 }]
+    expect(
+      quoteDopoArretrato({
+        socio: s,
+        pagamenti,
+        anniPrima: prima,
+        anniDopo: [...prima, 2025],
+        quote,
+      }),
+    ).toEqual([])
   })
 })

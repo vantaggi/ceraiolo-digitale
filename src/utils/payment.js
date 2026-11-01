@@ -55,7 +55,8 @@ export const QUOTA_NUOVI_PREDEFINITA = 25
  *   (scelta del proprietario, 31 ottobre 2026).
  * Le definizioni sono quelle di iscrizione.js; qui si usa statoAnno per non importarlo
  * (iscrizione.js importa questo file).
- * Nuovi e rientri pagano la quota dei nuovi (impostazione newMemberQuota).
+ * Nuovi e rientri pagano la quota dei nuovi (impostazione newMemberQuota). Chi salda
+ * gli arretrati nello stesso pagamento non e' un rientro: gli anni pagati contano.
  * @param {object} socio - con data_nascita
  * @param {Array<number>} anniPagati - anni con un tesseramento (anche dopo l'anno: si ignorano)
  * @param {number} anno
@@ -78,6 +79,23 @@ export function tipoQuota(socio, anniPagati, anno) {
  */
 export function quotaProposta(tipo, { quotaOrdinaria, quotaNuovi }) {
   return tipo === 'nuovo' || tipo === 'rientro' ? quotaNuovi : quotaOrdinaria
+}
+
+/**
+ * Quota da proporre quando si pagano piu' anni insieme: quella dell'ultimo anno scelto,
+ * contando come pagati anche gli altri anni scelti. Un rientro che salda gli arretrati
+ * non e' piu' un rientro e paga la quota ordinaria (scelta di Cioti, 1 novembre 2026).
+ * @param {object} socio
+ * @param {Array<number>} anniPagati - anni gia' pagati
+ * @param {Array<number>} anniScelti - anni che si stanno pagando
+ * @param {{ quotaOrdinaria: number, quotaNuovi: number }} quote
+ * @returns {number|null} null se non e' scelto nessun anno
+ */
+export function quotaPropostaPerAnni(socio, anniPagati, anniScelti, quote) {
+  const scelti = anniScelti.map(Number)
+  if (scelti.length === 0) return null
+  const anno = Math.max(...scelti)
+  return quotaProposta(tipoQuota(socio, [...anniPagati.map(Number), ...scelti], anno), quote)
 }
 
 /**

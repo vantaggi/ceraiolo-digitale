@@ -319,6 +319,7 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 - [ ] Invio registra subito l'anno di riferimento: nella ricevuta compare "Registrato Cognome Nome, 2026, € 10,00", la ricerca si svuota e il cursore resta nel campo
 - [ ] Socio nuovo o fuori da almeno un anno (rientro): Invio registra la quota dei nuovi (25), non la ordinaria
 - [ ] Socio con arretrati: dopo Invio la sua riga nella ricevuta dice "Aggiungi l'arretrato 2025"; il clic lo registra sulla stessa ricevuta e il totale sale
+- [ ] Rientro con l'arretrato dell'anno prima (pagato fino al 2024): Invio registra il 2026 a 25; "Aggiungi l'arretrato 2025" lo registra a 10 e il 2026 scende a 10 (totale € 20,00); il messaggio dice "la quota 2026 passa a € 10,00"
 - [ ] Socio che ha gia' pagato, gia' sulla ricevuta o minorenne esente: Invio non registra e la ricevuta dice perche'
 - [ ] Un clic su un socio trovato fa come Invio
 - [ ] Ctrl+Invio passa alla ricevuta successiva (anche dalla ricerca); Esc svuota la ricerca; con la ricerca vuota le frecce a sinistra e a destra cambiano ricevuta
@@ -355,6 +356,7 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 
 - [ ] La tabella parte dall'anno di iscrizione (o dal primo pagamento, se e' prima) e arriva all'anno corrente, dal piu' recente
 - [ ] Gli anni non pagati hanno la riga "X Da pagare" e un link "Paga ANNO"; il pulsante in alto "Paga ANNO" propone l'anno corrente (o il successivo se e' gia' pagato)
+- [ ] Finestra del pagamento di un rientro (pagato fino al 2024): con il solo 2026 propone 25; spuntando anche il 2025 propone 10 e sotto la quota dice "Con gli arretrati saldati il 2026 non è un rientro: quota ordinaria."; un importo scritto a mano non cambia piu' spuntando gli anni
 - [ ] Matita su una quota: cambia l'importo, Invio salva, Esc annulla
 - [ ] Cestino su un pagamento: chiede conferma, poi la riga torna "Da pagare"
 

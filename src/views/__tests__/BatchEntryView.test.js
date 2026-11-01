@@ -53,7 +53,11 @@ vi.mock('@/services/db', () => ({
   addTesseramento: async (dati) => {
     salvati.push(dati)
   },
-  getPagamentiBlocchetto: async () => salvati,
+  // id del pagamento = posizione in salvati + 1
+  updateTesseramentoQuota: async (id, quota) => {
+    salvati[id - 1].quota_pagata = quota
+  },
+  getPagamentiBlocchetto: async () => salvati.map((p, i) => ({ id_tesseramento: i + 1, ...p })),
   getNomiSoci: async (ids) => new Map(SOCI.filter((s) => ids.includes(s.id)).map((s) => [s.id, s])),
   getSetting: async (_chiave, predefinito) => predefinito,
   getUniqueGroups: async () => [],
@@ -142,13 +146,15 @@ describe('Registra ricevute: Invio registra subito (bozza 2A)', () => {
     expect(arretrato.text()).toBe("Aggiungi l'arretrato 2025")
     await arretrato.trigger('click')
     await flushPromises()
-    // il 2025 viene dopo il 2024 pagato: quota ordinaria, stessa ricevuta
+    // il 2025 viene dopo il 2024 pagato: quota ordinaria, stessa ricevuta. Con l'arretrato
+    // saldato il 2026 non e' piu' un rientro: scende alla quota ordinaria (Cioti, 1/11/2026)
     expect(salvati.map((p) => [p.anno, p.quota_pagata, p.numero_ricevuta])).toEqual([
-      [2026, 25, 1],
+      [2026, 10, 1],
       [2025, 10, 1],
     ])
     expect(wrapper.find('.riga__arretrato').exists()).toBe(false)
-    expect(wrapper.get('.ricevuta__totale').text()).toBe('Totale € 35,00')
+    expect(wrapper.get('.ricevuta__totale').text()).toBe('Totale € 20,00')
+    expect(esito(wrapper)).toContain('la quota 2026 passa a € 10,00')
   })
 
   it('il socio scelto con le frecce e il clic su un socio registrano quello giusto', async () => {

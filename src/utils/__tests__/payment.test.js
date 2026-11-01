@@ -9,6 +9,7 @@ import {
   MAGGIORE_ETA,
   tipoQuota,
   quotaProposta,
+  quotaPropostaPerAnni,
   QUOTA_ORDINARIA_PREDEFINITA,
   QUOTA_NUOVI_PREDEFINITA,
   TESTI_STATO_ANNO,
@@ -254,5 +255,25 @@ describe('TESTI_STATO_ANNO', () => {
       O: 'Esente',
       '-': 'Non iscritto',
     })
+  })
+})
+
+describe("quotaPropostaPerAnni (piu' anni nello stesso pagamento)", () => {
+  // Inventato: ha pagato fino al 2024, arretrato il 2025
+  const socio = { data_nascita: '1980-05-15', data_prima_iscrizione: 2020 }
+  const pagati = [2020, 2021, 2022, 2023, 2024]
+  const quote = { quotaOrdinaria: 10, quotaNuovi: 25 }
+
+  it('un rientro che salda gli arretrati paga la quota ordinaria', () => {
+    expect(quotaPropostaPerAnni(socio, pagati, [2026], quote)).toBe(25)
+    expect(quotaPropostaPerAnni(socio, pagati, [2025, 2026], quote)).toBe(10)
+  })
+
+  it('un nuovo socio paga sempre la quota dei nuovi', () => {
+    expect(quotaPropostaPerAnni({ data_nascita: '1990-01-01' }, [], [2026], quote)).toBe(25)
+  })
+
+  it('senza anni scelti non propone niente', () => {
+    expect(quotaPropostaPerAnni(socio, pagati, [], quote)).toBeNull()
   })
 })

@@ -15,6 +15,7 @@ vi.mock('@/services/db', () => ({
 }))
 
 import AddPaymentModal from '../AddPaymentModal.vue'
+import { getTesseramentiBySocioId } from '@/services/db'
 
 const dialogo = () => document.querySelector('[role="dialog"]')
 
@@ -73,5 +74,29 @@ describe('AddPaymentModal', () => {
     expect(dati.years).toEqual([2026])
     expect(dati.details.numero_blocchetto).toBe(3)
     expect(dati.details.numero_ricevuta).toBe(27)
+  })
+
+  it('un rientro che salda gli arretrati paga la quota ordinaria', async () => {
+    // Inventato: pagato fino al 2024, 2025 arretrato, il 2026 e' un rientro
+    getTesseramentiBySocioId.mockResolvedValueOnce([{ anno: 2023 }, { anno: 2024 }])
+    await apri()
+    const quota = document.querySelector('#quota-pagata')
+    expect(Number(quota.value)).toBe(25)
+    expect(document.querySelector('#nota-quota')).toBeNull()
+
+    const anno2025 = document.querySelector('#year-2025')
+    anno2025.click()
+    await flushPromises()
+    expect(Number(quota.value)).toBe(10)
+    expect(document.querySelector('#nota-quota').textContent).toBe(
+      'Con gli arretrati saldati il 2026 non è un rientro: quota ordinaria.',
+    )
+
+    // Un importo scritto a mano resta
+    quota.value = '30'
+    quota.dispatchEvent(new Event('input'))
+    anno2025.click()
+    await flushPromises()
+    expect(Number(quota.value)).toBe(30)
   })
 })

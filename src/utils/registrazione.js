@@ -74,3 +74,32 @@ export function propostaRegistrazione({ socio, anniPagati, anno, quote, sullaRic
     arretrati,
   }
 }
+
+/**
+ * Registra ricevute, dopo "Aggiungi l'arretrato": le quote dello stesso socio sulla
+ * ricevuta da correggere. Un rientro che salda gli arretrati paga la quota ordinaria
+ * (scelta di Cioti, 1 novembre 2026): la quota del rientro registrata con Invio scende.
+ * Si cambia solo una quota uguale a quella proposta prima dell'arretrato: un importo
+ * scritto a mano (un'offerta) resta com'e'.
+ * @param {object} p
+ * @param {object} p.socio
+ * @param {Array<{ id_tesseramento: number, anno: number, quota_pagata: number }>} p.pagamenti
+ *   pagamenti del socio su questa ricevuta
+ * @param {Array<number>} p.anniPrima - anni pagati prima dell'arretrato
+ * @param {Array<number>} p.anniDopo - anni pagati con l'arretrato
+ * @param {{ quotaOrdinaria: number, quotaNuovi: number }} p.quote
+ * @returns {Array<{ id_tesseramento: number, anno: number, da: number, a: number }>}
+ */
+export function quoteDopoArretrato({ socio, pagamenti, anniPrima, anniDopo, quote }) {
+  const proposta = (anni, anno) => quotaProposta(tipoQuota(socio, anni.map(Number), anno), quote)
+  const correzioni = []
+  for (const p of pagamenti) {
+    const anno = Number(p.anno)
+    const prima = proposta(anniPrima, anno)
+    const dopo = proposta(anniDopo, anno)
+    if (Number(p.quota_pagata) === prima && dopo !== prima) {
+      correzioni.push({ id_tesseramento: p.id_tesseramento, anno, da: prima, a: dopo })
+    }
+  }
+  return correzioni
+}

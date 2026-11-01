@@ -18,7 +18,10 @@
           min="0"
           required
           placeholder="Es: 10.00"
+          :aria-describedby="notaQuota ? 'nota-quota' : undefined"
+          @input="quotaToccata = true"
         />
+        <p v-if="notaQuota" id="nota-quota" class="campo__nota">{{ notaQuota }}</p>
       </div>
 
       <div class="campo">
@@ -92,7 +95,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, watch } from 'vue'
+import { ref, reactive, watch, computed } from 'vue'
 import BaseModal from '@/components/base/BaseModal.vue'
 import BaseButton from '@/components/base/BaseButton.vue'
 import { getTesseramentiBySocioId, getSetting } from '@/services/db'
@@ -101,6 +104,7 @@ import {
   QUOTA_NUOVI_PREDEFINITA,
   QUOTA_ORDINARIA_PREDEFINITA,
   quotaProposta,
+  quotaPropostaPerAnni,
   tipoQuota,
 } from '@/utils/payment'
 import { annoIscrizione } from '@/utils/iscrizione'
@@ -146,6 +150,39 @@ const paymentDetails = reactive({
 
 // Years selection
 const selectedYears = ref([...props.yearsToPay])
+
+// Quota proposta per gli anni scelti: un rientro che salda gli arretrati paga la quota
+// ordinaria (scelta di Cioti, 1 novembre 2026). Un importo scritto a mano non si tocca.
+const socioPagamento = ref(null)
+const quoteImpostate = ref(null)
+const quotaToccata = ref(false)
+const proponiQuota = () => {
+  if (quotaToccata.value || !socioPagamento.value || !quoteImpostate.value) return
+  const quota = quotaPropostaPerAnni(
+    socioPagamento.value,
+    Array.from(paidYears.value),
+    selectedYears.value,
+    quoteImpostate.value,
+  )
+  if (quota !== null) paymentDetails.quota_pagata = quota
+}
+watch(selectedYears, proponiQuota)
+
+/** Dice perche' la quota non e' quella dei nuovi quando si saldano gli arretrati. */
+const notaQuota = computed(() => {
+  const socio = socioPagamento.value
+  if (!socio || selectedYears.value.length < 2) return ''
+  const ultimo = Math.max(...selectedYears.value.map(Number))
+  const daSolo = tipoQuota(socio, Array.from(paidYears.value), ultimo)
+  const conGliAltri = tipoQuota(
+    socio,
+    [...Array.from(paidYears.value), ...selectedYears.value.map(Number)],
+    ultimo,
+  )
+  return daSolo === 'rientro' && conGliAltri === 'ordinaria'
+    ? `Con gli arretrati saldati il ${ultimo} non è un rientro: quota ordinaria.`
+    : ''
+})
 const availableYears = ref([])
 const paidYears = ref(new Set())
 
@@ -252,10 +289,14 @@ const resetForm = async () => {
   await loadAvailableYears()
 
   // Nuovi e rientri pagano la quota dei nuovi: la regola sta in utils/payment.js (tipoQuota)
+  quotaToccata.value = false
+  socioPagamento.value = null
+  quoteImpostate.value = quote
   try {
     const socio = await import('@/services/db').then((m) => m.getSocioById(props.socioId))
     const tipo = tipoQuota(socio, Array.from(paidYears.value), props.annoRiferimento)
     defaultQuota = quotaProposta(tipo, quote)
+    socioPagamento.value = socio
   } catch (e) {
     console.warn('Could not calculate automatic quota', e)
   }
@@ -302,6 +343,12 @@ const handleSubmit = () => {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+}
+
+.campo__nota {
+  margin: 0;
+  font-size: var(--font-size-caption);
+  color: var(--text-secondary);
 }
 
 .campo label,
