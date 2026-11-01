@@ -14,15 +14,24 @@ const MESSAGGI_OBBLIGATORI = {
 const testo = (v) => (typeof v === 'string' ? v.trim() : v == null ? '' : String(v).trim())
 
 /**
+ * Campi che diventano facoltativi quando si modifica un socio gia' in archivio:
+ * il luogo di nascita manca a molti soci importati (scelta di Cioti, 1 novembre 2026).
+ * Per un socio nuovo resta obbligatorio.
+ */
+export const FACOLTATIVI_IN_MODIFICA = ['luogo_nascita']
+
+/**
  * Controlla i dati del modulo.
  * @param {object} dati - cognome, nome, data_nascita (AAAA-MM-GG), luogo_nascita,
  *   gruppo_appartenenza, data_prima_iscrizione (anno), note
  * @param {Date} [oggi]
+ * @param {{ facoltativi?: string[] }} [opzioni] - campi obbligatori da non chiedere
  * @returns {Record<string, string>} campo -> messaggio; vuoto se e' tutto a posto
  */
-export function validaSocio(dati, oggi = new Date()) {
+export function validaSocio(dati, oggi = new Date(), { facoltativi = [] } = {}) {
   const errori = {}
   for (const campo of CAMPI_OBBLIGATORI) {
+    if (facoltativi.includes(campo)) continue
     if (!testo(dati[campo])) errori[campo] = MESSAGGI_OBBLIGATORI[campo]
   }
 

@@ -52,7 +52,10 @@
     </div>
 
     <div class="modulo-socio__campo">
-      <label :for="id('luogo_nascita')">Luogo di nascita</label>
+      <label :for="id('luogo_nascita')"
+        >Luogo di nascita
+        <span v-if="modifica" class="modulo-socio__facoltativo">(facoltativo)</span></label
+      >
       <input
         :id="id('luogo_nascita')"
         :ref="(el) => (campi.luogo_nascita = el)"
@@ -161,7 +164,7 @@ import { RouterLink } from 'vue-router'
 import AppIcon from '@/components/base/AppIcon.vue'
 import { formatDate } from '@/services/export'
 import { SENZA_MANICCHIA } from '@/utils/aventiDiritto'
-import { trovaOmonimi, validaSocio } from '@/utils/socio'
+import { FACOLTATIVI_IN_MODIFICA, trovaOmonimi, validaSocio } from '@/utils/socio'
 
 const dati = defineModel('dati', { type: Object, required: true })
 
@@ -177,6 +180,8 @@ const props = defineProps({
   mostraErrori: { type: Boolean, default: false },
   compatto: { type: Boolean, default: false },
   disabilitato: { type: Boolean, default: false },
+  /** modifica di un socio gia' in archivio: alcuni campi diventano facoltativi */
+  modifica: { type: Boolean, default: false },
 })
 
 const NUOVA = '__nuova__'
@@ -186,7 +191,11 @@ const campi = {}
 const toccati = reactive(new Set())
 
 const id = (campo) => `${props.idPrefisso}-${campo}`
-const errori = computed(() => validaSocio(dati.value))
+const errori = computed(() =>
+  validaSocio(dati.value, new Date(), {
+    facoltativi: props.modifica ? FACOLTATIVI_IN_MODIFICA : [],
+  }),
+)
 const errore = (campo) => (props.mostraErrori || toccati.has(campo) ? errori.value[campo] : '')
 const statoCampo = (campo) => ({
   'aria-invalid': errore(campo) ? 'true' : undefined,

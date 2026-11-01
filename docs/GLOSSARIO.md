@@ -20,14 +20,15 @@ Le regole che stanno dietro le parole vivono nel codice: `src/utils/payment.js` 
 
 Parole collegate, usate nelle stesse schermate:
 
-| Termine        | Significato                                                                                                                             |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| Quota          | L'importo pagato per un anno. Stato della quota: Pagata (V), Da pagare (X), Esente (O), Non iscritto (-).                               |
-| Esente         | Minorenne nell'anno, dopo l'iscrizione: non paga e conta come in regola. L'eta' si decide dal solo anno di nascita, non dal compleanno. |
-| Arretrati      | Anni da pagare dopo l'ultimo anno in regola, al massimo 3.                                                                              |
-| Da reiscrivere | Piu' di 3 anni di fila senza pagare: nessun arretrato, il socio si iscrive di nuovo e quell'anno conta come primo anno.                 |
-| Reiscritto     | Socio che era da reiscrivere e si e' iscritto di nuovo. L'anno della reiscrizione non vota.                                             |
-| Restituito     | Blocchetto consegnato in segreteria dall'incaricato.                                                                                    |
+| Termine         | Significato                                                                                                                                                                                                                                                                                                 |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Quota           | L'importo pagato per un anno. Stato della quota: Pagata (V), Da pagare (X), Esente (O), Non iscritto (-).                                                                                                                                                                                                   |
+| Esente          | Minorenne nell'anno, dopo l'iscrizione: non paga e conta come in regola. L'eta' si decide dal solo anno di nascita, non dal compleanno.                                                                                                                                                                     |
+| Arretrati       | Anni da pagare dopo l'ultimo anno in regola, al massimo 3.                                                                                                                                                                                                                                                  |
+| Da reiscrivere  | Piu' di 3 anni di fila senza pagare: nessun arretrato, il socio si iscrive di nuovo e quell'anno conta come primo anno.                                                                                                                                                                                     |
+| Anni precedenti | Nella scheda del socio, gli anni prima dell'ultimo pagamento, raccolti in una riga che si apre quando tra loro c'e' un anno senza pagamento. Pagare un anno condona quelli prima: non sono arretrati, e un anno senza pagamento li' dentro si scrive "Non pagata", senza rosso (deciso il 1 novembre 2026). |
+| Reiscritto      | Socio che era da reiscrivere e si e' iscritto di nuovo. L'anno della reiscrizione non vota.                                                                                                                                                                                                                 |
+| Restituito      | Blocchetto consegnato in segreteria dall'incaricato.                                                                                                                                                                                                                                                        |
 
 ## Decisioni
 

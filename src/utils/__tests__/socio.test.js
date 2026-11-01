@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { CAMPI_OBBLIGATORI, datiDaSalvare, trovaOmonimi, validaSocio } from '../socio'
+import {
+  CAMPI_OBBLIGATORI,
+  FACOLTATIVI_IN_MODIFICA,
+  datiDaSalvare,
+  trovaOmonimi,
+  validaSocio,
+} from '../socio'
 
 const oggi = new Date('2026-10-27T12:00:00')
 const completo = {
@@ -87,5 +93,18 @@ describe('modulo nuovo socio', () => {
       4,
     ])
     expect(trovaOmonimi({ cognome: '', nome: 'Mario' }, soci)).toEqual([])
+  })
+})
+
+describe('modifica di un socio in archivio', () => {
+  it("il luogo di nascita e' facoltativo, gli altri campi restano obbligatori", () => {
+    const senzaLuogo = { ...completo, luogo_nascita: '' }
+    expect(validaSocio(senzaLuogo, oggi)).toHaveProperty('luogo_nascita')
+    expect(validaSocio(senzaLuogo, oggi, { facoltativi: FACOLTATIVI_IN_MODIFICA })).toEqual({})
+    expect(
+      Object.keys(
+        validaSocio({ ...senzaLuogo, nome: '' }, oggi, { facoltativi: FACOLTATIVI_IN_MODIFICA }),
+      ),
+    ).toEqual(['nome'])
   })
 })
