@@ -7,6 +7,7 @@ import PageHeader from '@/components/base/PageHeader.vue'
 import SectionTabs from '@/components/base/SectionTabs.vue'
 import { SCHEDE_INCASSI } from '@/router/sezioni'
 import { db, exportAllTesseramenti } from '@/services/db'
+import { dataItaliana } from '@/utils/data'
 import { anniConPagamenti, filtraPagamenti, totaliPagamenti } from '@/utils/pagamenti'
 
 // Righe mostrate per volta: con molti soci un anno ha migliaia di pagamenti
@@ -65,11 +66,7 @@ const azzera = () => {
 }
 
 const euro = (valore) => Number(valore || 0).toFixed(2)
-const data = (iso) => {
-  if (!iso) return '—'
-  const d = new Date(`${String(iso).slice(0, 10)}T00:00:00`)
-  return isNaN(d) ? String(iso) : d.toLocaleDateString('it-IT')
-}
+const data = (iso) => dataItaliana(iso, '—')
 </script>
 
 <template>

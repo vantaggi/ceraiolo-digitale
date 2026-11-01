@@ -15,6 +15,7 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 - [ ] Verifica che dopo l'import vieni reindirizzato alla home
 - [ ] Apri DevTools → Application → IndexedDB → CeraioloDigitaleDB
 - [ ] Verifica che ci siano 5 soci e diversi tesseramenti
+- [ ] Ripristino dal benvenuto: da Impostazioni › Dati scarica un backup (`ceraiolo_backup.sqlite`), poi in Impostazioni › Dati "Cancella tutto e ripristina". Nel benvenuto importa il backup: il messaggio dice "Backup ripristinato: N soci, N pagamenti, impostazioni e blocchetti.", la pagina si ricarica sulla home e tornano anche quote, ricevute per blocchetto e blocchetti assegnati
 
 **Risultato atteso**: Database importato con successo, redirect automatico alla home.
 
@@ -135,19 +136,17 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
   - Gruppo di appartenenza
   - Prima iscrizione
 
-### Test 7.2: Badge età
+### Test 7.2: Minorenne
 
-- [ ] Apri dettaglio di Luca Bianchi (minorenne)
-- [ ] Verifica che il badge età sia **arancione**
-- [ ] Apri dettaglio di Mario Rossi (maggiorenne)
-- [ ] Verifica che il badge età sia **verde**
-- [ ] Un socio nato a dicembre di 18 anni fa (per esempio nel 2008, se l'anno e' il 2026) ha il badge **verde** anche prima del compleanno: conta solo l'anno di nascita
+- [ ] Apri il dettaglio di Luca Bianchi (minorenne): la riga Nascita finisce con "minorenne nel ANNO"
+- [ ] Apri il dettaglio di Mario Rossi (maggiorenne): la riga Nascita dice solo data, luogo ed eta'
+- [ ] Un socio nato a dicembre di 18 anni fa (per esempio nel 2008, se l'anno e' il 2026) non e' "minorenne" anche prima del compleanno: conta solo l'anno di nascita
 
 ### Test 7.3: Storico pagamenti
 
 - [ ] Verifica la tabella pagamenti di Mario Rossi
 - [ ] Dovrebbero esserci pagamenti per: 2022, 2023, 2025
-- [ ] Verifica che il 2024 compaia come riga "X Da pagare" con il link "Paga 2024"
+- [ ] Il 2024 (prima del pagamento 2025) sta nella riga chiusa "Anni precedenti"; "Mostra" lo fa vedere come "Non pagata", senza rosso, con il link "Registra 2024"
 
 ### Test 7.4: Arretrati
 
@@ -214,6 +213,8 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 - [ ] Nel tema scuro colori del grafico, assi e legenda si leggono; cambiando tema il grafico cambia colori senza ricaricare
 - [ ] Nel tema scuro le tendine aperte (Età, Manicchia, e quelle di Impostazioni e Report) sono scure con le voci leggibili; nel tema chiaro restano chiare. Vale anche per il calendario delle date
 - [ ] Con una ricerca attiva l'elenco usa tutta la larghezza; a ricerca vuota compare "Ultime modifiche"
+- [ ] Nell'elenco la quota si legge a parole con l'icona (Pagata, Da pagare, Esente); le righe sono compatte e tutte della stessa altezza, anche quelle con "Paga 2026"
+- [ ] Sotto i 600 px di larghezza resta solo l'icona della quota; il bottone Paga e la tessera restano raggiungibili
 
 ### Test 10.2: Manutenzione spostata
 
@@ -354,15 +355,23 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 ### Test 15.2: Pagamenti a tabella
 
 - [ ] La tabella parte dall'anno di iscrizione (o dal primo pagamento, se e' prima) e arriva all'anno corrente, dal piu' recente
-- [ ] Gli anni non pagati hanno la riga "X Da pagare" e un link "Paga ANNO"; il pulsante in alto "Paga ANNO" propone l'anno corrente (o il successivo se e' gia' pagato)
+- [ ] Gli anni non pagati dopo l'ultimo pagamento (gli arretrati) hanno la riga "Da pagare" e un link "Paga ANNO"; il pulsante in alto "Paga ANNO" propone l'anno corrente (o il successivo se e' gia' pagato)
+- [ ] Un socio con anni non pagati prima dell'ultimo pagamento: quegli anni stanno in una riga chiusa "ANNO–ANNO Anni precedenti: N anni senza pagamento, …: non sono arretrati". "Mostra" li apre (grigi, "Non pagata", link "Registra ANNO"), "Nascondi" li richiude. Con Tab si arriva su "Mostra" e Invio lo apre
+- [ ] Un socio che ha sempre pagato vede tutti gli anni, senza la riga "Anni precedenti"
+- [ ] Date come 18/01/2024, importi come € 10,00, ricevuta come "381, blocchetto 304"
 - [ ] Matita su una quota: cambia l'importo, Invio salva, Esc annulla
-- [ ] Cestino su un pagamento: chiede conferma, poi la riga torna "Da pagare"
+- [ ] Cestino su un pagamento: la conferma nomina anno, importo e socio, poi la riga torna "Da pagare" e in Home › Ultime modifiche compare "Cancellato pagamento ANNO"
 
 ### Test 15.3: Azioni
 
 - [ ] "Tessera ANNO" scarica la tessera del socio (serve lo sfondo in Impostazioni › Template Tessera)
-- [ ] "Modifica" apre i campi, "Salva" li salva; ricaricando la pagina i dati restano
-- [ ] In fondo, "Altre azioni": "Esporta JSON" scarica il file, "Elimina socio" chiede conferma
+- [ ] A 1366×768 si vedono insieme riepilogo, pagamenti (a sinistra) e anagrafica in righe (a destra)
+- [ ] "Modifica" (o Ctrl+E) apre al posto dell'anagrafica lo stesso modulo del Nuovo socio, con gli errori accanto al campo
+- [ ] "Salva le modifiche" (o Ctrl+S) salva: le righe mostrano i dati nuovi, ricaricando restano, in Home › Ultime modifiche compare "Modificata anagrafica: COGNOME NOME"
+- [ ] "Annulla" o Esc chiudono il modulo senza salvare e il fuoco torna su "Modifica"
+- [ ] Con il nome vuoto non salva: il cursore va sul nome e sotto c'e' "Scrivi il nome"
+- [ ] Il luogo di nascita e' "(facoltativo)": svuotato, il socio si salva lo stesso. Nel Nuovo socio resta obbligatorio
+- [ ] In fondo, "Altre azioni": "Esporta i dati del socio (JSON)" scarica il file; "Elimina socio…" a destra, bordato di rosso, chiede conferma
 - [ ] Da telefono (o finestra stretta) la tabella scorre di lato senza spostare la pagina
 - [ ] Tema chiaro e scuro leggibili
 
@@ -420,13 +429,17 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 - [ ] In cima, "I dati di questo computer": Dove sono (l'indirizzo, es. vantaggi.github.io/ceraiolo-digitale), Contenuto (soci e pagamenti come in Andamento), Conservazione, Backup automatico, Versione dell'app. Le righe non si premono
 - [ ] Conservazione "Protetti" in verde con l'app installata; "Non protetti" o "Non si sa" in arancione negli altri casi
 - [ ] Backup automatico: "Spento" senza cartella, "In pausa" dopo la riapertura finche' non premi Riattiva, "Attivo · ultimo …" con la cartella sotto
-- [ ] Poi, dall'alto: Backup, Esporta, Ripristina da un file, Controllo qualita' dei dati, Zona pericolosa
+- [ ] Poi, dall'alto, gruppi di righe larghi come quelli di Generale: Backup, Esporta, Ripristina, Controllo dei dati, Zona pericolosa. Ogni riga ha il nome, una riga di spiegazione e il bottone a destra (sotto, su schermi stretti)
+- [ ] Backup: "Scegli la cartella" (poi "Cambia cartella" con il nome della cartella sotto), "Attiva" / "Spegni" il backup automatico (disattivo finche' non c'e' la cartella), "Scarica una copia" o "Salva adesso" con la cartella scelta
+- [ ] Esporta: Archivio completo, Excel, Registro modifiche scaricano il loro file; Impostazioni ha Esporta e Importa
+- [ ] Zona pericolosa in fondo, con il bordo rosso: "Correggi" e "Cancella tutto" chiedono conferma; "Cancella tutto" e' l'unico bottone rosso pieno
 - [ ] Non c'e' piu' il riquadro "Stato salute dati" in cima (lo dice il Controllo qualita')
-- [ ] "Importa JSON" si raggiunge anche con Tab e si apre con Invio
+- [ ] "Importa" (Impostazioni) e "Scegli il file" (Ripristina) si raggiungono con Tab, si vede il fuoco, e si aprono con Invio o Spazio. Non compare il campo file del browser in inglese
 - [ ] Ripristina da un file chiede conferma prima di sostituire i dati
 
 ### Test 17.4: Manicchie
 
+- [ ] Le manicchie stanno in un gruppo di righe con il numero nel titolo (es. "4 manicchie"), larghe come le righe di Generale
 - [ ] Aggiungi una manicchia (anche con Invio): compare nell'elenco e nel filtro Manicchia della pagina Soci
 - [ ] Matita: il nome diventa modificabile, Invio chiede conferma e rinomina per tutti i soci, Esc annulla
 - [ ] Cestino: chiede conferma e la toglie dalla lista; i soci restano con la loro manicchia

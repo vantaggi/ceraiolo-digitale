@@ -47,9 +47,3 @@ onMounted(async () => {
   }
 })
 </script>
-
-<style scoped>
-.dati-computer {
-  margin-bottom: var(--space-32);
-}
-</style>

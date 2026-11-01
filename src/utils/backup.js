@@ -19,3 +19,18 @@ export function descriviUltimoBackup(quando, adesso = new Date()) {
   const giorni = Math.floor(ore / 24)
   return giorni === 1 ? 'ieri' : `${giorni} giorni fa`
 }
+
+/** Tabelle che scrive solo il backup dell'app, non il database iniziale dei soci. */
+export const TABELLE_DEL_BACKUP = ['Settings', 'Blocchetti', 'LocalChanges', 'Metadata']
+
+/**
+ * Un file .sqlite e' un backup completo dell'app (ceraiolo_backup.sqlite) se ha almeno
+ * una delle tabelle che scrive solo il backup. Dalla pagina di benvenuto un backup si
+ * ripristina tutto: soci, pagamenti, impostazioni, blocchetti e modifiche (scelta di
+ * Cioti, 1 novembre 2026).
+ * @param {string[]} tabelle - nomi delle tabelle del file
+ * @returns {boolean}
+ */
+export function eBackupCompleto(tabelle) {
+  return tabelle.some((t) => TABELLE_DEL_BACKUP.includes(t))
+}

@@ -1846,19 +1846,24 @@ export async function getRecentActivity(limit = 10) {
     const changes = await db.local_changes.orderBy('timestamp').reverse().limit(limit).toArray()
 
     return changes.map((c) => {
+      // Alcune funzioni scrivono il tipo in maiuscolo ('UPDATE', 'DELETE'): la Home
+      // sceglie l'icona dal tipo in minuscolo.
+      const tipo = String(c.change_type || '').toLowerCase()
       let description = ''
       switch (c.table_name) {
         case 'soci':
           description =
-            c.change_type === 'create'
+            tipo === 'create'
               ? `Registrato nuovo socio: ${c.new_data?.cognome} ${c.new_data?.nome}`
-              : `Modificata anagrafica: ${c.new_data?.cognome}`
+              : tipo === 'delete'
+                ? `Eliminato socio: ${c.old_data?.cognome} ${c.old_data?.nome}`
+                : `Modificata anagrafica: ${c.new_data?.cognome} ${c.new_data?.nome}`
           break
         case 'tesseramenti':
           description =
-            c.change_type === 'create'
+            tipo === 'create'
               ? `Registrato pagamento ${c.new_data?.anno} per ${c.new_data?.id_socio}` // ID only if we don't have lookup
-              : `Cancellato pagamento`
+              : `Cancellato pagamento ${c.old_data?.anno ?? ''}`.trim()
           break
         default:
           description = `${c.change_type} in ${c.table_name}`
@@ -1866,7 +1871,7 @@ export async function getRecentActivity(limit = 10) {
 
       return {
         id: c.id,
-        type: c.change_type,
+        type: tipo,
         timestamp: c.timestamp,
         description: description,
         data: c.new_data,
@@ -2338,4 +2343,19 @@ export async function updateTesseramentoQuota(id_tesseramento, nuova_quota) {
     console.error("Errore durante l'aggiornamento della quota:", error)
     throw new Error(`Impossibile aggiornare la quota: ${error.message}`)
   }
+}
+
+/**
+ * Elimina un pagamento dalla scheda del socio e registra la modifica nel changelog,
+ * come updateSocio e deleteSocio.
+ * @param {number|string} id_tesseramento
+ * @returns {Promise<void>}
+ */
+export async function deleteTesseramento(id_tesseramento) {
+  const pagamento = await db.tesseramenti.get(id_tesseramento)
+  if (!pagamento) {
+    throw new Error('Pagamento non trovato: forse è già stato eliminato')
+  }
+  await db.tesseramenti.delete(id_tesseramento)
+  await logLocalChange('tesseramenti', id_tesseramento, 'delete', pagamento, null)
 }

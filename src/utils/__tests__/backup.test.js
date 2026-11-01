@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { descriviUltimoBackup } from '../backup'
+import { descriviUltimoBackup, eBackupCompleto } from '../backup'
 
 const adesso = new Date('2026-10-27T12:00:00Z')
 const prima = (ms) => new Date(adesso.getTime() - ms).toISOString()
@@ -19,7 +19,21 @@ describe('descriviUltimoBackup', () => {
     expect(descriviUltimoBackup(prima(4 * 24 * 60 * MIN), adesso)).toBe('4 giorni fa')
   })
 
-  it('un valore delle versioni precedenti si mostra com\'e\'', () => {
+  it("un valore delle versioni precedenti si mostra com'e'", () => {
     expect(descriviUltimoBackup('27/10/2026, 11:00:00', adesso)).toBe('27/10/2026, 11:00:00')
+  })
+})
+
+describe('eBackupCompleto', () => {
+  it("riconosce il backup dell'app dalle tabelle che scrive solo lui", () => {
+    expect(eBackupCompleto(['Soci', 'Tesseramenti', 'Blocchetti', 'Settings', 'Metadata'])).toBe(
+      true,
+    )
+    expect(eBackupCompleto(['Soci', 'Tesseramenti', 'Settings'])).toBe(true)
+  })
+
+  it('il database iniziale dei soci non e un backup', () => {
+    expect(eBackupCompleto(['Soci', 'Tesseramenti'])).toBe(false)
+    expect(eBackupCompleto(['Soci', 'Tesseramenti', 'sqlite_sequence'])).toBe(false)
   })
 })
