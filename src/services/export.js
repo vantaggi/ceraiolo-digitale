@@ -10,6 +10,7 @@ import {
   statoAnno,
 } from '@/utils/payment'
 import { annoIscrizione, isNuovo } from '@/utils/iscrizione'
+import { dataItaliana } from '@/utils/data'
 import logoUrl from '@/assets/logo_santantoniari.jpg'
 
 /**
@@ -35,21 +36,12 @@ export const loadImage = (url) => {
 }
 
 /**
- * Formats an ISO date string (YYYY-MM-DD) to DD/MM/YYYY
+ * Data salvata (AAAA-MM-GG) scritta come 01/09/1975: il formato sta in utils/data.js
  * @param {string} dateStr
- * @returns {string} Formatted date or original string
+ * @returns {string} Data formattata, '-' se manca
  */
 export function formatDate(dateStr) {
-  if (!dateStr) return '-'
-  try {
-    const [y, m, d] = dateStr.split('-')
-    if (y && m && d && y.length === 4) {
-      return `${d}-${m}-${y}`
-    }
-    return dateStr
-  } catch {
-    return dateStr
-  }
+  return dataItaliana(dateStr)
 }
 
 /**
@@ -576,12 +568,7 @@ export async function generateVotingListPDF(soci, votingYear) {
 
   // Prepara i dati per la tabella
   const tableData = soci.map((socio) => {
-    // Format Birth Date: YYYY-MM-DD -> DD/MM/YYYY
-    let birthDateStr = '-'
-    if (socio.data_nascita) {
-      const [y, m, d] = socio.data_nascita.split('-')
-      birthDateStr = `${d}/${m}/${y}`
-    }
+    const birthDateStr = formatDate(socio.data_nascita)
 
     const paidYears = socio.tesseramenti ? socio.tesseramenti.map((t) => t.anno) : []
     const history = socio.paymentHistory || {}
@@ -746,12 +733,7 @@ export async function generateActiveMembersPDF(soci, targetYear) {
 
   // Prepara i dati per la tabella
   const tableData = soci.map((socio) => {
-    // Format Birth Date: YYYY-MM-DD -> DD/MM/YYYY
-    let birthDateStr = '-'
-    if (socio.data_nascita) {
-      const [y, m, d] = socio.data_nascita.split('-')
-      birthDateStr = `${d}/${m}/${y}`
-    }
+    const birthDateStr = formatDate(socio.data_nascita)
 
     const paidYears = socio.tesseramenti ? socio.tesseramenti.map((t) => t.anno) : []
     const history = socio.paymentHistory || {}

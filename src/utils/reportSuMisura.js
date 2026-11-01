@@ -10,6 +10,7 @@
 import { calculatePaymentStatus, descriviArretrati, isMinorenne, statoAnno } from './payment'
 import { valutaDirittoVoto } from './voto'
 import { SENZA_MANICCHIA } from './aventiDiritto'
+import { dataItaliana } from './data'
 
 export { SENZA_MANICCHIA }
 
@@ -202,12 +203,6 @@ export function colonneReport(stato) {
   return colonne
 }
 
-const formatoData = (data) => {
-  if (!data) return '-'
-  const [a, m, g] = String(data).slice(0, 10).split('-')
-  return g ? `${g}-${m}-${a}` : String(data)
-}
-
 /**
  * Valore di una cella. Per il voto e gli anni restituisce anche lo stato,
  * che anteprima e PDF colorano a modo loro.
@@ -225,7 +220,7 @@ export function valoreCella(riga, colonna) {
     case 'gruppo':
       return { testo: manicchia(socio) }
     case 'dataNascita':
-      return { testo: formatoData(socio.data_nascita) }
+      return { testo: dataItaliana(socio.data_nascita) }
     case 'eta':
       return { testo: socio.data_nascita ? (riga.maggiorenne ? 'Maggiorenne' : 'Minorenne') : '-' }
     case 'dirittoVoto':

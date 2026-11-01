@@ -32,3 +32,4 @@ Parole collegate, usate nelle stesse schermate:
 ## Decisioni
 
 - **Rientro, Reiscritto, Restituito** (deciso il 31 ottobre 2026). Rientro si dice solo del socio di nuovo in regola dopo almeno un anno fuori. Il socio che era da reiscrivere e torna e' "Reiscritto". Il blocchetto consegnato in segreteria e' "Restituito", come il concetto `restituisci` delle icone. I codici salvati (lo stato `rientrato` dei blocchetti) restano: cambiano solo i testi mostrati.
+- **Date** (deciso il 1 novembre 2026). Giorno, mese e anno con due cifre e la barra: 01/09/1975, a schermo e nei PDF. Il formato sta in `src/utils/data.js` (`dataItaliana`); i nomi dei file scaricati restano AAAA-MM-GG.
