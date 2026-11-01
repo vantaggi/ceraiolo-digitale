@@ -126,7 +126,7 @@ describe('colonneReport e valoreCella', () => {
     const celle = colonneReport(stato).map((c) => valoreCella(riga, c))
     expect(celle).toEqual([
       { testo: 'Rossi Prova' },
-      { testo: '01-03-1980' },
+      { testo: '01/03/1980' },
       { testo: 'Maggiorenne' },
       { testo: 'Regolarizza', stato: 'regolarizza' },
       { testo: '2024, 2025, 2026' },

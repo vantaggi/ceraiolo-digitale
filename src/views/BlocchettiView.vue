@@ -17,6 +17,7 @@ import {
   exportAllTesseramenti,
   getSetting,
 } from '@/services/db'
+import { dataItaliana } from '@/utils/data'
 import { elencoBlocchetti, filtraBlocchetti, intervalloBlocchetto } from '@/utils/blocchetto'
 
 const toast = useToast()
@@ -66,7 +67,7 @@ const contatori = computed(() => ({
 }))
 
 const euro = (valore) => Number(valore || 0).toFixed(2)
-const data = (iso) => (iso ? new Date(`${iso}T00:00:00`).toLocaleDateString('it-IT') : '')
+const data = (iso) => dataItaliana(iso, '')
 const nome = (id) => nomiSoci.value.get(id) || 'Socio non trovato'
 const elencoBreve = (numeri, max = 5) =>
   numeri.length > max

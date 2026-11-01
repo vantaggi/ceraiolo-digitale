@@ -324,6 +324,7 @@ import BaseButton from '@/components/base/BaseButton.vue'
 import RiquadroBlocchetto from '@/components/RiquadroBlocchetto.vue'
 import ModuloSocio from '@/components/ModuloSocio.vue'
 import { datiDaSalvare } from '@/utils/socio'
+import { dataItaliana } from '@/utils/data'
 import { SCHEDE_INCASSI } from '@/router/sezioni'
 
 const searchInput = ref(null)
@@ -488,10 +489,7 @@ const dettaglioSocio = (socio) =>
     .filter(Boolean)
     .join(' · ')
 
-const formatDate = (dateString) => {
-  const date = new Date(dateString)
-  return Number.isNaN(date.getTime()) ? dateString : date.toLocaleDateString('it-IT')
-}
+const formatDate = (dateString) => dataItaliana(dateString)
 
 /** Soci della ricevuta in corso, dai pagamenti del blocchetto. */
 const aggiornaRicevuta = async () => {
