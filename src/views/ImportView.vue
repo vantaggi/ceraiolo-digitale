@@ -18,16 +18,16 @@
         </p>
         <p class="caso__testo">
           Se l'archivio è davvero sparito, importa l'ultimo backup
-          (<code>ceraiolo_backup.sqlite</code>) come per la prima volta: tornano soci e pagamenti,
-          le impostazioni e i blocchetti vanno rimessi a mano.
+          (<code>ceraiolo_backup.sqlite</code>) qui accanto: torna tutto, soci, pagamenti,
+          impostazioni e blocchetti.
         </p>
       </section>
 
       <section class="caso" aria-labelledby="caso-primo">
         <h2 id="caso-primo" class="caso__titolo">È la prima volta?</h2>
         <p class="caso__testo">
-          Importa il database dei soci (.sqlite). Se l'app è già usata su un altro computer,
-          importare qui crea una seconda copia separata.
+          Importa il database dei soci (.sqlite) o un backup dell'app. Se l'app è già usata su un
+          altro computer, importare qui crea una seconda copia separata.
         </p>
 
         <div class="caso__campo">
@@ -86,7 +86,8 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { caricaSqlJs } from '@/services/sqljs'
-import { db, isDatabaseEmpty } from '@/services/db'
+import { contaArchivio, db, importDatabaseFromSqlite, isDatabaseEmpty } from '@/services/db'
+import { eBackupCompleto } from '@/utils/backup'
 import PageHeader from '@/components/base/PageHeader.vue'
 import BaseButton from '@/components/base/BaseButton.vue'
 
@@ -156,6 +157,25 @@ const importDatabase = async () => {
     const SQL = await caricaSqlJs()
 
     const dbFile = new SQL.Database(new Uint8Array(fileBuffer))
+
+    // Un backup dell'app si ripristina tutto, come da Impostazioni › Dati
+    const tabelle = (
+      dbFile.exec("SELECT name FROM sqlite_master WHERE type = 'table'")[0]?.values || []
+    ).map((riga) => riga[0])
+    if (eBackupCompleto(tabelle)) {
+      dbFile.close()
+      importStatus.value = 'Ripristino del backup...'
+      const esito = await importDatabaseFromSqlite(selectedFile.value)
+      if (!esito.success) throw new Error(esito.error)
+      const { soci, pagamenti } = await contaArchivio()
+      importStatus.value = `Backup ripristinato: ${soci} soci, ${pagamenti} pagamenti, impostazioni e blocchetti.`
+      // Si ricarica la pagina perche' le impostazioni appena ripristinate valgano ovunque
+      setTimeout(() => {
+        window.location.hash = '#/'
+        window.location.reload()
+      }, 2000)
+      return
+    }
 
     // --- Import Soci Table ---
     importStatus.value = 'Importazione soci...'
