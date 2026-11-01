@@ -95,6 +95,19 @@ describe('createPDFTable', () => {
     expect(righe[1].h).toBeGreaterThan(righe[0].h)
   })
 
+  it('scrive intestazione e righe ad almeno 10 pt (07-output)', () => {
+    const { doc, testi } = nuovoDoc('portrait')
+    const corpi = []
+    const text = doc.text
+    doc.text = (...arg) => {
+      corpi.push(doc.getFontSize())
+      return text(...arg)
+    }
+    createPDFTable(doc, colonne, [['Rossi Mario', 'V', 'O', 'X']], 40)
+    expect(testi.length).toBeGreaterThan(0)
+    expect(Math.min(...corpi)).toBeGreaterThanOrEqual(10)
+  })
+
   it('va a pagina nuova prima di uscire dal foglio e ripete l intestazione', () => {
     const { doc, rettangoli, testi } = nuovoDoc('portrait')
     const righe = Array.from({ length: 80 }, (_, i) => [`Socio ${i}`, 'V', 'V', 'V'])

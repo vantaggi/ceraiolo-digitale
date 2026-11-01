@@ -69,10 +69,10 @@ export function createPDFDocument(orientation = 'landscape', format = 'a4') {
 // Impaginazione comune dei PDF (mm). I margini valgono sia in verticale sia in orizzontale.
 const MARGINE = 12
 const MARGINE_BASSO = 14 // spazio lasciato al numero di pagina
-const FONT_TABELLA = 9
+const FONT_TABELLA = 10 // 07-output: testo delle tabelle stampate almeno 10 pt (scelta di Cioti, 1 novembre 2026)
 // Titolo e data scritti da addPDFHeader, ripetuti nel piede da addPDFFooter
 const piediPDF = new WeakMap()
-const INTERLINEA = (FONT_TABELLA * 1.15 * 25.4) / 72 // altezza di una riga di testo a 9pt
+const INTERLINEA = (FONT_TABELLA * 1.15 * 25.4) / 72 // altezza di una riga di testo della tabella
 
 /**
  * Aggiunge header standard al PDF, centrato sulla larghezza della pagina
