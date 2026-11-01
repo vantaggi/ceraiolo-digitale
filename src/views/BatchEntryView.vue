@@ -300,6 +300,7 @@ import {
   getPagamentiBlocchetto,
   getNomiSoci,
   getAnniPagatiDiSoci,
+  updateTesseramentoQuota,
   db,
 } from '@/services/db'
 import {
@@ -315,7 +316,7 @@ import {
   riepilogoBlocchetto,
   sociDellaRicevuta,
 } from '@/utils/blocchetto'
-import { euro, propostaRegistrazione } from '@/utils/registrazione'
+import { euro, propostaRegistrazione, quoteDopoArretrato } from '@/utils/registrazione'
 import { askConfirm, dialogState } from '@/composables/useDialog'
 import AppIcon from '@/components/base/AppIcon.vue'
 import PageHeader from '@/components/base/PageHeader.vue'
@@ -848,8 +849,9 @@ const aggiungiArretrato = async (riga, anno) => {
   const offerta = arretratiOfferti.get(riga.id)
   if (!offerta || isProcessing.value) return
   let quota
+  let anniPagati
   try {
-    const anniPagati = (await getAnniPagatiDiSoci([riga.id])).get(Number(riga.id)) || []
+    anniPagati = (await getAnniPagatiDiSoci([riga.id])).get(Number(riga.id)) || []
     quota = quotaProposta(tipoQuota(offerta.socio, anniPagati, anno), quote.value)
   } catch (error) {
     console.error('Anni pagati non letti:', error)
@@ -862,8 +864,44 @@ const aggiungiArretrato = async (riga, anno) => {
   if (await registraPagamento(offerta.socio, anno, quota)) {
     offerta.anni = offerta.anni.filter((a) => a !== anno)
     if (offerta.anni.length === 0) arretratiOfferti.delete(riga.id)
+    await correggiQuoteDopoArretrato(offerta.socio, anniPagati, anno, quota)
   }
   focusRicerca()
+}
+
+/**
+ * Un rientro che salda gli arretrati paga la quota ordinaria (scelta di Cioti,
+ * 1 novembre 2026): dopo l'arretrato le quote del socio su questa ricevuta si ricalcolano.
+ */
+const correggiQuoteDopoArretrato = async (socio, anniPrima, anno, quota) => {
+  const pagamenti = pagamentiBlocco.value.filter(
+    (t) =>
+      Number(t.id_socio) === Number(socio.id) &&
+      Number(t.numero_ricevuta) === Number(currentReceipt.numero),
+  )
+  const correzioni = quoteDopoArretrato({
+    socio,
+    pagamenti,
+    anniPrima,
+    anniDopo: [...anniPrima, anno],
+    quote: quote.value,
+  })
+  if (correzioni.length === 0) return
+  try {
+    for (const c of correzioni) await updateTesseramentoQuota(c.id_tesseramento, c.a)
+    await caricaBlocchetto()
+    const cambi = correzioni.map((c) => `la quota ${c.anno} passa a € ${euro(c.a)}`).join(', ')
+    esito.value = {
+      testo: `Registrato ${nomeDi(socio)}, ${anno}, € ${euro(quota)}: con gli arretrati saldati ${cambi}.`,
+      tono: 'ok',
+    }
+  } catch (error) {
+    console.error('Quote non corrette:', error)
+    esito.value = {
+      testo: `Arretrato registrato, ma non sono riuscito a correggere la quota del rientro di ${nomeDi(socio)}: ${error.message}`,
+      tono: 'errore',
+    }
+  }
 }
 
 const cancelNewSocio = () => {
