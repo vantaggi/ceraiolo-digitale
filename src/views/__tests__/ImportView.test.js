@@ -1,8 +1,38 @@
 import { describe, it, expect, vi } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
 
-vi.mock('@/services/db', () => ({ db: {}, isDatabaseEmpty: vi.fn(async () => true) }))
-vi.mock('@/services/sqljs', () => ({ caricaSqlJs: vi.fn() }))
+// Solo dati finti: il file sqlite e' simulato, si guardano le sue tabelle
+let tabelleDelFile = []
+const ripristinati = []
+const soloSoci = []
+vi.mock('@/services/db', () => ({
+  db: {
+    transaction: async (_m, _a, _b, fn) => fn(),
+    soci: { bulkPut: async (righe) => soloSoci.push(...righe) },
+    tesseramenti: { bulkPut: async () => {} },
+  },
+  isDatabaseEmpty: vi.fn(async () => true),
+  importDatabaseFromSqlite: async (file) => {
+    ripristinati.push(file.name)
+    return { success: true }
+  },
+  contaArchivio: async () => ({ soci: 180, pagamenti: 950 }),
+}))
+vi.mock('@/services/sqljs', () => ({
+  caricaSqlJs: vi.fn(async () => ({
+    Database: class {
+      exec() {
+        return [{ columns: ['name'], values: tabelleDelFile.map((t) => [t]) }]
+      }
+      prepare(sql) {
+        const righe = sql.includes('Soci') ? [{ id: 1, cognome: 'Prova' }] : []
+        let i = -1
+        return { step: () => ++i < righe.length, getAsObject: () => righe[i], free: () => {} }
+      }
+      close() {}
+    },
+  })),
+}))
 vi.mock('vue-router', () => ({ useRouter: () => ({ replace: vi.fn() }) }))
 
 const { default: ImportView } = await import('../ImportView.vue')
@@ -28,6 +58,7 @@ describe('ImportView (archivio vuoto)', () => {
       `${window.location.host}${window.location.pathname}`.replace(/\/$/, ''),
     )
     expect(wrapper.text()).toContain('ceraiolo_backup.sqlite')
+    expect(wrapper.text()).toContain('torna tutto, soci, pagamenti, impostazioni e blocchetti')
   })
 
   it("Importa e' un'azione secondaria, non il pulsante rosso", () => {
@@ -58,5 +89,38 @@ describe('ImportView (archivio vuoto)', () => {
       .find((b) => b.text() === 'Importa')
       .trigger('click')
     expect(wrapper.get('[role="alert"]').text()).toContain('database SQLite')
+  })
+
+  const importa = async (wrapper, nome) => {
+    const input = wrapper.get('input[type="file"]')
+    const file = new File(['x'], nome)
+    file.arrayBuffer = async () => new ArrayBuffer(1)
+    Object.defineProperty(input.element, 'files', { value: [file] })
+    await input.trigger('change')
+    await wrapper
+      .findAll('button')
+      .find((b) => b.text() === 'Importa')
+      .trigger('click')
+    await flushPromises()
+  }
+
+  it("un backup dell'app si ripristina tutto, impostazioni e blocchetti compresi", async () => {
+    tabelleDelFile = ['Soci', 'Tesseramenti', 'Blocchetti', 'Settings', 'LocalChanges', 'Metadata']
+    const wrapper = monta()
+    await importa(wrapper, 'ceraiolo_backup.sqlite')
+    expect(ripristinati).toEqual(['ceraiolo_backup.sqlite'])
+    expect(wrapper.get('[role="status"]').text()).toBe(
+      'Backup ripristinato: 180 soci, 950 pagamenti, impostazioni e blocchetti.',
+    )
+  })
+
+  it('il database iniziale dei soci si importa come prima, solo soci e pagamenti', async () => {
+    ripristinati.length = 0
+    tabelleDelFile = ['Soci', 'Tesseramenti']
+    const wrapper = monta()
+    await importa(wrapper, 'santantoniari.sqlite')
+    expect(ripristinati).toEqual([])
+    expect(soloSoci).toHaveLength(1)
+    expect(wrapper.get('[role="status"]').text()).toContain('Importazione completata: 1 soci')
   })
 })

@@ -15,6 +15,7 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 - [ ] Verifica che dopo l'import vieni reindirizzato alla home
 - [ ] Apri DevTools → Application → IndexedDB → CeraioloDigitaleDB
 - [ ] Verifica che ci siano 5 soci e diversi tesseramenti
+- [ ] Ripristino dal benvenuto: da Impostazioni › Dati scarica un backup (`ceraiolo_backup.sqlite`), poi in Impostazioni › Dati "Cancella tutto e ripristina". Nel benvenuto importa il backup: il messaggio dice "Backup ripristinato: N soci, N pagamenti, impostazioni e blocchetti.", la pagina si ricarica sulla home e tornano anche quote, ricevute per blocchetto e blocchetti assegnati
 
 **Risultato atteso**: Database importato con successo, redirect automatico alla home.
 
