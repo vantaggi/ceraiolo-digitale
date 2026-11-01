@@ -151,184 +151,195 @@
           </div>
         </section>
 
-        <section v-if="scheda === 'dati'" class="settings-section">
-          <h2><AppIcon name="salva" /> Dati e backup</h2>
-          <p>Dall'alto in basso: copie di sicurezza, esportazioni, ripristino, controllo dei dati. Le operazioni che cancellano dati stanno in fondo.</p>
-
+        <div v-if="scheda === 'dati'" class="dati">
           <DatiComputer />
 
-          <!-- Sezione Backup Automatico -->
-          <div class="subsection">
-            <h3><AppIcon name="automatico" /> Backup</h3>
-            <div class="backup-grid">
-              <div class="backup-card">
-                <h4><AppIcon name="cartella" /> Cartella di Backup</h4>
-                <p class="path-text">{{ backupStore.backupPath }}</p>
-                <BaseButton
-                  :disabled="!isFileSystemSupported"
-                  :title="
-                    !isFileSystemSupported ? 'Il tuo browser non supporta questa funzionalità' : ''
-                  "
-                  @click="selectBackupFolder"
-                >
-                  <AppIcon
-                    :name="
-                      !isFileSystemSupported ? 'disattivo' : backupStore.isAuthorized ? 'ok' : 'cartella'
-                    "
-                  />
-                  {{
-                    !isFileSystemSupported
-                      ? 'Non Supportato'
-                      : backupStore.isAuthorized
-                        ? 'Cambia Cartella'
-                        : 'Seleziona Cartella'
-                  }}
+          <section class="gruppo" aria-labelledby="gruppo-backup">
+            <h2 id="gruppo-backup" class="gruppo__titolo">Backup</h2>
+            <ul class="gruppo__righe">
+              <li class="azione">
+                <span class="azione__testo">
+                  <span class="azione__nome">Cartella del backup</span>
+                  <span class="azione__aiuto">
+                    {{
+                      !isFileSystemSupported
+                        ? 'Questo browser non salva in una cartella: usa Scarica una copia.'
+                        : backupStore.hasDirectory
+                          ? backupStore.backupPath
+                          : 'Nessuna cartella scelta.'
+                    }}
+                  </span>
+                </span>
+                <BaseButton :disabled="!isFileSystemSupported" @click="selectBackupFolder">
+                  <AppIcon name="cartella" />
+                  {{ backupStore.hasDirectory ? 'Cambia cartella' : 'Scegli la cartella' }}
                 </BaseButton>
-              </div>
-
-              <div class="backup-card">
-                <h4><AppIcon name="automatico" /> Auto-Salvataggio</h4>
-                <p>Salva automaticamente ad ogni modifica.</p>
-                <button
-                  @click="toggleAutoBackup"
-                  :disabled="!backupStore.isAuthorized"
-                  class="backup-toggle-button"
-                  :class="{ active: backupStore.autoBackupEnabled }"
-                >
-                  <AppIcon :name="backupStore.autoBackupEnabled ? 'ok' : 'disattivo'" />
-                  {{ backupStore.autoBackupEnabled ? 'Attivo' : 'Disattivato' }}
-                </button>
-              </div>
-
-              <div class="backup-card highlight">
-                <h4><AppIcon name="salva" /> Backup Manuale</h4>
-                <p>Crea subito una copia.</p>
+              </li>
+              <li class="azione">
+                <span class="azione__testo">
+                  <span class="azione__nome">Backup automatico</span>
+                  <span class="azione__aiuto">
+                    {{
+                      backupStore.isAuthorized
+                        ? 'Salva una copia nella cartella a ogni modifica.'
+                        : 'Prima scegli la cartella.'
+                    }}
+                  </span>
+                </span>
+                <BaseButton :disabled="!backupStore.isAuthorized" @click="toggleAutoBackup">
+                  <AppIcon :name="backupStore.autoBackupEnabled ? 'disattivo' : 'automatico'" />
+                  {{ backupStore.autoBackupEnabled ? 'Spegni' : 'Attiva' }}
+                </BaseButton>
+              </li>
+              <li class="azione">
+                <span class="azione__testo">
+                  <span class="azione__nome">Copia adesso</span>
+                  <span class="azione__aiuto">
+                    {{
+                      backupStore.isAuthorized
+                        ? 'Salva subito una copia nella cartella.'
+                        : 'Scarica subito una copia di tutti i dati.'
+                    }}
+                  </span>
+                </span>
                 <BaseButton variant="primary" :loading="isSavingBackup" @click="forceBackup">
                   <AppIcon :name="backupStore.isAuthorized ? 'salva' : 'esporta'" />
-                  {{ backupStore.isAuthorized ? 'Esegui Backup Ora' : 'Scarica Backup' }}
+                  {{ backupStore.isAuthorized ? 'Salva adesso' : 'Scarica una copia' }}
                 </BaseButton>
-              </div>
-            </div>
-          </div>
+              </li>
+            </ul>
+          </section>
 
-          <hr class="divider" />
-
-          <!-- Sezione Export/Import -->
-          <div class="subsection">
-            <h3><AppIcon name="archivio" /> Esporta</h3>
-            <div class="data-section">
-              <div class="export-options">
-                <div class="export-option">
-                  <h4><AppIcon name="esporta" /> Esporta Database Completo</h4>
-                  <p>File .sqlite per migrazione o backup manuale (include Impostazioni).</p>
-                  <BaseButton :disabled="isExporting" @click="exportDatabase">
-                    <AppIcon name="esporta" /> Scarica SQLite
+          <section class="gruppo" aria-labelledby="gruppo-esporta">
+            <h2 id="gruppo-esporta" class="gruppo__titolo">Esporta</h2>
+            <ul class="gruppo__righe">
+              <li class="azione">
+                <span class="azione__testo">
+                  <span class="azione__nome">Archivio completo</span>
+                  <span class="azione__aiuto">
+                    File .sqlite con soci, pagamenti e impostazioni, per spostare i dati.
+                  </span>
+                </span>
+                <BaseButton :disabled="isExporting" @click="exportDatabase">
+                  <AppIcon name="esporta" /> Scarica
+                </BaseButton>
+              </li>
+              <li class="azione">
+                <span class="azione__testo">
+                  <span class="azione__nome">Excel</span>
+                  <span class="azione__aiuto">Elenchi dei maggiorenni e dei minorenni.</span>
+                </span>
+                <BaseButton :disabled="isExporting" @click="exportExcel">
+                  <AppIcon name="foglio-calcolo" /> Scarica
+                </BaseButton>
+              </li>
+              <li class="azione">
+                <span class="azione__testo">
+                  <span class="azione__nome">Registro modifiche</span>
+                  <span class="azione__aiuto">
+                    Le modifiche fatte da questo browser, da allegare quando si passano i dati.
+                  </span>
+                </span>
+                <BaseButton :disabled="isExporting" @click="exportChangeLogData">
+                  <AppIcon name="changelog" /> Scarica
+                </BaseButton>
+              </li>
+              <li class="azione">
+                <span class="azione__testo">
+                  <span class="azione__nome">Impostazioni</span>
+                  <span class="azione__aiuto">Solo le impostazioni, in un file .json.</span>
+                </span>
+                <span class="azione__bottoni">
+                  <BaseButton :disabled="isExporting" @click="exportSettings">
+                    <AppIcon name="esporta" /> Esporta
                   </BaseButton>
-                </div>
+                  <label class="file-button" :class="{ 'file-button--disattivo': isExporting }">
+                    Importa
+                    <input
+                      type="file"
+                      accept=".json"
+                      class="file-button__input"
+                      :disabled="isExporting"
+                      @change="handleImportSettings"
+                    />
+                  </label>
+                </span>
+              </li>
+            </ul>
+          </section>
 
-                <div class="export-option">
-                  <h4><AppIcon name="foglio-calcolo" /> Esporta Excel</h4>
-                  <p>Tabelle per Maggiorenni e Minorenni.</p>
-                  <BaseButton :disabled="isExporting" @click="exportExcel">
-                    <AppIcon name="esporta" /> Scarica Excel
-                  </BaseButton>
-                </div>
+          <section class="gruppo" aria-labelledby="gruppo-ripristina">
+            <h2 id="gruppo-ripristina" class="gruppo__titolo">Ripristina</h2>
+            <ul class="gruppo__righe">
+              <li class="azione">
+                <span class="azione__testo">
+                  <span class="azione__nome">Ripristina da un backup</span>
+                  <span class="azione__aiuto">
+                    Sostituisce tutti i dati di questo browser con quelli del file .sqlite. Prima
+                    chiede conferma.
+                  </span>
+                </span>
+                <label class="file-button" :class="{ 'file-button--disattivo': isExporting }">
+                  <AppIcon name="ripristina" /> Scegli il file
+                  <input
+                    id="restore-file"
+                    type="file"
+                    accept=".sqlite,.db"
+                    class="file-button__input"
+                    :disabled="isExporting"
+                    @change="handleRestoreDatabase"
+                  />
+                </label>
+              </li>
+            </ul>
+          </section>
 
-                <div class="export-option">
-                  <h4><AppIcon name="changelog" /> Registro modifiche</h4>
-                  <p>Le modifiche fatte da questo browser, da allegare quando si passano i dati.</p>
-                  <BaseButton :disabled="isExporting" @click="exportChangeLogData">
-                    <AppIcon name="esporta" /> Scarica registro
-                  </BaseButton>
-                </div>
-
-                <div class="export-option">
-                  <h4><AppIcon name="configurazione" /> Configurazione JSON</h4>
-                  <p>Export/Import solo impostazioni.</p>
-                  <div class="button-group-small">
-                    <BaseButton :disabled="isExporting" @click="exportSettings">
-                      <AppIcon name="esporta" /> Esporta JSON
-                    </BaseButton>
-                    <label class="file-button">
-                      Importa JSON
-                      <input
-                        type="file"
-                        accept=".json"
-                        @change="handleImportSettings"
-                        class="file-button__input"
-                        :disabled="isExporting"
-                      />
-                    </label>
-                  </div>
-                </div>
-
-              </div>
+          <section class="gruppo" aria-labelledby="gruppo-controllo">
+            <h2 id="gruppo-controllo" class="gruppo__titolo">Controllo dei dati</h2>
+            <div class="gruppo__corpo">
+              <ControlloQualitaDati />
             </div>
-          </div>
+          </section>
 
-          <hr class="divider" />
+          <section class="gruppo gruppo--pericolo" aria-labelledby="gruppo-pericolo">
+            <h2 id="gruppo-pericolo" class="gruppo__titolo">
+              <AppIcon name="pericolo" /> Zona pericolosa
+            </h2>
+            <p class="gruppo__nota">
+              Cambiano o cancellano i dati di tutti i soci. Fai prima una copia.
+            </p>
+            <ul class="gruppo__righe">
+              <li class="azione">
+                <span class="azione__testo">
+                  <span class="azione__nome">Correggi blocchetti e ricevute invertiti</span>
+                  <span class="azione__aiuto">
+                    Scambia di nuovo blocchetto e ricevuta nei pagamenti storici importati al
+                    contrario.
+                  </span>
+                </span>
+                <BaseButton :disabled="isExporting" @click="runNormalization">
+                  <AppIcon name="ripara" /> Correggi
+                </BaseButton>
+              </li>
+              <li class="azione">
+                <span class="azione__testo">
+                  <span class="azione__nome">Cancella tutti i dati</span>
+                  <span class="azione__aiuto">
+                    Soci, pagamenti e impostazioni: l'app torna come appena installata.
+                  </span>
+                </span>
+                <BaseButton variant="danger" :disabled="isExporting" @click="confirmFactoryReset">
+                  <AppIcon name="elimina" /> Cancella tutto
+                </BaseButton>
+              </li>
+            </ul>
+          </section>
+        </div>
 
-          <div class="subsection">
-            <h3><AppIcon name="ripristina" /> Ripristina da un file</h3>
-            <div class="restore-card">
-              <p>
-                Carica un backup <code>.sqlite</code>: <strong>sostituisce tutti i dati</strong> di
-                questo browser con quelli del file. Prima chiede conferma.
-              </p>
-              <label for="restore-file" class="restore-label">Scegli il file di backup</label>
-              <input
-                id="restore-file"
-                type="file"
-                accept=".sqlite,.db"
-                @change="handleRestoreDatabase"
-                :disabled="isExporting"
-                class="file-input-compact"
-              />
-            </div>
-          </div>
-
-          <hr class="divider" />
-
-          <div class="subsection">
-            <h3><AppIcon name="qualita-dati" /> Controllo qualità dei dati</h3>
-            <ControlloQualitaDati />
-          </div>
-
-          <hr class="divider" />
-
-          <!-- DANGER ZONE -->
-          <div class="subsection danger-zone">
-            <h3><AppIcon name="pericolo" /> Zona pericolosa</h3>
-            <p class="danger-intro">Operazioni che modificano o cancellano i dati di tutti i soci. Fai prima un backup.</p>
-            <div class="danger-card">
-              <h4><AppIcon name="ripara" /> Correggi blocchetti e ricevute invertiti</h4>
-              <p>
-                Corregge i numeri di blocchetto e ricevuta scambiati nei dati storici (vecchio
-                errore di importazione).
-              </p>
-              <BaseButton :disabled="isExporting" @click="runNormalization">
-                <AppIcon name="ripara" /> Correggi
-              </BaseButton>
-            </div>
-            <div class="danger-card">
-              <h4><AppIcon name="ripristina" /> Ripristino Impostazioni di Fabbrica</h4>
-              <p>
-                Cancella TUTTI i dati (Soci, Pagamenti, Impostazioni) e riporta l'applicazione allo
-                stato iniziale.
-              </p>
-              <BaseButton variant="danger" :disabled="isExporting" @click="confirmFactoryReset">
-                <AppIcon name="elimina" /> Cancella tutto e ripristina
-              </BaseButton>
-            </div>
-          </div>
-        </section>
-
-        <!-- Tab: Manicchie -->
-        <section v-if="scheda === 'manicchie'" class="settings-section">
-          <h2><AppIcon name="gruppo" /> Manicchie</h2>
-          <p>
-            Le manicchie dei soci. Rinominandone una si aggiornano tutti i suoi soci; quelle aggiunte
-            qui compaiono subito nei menu, anche prima di avere soci.
+        <div v-if="scheda === 'manicchie'" class="manicchie">
+          <p class="manicchie__intro">
+            Rinominandone una si aggiornano tutti i suoi soci. Quelle aggiunte qui compaiono subito
+            nei menu, anche prima di avere soci.
           </p>
 
           <form class="add-zone-form" @submit.prevent="addNewZone">
@@ -338,7 +349,7 @@
               v-model="newZoneName"
               type="text"
               placeholder="Nome della nuova manicchia"
-              class="form-input"
+              class="campo"
             />
             <BaseButton type="submit" variant="primary" :disabled="!newZoneName.trim()">
               <AppIcon name="aggiungi" /> Aggiungi
@@ -349,54 +360,59 @@
             <AppIcon name="caricamento" spin /> Caricamento...
           </p>
           <p v-else-if="zones.length === 0" class="empty-state">Nessuna manicchia definita.</p>
-          <ul v-else class="zones-list">
-            <li v-for="zone in zones" :key="zone" class="zone-item">
-              <span v-if="editingZone !== zone" class="zone-name">{{ zone }}</span>
-              <template v-else>
-                <label :for="`rinomina-${zone}`" class="sr-only">Nuovo nome di {{ zone }}</label>
-                <input
-                  :id="`rinomina-${zone}`"
-                  v-model="editingZoneName"
-                  type="text"
-                  class="form-input edit-input"
-                  @keyup.enter="saveZoneRename(zone)"
-                  @keyup.esc="cancelRename"
-                  ref="editInput"
-                />
-              </template>
-
-              <div class="zone-buttons">
-                <template v-if="editingZone !== zone">
-                  <button
-                    type="button"
-                    class="icona-btn"
-                    title="Rinomina"
-                    :aria-label="`Rinomina ${zone}`"
-                    @click="startRename(zone)"
-                  >
-                    <AppIcon name="modifica" />
-                  </button>
-                  <!-- Toglie solo dalla lista delle manicchie definite: i soci restano -->
-                  <button
-                    type="button"
-                    class="icona-btn icona-btn--pericolo"
-                    title="Rimuovi dalla lista (i soci restano)"
-                    :aria-label="`Rimuovi ${zone} dalla lista`"
-                    @click="deleteZone(zone)"
-                  >
-                    <AppIcon name="elimina" />
-                  </button>
-                </template>
+          <section v-else class="gruppo" aria-labelledby="gruppo-manicchie">
+            <h2 id="gruppo-manicchie" class="gruppo__titolo">
+              {{ zones.length }} {{ zones.length === 1 ? 'manicchia' : 'manicchie' }}
+            </h2>
+            <ul class="gruppo__righe">
+              <li v-for="zone in zones" :key="zone" class="azione zone-item">
+                <span v-if="editingZone !== zone" class="zone-name">{{ zone }}</span>
                 <template v-else>
-                  <BaseButton variant="primary" @click="saveZoneRename(zone)">
-                    <AppIcon name="salva" /> Salva
-                  </BaseButton>
-                  <BaseButton variant="ghost" @click="cancelRename">Annulla</BaseButton>
+                  <label :for="`rinomina-${zone}`" class="sr-only">Nuovo nome di {{ zone }}</label>
+                  <input
+                    :id="`rinomina-${zone}`"
+                    ref="editInput"
+                    v-model="editingZoneName"
+                    type="text"
+                    class="campo edit-input"
+                    @keyup.enter="saveZoneRename(zone)"
+                    @keyup.esc="cancelRename"
+                  />
                 </template>
-              </div>
-            </li>
-          </ul>
-        </section>
+
+                <span class="azione__bottoni">
+                  <template v-if="editingZone !== zone">
+                    <button
+                      type="button"
+                      class="icona-btn"
+                      title="Rinomina"
+                      :aria-label="`Rinomina ${zone}`"
+                      @click="startRename(zone)"
+                    >
+                      <AppIcon name="modifica" />
+                    </button>
+                    <!-- Toglie solo dalla lista delle manicchie definite: i soci restano -->
+                    <button
+                      type="button"
+                      class="icona-btn icona-btn--pericolo"
+                      title="Rimuovi dalla lista (i soci restano)"
+                      :aria-label="`Rimuovi ${zone} dalla lista`"
+                      @click="deleteZone(zone)"
+                    >
+                      <AppIcon name="elimina" />
+                    </button>
+                  </template>
+                  <template v-else>
+                    <BaseButton variant="primary" @click="saveZoneRename(zone)">
+                      <AppIcon name="salva" /> Salva
+                    </BaseButton>
+                    <BaseButton variant="ghost" @click="cancelRename">Annulla</BaseButton>
+                  </template>
+                </span>
+              </li>
+            </ul>
+          </section>
+        </div>
       </div>
     </div>
   </div>
@@ -1141,74 +1157,17 @@ const saveZoneRename = async (oldName) => {
   color: var(--status-error);
 }
 
-/* Card Styles */
-.backup-grid {
-  display: grid;
-  gap: 1.5rem;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-}
-
-.backup-card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 10px;
-  padding: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-}
-
-.backup-card h4 {
-  color: var(--color-primary);
-  margin-bottom: 0.5rem;
-}
-
-.path-text {
-  font-family: monospace;
-  background: var(--color-background);
-  padding: 0.5rem;
-  border-radius: 4px;
-  font-size: 0.85rem;
-  overflow-x: auto;
-  margin-bottom: 1rem;
-}
-
-.divider {
-  border: 0;
-  border-top: 1px solid var(--color-border);
-  margin: 3rem 0;
-}
-
-.action-button.small {
-  padding: 0.5rem 1rem;
-  font-size: 0.9rem;
-}
-
 .container {
   max-width: var(--page-width);
   margin: 0 auto;
   padding: 0 var(--space-32);
 }
 
-.restore-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-8);
-  padding: var(--space-16) var(--space-24);
-  border: 1px solid var(--color-border);
-  border-left: 3px solid var(--color-warning);
-  border-radius: var(--radius-surface);
-  background: var(--color-surface);
-}
-
-.restore-card p {
-  margin: 0;
-}
-
 .file-button {
   position: relative;
   display: inline-flex;
   align-items: center;
+  gap: var(--space-8);
   min-height: 2.5rem;
   padding: var(--space-8) var(--space-16);
   border: 1px solid var(--color-border-strong);
@@ -1236,45 +1195,119 @@ const saveZoneRename = async (oldName) => {
   outline-offset: 2px;
 }
 
+/* Dati e Manicchie: gruppi come le righe di Generale (ListRows), ma ogni riga e' un'azione:
+   nome e spiegazione a sinistra, il bottone a destra. La riga non si preme, il bottone si'. */
+.dati,
+.manicchie {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-24);
+  max-width: var(--page-width-form);
+}
+
+.gruppo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.gruppo__titolo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  margin: 0;
+  font-family: var(--font-family-body);
+  font-size: var(--font-size-label);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.gruppo__nota,
+.manicchie__intro {
+  margin: 0;
+  font-size: var(--font-size-label);
+  color: var(--text-secondary);
+}
+
+.gruppo__righe {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: var(--background-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+}
+
+.gruppo__corpo {
+  padding: var(--space-12) var(--space-16);
+  background: var(--background-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-surface);
+}
+
+.gruppo--pericolo .gruppo__titolo {
+  color: var(--status-error);
+}
+
+.gruppo--pericolo .gruppo__righe {
+  border-color: var(--status-error);
+}
+
+.azione {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8) var(--space-16);
+  padding: var(--space-8) var(--space-16);
+}
+
+.azione + .azione {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.azione__testo {
+  display: flex;
+  flex: 1 1 16rem;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.azione__aiuto {
+  overflow-wrap: anywhere;
+  font-size: var(--font-size-caption);
+  color: var(--text-secondary);
+}
+
+.azione__bottoni {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+}
+
+.file-button--disattivo {
+  opacity: var(--opacity-disabled);
+  cursor: not-allowed;
+}
+
+.campo {
+  padding: var(--space-8) var(--space-12);
+}
+
+.edit-input {
+  flex: 1 1 12rem;
+  max-width: 24rem;
+}
+
 .add-zone-form {
   display: flex;
   gap: var(--space-8);
   max-width: 32rem;
-  margin-bottom: var(--space-24);
-}
-
-.zones-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  border-top: 1px solid var(--color-border);
-}
-
-.zone-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-12);
-  min-height: 3rem;
-  padding: var(--space-4) var(--space-8);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.zone-item:hover {
-  background: var(--color-surface-hover);
 }
 
 .zone-name {
-  font-weight: 600;
-}
-
-.zone-item .edit-input {
-  max-width: 24rem;
-}
-
-.zone-buttons {
-  display: flex;
-  gap: var(--space-4);
+  font-weight: 500;
 }
 
 .icona-btn {
@@ -1313,16 +1346,6 @@ const saveZoneRename = async (oldName) => {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
-}
-
-.restore-label {
-  font-weight: 600;
-  font-size: var(--font-size-label);
-}
-
-.danger-intro {
-  margin: 0 0 var(--space-16);
-  color: var(--color-text-secondary);
 }
 
 .settings-view h1 {
@@ -1444,19 +1467,6 @@ const saveZoneRename = async (oldName) => {
   line-height: 1.4;
 }
 
-.image-preview {
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: var(--shadow-sm);
-  max-width: 200px;
-}
-
-.image-preview img {
-  width: 100%;
-  height: auto;
-  display: block;
-}
-
 .pdf-info {
   display: flex;
   flex-direction: column;
@@ -1515,223 +1525,10 @@ const saveZoneRename = async (oldName) => {
   filter: brightness(1.1);
 }
 
-.backup-toggle-button:hover:not(:disabled) {
-  background-color: var(--color-surface-hover);
-  transform: scale(1.02);
-}
-
-.backup-toggle-button.active {
-  background-color: var(--color-success);
-}
-
-.backup-toggle-button.active:hover:not(:disabled) {
-  filter: brightness(1.1);
-}
-
-.history-button {
-  padding: 0.75rem 1.5rem;
-  background-color: #9c27b0; /* Keep purple or define new var? Let's leave for now or map to info */
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: all 0.2s;
-}
-
 .save-button:disabled,
 .reset-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-}
-
-/* Data Management Section */
-.data-section {
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-}
-
-.export-options {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2rem;
-}
-
-.export-option {
-  background: var(--color-background);
-  padding: 1.5rem;
-  border-radius: 8px;
-  border: 1px solid var(--color-border);
-}
-
-.export-option h3 {
-  margin: 0 0 0.5rem 0;
-  color: var(--color-primary);
-  font-size: 1.1rem;
-}
-
-.export-option p {
-  margin: 0 0 1rem 0;
-  color: var(--color-text-secondary);
-  font-size: 0.9rem;
-  line-height: 1.4;
-}
-
-.export-info {
-  background: var(--color-background);
-  padding: 1.5rem;
-  border-radius: 8px;
-  border: 1px solid var(--color-border);
-}
-
-.export-info h4 {
-  margin: 0 0 1rem 0;
-  color: var(--color-primary);
-  font-size: 1rem;
-}
-
-.export-info ul {
-  margin: 0;
-  padding-left: 1.5rem;
-}
-
-.export-info li {
-  margin-bottom: 0.5rem;
-  color: var(--color-text-secondary);
-  font-size: 0.9rem;
-}
-
-.export-info strong {
-  color: var(--color-text-primary);
-}
-
-/* Backup Section */
-.backup-section {
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-}
-
-.backup-options {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2rem;
-}
-
-.backup-option {
-  background: var(--color-background);
-  padding: 1.5rem;
-  border-radius: 8px;
-  border: 1px solid var(--color-border);
-}
-
-.backup-option h3 {
-  margin: 0 0 0.5rem 0;
-  color: var(--color-primary);
-  font-size: 1.1rem;
-}
-
-.backup-option p {
-  margin: 0 0 1rem 0;
-  color: var(--color-text-secondary);
-  font-size: 0.9rem;
-  line-height: 1.4;
-}
-
-.backup-controls {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.backup-controls label {
-  font-weight: 600;
-  color: var(--color-text-primary);
-  font-size: 0.9rem;
-}
-
-.backup-toggle-button {
-  padding: 0.75rem 1rem;
-  background-color: var(--color-text-secondary);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-}
-
-.backup-toggle-button:hover:not(:disabled) {
-  background-color: var(--color-surface-hover);
-  transform: scale(1.02);
-}
-
-.backup-toggle-button.active {
-  background-color: var(--color-success);
-}
-
-.backup-toggle-button.active:hover:not(:disabled) {
-  filter: brightness(1.1);
-}
-
-.backup-toggle-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.backup-info {
-  background: var(--color-background);
-  padding: 1.5rem;
-  border-radius: 8px;
-  border: 1px solid var(--color-border);
-}
-
-.backup-info h4 {
-  margin: 0 0 1rem 0;
-  color: var(--color-primary);
-  font-size: 1rem;
-}
-
-.backup-info ul {
-  margin: 0;
-  padding-left: 1.5rem;
-}
-
-.backup-info li {
-  margin-bottom: 0.5rem;
-  color: var(--color-text-secondary);
-  font-size: 0.9rem;
-}
-
-.backup-info strong {
-  color: var(--color-text-primary);
-}
-
-.backup-actions {
-  display: flex;
-  gap: 1rem;
-  justify-content: center;
-}
-
-.history-button {
-  padding: 0.75rem 1.5rem;
-  background-color: #9c27b0;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: all 0.2s;
-}
-
-.history-button:hover {
-  background-color: #7b1fa2;
-  transform: scale(1.05);
 }
 
 /* Responsive */
@@ -1755,110 +1552,6 @@ const saveZoneRename = async (oldName) => {
     justify-content: center;
   }
 
-  .export-options {
-    grid-template-columns: 1fr;
-    gap: 1.5rem;
-  }
-
-  .data-section {
-    gap: 1.5rem;
-  }
-
-  .backup-options {
-    grid-template-columns: 1fr;
-    gap: 1.5rem;
-  }
-
-  .backup-actions {
-    flex-direction: column;
-  }
-
-  .manual-backup-button,
-  .history-button {
-    width: 100%;
-    text-align: center;
-  }
 }
 
-/* Optional: Add a light tint locally if we really want it, handling themes */
-.health-indicator.warning {
-  background-color: rgba(237, 108, 2, 0.05); /* Very subtle orange tint */
-}
-
-/* Danger Zone */
-.danger-zone {
-  margin-top: 3rem;
-  padding: 2rem;
-  background-color: transparent; /* Was hardcoded #fff5f5 */
-  border: 1px solid var(--color-accent); /* Was hardcoded #fc8181 */
-  border-radius: 8px;
-  /* Add subtle red tint */
-  background-color: rgba(183, 28, 28, 0.02);
-}
-
-[data-theme='dark'] .danger-zone {
-  background-color: rgba(229, 57, 53, 0.05);
-}
-
-.danger-zone h3 {
-  color: var(--color-accent); /* Was hardcoded #c53030 */
-  margin-top: 0;
-}
-
-.danger-card {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.danger-card + .danger-card {
-  margin-top: var(--space-24);
-  padding-top: var(--space-24);
-  border-top: 1px solid var(--color-border);
-}
-
-.button-group-small {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-}
-
-.action-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  font-family: var(--font-family-body);
-  font-weight: 600;
-  font-size: 0.9rem;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  background-color: var(--color-accent);
-  color: white;
-  box-shadow: var(--shadow-sm);
-  text-decoration: none;
-}
-
-.action-button:hover {
-  background-color: var(--color-accent-hover);
-  transform: translateY(-1px);
-}
-
-.action-button.secondary {
-  background-color: transparent;
-  border: 1px solid var(--color-accent);
-  color: var(--color-accent);
-  box-shadow: none;
-}
-
-.action-button.secondary:hover {
-  background-color: rgba(183, 28, 28, 0.05);
-}
-
-.clickable {
-  cursor: pointer;
-}
 </style>

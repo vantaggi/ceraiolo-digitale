@@ -422,13 +422,17 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 - [ ] In cima, "I dati di questo computer": Dove sono (l'indirizzo, es. vantaggi.github.io/ceraiolo-digitale), Contenuto (soci e pagamenti come in Andamento), Conservazione, Backup automatico, Versione dell'app. Le righe non si premono
 - [ ] Conservazione "Protetti" in verde con l'app installata; "Non protetti" o "Non si sa" in arancione negli altri casi
 - [ ] Backup automatico: "Spento" senza cartella, "In pausa" dopo la riapertura finche' non premi Riattiva, "Attivo · ultimo …" con la cartella sotto
-- [ ] Poi, dall'alto: Backup, Esporta, Ripristina da un file, Controllo qualita' dei dati, Zona pericolosa
+- [ ] Poi, dall'alto, gruppi di righe larghi come quelli di Generale: Backup, Esporta, Ripristina, Controllo dei dati, Zona pericolosa. Ogni riga ha il nome, una riga di spiegazione e il bottone a destra (sotto, su schermi stretti)
+- [ ] Backup: "Scegli la cartella" (poi "Cambia cartella" con il nome della cartella sotto), "Attiva" / "Spegni" il backup automatico (disattivo finche' non c'e' la cartella), "Scarica una copia" o "Salva adesso" con la cartella scelta
+- [ ] Esporta: Archivio completo, Excel, Registro modifiche scaricano il loro file; Impostazioni ha Esporta e Importa
+- [ ] Zona pericolosa in fondo, con il bordo rosso: "Correggi" e "Cancella tutto" chiedono conferma; "Cancella tutto" e' l'unico bottone rosso pieno
 - [ ] Non c'e' piu' il riquadro "Stato salute dati" in cima (lo dice il Controllo qualita')
-- [ ] "Importa JSON" si raggiunge anche con Tab e si apre con Invio
+- [ ] "Importa" (Impostazioni) e "Scegli il file" (Ripristina) si raggiungono con Tab, si vede il fuoco, e si aprono con Invio o Spazio. Non compare il campo file del browser in inglese
 - [ ] Ripristina da un file chiede conferma prima di sostituire i dati
 
 ### Test 17.4: Manicchie
 
+- [ ] Le manicchie stanno in un gruppo di righe con il numero nel titolo (es. "4 manicchie"), larghe come le righe di Generale
 - [ ] Aggiungi una manicchia (anche con Invio): compare nell'elenco e nel filtro Manicchia della pagina Soci
 - [ ] Matita: il nome diventa modificabile, Invio chiede conferma e rinomina per tutti i soci, Esc annulla
 - [ ] Cestino: chiede conferma e la toglie dalla lista; i soci restano con la loro manicchia
