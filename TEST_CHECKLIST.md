@@ -281,7 +281,7 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 
 - [ ] Aventi diritto (una sezione per manicchia, tutti in un elenco, una manicchia), Lista rinnovi, Lista recupero, Soci per manicchia, Conteggio, Nuovi iscritti, Soci attivi, Cronologia pagamenti: ognuno scarica lo stesso PDF di prima
 - [ ] Filtro Maggiorenni / Minorenni di Soci per manicchia, Nuovi iscritti e Cronologia pagamenti: l'eta' e' quella nell'anno di riferimento, dal solo anno di nascita (con l'anno 2020 chi e' nato nel 2005 sta tra i minorenni)
-- [ ] "Report votazioni" ha l'etichetta "Vecchia regola" e scarica il vecchio elenco
+- [ ] Nel gruppo Votazioni c'e' solo "Aventi diritto al voto e arretrati": il vecchio "Report votazioni" non c'e' piu'
 - [ ] Minorenni (nuovo): il PDF elenca i soci che nell'anno non hanno 18 anni, con il riassunto sotto il titolo
 - [ ] "Scarica 5 PDF" scarica i cinque documenti dei rinnovi con le scelte fatte nelle righe sopra
 - [ ] Controllo quote: la descrizione parla di "quota dei nuovi soci" (quella di Impostazioni), non di 25 €; "Controlla" mostra l'elenco sotto la riga (o il messaggio verde se va tutto bene); PDF ed Excel si scaricano
