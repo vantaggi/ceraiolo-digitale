@@ -1,7 +1,11 @@
 <template>
   <div class="tabella-scorre">
     <table class="elenco-soci">
-      <caption class="sr-only">{{ titolo }}</caption>
+      <caption class="sr-only">
+        {{
+          titolo
+        }}
+      </caption>
       <thead>
         <tr>
           <th scope="col">Socio</th>
@@ -21,9 +25,15 @@
           <td>{{ formatDate(riga.socio.data_nascita) }}</td>
           <td>{{ riga.socio.gruppo_appartenenza || SENZA_MANICCHIA }}</td>
           <td>
-            <span class="stato" :class="`stato--${CLASSI_QUOTA[riga.stato]}`">
-              <span aria-hidden="true">{{ riga.stato }}</span>
-              <span class="stato__testo">{{ TESTI_STATO_ANNO[riga.stato] }}</span>
+            <span class="stato" :class="`stato--${TONI_QUOTA[riga.stato]}`">
+              <AppIcon
+                v-if="ICONE_TONO[TONI_QUOTA[riga.stato]]"
+                :name="ICONE_TONO[TONI_QUOTA[riga.stato]]"
+              />
+              <!-- Su schermo stretto, dove c'e' l'icona, la parola resta solo per chi legge con lo screen reader -->
+              <span :class="{ stato__testo: ICONE_TONO[TONI_QUOTA[riga.stato]] }">{{
+                TESTI_STATO_ANNO[riga.stato]
+              }}</span>
             </span>
           </td>
           <td class="elenco-soci__azioni">
@@ -34,7 +44,7 @@
               :aria-label="`Paga ${anno} per ${riga.socio.cognome} ${riga.socio.nome}`"
               @click="$emit('paga', riga.socio)"
             >
-              Paga<span class="paga__anno"> {{ anno }}</span>
+              Paga<span class="paga__anno">{{ anno }}</span>
             </button>
             <button
               type="button"
@@ -80,7 +90,9 @@ const props = defineProps({
 
 defineEmits(['paga', 'tessera'])
 
-const CLASSI_QUOTA = { V: 'ok', X: 'errore', O: 'attenzione', '-': 'neutro' }
+// Stato -> tono, come nella scheda del socio: icona e parola, mai il solo colore
+const TONI_QUOTA = { V: 'ok', X: 'errore', O: 'neutro', '-': 'neutro' }
+const ICONE_TONO = { ok: 'ok', errore: 'errore' }
 
 const righe = computed(() =>
   props.soci.map((socio) => ({
@@ -104,14 +116,16 @@ const righe = computed(() =>
 
 .elenco-soci th,
 .elenco-soci td {
-  padding: var(--space-8) var(--space-12);
-  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-4) var(--space-12);
+  border-bottom: 1px solid var(--border-subtle);
   text-align: left;
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .elenco-soci thead th {
-  color: var(--color-text-secondary);
+  padding-block: var(--space-8) var(--space-4);
+  color: var(--text-secondary);
   font-size: var(--font-size-caption);
   font-weight: 600;
 }
@@ -142,39 +156,21 @@ const righe = computed(() =>
 .stato {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-8);
+  gap: var(--space-4);
   font-weight: 600;
 }
 
-.stato > span[aria-hidden] {
-  display: inline-grid;
-  place-items: center;
-  width: 1.5rem;
-  height: 1.5rem;
-  border-radius: var(--radius-control);
-  color: var(--color-text-inverse);
-  background: var(--color-text-secondary);
-  font-size: var(--font-size-caption);
-}
-
-.stato--ok > span[aria-hidden] {
-  background: var(--color-success);
-}
-
-.stato--attenzione > span[aria-hidden] {
-  background: var(--color-warning);
-}
-
-.stato--errore > span[aria-hidden] {
-  background: var(--color-danger);
+.stato--ok {
+  color: var(--status-success);
 }
 
 .stato--errore {
-  color: var(--color-danger);
+  color: var(--status-error);
 }
 
 .icona-btn,
 .link-btn {
+  vertical-align: middle;
   min-height: 2rem;
   padding: var(--space-4) var(--space-8);
   border: none;
@@ -188,6 +184,8 @@ const righe = computed(() =>
 }
 
 .link-btn {
+  gap: var(--space-4);
+  line-height: 1.2;
   color: var(--color-accent);
   font-size: var(--font-size-label);
   font-weight: 600;
@@ -199,7 +197,7 @@ const righe = computed(() =>
   color: var(--color-text-primary);
 }
 
-/* Su schermo stretto restano nome, quota (solo la lettera) e azioni */
+/* Su schermo stretto restano nome, quota e azioni */
 @media (max-width: 600px) {
   .elenco-soci th,
   .elenco-soci td {
@@ -210,10 +208,6 @@ const righe = computed(() =>
     display: none;
   }
 
-  .elenco-soci tbody th {
-    white-space: normal;
-  }
-
   .stato__testo {
     position: absolute;
     width: 1px;
@@ -221,6 +215,10 @@ const righe = computed(() =>
     overflow: hidden;
     clip: rect(0, 0, 0, 0);
     white-space: nowrap;
+  }
+
+  .elenco-soci tbody th {
+    white-space: normal;
   }
 
   .elenco-soci th:nth-child(2),
