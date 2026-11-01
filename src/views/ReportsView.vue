@@ -66,22 +66,6 @@
             </BaseButton>
           </template>
         </ModelloReport>
-
-        <ModelloReport
-          titolo="Report votazioni"
-          etichetta="Vecchia regola"
-          :descrizione="`Maggiorenni in regola con il ${anno - 1}. Non conta i primi anni né gli arretrati: per le elezioni usa il modello qui sopra. Resta fino alla prova con la segreteria.`"
-        >
-          <template #azioni>
-            <BaseButton
-              :loading="inCorso === 'votazioni'"
-              :disabled="bloccato"
-              @click="generaVotazioniVecchio"
-            >
-              <AppIcon name="documento" /> Genera PDF
-            </BaseButton>
-          </template>
-        </ModelloReport>
       </ul>
     </section>
 
@@ -322,7 +306,6 @@ import {
   generateMembersByGroupPDF,
   generateGroupCountsPDF,
   generateChurnPDF,
-  generateVotingListPDF,
   generateAventiDirittoPDF,
   generateActiveMembersPDF,
 } from '@/services/export'
@@ -335,7 +318,6 @@ import {
   getUniqueGroups,
   getGroupCountsForYear,
   getChurnList,
-  getVotingEligibleMembers,
   getActiveMembersLast5Years,
 } from '@/services/db'
 import { elencoAventiDiritto } from '@/utils/aventiDiritto'
@@ -458,14 +440,6 @@ const generaAventiDiritto = () =>
     await generateAventiDirittoPDF(elenco, anno.value, { perManicchia: sezioni })
     const { si, regolarizza } = elenco.totali
     return `PDF generato: ${si} con diritto, ${regolarizza} da regolarizzare`
-  })
-
-const generaVotazioniVecchio = () =>
-  genera('votazioni', async () => {
-    const elenco = await getVotingEligibleMembers(anno.value)
-    if (elenco.length === 0) return avviso(`Nessun avente diritto trovato per il ${anno.value}`)
-    await generateVotingListPDF(elenco, anno.value)
-    return `PDF generato: ${elenco.length} soci`
   })
 
 const generaPerManicchia = () =>
