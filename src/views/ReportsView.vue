@@ -255,13 +255,21 @@
             in <RouterLink to="/settings/tessera">Impostazioni › Tessera</RouterLink>.
           </template>
           <template #opzioni>
-            <label class="scelta">
-              <input v-model="tessere.escludiInattivi" type="checkbox" :disabled="occupato" />
-              Escludi chi non paga da più di 5 anni
-              <span v-if="tessere.escludiInattivi" class="scelta__nota">
-                ({{ conteggioSoci.attivi }} su {{ conteggioSoci.totale }})
-              </span>
-            </label>
+            <div class="scelte">
+              <label v-for="n in ANNI_SENZA_PAGARE_TESSERE" :key="n" class="scelta">
+                <input
+                  type="checkbox"
+                  :checked="tessere.escludiDa === n"
+                  :disabled="occupato"
+                  @change="tessere.escludiDa = $event.target.checked ? n : 0"
+                />
+                Escludi chi non paga da più di {{ n }} anni
+              </label>
+              <p v-if="tessere.escludiDa" class="scelta__nota">
+                {{ conteggioSoci.attivi[tessere.escludiDa] }} soci su {{ conteggioSoci.totale }}:
+                chi ha pagato dal {{ primoAnnoValido(tessere.escludiDa, annoCorrente) }} in poi
+              </p>
+            </div>
           </template>
           <template #azioni>
             <BaseButton
@@ -329,6 +337,7 @@ import {
   titoloReport,
 } from '@/utils/reportSuMisura'
 import { scaricaBlob } from '@/utils/scarica'
+import { ANNI_SENZA_PAGARE_TESSERE, pagaDaNonPiuDi, primoAnnoValido } from '@/utils/tessere'
 
 const OPZIONI_ETA = [
   { v: 'tutti', t: 'Tutte le età' },
@@ -355,24 +364,18 @@ const voto = reactive({ manicchia: '__sezioni', includiNonAventi: false })
 const perManicchia = reactive({ gruppo: '', eta: 'tutti', pagamento: 'tutti' })
 const nuovi = reactive({ eta: 'tutti' })
 const pagamenti = reactive({ eta: 'tutti' })
-const tessere = reactive({ escludiInattivi: false, avanzamento: 0 })
-const conteggioSoci = reactive({ totale: 0, attivi: 0 })
-
-/**
- * Socio attivo per le tessere: un pagamento negli ultimi 5 anni di calendario.
- */
-const isSocioActive = (socio) => {
-  if (!socio.tesseramenti || socio.tesseramenti.length === 0) return false
-  const ultimo = Math.max(...socio.tesseramenti.map((t) => t.anno))
-  return ultimo >= new Date().getFullYear() - 5
-}
+// escludiDa: 0 tutti i soci, altrimenti gli anni ammessi senza pagare (una spunta alla volta)
+const tessere = reactive({ escludiDa: 0, avanzamento: 0 })
+const conteggioSoci = reactive({ totale: 0, attivi: {} })
 
 onMounted(async () => {
   try {
     const [gruppi, soci] = await Promise.all([getUniqueGroups(), getAllSociWithTesseramenti()])
     manicchie.value = gruppi
     conteggioSoci.totale = soci.length
-    conteggioSoci.attivi = soci.filter(isSocioActive).length
+    for (const n of ANNI_SENZA_PAGARE_TESSERE) {
+      conteggioSoci.attivi[n] = soci.filter((s) => pagaDaNonPiuDi(s, n, annoCorrente)).length
+    }
   } catch (error) {
     console.error('Errore caricamento dati:', error)
     toast.error('Non sono riuscito a leggere i soci dal database.')
@@ -552,7 +555,9 @@ const generaTessere = () =>
   genera('tessere', async () => {
     tessere.avanzamento = 0
     let soci = await getAllSociWithTesseramenti()
-    if (tessere.escludiInattivi) soci = soci.filter(isSocioActive)
+    if (tessere.escludiDa) {
+      soci = soci.filter((s) => pagaDaNonPiuDi(s, tessere.escludiDa, annoCorrente))
+    }
     const risultati = await generateAllCardsPDF(soci, anno.value, (p) => {
       tessere.avanzamento = p
     })
@@ -655,6 +660,18 @@ const generaTessere = () =>
 
 .scelta__nota {
   color: var(--color-text-secondary);
+}
+
+/* Spunte una sotto l'altra, cosi' la colonna delle opzioni resta stretta */
+.scelte {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.scelte .scelta__nota {
+  margin: 0;
+  font-size: var(--font-size-caption);
 }
 
 /* Link con l'aspetto di un pulsante: portano a un'altra pagina */
