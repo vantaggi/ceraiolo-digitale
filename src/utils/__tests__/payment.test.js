@@ -315,6 +315,12 @@ describe('quotaPerAnno: quote dal 2027 (Cioti, 9 novembre 2026)', () => {
     expect(quotaPerAnno(adulto, [2020, 2023], 2027, quote)).toBe(30)
   })
 
+  it('confini: 17 anni offerta, rientro giovane da reiscrivere 15, senza data come adulto', () => {
+    expect(quotaPerAnno({ data_nascita: '2010-12-31' }, [], 2027, quote)).toBeNull()
+    expect(quotaPerAnno({ data_nascita: '2005-01-01' }, [2022], 2027, quote)).toBe(15)
+    expect(quotaPerAnno({}, [], 2027, quote)).toBe(30)
+  })
+
   it('piu anni insieme: vale la regola dell ultimo anno scelto', () => {
     expect(quotaPropostaPerAnni(adulto, [2023], [2026, 2027], quote)).toBe(15)
     expect(quotaPropostaPerAnni(minorenne, [], [2027], quote)).toBeNull()

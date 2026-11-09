@@ -52,6 +52,14 @@ export function propostaRegistrazione({ socio, anniPagati, anno, quote, sullaRic
       `${nome} ha già pagato la quota ${anno}.`,
     )
   }
+  // Dal 2027 il minorenne paga un'offerta: nessun importo da proporre, anche se non e'
+  // ancora iscritto (statoAnno '-'). L'importo si scrive nella scheda.
+  if (base.quota === null) {
+    return ferma(
+      { testo: `Offerta ${anno}`, tono: 'neutro' },
+      `${nome} è minorenne nel ${anno}: paga un'offerta, se vuole. Registra l'importo dalla sua scheda.`,
+    )
+  }
   if (statoAnno(socio, anni, anno) === 'O') {
     return ferma(
       { testo: `Esente nel ${anno}`, tono: 'neutro' },

@@ -138,3 +138,33 @@ describe("quoteDopoArretrato (Aggiungi l'arretrato sulla ricevuta)", () => {
     ).toEqual([])
   })
 })
+
+describe('Registra ricevute dal 2027', () => {
+  const nel2027 = (s, anniPagati) =>
+    propostaRegistrazione({ socio: s, anniPagati, anno: 2027, quote })
+
+  it("minorenne mai iscritto: Invio non registra, l'offerta si scrive nella scheda", () => {
+    const p = nel2027(socio({ data_nascita: '2012-04-01', data_prima_iscrizione: null }), [])
+    expect(p.registra).toBe(false)
+    expect(p.stato.testo).toBe('Offerta 2027')
+    expect(p.messaggio).toContain('offerta')
+  })
+
+  it('maggiorenne: Invio registra 15 a chi rinnova, 30 al nuovo dai 24 anni', () => {
+    expect(nel2027(socio(), [2026]).quota).toBe(15)
+    expect(nel2027(socio({ data_prima_iscrizione: null }), []).quota).toBe(30)
+  })
+
+  it("dopo l'arretrato 2026 la quota 2027 resta 15 (rientro dopo 2 anni)", () => {
+    const s = socio({ data_prima_iscrizione: 2020 })
+    expect(
+      quoteDopoArretrato({
+        socio: s,
+        pagamenti: [{ id_tesseramento: 1, anno: 2027, quota_pagata: 15 }],
+        anniPrima: [2024],
+        anniDopo: [2024, 2026],
+        quote,
+      }),
+    ).toEqual([])
+  })
+})

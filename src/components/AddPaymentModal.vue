@@ -169,22 +169,30 @@ const proponiQuota = () => {
 }
 watch(selectedYears, proponiQuota)
 
-/** Dice perche' la quota non e' quella dei nuovi quando si saldano gli arretrati. */
+/**
+ * Nota sotto la quota: offerta del minorenne, anni scelti con quote diverse (un solo
+ * importo vale per tutti gli anni), o perche' un rientro che salda gli arretrati costa meno.
+ */
 const notaQuota = computed(() => {
   const socio = socioPagamento.value
-  if (!socio || selectedYears.value.length === 0) return ''
+  if (!socio || !quoteImpostate.value || selectedYears.value.length === 0) return ''
   if (!quotaToccata.value && paymentDetails.quota_pagata == null) {
     return "Minorenne: paga un'offerta, scrivi l'importo versato."
   }
   if (selectedYears.value.length < 2) return ''
-  const ultimo = Math.max(...selectedYears.value.map(Number))
-  const daSolo = tipoQuota(socio, Array.from(paidYears.value), ultimo)
-  const conGliAltri = tipoQuota(
-    socio,
-    [...Array.from(paidYears.value), ...selectedYears.value.map(Number)],
-    ultimo,
-  )
-  return daSolo === 'rientro' && conGliAltri === 'ordinaria'
+  const pagati = Array.from(paidYears.value).map(Number)
+  const scelti = selectedYears.value.map(Number).sort((a, b) => a - b)
+  const insieme = [...pagati, ...scelti]
+  const perAnno = scelti.map((a) => quotaPerAnno(socio, insieme, a, quoteImpostate.value))
+  if (new Set(perAnno).size > 1) {
+    const elenco = scelti
+      .map((a, i) => `${a}: ${perAnno[i] === null ? 'offerta' : `${perAnno[i]} €`}`)
+      .join(', ')
+    return `Gli anni scelti hanno quote diverse (${elenco}): registra un pagamento per anno.`
+  }
+  const ultimo = scelti[scelti.length - 1]
+  const daSolo = quotaPerAnno(socio, pagati, ultimo, quoteImpostate.value)
+  return tipoQuota(socio, pagati, ultimo) === 'rientro' && daSolo !== perAnno.at(-1)
     ? `Con gli arretrati saldati il ${ultimo} non è un rientro: quota ordinaria.`
     : ''
 })
