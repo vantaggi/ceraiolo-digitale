@@ -269,7 +269,7 @@
               <p id="tessere-conteggio" class="scelta__nota" aria-live="polite">
                 <template v-if="tessere.escludiDa">
                   {{ conteggioSoci.attivi[tessere.escludiDa] }} soci su {{ conteggioSoci.totale }}:
-                  chi ha pagato dal {{ primoAnnoValido(tessere.escludiDa, annoCorrente) }} in poi
+                  chi ha pagato dal {{ primoAnnoValido(tessere.escludiDa, annoTessere) }} in poi
                 </template>
                 <template v-else>Una spunta alla volta: tessere per tutti i soci</template>
               </p>
@@ -370,19 +370,25 @@ const nuovi = reactive({ eta: 'tutti' })
 const pagamenti = reactive({ eta: 'tutti' })
 // escludiDa: 0 tutti i soci, altrimenti gli anni ammessi senza pagare (una spunta alla volta)
 const tessere = reactive({ escludiDa: 0, avanzamento: 0 })
-const conteggioSoci = reactive({
-  totale: 0,
-  attivi: Object.fromEntries(ANNI_SENZA_PAGARE_TESSERE.map((n) => [n, 0])),
-})
+// Le tessere si fanno per l'anno di riferimento (a novembre 2026 quelle del 2027):
+// i 3 o 5 anni senza pagare si contano da quell'anno, non dal calendario
+const annoTessere = computed(() => (annoValido.value ? anno.value : annoCorrente))
+const sociLetti = ref([])
+const conteggioSoci = computed(() => ({
+  totale: sociLetti.value.length,
+  attivi: Object.fromEntries(
+    ANNI_SENZA_PAGARE_TESSERE.map((n) => [
+      n,
+      sociLetti.value.filter((s) => pagaDaNonPiuDi(s, n, annoTessere.value)).length,
+    ]),
+  ),
+}))
 
 onMounted(async () => {
   try {
     const [gruppi, soci] = await Promise.all([getUniqueGroups(), getAllSociWithTesseramenti()])
     manicchie.value = gruppi
-    conteggioSoci.totale = soci.length
-    for (const n of ANNI_SENZA_PAGARE_TESSERE) {
-      conteggioSoci.attivi[n] = soci.filter((s) => pagaDaNonPiuDi(s, n, annoCorrente)).length
-    }
+    sociLetti.value = soci
   } catch (error) {
     console.error('Errore caricamento dati:', error)
     toast.error('Non sono riuscito a leggere i soci dal database.')
@@ -563,7 +569,7 @@ const generaTessere = () =>
     tessere.avanzamento = 0
     let soci = await getAllSociWithTesseramenti()
     if (tessere.escludiDa) {
-      soci = soci.filter((s) => pagaDaNonPiuDi(s, tessere.escludiDa, annoCorrente))
+      soci = soci.filter((s) => pagaDaNonPiuDi(s, tessere.escludiDa, annoTessere.value))
     }
     const risultati = await generateAllCardsPDF(soci, anno.value, (p) => {
       tessere.avanzamento = p

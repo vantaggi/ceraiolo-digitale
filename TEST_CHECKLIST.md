@@ -240,7 +240,7 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 
 - [ ] Home: cerca un socio, "Genera Tessera", apri il PDF: nome, data, a capo e posizione sono quelli dell'anteprima con lo stesso nome
 - [ ] Report PDF › Tessere: "Genera tessere" scarica un PDF con una pagina per socio, in ordine di cognome
-- [ ] Report PDF › Tessere: le spunte "Escludi chi non paga da più di 5 anni" e "da più di 3 anni" si escludono a vicenda; sotto compare quanti soci restano e da che anno contano i pagamenti (nel 2026: dal 2021 e dal 2023). Il PDF ha quel numero di tessere
+- [ ] Report PDF › Tessere: le spunte "Escludi chi non paga da più di 5 anni" e "da più di 3 anni" si escludono a vicenda; sotto compare quanti soci restano e da che anno contano i pagamenti, contati dall'anno di riferimento (tessere 2027: dal 2022 con 5 anni, dal 2024 con 3). Il PDF ha quel numero di tessere
 - [ ] Il PDF di tutte le tessere pesa piu' o meno quanto lo sfondo (non lo sfondo moltiplicato per il numero di soci)
 - [ ] Stampa una pagina di prova su carta: misure e margini vanno bene per la tipografia
 

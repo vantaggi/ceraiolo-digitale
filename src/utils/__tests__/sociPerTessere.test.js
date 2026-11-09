@@ -10,6 +10,12 @@ describe('tessere: chi non paga da piu di N anni', () => {
     expect(pagaDaNonPiuDi(socio(2010, 2022), 3, 2026)).toBe(false)
   })
 
+  it('per le tessere 2027 con 3 anni contano i pagamenti 2024, 2025 e 2026', () => {
+    expect(primoAnnoValido(3, 2027)).toBe(2024)
+    expect(pagaDaNonPiuDi(socio(2024), 3, 2027)).toBe(true)
+    expect(pagaDaNonPiuDi(socio(2023), 3, 2027)).toBe(false)
+  })
+
   it('con 5 anni resta chi ha pagato dal 2021, come la spunta di prima', () => {
     expect(pagaDaNonPiuDi(socio(2021), 5, 2026)).toBe(true)
     expect(pagaDaNonPiuDi(socio(2020), 5, 2026)).toBe(false)

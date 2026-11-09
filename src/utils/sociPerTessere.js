@@ -7,11 +7,12 @@
 export const ANNI_SENZA_PAGARE_TESSERE = [5, 3]
 
 /**
- * Primo anno di pagamento che tiene un socio tra le tessere: con 3 anni, nel 2026
+ * Primo anno di pagamento che tiene un socio tra le tessere. Per le tessere 2027 con
+ * 3 anni contano i pagamenti 2024, 2025 e 2026 (Cioti, 9 novembre 2026). Per il 2026
  * resta chi ha pagato dal 2023 in poi (chi ha pagato l'ultima volta nel 2022 non paga
  * 2023, 2024, 2025 e 2026: piu' di 3 anni).
  * @param {number} anni - 5 oppure 3
- * @param {number} annoOggi - anno del calendario
+ * @param {number} annoOggi - anno delle tessere (Report PDF, anno di riferimento)
  * @returns {number}
  */
 export function primoAnnoValido(anni, annoOggi) {
