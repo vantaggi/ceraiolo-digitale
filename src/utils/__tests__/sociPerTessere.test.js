@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { pagaDaNonPiuDi, primoAnnoValido } from '../tessere'
+import { pagaDaNonPiuDi, primoAnnoValido } from '../sociPerTessere'
 
 const socio = (...anni) => ({ tesseramenti: anni.map((anno) => ({ anno })) })
 
@@ -24,5 +24,15 @@ describe('tessere: chi non paga da piu di N anni', () => {
   it('senza pagamenti il socio resta fuori', () => {
     expect(pagaDaNonPiuDi({}, 3, 2026)).toBe(false)
     expect(pagaDaNonPiuDi(socio(), 5, 2026)).toBe(false)
+  })
+
+  it("chi ha pagato quest'anno o un anno avanti resta", () => {
+    expect(pagaDaNonPiuDi(socio(2026), 3, 2026)).toBe(true)
+    expect(pagaDaNonPiuDi(socio(2027), 3, 2026)).toBe(true)
+  })
+
+  it('un anno mancante o non numerico non conta', () => {
+    expect(pagaDaNonPiuDi({ tesseramenti: [{ anno: 'x' }] }, 3, 2026)).toBe(false)
+    expect(pagaDaNonPiuDi({ tesseramenti: [{}, { anno: 2024 }] }, 3, 2026)).toBe(true)
   })
 })

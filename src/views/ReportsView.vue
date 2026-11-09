@@ -261,13 +261,17 @@
                   type="checkbox"
                   :checked="tessere.escludiDa === n"
                   :disabled="occupato"
+                  aria-describedby="tessere-conteggio"
                   @change="tessere.escludiDa = $event.target.checked ? n : 0"
                 />
                 Escludi chi non paga da più di {{ n }} anni
               </label>
-              <p v-if="tessere.escludiDa" class="scelta__nota">
-                {{ conteggioSoci.attivi[tessere.escludiDa] }} soci su {{ conteggioSoci.totale }}:
-                chi ha pagato dal {{ primoAnnoValido(tessere.escludiDa, annoCorrente) }} in poi
+              <p id="tessere-conteggio" class="scelta__nota" aria-live="polite">
+                <template v-if="tessere.escludiDa">
+                  {{ conteggioSoci.attivi[tessere.escludiDa] }} soci su {{ conteggioSoci.totale }}:
+                  chi ha pagato dal {{ primoAnnoValido(tessere.escludiDa, annoCorrente) }} in poi
+                </template>
+                <template v-else>Una spunta alla volta: tessere per tutti i soci</template>
               </p>
             </div>
           </template>
@@ -337,7 +341,7 @@ import {
   titoloReport,
 } from '@/utils/reportSuMisura'
 import { scaricaBlob } from '@/utils/scarica'
-import { ANNI_SENZA_PAGARE_TESSERE, pagaDaNonPiuDi, primoAnnoValido } from '@/utils/tessere'
+import { ANNI_SENZA_PAGARE_TESSERE, pagaDaNonPiuDi, primoAnnoValido } from '@/utils/sociPerTessere'
 
 const OPZIONI_ETA = [
   { v: 'tutti', t: 'Tutte le età' },
@@ -366,7 +370,10 @@ const nuovi = reactive({ eta: 'tutti' })
 const pagamenti = reactive({ eta: 'tutti' })
 // escludiDa: 0 tutti i soci, altrimenti gli anni ammessi senza pagare (una spunta alla volta)
 const tessere = reactive({ escludiDa: 0, avanzamento: 0 })
-const conteggioSoci = reactive({ totale: 0, attivi: {} })
+const conteggioSoci = reactive({
+  totale: 0,
+  attivi: Object.fromEntries(ANNI_SENZA_PAGARE_TESSERE.map((n) => [n, 0])),
+})
 
 onMounted(async () => {
   try {
