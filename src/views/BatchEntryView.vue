@@ -303,12 +303,7 @@ import {
   updateTesseramentoQuota,
   db,
 } from '@/services/db'
-import {
-  QUOTA_NUOVI_PREDEFINITA,
-  QUOTA_ORDINARIA_PREDEFINITA,
-  quotaProposta,
-  tipoQuota,
-} from '@/utils/payment'
+import { QUOTA_NUOVI_PREDEFINITA, QUOTA_ORDINARIA_PREDEFINITA, quotaPerAnno } from '@/utils/payment'
 import {
   intervalloBlocchetto,
   pagamentiDelBlocchetto,
@@ -852,7 +847,8 @@ const aggiungiArretrato = async (riga, anno) => {
   let anniPagati
   try {
     anniPagati = (await getAnniPagatiDiSoci([riga.id])).get(Number(riga.id)) || []
-    quota = quotaProposta(tipoQuota(offerta.socio, anniPagati, anno), quote.value)
+    // Un arretrato non e' mai un anno da minorenne esente: la quota c'e' sempre
+    quota = quotaPerAnno(offerta.socio, anniPagati, anno, quote.value) ?? 0
   } catch (error) {
     console.error('Anni pagati non letti:', error)
     esito.value = {
@@ -931,9 +927,10 @@ const saveNewSocio = async () => {
     }
 
     const socioId = await addSocio(socioData)
-    // Regola in payment.js: il maggiorenne nuovo paga la quota dei nuovi, il minorenne
-    // la quota ordinaria (o un'offerta, da correggere poi nella scheda)
-    const quota = quotaProposta(tipoQuota(socioData, [], sessionData.annoRiferimento), quote.value)
+    // Regola in payment.js (quotaPerAnno): il maggiorenne nuovo paga la quota dei nuovi,
+    // il minorenne fino al 2026 la quota ordinaria e dal 2027 un'offerta, registrata a 0
+    // e da correggere poi nella scheda
+    const quota = quotaPerAnno(socioData, [], sessionData.annoRiferimento, quote.value) ?? 0
     await addTesseramento({
       id_socio: socioId,
       anno: sessionData.annoRiferimento,

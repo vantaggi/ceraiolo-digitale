@@ -820,7 +820,7 @@ const IMPOSTAZIONI_GENERALI = {
     label: 'Quota ordinaria',
     campo: 'Importo (€)',
     inputmode: 'decimal',
-    aiuto: 'Proposta nel pagamento di chi rinnova.',
+    aiuto: 'Proposta nel pagamento di chi rinnova, fino al 2026. Dal 2027 la quota è 15 €.',
     mostra: (v) => formatoEuro(v),
     leggi: leggiImporto,
   },
@@ -828,7 +828,8 @@ const IMPOSTAZIONI_GENERALI = {
     label: 'Quota dei nuovi soci',
     campo: 'Importo (€)',
     inputmode: 'decimal',
-    aiuto: 'Proposta nel pagamento di chi è al primo anno o rientra dopo almeno un anno fuori.',
+    aiuto:
+      'Proposta nel pagamento di chi è al primo anno o rientra dopo almeno un anno fuori, fino al 2026. Dal 2027: 15 € fino a 23 anni, 30 € (quota e iscrizione) dai 24 anni.',
     mostra: (v) => formatoEuro(v),
     leggi: leggiImporto,
   },

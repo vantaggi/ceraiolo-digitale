@@ -58,6 +58,27 @@ describe('getQuotaAuditList', () => {
   })
 })
 
+describe('getQuotaAuditList dal 2027', () => {
+  it('attende 30 dal nuovo di 24 anni e piu, 15 dal nuovo giovane, niente dal minorenne', async () => {
+    await Promise.all(db.tables.map((t) => t.clear()))
+    await db.soci.bulkAdd([
+      { id: 1, cognome: 'Alfa', nome: 'Adulto', data_nascita: '1980-01-01' },
+      { id: 2, cognome: 'Beta', nome: 'Giovane', data_nascita: '2005-01-01' },
+      { id: 3, cognome: 'Gamma', nome: 'Minore', data_nascita: '2014-01-01' },
+      { id: 4, cognome: 'Delta', nome: 'Torna', data_nascita: '1980-01-01' },
+    ])
+    await db.tesseramenti.bulkAdd([
+      { id_tesseramento: 'a', id_socio: 1, anno: 2027, quota_pagata: 15 },
+      { id_tesseramento: 'b', id_socio: 2, anno: 2027, quota_pagata: 15 },
+      { id_tesseramento: 'c', id_socio: 3, anno: 2027, quota_pagata: 5 },
+      { id_tesseramento: 'd', id_socio: 4, anno: 2025, quota_pagata: 10 },
+      { id_tesseramento: 'e', id_socio: 4, anno: 2027, quota_pagata: 15 },
+    ])
+    const anomalie = await getQuotaAuditList(2027)
+    expect(anomalie.map((a) => [a.socio.cognome, a.expectedQuota])).toEqual([['Alfa', 30]])
+  })
+})
+
 describe("db.js non ha piu' una copia delle regole di eta'", () => {
   it('calculateAgeInYear e isExemptFromPayment sono quelle di utils/payment.js', () => {
     expect(dbModule.calculateAgeInYear).toBe(payment.calculateAgeInYear)

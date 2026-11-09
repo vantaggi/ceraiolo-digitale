@@ -89,13 +89,50 @@ export function quotaProposta(tipo, { quotaOrdinaria, quotaNuovi }) {
  * @param {Array<number>} anniPagati - anni gia' pagati
  * @param {Array<number>} anniScelti - anni che si stanno pagando
  * @param {{ quotaOrdinaria: number, quotaNuovi: number }} quote
- * @returns {number|null} null se non e' scelto nessun anno
+ * @returns {number|null} null se non e' scelto nessun anno, o per l'offerta di un minorenne
  */
 export function quotaPropostaPerAnni(socio, anniPagati, anniScelti, quote) {
   const scelti = anniScelti.map(Number)
   if (scelti.length === 0) return null
   const anno = Math.max(...scelti)
-  return quotaProposta(tipoQuota(socio, [...anniPagati.map(Number), ...scelti], anno), quote)
+  return quotaPerAnno(socio, [...anniPagati.map(Number), ...scelti], anno, quote)
+}
+
+/**
+ * Quote dal 2027 (Cioti, 9 novembre 2026). Fino al 2026 valgono gli importi delle
+ * impostazioni (quota ordinaria e quota dei nuovi, cioe' iscrizione piu' quota).
+ * - Minorenni: offerta, nessuna iscrizione: l'app non propone un importo.
+ * - Dai 18 ai 23 anni compresi: 15, iscrizione gratis.
+ * - Dai 24 anni in su: 15 di quota, piu' 15 di iscrizione per chi si iscrive.
+ * L'iscrizione si paga la prima volta o quando ci si reiscrive dopo piu' di
+ * MAX_ANNI_ARRETRATI anni scoperti: chi torna prima paga solo la quota.
+ * Eta' dal solo anno di nascita, come ovunque.
+ */
+export const ANNO_QUOTE_2027 = 2027
+export const QUOTA_DAL_2027 = 15
+export const ISCRIZIONE_DAL_2027 = 15
+/** Ultima eta' con l'iscrizione gratis (compresa). */
+export const ETA_ISCRIZIONE_GRATIS = 23
+
+/**
+ * Quota da proporre per un anno, con le regole dell'anno.
+ * @param {object} socio - con data_nascita e data_prima_iscrizione
+ * @param {Array<number>} anniPagati - anni con un tesseramento (quelli dopo si ignorano)
+ * @param {number} anno
+ * @param {{ quotaOrdinaria: number, quotaNuovi: number }} quote - dalle impostazioni, fino al 2026
+ * @returns {number|null} null: offerta del minorenne, l'importo si scrive a mano
+ */
+export function quotaPerAnno(socio, anniPagati, anno, quote) {
+  const anni = anniPagati.map(Number)
+  const tipo = tipoQuota(socio, anni, anno)
+  if (anno < ANNO_QUOTE_2027) return quotaProposta(tipo, quote)
+  if (tipo === 'esente') return null
+  if (calculateAgeInYear(socio.data_nascita, anno) <= ETA_ISCRIZIONE_GRATIS) return QUOTA_DAL_2027
+  const prima = anni.filter((a) => a < anno)
+  const iscrizione =
+    tipo === 'nuovo' ||
+    (tipo === 'rientro' && calculatePaymentStatus(socio, prima, anno).daReiscrivere)
+  return iscrizione ? QUOTA_DAL_2027 + ISCRIZIONE_DAL_2027 : QUOTA_DAL_2027
 }
 
 /**

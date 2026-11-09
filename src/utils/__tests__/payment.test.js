@@ -10,6 +10,7 @@ import {
   tipoQuota,
   quotaProposta,
   quotaPropostaPerAnni,
+  quotaPerAnno,
   QUOTA_ORDINARIA_PREDEFINITA,
   QUOTA_NUOVI_PREDEFINITA,
   TESTI_STATO_ANNO,
@@ -275,5 +276,47 @@ describe("quotaPropostaPerAnni (piu' anni nello stesso pagamento)", () => {
 
   it('senza anni scelti non propone niente', () => {
     expect(quotaPropostaPerAnni(socio, pagati, [], quote)).toBeNull()
+  })
+})
+
+describe('quotaPerAnno: quote dal 2027 (Cioti, 9 novembre 2026)', () => {
+  const quote = { quotaOrdinaria: 10, quotaNuovi: 25 }
+  // Inventati: eta' nel 2027 dal solo anno di nascita
+  const minorenne = { data_nascita: '2012-12-31' } // 15
+  const giovane = { data_nascita: '2004-12-31' } // 23
+  const adulto = { data_nascita: '2003-01-01' } // 24
+
+  it('fino al 2026 restano gli importi delle impostazioni', () => {
+    expect(quotaPerAnno(adulto, [], 2026, quote)).toBe(25)
+    expect(quotaPerAnno(adulto, [2025], 2026, quote)).toBe(10)
+    expect(quotaPerAnno({ data_nascita: '2012-01-01' }, [], 2026, quote)).toBe(10)
+  })
+
+  it('minorenne: offerta, nessun importo proposto', () => {
+    expect(quotaPerAnno(minorenne, [], 2027, quote)).toBeNull()
+    expect(quotaPerAnno(minorenne, [2026], 2027, quote)).toBeNull()
+  })
+
+  it('dai 18 ai 23 anni: 15, anche al primo anno (iscrizione gratis)', () => {
+    expect(quotaPerAnno(giovane, [], 2027, quote)).toBe(15)
+    expect(quotaPerAnno(giovane, [2026], 2027, quote)).toBe(15)
+    expect(quotaPerAnno({ data_nascita: '2009-06-01' }, [], 2027, quote)).toBe(15) // 18
+  })
+
+  it('dai 24 anni: 15 di rinnovo, 30 al primo anno (quota e iscrizione)', () => {
+    expect(quotaPerAnno(adulto, [2026], 2027, quote)).toBe(15)
+    expect(quotaPerAnno(adulto, [], 2027, quote)).toBe(30)
+  })
+
+  it("dai 24 anni l'iscrizione torna solo per chi e' da reiscrivere", () => {
+    // ultimo pagamento 2024: 2025 e 2026 scoperti, torna senza reiscriversi
+    expect(quotaPerAnno(adulto, [2020, 2024], 2027, quote)).toBe(15)
+    // ultimo pagamento 2023: 2024, 2025, 2026 e 2027 scoperti, da reiscrivere
+    expect(quotaPerAnno(adulto, [2020, 2023], 2027, quote)).toBe(30)
+  })
+
+  it('piu anni insieme: vale la regola dell ultimo anno scelto', () => {
+    expect(quotaPropostaPerAnni(adulto, [2023], [2026, 2027], quote)).toBe(15)
+    expect(quotaPropostaPerAnni(minorenne, [], [2027], quote)).toBeNull()
   })
 })

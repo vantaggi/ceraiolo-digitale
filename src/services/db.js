@@ -6,6 +6,8 @@ import {
   isExemptFromPayment,
   isMinorenne,
   QUOTA_NUOVI_PREDEFINITA,
+  QUOTA_ORDINARIA_PREDEFINITA,
+  quotaPerAnno,
   tipoQuota,
 } from '@/utils/payment'
 import { SENZA_MANICCHIA } from '@/utils/aventiDiritto'
@@ -2262,15 +2264,18 @@ export async function normalizeDatabaseData() {
 
 /**
  * Audit Quote (Rientri / Nuovi Iscritti)
- * Trova i soci che hanno pagato meno di 25€ nell'anno richiesto, ma che
- * in realtà sono nuovi iscritti oppure "rientri" (cioè non hanno pagato l'anno precedente).
+ * Trova i soci che nell'anno richiesto hanno pagato meno della quota attesa (quotaPerAnno),
+ * ma che in realtà sono nuovi iscritti oppure "rientri" (non hanno pagato l'anno precedente).
  * @param {number} targetYear L'anno da analizzare
  * @returns {Promise<Array>} Lista di anomalie trovate
  */
 export async function getQuotaAuditList(targetYear) {
   try {
     const allSoci = await getAllSociWithTesseramenti()
-    const quotaNuovi = Number(await getSetting('newMemberQuota', QUOTA_NUOVI_PREDEFINITA))
+    const quote = {
+      quotaOrdinaria: Number(await getSetting('defaultQuota', QUOTA_ORDINARIA_PREDEFINITA)),
+      quotaNuovi: Number(await getSetting('newMemberQuota', QUOTA_NUOVI_PREDEFINITA)),
+    }
     const anomalies = []
 
     for (const socio of allSoci) {
@@ -2280,26 +2285,26 @@ export async function getQuotaAuditList(targetYear) {
       const targetPayment = socio.tesseramenti.find((t) => t.anno === targetYear)
       if (!targetPayment) continue // Non ha pagato in questo anno
 
-      // Se ha gia' pagato la quota dei nuovi (o piu'), va bene
-      const quotaPagata = Number(targetPayment.quota_pagata) || 0
-      if (quotaPagata >= quotaNuovi) continue
-
-      // Nuovo iscritto o rientro: la regola sta in utils/payment.js (tipoQuota)
+      // Nuovo iscritto o rientro: quota attesa per quell'anno da utils/payment.js
+      // (quotaPerAnno). Se ha pagato quella quota (o piu'), va bene.
       const anniPagati = socio.tesseramenti.map((t) => t.anno)
       const tipo = tipoQuota(socio, anniPagati, targetYear)
+      const expectedQuota = quotaPerAnno(socio, anniPagati, targetYear, quote)
+      const quotaPagata = Number(targetPayment.quota_pagata) || 0
+      if (expectedQuota === null || quotaPagata >= expectedQuota) continue
 
       if (tipo === 'nuovo') {
         anomalies.push({
           socio,
           tesseramento: targetPayment,
-          expectedQuota: quotaNuovi,
+          expectedQuota,
           reason: 'Nuovo Iscritto (primo pagamento registrato)',
         })
       } else if (tipo === 'rientro') {
         anomalies.push({
           socio,
           tesseramento: targetPayment,
-          expectedQuota: quotaNuovi,
+          expectedQuota,
           reason: `Rientro (nessun pagamento registrato e maggiorenne nel ${targetYear - 1})`,
         })
       }

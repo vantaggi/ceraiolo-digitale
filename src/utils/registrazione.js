@@ -5,7 +5,7 @@
  * Quando non c'e' niente da registrare (gia' sulla ricevuta, gia' pagato, esente) Invio
  * non registra e il motivo si dice a parole: un tasto non va mai perso in silenzio.
  */
-import { calculatePaymentStatus, quotaProposta, statoAnno, tipoQuota } from './payment'
+import { calculatePaymentStatus, quotaPerAnno, statoAnno, tipoQuota } from './payment'
 
 /** Importo all'italiana, sempre con due decimali: 10 -> "10,00", 12500 -> "12.500,00". */
 export function euro(valore) {
@@ -37,7 +37,7 @@ export function propostaRegistrazione({ socio, anniPagati, anno, quote, sullaRic
   const tipo = tipoQuota(socio, anni, anno)
   const base = {
     anno,
-    quota: quotaProposta(tipo, quote),
+    quota: quotaPerAnno(socio, anni, anno, quote),
     testoQuota: TESTO_QUOTA[tipo] || '',
     arretrati: [],
   }
@@ -91,7 +91,7 @@ export function propostaRegistrazione({ socio, anniPagati, anno, quote, sullaRic
  * @returns {Array<{ id_tesseramento: number, anno: number, da: number, a: number }>}
  */
 export function quoteDopoArretrato({ socio, pagamenti, anniPrima, anniDopo, quote }) {
-  const proposta = (anni, anno) => quotaProposta(tipoQuota(socio, anni.map(Number), anno), quote)
+  const proposta = (anni, anno) => quotaPerAnno(socio, anni.map(Number), anno, quote)
   const correzioni = []
   for (const p of pagamenti) {
     const anno = Number(p.anno)

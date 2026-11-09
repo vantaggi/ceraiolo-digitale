@@ -103,7 +103,7 @@ import {
   isMinorenne,
   QUOTA_NUOVI_PREDEFINITA,
   QUOTA_ORDINARIA_PREDEFINITA,
-  quotaProposta,
+  quotaPerAnno,
   quotaPropostaPerAnni,
   tipoQuota,
 } from '@/utils/payment'
@@ -158,20 +158,25 @@ const quoteImpostate = ref(null)
 const quotaToccata = ref(false)
 const proponiQuota = () => {
   if (quotaToccata.value || !socioPagamento.value || !quoteImpostate.value) return
-  const quota = quotaPropostaPerAnni(
+  if (selectedYears.value.length === 0) return
+  // null: offerta di un minorenne (dal 2027), il campo resta vuoto da scrivere
+  paymentDetails.quota_pagata = quotaPropostaPerAnni(
     socioPagamento.value,
     Array.from(paidYears.value),
     selectedYears.value,
     quoteImpostate.value,
   )
-  if (quota !== null) paymentDetails.quota_pagata = quota
 }
 watch(selectedYears, proponiQuota)
 
 /** Dice perche' la quota non e' quella dei nuovi quando si saldano gli arretrati. */
 const notaQuota = computed(() => {
   const socio = socioPagamento.value
-  if (!socio || selectedYears.value.length < 2) return ''
+  if (!socio || selectedYears.value.length === 0) return ''
+  if (!quotaToccata.value && paymentDetails.quota_pagata == null) {
+    return "Minorenne: paga un'offerta, scrivi l'importo versato."
+  }
+  if (selectedYears.value.length < 2) return ''
   const ultimo = Math.max(...selectedYears.value.map(Number))
   const daSolo = tipoQuota(socio, Array.from(paidYears.value), ultimo)
   const conGliAltri = tipoQuota(
@@ -288,14 +293,13 @@ const resetForm = async () => {
   // This also populates paidYears and availableYears
   await loadAvailableYears()
 
-  // Nuovi e rientri pagano la quota dei nuovi: la regola sta in utils/payment.js (tipoQuota)
+  // Quota per anno, eta' e tipo di socio: la regola sta in utils/payment.js (quotaPerAnno)
   quotaToccata.value = false
   socioPagamento.value = null
   quoteImpostate.value = quote
   try {
     const socio = await import('@/services/db').then((m) => m.getSocioById(props.socioId))
-    const tipo = tipoQuota(socio, Array.from(paidYears.value), props.annoRiferimento)
-    defaultQuota = quotaProposta(tipo, quote)
+    defaultQuota = quotaPerAnno(socio, Array.from(paidYears.value), props.annoRiferimento, quote)
     socioPagamento.value = socio
   } catch (e) {
     console.warn('Could not calculate automatic quota', e)
