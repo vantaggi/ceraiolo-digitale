@@ -256,22 +256,25 @@
           </template>
           <template #opzioni>
             <div class="scelte">
-              <label v-for="n in ANNI_SENZA_PAGARE_TESSERE" :key="n" class="scelta">
-                <input
-                  type="checkbox"
-                  :checked="tessere.escludiDa === n"
-                  :disabled="occupato"
-                  aria-describedby="tessere-conteggio"
-                  @change="tessere.escludiDa = $event.target.checked ? n : 0"
-                />
-                Escludi chi non paga da più di {{ n }} anni
-              </label>
+              <label class="sr-only" for="tessere-escludi">Quali soci</label>
+              <select
+                id="tessere-escludi"
+                v-model.number="tessere.escludiDa"
+                class="campo"
+                :disabled="occupato"
+                aria-describedby="tessere-conteggio"
+              >
+                <option :value="0">Tutti i soci</option>
+                <option v-for="n in ANNI_SENZA_PAGARE_TESSERE" :key="n" :value="n">
+                  Escludi chi non paga da più di {{ n === 1 ? '1 anno' : `${n} anni` }}
+                </option>
+              </select>
               <p id="tessere-conteggio" class="scelta__nota" aria-live="polite">
                 <template v-if="tessere.escludiDa">
                   {{ conteggioSoci.attivi[tessere.escludiDa] }} soci su {{ conteggioSoci.totale }}:
                   chi ha pagato dal {{ primoAnnoValido(tessere.escludiDa, annoTessere) }} in poi
                 </template>
-                <template v-else>Una spunta alla volta: tessere per tutti i soci</template>
+                <template v-else>{{ conteggioSoci.totale }} soci</template>
               </p>
             </div>
           </template>
@@ -368,7 +371,7 @@ const voto = reactive({ manicchia: '__sezioni', includiNonAventi: false })
 const perManicchia = reactive({ gruppo: '', eta: 'tutti', pagamento: 'tutti' })
 const nuovi = reactive({ eta: 'tutti' })
 const pagamenti = reactive({ eta: 'tutti' })
-// escludiDa: 0 tutti i soci, altrimenti gli anni ammessi senza pagare (una spunta alla volta)
+// escludiDa: 0 tutti i soci, altrimenti gli anni ammessi senza pagare (menu da 1 a 8)
 const tessere = reactive({ escludiDa: 0, avanzamento: 0 })
 // Le tessere si fanno per l'anno di riferimento (a novembre 2026 quelle del 2027):
 // i 3 o 5 anni senza pagare si contano da quell'anno, non dal calendario

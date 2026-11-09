@@ -1,10 +1,10 @@
 /**
- * Quali soci ricevono la tessera: le spunte di Report PDF › Tessere.
- * Conta solo l'ultimo pagamento registrato, come la spunta dei 5 anni di sempre.
+ * Quali soci ricevono la tessera: il menu di Report PDF › Tessere.
+ * Conta solo l'ultimo pagamento registrato, come la vecchia spunta dei 5 anni.
  */
 
-/** Spunte "Escludi chi non paga da piu' di N anni": anni ammessi senza pagare. */
-export const ANNI_SENZA_PAGARE_TESSERE = [5, 3]
+/** Menu "Escludi chi non paga da piu' di N anni": da 1 a 8 anni (Cioti, 9 novembre 2026). */
+export const ANNI_SENZA_PAGARE_TESSERE = [1, 2, 3, 4, 5, 6, 7, 8]
 
 /**
  * Primo anno di pagamento che tiene un socio tra le tessere. Per le tessere 2027 con
