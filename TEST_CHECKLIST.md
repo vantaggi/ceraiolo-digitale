@@ -241,6 +241,8 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 - [ ] Home: cerca un socio, "Genera Tessera", apri il PDF: nome, data, a capo e posizione sono quelli dell'anteprima con lo stesso nome
 - [ ] Report PDF › Tessere: "Genera tessere" scarica un PDF con una pagina per socio, in ordine di cognome
 - [ ] Report PDF › Tessere: il menu propone "Tutti i soci" e "Escludi chi non paga da più di N anni" da 1 a 8; sotto compare quanti soci restano e da che anno contano i pagamenti, contati dall'anno di riferimento (tessere 2027: dal 2024 con 3 anni, dal 2026 con 1). Il PDF ha quel numero di tessere
+- [ ] Tessere con un filtro qualsiasi da 1 a 8 anni: un minorenne nell'anno delle tessere c'e' sempre, anche senza pagamenti; chi ha 18-19 anni e non ha mai pagato c'e' finche' l'ultimo anno da minorenne cade nella finestra
+- [ ] Report su misura: "Solo attivi" e "In regola" contano gli anni da minorenne come pagati; "Non in regola" non mostra i minorenni
 - [ ] Il PDF di tutte le tessere pesa piu' o meno quanto lo sfondo (non lo sfondo moltiplicato per il numero di soci)
 - [ ] Stampa una pagina di prova su carta: misure e margini vanno bene per la tipografia
 

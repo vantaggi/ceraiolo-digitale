@@ -42,6 +42,24 @@ export function isExemptFromPayment(socio, year) {
   return isMinorenne(socio.data_nascita, year)
 }
 
+/**
+ * Anno coperto: pagato, oppure da minorenne. Gli anni da minorenne contano come pagati
+ * anche senza pagamenti (Cioti, 10 novembre 2026): servono ai filtri "chi non paga da
+ * N anni" e "solo attivi", che altrimenti lascerebbero fuori i minorenni. Prima
+ * dell'anno di iscrizione non si e' soci; senza anno di iscrizione ne' pagamenti il
+ * minorenne conta comunque, perche' e' nell'archivio.
+ * @param {object} socio - con data_nascita e data_prima_iscrizione
+ * @param {Array<number>} anniPagati
+ * @param {number} anno
+ * @returns {boolean}
+ */
+export function annoCoperto(socio, anniPagati, anno) {
+  if (anniPagati.includes(anno)) return true
+  if (!isExemptFromPayment(socio, anno)) return false
+  const iscrizione = annoIscrizione(socio, anniPagati)
+  return iscrizione === null || anno >= iscrizione
+}
+
 /** Quote predefinite, finche' l'impostazione non e' salvata (Impostazioni > Generale). */
 export const QUOTA_ORDINARIA_PREDEFINITA = 10
 export const QUOTA_NUOVI_PREDEFINITA = 25

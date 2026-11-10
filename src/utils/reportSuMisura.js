@@ -7,7 +7,13 @@
  * Un solo anno di riferimento vale per tutto il report: eta' (dal solo anno di nascita),
  * pagato o no, arretrati e diritto di voto si calcolano per quell'anno.
  */
-import { calculatePaymentStatus, descriviArretrati, isMinorenne, statoAnno } from './payment'
+import {
+  annoCoperto,
+  calculatePaymentStatus,
+  descriviArretrati,
+  isMinorenne,
+  statoAnno,
+} from './payment'
 import { valutaDirittoVoto } from './voto'
 import { SENZA_MANICCHIA } from './aventiDiritto'
 import { dataItaliana } from './data'
@@ -141,6 +147,19 @@ function scheda(socio, anno) {
   }
 }
 
+/**
+ * Attivo: un anno coperto (pagato, o da minorenne) negli ultimi ANNI_ATTIVITA anni.
+ * @param {{ socio: object, anniPagati: Array<number> }} r
+ * @param {number} anno
+ * @returns {boolean}
+ */
+function attivo(r, anno) {
+  for (let a = anno - ANNI_ATTIVITA + 1; a <= anno; a++) {
+    if (annoCoperto(r.socio, r.anniPagati, a)) return true
+  }
+  return false
+}
+
 const confronta = (a, b) => (a || '').localeCompare(b || '', 'it')
 
 /**
@@ -158,12 +177,13 @@ export function filtraSoci(soci, stato) {
   const righe = soci
     .map((socio) => scheda(socio, anno))
     .filter((r) => {
-      if (f.onlyActiveMembers && !r.anniPagati.some((a) => a > anno - ANNI_ATTIVITA && a <= anno))
-        return false
+      if (f.onlyActiveMembers && !attivo(r, anno)) return false
       if (f.ageGroup === 'maggiorenni' && !r.maggiorenne) return false
       if (f.ageGroup === 'minorenni' && r.maggiorenne) return false
-      if (f.paymentStatus === 'in_regola' && !r.anniPagati.includes(anno)) return false
-      if (f.paymentStatus === 'morosi' && r.anniPagati.includes(anno)) return false
+      // In regola: pagato, o minorenne (conta come pagato, Cioti 10 novembre 2026)
+      const inRegola = annoCoperto(r.socio, r.anniPagati, anno)
+      if (f.paymentStatus === 'in_regola' && !inRegola) return false
+      if (f.paymentStatus === 'morosi' && inRegola) return false
       if (gruppi.size > 0 && !gruppi.has(manicchia(r.socio))) return false
       if (voti && !voti.includes(r.voto.stato)) return false
       if (anniRichiesti.length > 0) {
@@ -258,7 +278,8 @@ export function filtriAttivi(stato) {
   if (f.paymentStatus !== 'all') {
     etichette.push({
       id: 'paymentStatus',
-      testo: f.paymentStatus === 'in_regola' ? `Pagato ${stato.anno}` : `Non pagato ${stato.anno}`,
+      testo:
+        f.paymentStatus === 'in_regola' ? `In regola ${stato.anno}` : `Non in regola ${stato.anno}`,
     })
   }
   if (f.paymentYears.list.length > 0) {

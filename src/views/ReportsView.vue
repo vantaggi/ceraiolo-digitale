@@ -272,7 +272,8 @@
               <p id="tessere-conteggio" class="scelta__nota" aria-live="polite">
                 <template v-if="tessere.escludiDa">
                   {{ conteggioSoci.attivi[tessere.escludiDa] }} soci su {{ conteggioSoci.totale }}:
-                  chi ha pagato dal {{ primoAnnoValido(tessere.escludiDa, annoTessere) }} in poi
+                  chi ha pagato dal {{ primoAnnoValido(tessere.escludiDa, annoTessere) }} in poi e i
+                  minorenni, che contano come in regola
                 </template>
                 <template v-else>{{ conteggioSoci.totale }} soci</template>
               </p>
