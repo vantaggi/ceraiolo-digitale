@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
 import {
-  annoCoperto,
   calculateAgeInYear,
   isExemptFromPayment,
   calculatePaymentStatus,
@@ -406,17 +405,5 @@ describe('tabella delle quote per anno (Cioti, 10 novembre 2026)', () => {
     const fascia10 = structuredClone(base)
     fascia10[1].fasce.push({ daEta: 10, quota: 5, iscrizione: 0 })
     expect(erroreTabellaQuote(fascia10)).toContain('partono da 0')
-  })
-})
-
-describe('annoCoperto: gli anni da minorenne contano come pagati (Cioti, 10 novembre 2026)', () => {
-  // Solo dati inventati
-  const ragazzo = { data_nascita: '2010-05-01', data_prima_iscrizione: 2020 }
-  it("pagato, o minorenne dopo l'iscrizione", () => {
-    expect(annoCoperto(ragazzo, [], 2027)).toBe(true) // 17 anni
-    expect(annoCoperto(ragazzo, [], 2028)).toBe(false) // 18 anni, non pagato
-    expect(annoCoperto(ragazzo, [2028], 2028)).toBe(true)
-    expect(annoCoperto(ragazzo, [], 2019)).toBe(false) // prima dell'iscrizione
-    expect(annoCoperto({ data_nascita: '2010-05-01' }, [], 2015)).toBe(true) // iscrizione ignota
   })
 })

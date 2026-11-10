@@ -49,9 +49,13 @@ describe('tessere: chi non paga da piu di N anni', () => {
   })
 
   // Solo dati inventati. Eta' dal solo anno di nascita (Cioti, 10 novembre 2026).
-  const nato = (anno, ...pagati) => ({ data_nascita: `${anno}-06-15`, ...socio(...pagati) })
+  const nato = (anno, ...pagati) => ({
+    data_nascita: `${anno}-06-15`,
+    data_prima_iscrizione: anno + 2,
+    ...socio(...pagati),
+  })
 
-  it("un minorenne nell'anno delle tessere resta sempre, anche senza pagamenti", () => {
+  it("un minorenne iscritto nell'anno delle tessere resta sempre, anche senza pagamenti", () => {
     for (const n of ANNI_SENZA_PAGARE_TESSERE) {
       expect(pagaDaNonPiuDi(nato(2012), n, 2027)).toBe(true) // 15 anni
       expect(pagaDaNonPiuDi(nato(2010), n, 2027)).toBe(true) // 17 anni
@@ -72,5 +76,9 @@ describe('tessere: chi non paga da piu di N anni', () => {
     const tardi = { ...nato(2008), data_prima_iscrizione: 2026 }
     expect(pagaDaNonPiuDi(tardi, 2, 2027)).toBe(false)
     expect(pagaDaNonPiuDi({ ...nato(2008), data_prima_iscrizione: 2020 }, 2, 2027)).toBe(true)
+  })
+
+  it('senza data di nascita conta come maggiorenne (la segnala Controlli dati)', () => {
+    expect(pagaDaNonPiuDi({ data_prima_iscrizione: 2020 }, 3, 2027)).toBe(false)
   })
 })

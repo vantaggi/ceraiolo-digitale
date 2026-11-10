@@ -1,10 +1,10 @@
 /**
  * Quali soci ricevono la tessera: il menu di Report PDF › Tessere.
- * Conta l'ultimo anno coperto: l'ultimo pagamento registrato, oppure l'ultimo anno da
- * minorenne, che vale come pagato (Cioti, 10 novembre 2026). Un minorenne nell'anno
- * delle tessere resta sempre.
+ * Conta l'ultimo anno in regola: l'ultimo pagamento registrato, oppure l'ultimo anno da
+ * minorenne esente (dall'iscrizione), che vale come pagato (Cioti, 10 novembre 2026).
+ * Un minorenne iscritto resta quindi sempre.
  */
-import { annoCoperto, isExemptFromPayment } from './payment'
+import { iscrittoTraAnni } from './iscrizione'
 
 /** Menu "Escludi chi non paga da piu' di N anni": da 1 a 8 anni (Cioti, 9 novembre 2026). */
 export const ANNI_SENZA_PAGARE_TESSERE = [1, 2, 3, 4, 5, 6, 7, 8]
@@ -24,8 +24,8 @@ export function primoAnnoValido(anni, annoOggi) {
 
 /**
  * Il socio ha pagato almeno una volta dal primoAnnoValido in poi, oppure in uno di quegli
- * anni era minorenne.
- * @param {{ data_nascita?: string, tesseramenti?: Array<{ anno: number|string }> }} socio
+ * anni era iscritto da minorenne esente (iscrizione.js).
+ * @param {{ data_nascita?: string, data_prima_iscrizione?: number, tesseramenti?: Array<{ anno: number|string }> }} socio
  * @param {number} anni - anni ammessi senza pagare
  * @param {number} annoOggi
  * @returns {boolean}
@@ -34,10 +34,5 @@ export function pagaDaNonPiuDi(socio, anni, annoOggi) {
   const pagati = (socio.tesseramenti || []).map((t) => Number(t.anno)).filter(Number.isFinite)
   const primo = primoAnnoValido(anni, annoOggi)
   if (pagati.some((a) => a >= primo)) return true
-  // Minorenne nell'anno delle tessere: sempre dentro (Cioti, 10 novembre 2026)
-  if (isExemptFromPayment(socio, annoOggi)) return true
-  for (let anno = primo; anno <= annoOggi; anno++) {
-    if (annoCoperto(socio, pagati, anno)) return true
-  }
-  return false
+  return iscrittoTraAnni(socio, pagati, primo, annoOggi)
 }

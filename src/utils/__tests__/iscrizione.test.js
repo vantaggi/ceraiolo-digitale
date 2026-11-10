@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isIscritto, isNuovo, movimentoAnno } from '../iscrizione'
+import { isIscritto, isNuovo, iscrittoTraAnni, movimentoAnno } from '../iscrizione'
 
 // Soci inventati. Le definizioni sono quelle di docs/GLOSSARIO.md.
 const adulto = (extra = {}) => ({ data_nascita: '1980-01-01', ...extra })
@@ -63,5 +63,19 @@ describe('movimentoAnno', () => {
     const socio = ragazzo({ data_prima_iscrizione: 2020 })
     expect(movimentoAnno(socio, [], 2027)).toBe('confermato')
     expect(movimentoAnno(socio, [], 2028)).toBe('non-rinnovato')
+  })
+})
+
+describe('iscrittoTraAnni: gli anni da minorenne contano come pagati (Cioti, 10 novembre 2026)', () => {
+  it("pagato, o minorenne esente dopo l'iscrizione, in un anno della finestra", () => {
+    const r = ragazzo({ data_prima_iscrizione: 2020 })
+    expect(iscrittoTraAnni(r, [], 2025, 2027)).toBe(true) // 17 anni nel 2027
+    expect(iscrittoTraAnni(r, [], 2028, 2030)).toBe(false) // maggiorenne, mai pagato
+    expect(iscrittoTraAnni(r, ['2029'], 2028, 2030)).toBe(true) // anno scritto come testo
+    expect(iscrittoTraAnni(r, [], 2015, 2019)).toBe(false) // prima dell'iscrizione
+  })
+
+  it('senza anno di iscrizione ne pagamenti non e iscritto, come in statoAnno', () => {
+    expect(iscrittoTraAnni(ragazzo(), [], 2020, 2027)).toBe(false)
   })
 })
