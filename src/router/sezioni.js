@@ -18,6 +18,7 @@ export const SCHEDE_INCASSI = [
 // Schede della sezione Impostazioni.
 export const SCHEDE_IMPOSTAZIONI = [
   { to: '/settings', label: 'Generale', icona: 'configurazione' },
+  { to: '/settings/quote', label: 'Quote', icona: 'quota' },
   { to: '/settings/tessera', label: 'Tessera', icona: 'tessera' },
   { to: '/settings/manicchie', label: 'Manicchie', icona: 'gruppo' },
   { to: '/settings/dati', label: 'Dati e backup', icona: 'archivio' },

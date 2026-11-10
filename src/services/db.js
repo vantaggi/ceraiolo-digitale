@@ -6,6 +6,10 @@ import {
   isExemptFromPayment,
   isMinorenne,
   QUOTA_NUOVI_PREDEFINITA,
+  QUOTA_ORDINARIA_PREDEFINITA,
+  erroreTabellaQuote,
+  quotaPerAnno,
+  quotePredefinite,
   tipoQuota,
 } from '@/utils/payment'
 import { SENZA_MANICCHIA } from '@/utils/aventiDiritto'
@@ -658,6 +662,42 @@ export async function updateSetting(key, value) {
     console.error('Error updating setting:', error)
     throw new Error(`Errore durante il salvataggio dell'impostazione: ${error.message}`)
   }
+}
+
+/** Chiave dell'impostazione con la tabella delle quote per anno (utils/payment.js). */
+export const CHIAVE_QUOTE_PER_ANNO = 'quotePerAnno'
+
+/**
+ * Tabella delle quote per anno. Finche' non e' salvata, quella di partenza fatta con
+ * gli importi di prima (quota ordinaria e quota dei nuovi).
+ * @returns {Promise<import('@/utils/payment').PeriodoQuote[]>}
+ */
+export async function getQuotePerAnno() {
+  const salvata = await getSetting(CHIAVE_QUOTE_PER_ANNO, null)
+  if (Array.isArray(salvata)) {
+    const errore = erroreTabellaQuote(salvata)
+    if (errore === '') return salvata
+    console.warn(`Quote per anno salvate non valide (${errore}): uso le quote predefinite.`)
+  }
+  return quotePredefinite({
+    quotaOrdinaria: Number(await getSetting('defaultQuota', QUOTA_ORDINARIA_PREDEFINITA)),
+    quotaNuovi: Number(await getSetting('newMemberQuota', QUOTA_NUOVI_PREDEFINITA)),
+  })
+}
+
+/**
+ * Salva la tabella delle quote per anno, dopo averla controllata, e registra la modifica.
+ * I pagamenti gia' registrati non cambiano: la tabella decide solo la quota proposta.
+ * @param {import('@/utils/payment').PeriodoQuote[]} tabella
+ * @returns {Promise<void>}
+ */
+export async function saveQuotePerAnno(tabella) {
+  const errore = erroreTabellaQuote(tabella)
+  if (errore) throw new Error(errore)
+  const prima = await getQuotePerAnno()
+  const pulita = JSON.parse(JSON.stringify(tabella))
+  await updateSetting(CHIAVE_QUOTE_PER_ANNO, pulita)
+  await logLocalChange('settings', CHIAVE_QUOTE_PER_ANNO, 'UPDATE', prima, pulita)
 }
 
 /**
@@ -1865,6 +1905,10 @@ export async function getRecentActivity(limit = 10) {
               ? `Registrato pagamento ${c.new_data?.anno} per ${c.new_data?.id_socio}` // ID only if we don't have lookup
               : `Cancellato pagamento ${c.old_data?.anno ?? ''}`.trim()
           break
+        case 'settings':
+          description =
+            c.record_id === 'quotePerAnno' ? 'Quote per anno modificate' : 'Impostazioni modificate'
+          break
         default:
           description = `${c.change_type} in ${c.table_name}`
       }
@@ -2262,15 +2306,15 @@ export async function normalizeDatabaseData() {
 
 /**
  * Audit Quote (Rientri / Nuovi Iscritti)
- * Trova i soci che hanno pagato meno di 25€ nell'anno richiesto, ma che
- * in realtà sono nuovi iscritti oppure "rientri" (cioè non hanno pagato l'anno precedente).
+ * Trova i soci che nell'anno richiesto hanno pagato meno della quota attesa (quotaPerAnno),
+ * ma che in realtà sono nuovi iscritti oppure "rientri" (non hanno pagato l'anno precedente).
  * @param {number} targetYear L'anno da analizzare
  * @returns {Promise<Array>} Lista di anomalie trovate
  */
 export async function getQuotaAuditList(targetYear) {
   try {
     const allSoci = await getAllSociWithTesseramenti()
-    const quotaNuovi = Number(await getSetting('newMemberQuota', QUOTA_NUOVI_PREDEFINITA))
+    const quote = await getQuotePerAnno()
     const anomalies = []
 
     for (const socio of allSoci) {
@@ -2280,26 +2324,26 @@ export async function getQuotaAuditList(targetYear) {
       const targetPayment = socio.tesseramenti.find((t) => t.anno === targetYear)
       if (!targetPayment) continue // Non ha pagato in questo anno
 
-      // Se ha gia' pagato la quota dei nuovi (o piu'), va bene
-      const quotaPagata = Number(targetPayment.quota_pagata) || 0
-      if (quotaPagata >= quotaNuovi) continue
-
-      // Nuovo iscritto o rientro: la regola sta in utils/payment.js (tipoQuota)
+      // Nuovo iscritto o rientro: quota attesa per quell'anno da utils/payment.js
+      // (quotaPerAnno). Se ha pagato quella quota (o piu'), va bene.
       const anniPagati = socio.tesseramenti.map((t) => t.anno)
       const tipo = tipoQuota(socio, anniPagati, targetYear)
+      const expectedQuota = quotaPerAnno(socio, anniPagati, targetYear, quote)
+      const quotaPagata = Number(targetPayment.quota_pagata) || 0
+      if (expectedQuota === null || quotaPagata >= expectedQuota) continue
 
       if (tipo === 'nuovo') {
         anomalies.push({
           socio,
           tesseramento: targetPayment,
-          expectedQuota: quotaNuovi,
+          expectedQuota,
           reason: 'Nuovo Iscritto (primo pagamento registrato)',
         })
       } else if (tipo === 'rientro') {
         anomalies.push({
           socio,
           tesseramento: targetPayment,
-          expectedQuota: quotaNuovi,
+          expectedQuota,
           reason: `Rientro (nessun pagamento registrato e maggiorenne nel ${targetYear - 1})`,
         })
       }

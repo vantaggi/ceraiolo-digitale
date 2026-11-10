@@ -8,8 +8,11 @@ import {
   isMinorenne,
   MAGGIORE_ETA,
   tipoQuota,
-  quotaProposta,
   quotaPropostaPerAnni,
+  quotaPerAnno,
+  quotePredefinite,
+  periodoPerAnno,
+  erroreTabellaQuote,
   QUOTA_ORDINARIA_PREDEFINITA,
   QUOTA_NUOVI_PREDEFINITA,
   TESTI_STATO_ANNO,
@@ -233,13 +236,14 @@ describe('tipoQuota', () => {
   })
 })
 
-describe('quotaProposta', () => {
+describe('quote fino al 2026 (importi delle impostazioni)', () => {
   const quote = { quotaOrdinaria: 10, quotaNuovi: 25 }
   it('nuovi e rientri pagano la quota dei nuovi, gli altri la ordinaria', () => {
-    expect(quotaProposta('nuovo', quote)).toBe(25)
-    expect(quotaProposta('rientro', quote)).toBe(25)
-    expect(quotaProposta('ordinaria', quote)).toBe(10)
-    expect(quotaProposta('esente', quote)).toBe(10)
+    const adulto = { data_nascita: '1980-01-01' }
+    expect(quotaPerAnno(adulto, [], 2026, quote)).toBe(25)
+    expect(quotaPerAnno(adulto, [2023, 2024], 2026, quote)).toBe(25)
+    expect(quotaPerAnno(adulto, [2024, 2025], 2026, quote)).toBe(10)
+    expect(quotaPerAnno({ data_nascita: '2012-01-01' }, [], 2026, quote)).toBe(10)
   })
   it('i valori predefiniti sono quelli di oggi', () => {
     expect(QUOTA_ORDINARIA_PREDEFINITA).toBe(10)
@@ -275,5 +279,131 @@ describe("quotaPropostaPerAnni (piu' anni nello stesso pagamento)", () => {
 
   it('senza anni scelti non propone niente', () => {
     expect(quotaPropostaPerAnni(socio, pagati, [], quote)).toBeNull()
+  })
+})
+
+describe('quotaPerAnno: quote dal 2027 (Cioti, 9 novembre 2026)', () => {
+  const quote = { quotaOrdinaria: 10, quotaNuovi: 25 }
+  // Inventati: eta' nel 2027 dal solo anno di nascita
+  const minorenne = { data_nascita: '2012-12-31' } // 15
+  const giovane = { data_nascita: '2004-12-31' } // 23
+  const adulto = { data_nascita: '2003-01-01' } // 24
+
+  it('fino al 2026 restano gli importi delle impostazioni', () => {
+    expect(quotaPerAnno(adulto, [], 2026, quote)).toBe(25)
+    expect(quotaPerAnno(adulto, [2025], 2026, quote)).toBe(10)
+    expect(quotaPerAnno({ data_nascita: '2012-01-01' }, [], 2026, quote)).toBe(10)
+  })
+
+  it('minorenne: offerta, nessun importo proposto', () => {
+    expect(quotaPerAnno(minorenne, [], 2027, quote)).toBeNull()
+    expect(quotaPerAnno(minorenne, [2026], 2027, quote)).toBeNull()
+  })
+
+  it('dai 18 ai 23 anni: 15, anche al primo anno (iscrizione gratis)', () => {
+    expect(quotaPerAnno(giovane, [], 2027, quote)).toBe(15)
+    expect(quotaPerAnno(giovane, [2026], 2027, quote)).toBe(15)
+    expect(quotaPerAnno({ data_nascita: '2009-06-01' }, [], 2027, quote)).toBe(15) // 18
+  })
+
+  it('dai 24 anni: 15 di rinnovo, 30 al primo anno (quota e iscrizione)', () => {
+    expect(quotaPerAnno(adulto, [2026], 2027, quote)).toBe(15)
+    expect(quotaPerAnno(adulto, [], 2027, quote)).toBe(30)
+  })
+
+  it("dai 24 anni l'iscrizione torna solo per chi e' da reiscrivere", () => {
+    // ultimo pagamento 2024: 2025 e 2026 scoperti, torna senza reiscriversi
+    expect(quotaPerAnno(adulto, [2020, 2024], 2027, quote)).toBe(15)
+    // ultimo pagamento 2023: 2024, 2025, 2026 e 2027 scoperti, da reiscrivere
+    expect(quotaPerAnno(adulto, [2020, 2023], 2027, quote)).toBe(30)
+  })
+
+  it('confini: 17 anni offerta, rientro giovane da reiscrivere 15, senza data come adulto', () => {
+    expect(quotaPerAnno({ data_nascita: '2010-12-31' }, [], 2027, quote)).toBeNull()
+    expect(quotaPerAnno({ data_nascita: '2005-01-01' }, [2022], 2027, quote)).toBe(15)
+    expect(quotaPerAnno({}, [], 2027, quote)).toBe(30)
+  })
+
+  it('piu anni insieme: vale la regola dell ultimo anno scelto', () => {
+    expect(quotaPropostaPerAnni(adulto, [2023], [2026, 2027], quote)).toBe(15)
+    expect(quotaPropostaPerAnni(minorenne, [], [2027], quote)).toBeNull()
+  })
+})
+
+describe('tabella delle quote per anno (Cioti, 10 novembre 2026)', () => {
+  const base = quotePredefinite({ quotaOrdinaria: 10, quotaNuovi: 25 })
+  const adulto = { data_nascita: '1980-01-01' }
+  const dal2030 = [
+    ...base,
+    {
+      daAnno: 2030,
+      iscrizioneChiSaltaUnAnno: false,
+      fasce: [
+        { daEta: 0, quota: 5, iscrizione: 0 },
+        { daEta: 18, quota: 20, iscrizione: 10 },
+      ],
+    },
+  ]
+
+  it('la tabella di partenza ha il periodo di prima e il 2027', () => {
+    expect(base.map((p) => p.daAnno)).toEqual([null, 2027])
+    expect(base[0].fasce[1]).toEqual({ daEta: 18, quota: 10, iscrizione: 15 })
+  })
+
+  it("ogni anno usa il periodo con la partenza piu' vicina prima di lui", () => {
+    expect(periodoPerAnno(dal2030, 2026).daAnno).toBeNull()
+    expect(periodoPerAnno(dal2030, 2029).daAnno).toBe(2027)
+    expect(periodoPerAnno(dal2030, 2031).daAnno).toBe(2030)
+  })
+
+  it('un periodo aggiunto cambia solo i suoi anni', () => {
+    expect(quotaPerAnno(adulto, [2029], 2030, dal2030)).toBe(20)
+    expect(quotaPerAnno(adulto, [], 2030, dal2030)).toBe(30)
+    expect(quotaPerAnno({ data_nascita: '2020-01-01' }, [], 2030, dal2030)).toBe(5)
+    expect(quotaPerAnno(adulto, [2028], 2029, dal2030)).toBe(15)
+  })
+
+  it("iscrizione a chi salta un anno: si' fino al 2026, no dal 2027 (scelta 2A)", () => {
+    expect(quotaPerAnno(adulto, [2020, 2024], 2026, base)).toBe(25)
+    expect(quotaPerAnno(adulto, [2020, 2025], 2027, base)).toBe(15)
+  })
+
+  it('la tabella salvata vale al posto degli importi di prima', () => {
+    const tabella = structuredClone(base)
+    tabella[0].fasce[1].quota = 12
+    expect(quotaPerAnno(adulto, [2025], 2026, tabella)).toBe(12)
+    expect(quotaPerAnno(adulto, [], 2026, tabella)).toBe(27)
+  })
+
+  it('controlla la tabella prima di salvarla', () => {
+    expect(erroreTabellaQuote(base)).toBe('')
+    expect(erroreTabellaQuote([])).toBe('Serve almeno un periodo.')
+    expect(erroreTabellaQuote([base[1]])).toContain('senza anno di partenza')
+    expect(erroreTabellaQuote([...base, { ...base[1] }])).toBe(
+      'Due periodi partono dallo stesso anno.',
+    )
+    const senzaZero = structuredClone(base)
+    senzaZero[1].fasce = senzaZero[1].fasce.filter((f) => f.daEta !== 0)
+    expect(erroreTabellaQuote(senzaZero)).toBe(
+      'Il periodo dal 2027 deve avere una fascia che parte da 0 anni.',
+    )
+    const negativo = structuredClone(base)
+    negativo[1].fasce[1].quota = -1
+    expect(erroreTabellaQuote(negativo)).toBe('Il periodo dal 2027: gli importi vanno da 0 in su.')
+  })
+
+  it('una tabella rovinata da un vecchio salvataggio da un errore, non un crash', () => {
+    expect(erroreTabellaQuote([null])).toBe('Un periodo non è leggibile.')
+    const fasciaNulla = structuredClone(base)
+    fasciaNulla[1].fasce.push(null)
+    expect(erroreTabellaQuote(fasciaNulla)).toBe(
+      "Il periodo dal 2027: le fasce d'età non sono leggibili.",
+    )
+  })
+
+  it("non accetta una fascia tra 1 e 17 anni: l'esenzione dei minorenni e' fissa a 18", () => {
+    const fascia10 = structuredClone(base)
+    fascia10[1].fasce.push({ daEta: 10, quota: 5, iscrizione: 0 })
+    expect(erroreTabellaQuote(fascia10)).toContain('partono da 0')
   })
 })

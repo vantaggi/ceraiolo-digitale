@@ -4,7 +4,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('../backupService', () => ({ backupService: { notifyChange: () => {} } }))
 
-const { db, getQuotaAuditList, updateSetting } = await import('../db.js')
+const { db, getQuotaAuditList, updateSetting, getQuotePerAnno, saveQuotePerAnno } = await import(
+  '../db.js'
+)
 const payment = await import('@/utils/payment')
 const dbModule = await import('../db.js')
 
@@ -55,6 +57,54 @@ describe('getQuotaAuditList', () => {
       ['Beta', 30],
       ['Zeta', 30],
     ])
+  })
+})
+
+describe('getQuotaAuditList dal 2027', () => {
+  it('attende 30 dal nuovo di 24 anni e piu, 15 dal nuovo giovane, niente dal minorenne', async () => {
+    await Promise.all(db.tables.map((t) => t.clear()))
+    await db.soci.bulkAdd([
+      { id: 1, cognome: 'Alfa', nome: 'Adulto', data_nascita: '1980-01-01' },
+      { id: 2, cognome: 'Beta', nome: 'Giovane', data_nascita: '2005-01-01' },
+      { id: 3, cognome: 'Gamma', nome: 'Minore', data_nascita: '2014-01-01' },
+      { id: 4, cognome: 'Delta', nome: 'Torna', data_nascita: '1980-01-01' },
+    ])
+    await db.tesseramenti.bulkAdd([
+      { id_tesseramento: 'a', id_socio: 1, anno: 2027, quota_pagata: 15 },
+      { id_tesseramento: 'b', id_socio: 2, anno: 2027, quota_pagata: 15 },
+      { id_tesseramento: 'c', id_socio: 3, anno: 2027, quota_pagata: 5 },
+      { id_tesseramento: 'd', id_socio: 4, anno: 2025, quota_pagata: 10 },
+      { id_tesseramento: 'e', id_socio: 4, anno: 2027, quota_pagata: 15 },
+    ])
+    const anomalie = await getQuotaAuditList(2027)
+    expect(anomalie.map((a) => [a.socio.cognome, a.expectedQuota])).toEqual([['Alfa', 30]])
+  })
+})
+
+describe('quote per anno salvate (Impostazioni › Quote)', () => {
+  it('senza tabella salvata usa gli importi di prima e il 2027', async () => {
+    await updateSetting('defaultQuota', 12)
+    const tabella = await getQuotePerAnno()
+    expect(tabella.map((p) => p.daAnno)).toEqual([null, 2027])
+    expect(tabella[0].fasce[1]).toEqual({ daEta: 18, quota: 12, iscrizione: 13 })
+  })
+
+  it('la tabella salvata decide il controllo quote e la modifica resta registrata', async () => {
+    const tabella = await getQuotePerAnno()
+    tabella[0].fasce[1].iscrizione = 20 // nuovo 2026: 30
+    await saveQuotePerAnno(tabella)
+    const anomalie = await getQuotaAuditList(2026)
+    expect(anomalie.map((a) => [a.socio.cognome, a.expectedQuota])).toEqual([
+      ['Alfa', 30],
+      ['Beta', 30],
+      ['Zeta', 30],
+    ])
+    const log = await db.local_changes.where('table_name').equals('settings').toArray()
+    expect(log.at(-1).record_id).toBe('quotePerAnno')
+  })
+
+  it('una tabella sbagliata non si salva', async () => {
+    await expect(saveQuotePerAnno([])).rejects.toThrow('Serve almeno un periodo.')
   })
 })
 

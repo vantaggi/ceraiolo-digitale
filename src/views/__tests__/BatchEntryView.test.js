@@ -60,6 +60,8 @@ vi.mock('@/services/db', () => ({
   getPagamentiBlocchetto: async () => salvati.map((p, i) => ({ id_tesseramento: i + 1, ...p })),
   getNomiSoci: async (ids) => new Map(SOCI.filter((s) => ids.includes(s.id)).map((s) => [s.id, s])),
   getSetting: async (_chiave, predefinito) => predefinito,
+  getQuotePerAnno: async () =>
+    (await import('@/utils/payment')).quotePredefinite({ quotaOrdinaria: 10, quotaNuovi: 25 }),
   getUniqueGroups: async () => [],
   addSocio: async () => 99,
   addCustomGroup: async () => {},

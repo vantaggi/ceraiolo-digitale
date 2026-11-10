@@ -98,15 +98,8 @@
 import { ref, reactive, watch, computed } from 'vue'
 import BaseModal from '@/components/base/BaseModal.vue'
 import BaseButton from '@/components/base/BaseButton.vue'
-import { getTesseramentiBySocioId, getSetting } from '@/services/db'
-import {
-  isMinorenne,
-  QUOTA_NUOVI_PREDEFINITA,
-  QUOTA_ORDINARIA_PREDEFINITA,
-  quotaProposta,
-  quotaPropostaPerAnni,
-  tipoQuota,
-} from '@/utils/payment'
+import { getQuotePerAnno, getTesseramentiBySocioId } from '@/services/db'
+import { isMinorenne, quotaPerAnno, quotaPropostaPerAnni, tipoQuota } from '@/utils/payment'
 import { annoIscrizione } from '@/utils/iscrizione'
 
 const emit = defineEmits(['close', 'payments-saved'])
@@ -158,28 +151,41 @@ const quoteImpostate = ref(null)
 const quotaToccata = ref(false)
 const proponiQuota = () => {
   if (quotaToccata.value || !socioPagamento.value || !quoteImpostate.value) return
-  const quota = quotaPropostaPerAnni(
+  if (selectedYears.value.length === 0) return
+  // null: offerta (fascia senza quota, come i minorenni dal 2027), il campo resta vuoto
+  paymentDetails.quota_pagata = quotaPropostaPerAnni(
     socioPagamento.value,
     Array.from(paidYears.value),
     selectedYears.value,
     quoteImpostate.value,
   )
-  if (quota !== null) paymentDetails.quota_pagata = quota
 }
 watch(selectedYears, proponiQuota)
 
-/** Dice perche' la quota non e' quella dei nuovi quando si saldano gli arretrati. */
+/**
+ * Nota sotto la quota: offerta (fascia senza quota, per esempio i minorenni dal 2027), anni scelti con quote diverse (un solo
+ * importo vale per tutti gli anni), o perche' un rientro che salda gli arretrati costa meno.
+ */
 const notaQuota = computed(() => {
   const socio = socioPagamento.value
-  if (!socio || selectedYears.value.length < 2) return ''
-  const ultimo = Math.max(...selectedYears.value.map(Number))
-  const daSolo = tipoQuota(socio, Array.from(paidYears.value), ultimo)
-  const conGliAltri = tipoQuota(
-    socio,
-    [...Array.from(paidYears.value), ...selectedYears.value.map(Number)],
-    ultimo,
-  )
-  return daSolo === 'rientro' && conGliAltri === 'ordinaria'
+  if (!socio || !quoteImpostate.value || selectedYears.value.length === 0) return ''
+  if (!quotaToccata.value && paymentDetails.quota_pagata == null) {
+    return "Quota a offerta: scrivi l'importo versato."
+  }
+  if (selectedYears.value.length < 2) return ''
+  const pagati = Array.from(paidYears.value).map(Number)
+  const scelti = selectedYears.value.map(Number).sort((a, b) => a - b)
+  const insieme = [...pagati, ...scelti]
+  const perAnno = scelti.map((a) => quotaPerAnno(socio, insieme, a, quoteImpostate.value))
+  if (new Set(perAnno).size > 1) {
+    const elenco = scelti
+      .map((a, i) => `${a}: ${perAnno[i] === null ? 'offerta' : `${perAnno[i]} €`}`)
+      .join(', ')
+    return `Gli anni scelti hanno quote diverse (${elenco}): registra un pagamento per anno.`
+  }
+  const ultimo = scelti[scelti.length - 1]
+  const daSolo = quotaPerAnno(socio, pagati, ultimo, quoteImpostate.value)
+  return tipoQuota(socio, pagati, ultimo) === 'rientro' && daSolo !== perAnno.at(-1)
     ? `Con gli arretrati saldati il ${ultimo} non è un rientro: quota ordinaria.`
     : ''
 })
@@ -273,12 +279,9 @@ watch(
 )
 
 const resetForm = async () => {
-  // Quote dalle impostazioni
-  const quote = {
-    quotaOrdinaria: await getSetting('defaultQuota', QUOTA_ORDINARIA_PREDEFINITA),
-    quotaNuovi: await getSetting('newMemberQuota', QUOTA_NUOVI_PREDEFINITA),
-  }
-  let defaultQuota = quote.quotaOrdinaria
+  // Quote per anno (Impostazioni › Quote); se il socio non si legge, l'importo si scrive a mano
+  const quote = await getQuotePerAnno()
+  let defaultQuota = null
 
   paymentDetails.data_pagamento = new Date().toISOString().split('T')[0]
   paymentDetails.numero_blocchetto = props.numeroBlocchetto
@@ -288,14 +291,13 @@ const resetForm = async () => {
   // This also populates paidYears and availableYears
   await loadAvailableYears()
 
-  // Nuovi e rientri pagano la quota dei nuovi: la regola sta in utils/payment.js (tipoQuota)
+  // Quota per anno, eta' e tipo di socio: la regola sta in utils/payment.js (quotaPerAnno)
   quotaToccata.value = false
   socioPagamento.value = null
   quoteImpostate.value = quote
   try {
     const socio = await import('@/services/db').then((m) => m.getSocioById(props.socioId))
-    const tipo = tipoQuota(socio, Array.from(paidYears.value), props.annoRiferimento)
-    defaultQuota = quotaProposta(tipo, quote)
+    defaultQuota = quotaPerAnno(socio, Array.from(paidYears.value), props.annoRiferimento, quote)
     socioPagamento.value = socio
   } catch (e) {
     console.warn('Could not calculate automatic quota', e)

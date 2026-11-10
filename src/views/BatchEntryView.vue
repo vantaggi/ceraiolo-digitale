@@ -300,14 +300,15 @@ import {
   getPagamentiBlocchetto,
   getNomiSoci,
   getAnniPagatiDiSoci,
+  getQuotePerAnno,
   updateTesseramentoQuota,
   db,
 } from '@/services/db'
 import {
   QUOTA_NUOVI_PREDEFINITA,
   QUOTA_ORDINARIA_PREDEFINITA,
-  quotaProposta,
-  tipoQuota,
+  quotaPerAnno,
+  quotePredefinite,
 } from '@/utils/payment'
 import {
   intervalloBlocchetto,
@@ -421,15 +422,14 @@ const cittaPredefinita = ref('Gubbio')
 const availableGroups = ref([])
 
 // Impostazioni
-const config = ref({
-  receiptsPerBlock: 10,
-  defaultQuota: QUOTA_ORDINARIA_PREDEFINITA,
-  newMemberQuota: QUOTA_NUOVI_PREDEFINITA,
-})
-const quote = computed(() => ({
-  quotaOrdinaria: Number(config.value.defaultQuota),
-  quotaNuovi: Number(config.value.newMemberQuota),
-}))
+const config = ref({ receiptsPerBlock: 10 })
+// Quote per anno di Impostazioni › Quote (utils/payment.js); fino al caricamento quelle di partenza
+const quote = ref(
+  quotePredefinite({
+    quotaOrdinaria: QUOTA_ORDINARIA_PREDEFINITA,
+    quotaNuovi: QUOTA_NUOVI_PREDEFINITA,
+  }),
+)
 
 // Suoni di conferma e di errore (Web Audio, nessun file)
 const soundEnabled = ref(true)
@@ -586,8 +586,7 @@ onMounted(async () => {
   try {
     await db.open()
     config.value.receiptsPerBlock = await getSetting('receiptsPerBlock', 10)
-    config.value.defaultQuota = await getSetting('defaultQuota', QUOTA_ORDINARIA_PREDEFINITA)
-    config.value.newMemberQuota = await getSetting('newMemberQuota', QUOTA_NUOVI_PREDEFINITA)
+    quote.value = await getQuotePerAnno()
     cittaPredefinita.value = await getSetting('defaultCity', 'Gubbio')
     newSocioData.luogo_nascita = cittaPredefinita.value
 
@@ -852,7 +851,8 @@ const aggiungiArretrato = async (riga, anno) => {
   let anniPagati
   try {
     anniPagati = (await getAnniPagatiDiSoci([riga.id])).get(Number(riga.id)) || []
-    quota = quotaProposta(tipoQuota(offerta.socio, anniPagati, anno), quote.value)
+    // Un arretrato non e' mai un anno da minorenne esente: la quota c'e' sempre
+    quota = quotaPerAnno(offerta.socio, anniPagati, anno, quote.value) ?? 0
   } catch (error) {
     console.error('Anni pagati non letti:', error)
     esito.value = {
@@ -931,9 +931,10 @@ const saveNewSocio = async () => {
     }
 
     const socioId = await addSocio(socioData)
-    // Regola in payment.js: il maggiorenne nuovo paga la quota dei nuovi, il minorenne
-    // la quota ordinaria (o un'offerta, da correggere poi nella scheda)
-    const quota = quotaProposta(tipoQuota(socioData, [], sessionData.annoRiferimento), quote.value)
+    // Regola in payment.js (quotaPerAnno), con la tabella delle quote per anno: una fascia
+    // a offerta (per esempio i minorenni dal 2027) si registra a 0 e si corregge poi nella
+    // scheda
+    const quota = quotaPerAnno(socioData, [], sessionData.annoRiferimento, quote.value) ?? 0
     await addTesseramento({
       id_socio: socioId,
       anno: sessionData.annoRiferimento,

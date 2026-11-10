@@ -57,7 +57,7 @@ describe('menu a sezioni', () => {
       expect(sezioneDi(r.path), t.to).toBe('Impostazioni')
       return r.matched[0].props.default.scheda
     })
-    expect(schede).toEqual(['generale', 'tessera', 'manicchie', 'dati'])
+    expect(schede).toEqual(['generale', 'quote', 'tessera', 'manicchie', 'dati'])
   })
 
   it('i vecchi link /settings?tab=... portano alla scheda nuova', () => {

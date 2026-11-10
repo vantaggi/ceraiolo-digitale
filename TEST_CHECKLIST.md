@@ -286,7 +286,7 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 - [ ] Nel gruppo Votazioni c'e' solo "Aventi diritto al voto e arretrati": il vecchio "Report votazioni" non c'e' piu'
 - [ ] Minorenni (nuovo): il PDF elenca i soci che nell'anno non hanno 18 anni, con il riassunto sotto il titolo
 - [ ] "Scarica 5 PDF" scarica i cinque documenti dei rinnovi con le scelte fatte nelle righe sopra
-- [ ] Controllo quote: la descrizione parla di "quota dei nuovi soci" (quella di Impostazioni), non di 25 €; "Controlla" mostra l'elenco sotto la riga (o il messaggio verde se va tutto bene); PDF ed Excel si scaricano
+- [ ] Controllo quote: la descrizione parla di "quota attesa" (fino al 2026 la quota dei nuovi soci di Impostazioni, dal 2027 quota e iscrizione), non di 25 €; "Controlla" mostra l'elenco sotto la riga (o il messaggio verde se va tutto bene); PDF ed Excel si scaricano
 
 ### Test 13.3: Personalizza
 
@@ -359,6 +359,7 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 - [ ] La tabella parte dall'anno di iscrizione (o dal primo pagamento, se e' prima) e arriva all'anno corrente, dal piu' recente
 - [ ] Gli anni non pagati dopo l'ultimo pagamento (gli arretrati) hanno la riga "Da pagare" e un link "Paga ANNO"; il pulsante in alto "Paga ANNO" propone l'anno corrente (o il successivo se e' gia' pagato)
 - [ ] Finestra del pagamento di un rientro (pagato fino al 2024): con il solo 2026 propone 25; spuntando anche il 2025 propone 10 e sotto la quota dice "Con gli arretrati saldati il 2026 non è un rientro: quota ordinaria."; un importo scritto a mano non cambia piu' spuntando gli anni
+- [ ] Quote dal 2027 (finestra del pagamento e Registra ricevute, anno 2027): minorenne campo vuoto con "Minorenne: paga un'offerta, scrivi l'importo versato."; 18-23 anni 15 anche se nuovo; dai 24 anni 15 per chi rinnova o torna dopo 1-3 anni, 30 per un nuovo o per chi e' da reiscrivere; il 2026 propone ancora gli importi di Impostazioni; scegliendo 2026 e 2027 insieme la nota dice "Gli anni scelti hanno quote diverse (2026: 10 €, 2027: 15 €)"; Registra ricevute: Invio su un minorenne nel 2027 non registra e dice "Offerta 2027"
 - [ ] Un socio con anni non pagati prima dell'ultimo pagamento: quegli anni stanno in una riga chiusa "ANNO–ANNO Anni precedenti: N anni senza pagamento, …: non sono arretrati". "Mostra" li apre (grigi, "Non pagata", link "Registra ANNO"), "Nascondi" li richiude. Con Tab si arriva su "Mostra" e Invio lo apre
 - [ ] Un socio che ha sempre pagato vede tutti gli anni, senza la riga "Anni precedenti"
 - [ ] Date come 18/01/2024, importi come € 10,00, ricevuta come "381, blocchetto 304"
@@ -422,10 +423,17 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 
 ### Test 17.2: Generale
 
-- [ ] Quattro righe sotto "Valori proposti": Citta' proposta per i nuovi soci, Ricevute per blocchetto, Quota ordinaria, Quota dei nuovi soci, ognuna con il valore attuale a destra. Non c'e' piu' "Anno Riferimento Minorenni"
+- [ ] Due righe sotto "Valori proposti": Citta' proposta per i nuovi soci e Ricevute per blocchetto, ognuna con il valore attuale a destra. Le quote stanno nella scheda Quote. Non c'e' piu' "Anno Riferimento Minorenni"
 - [ ] Premendo una riga (anche con Tab e Invio) si apre una finestra con il campo gia' selezionato; Invio salva, Esc annulla e il fuoco torna sulla riga
-- [ ] Le quote accettano la virgola ("27,5" diventa "€ 27,50"); 0 o 101 ricevute per blocchetto danno un errore in rosso e non salvano
-- [ ] Dopo il salvataggio la riga mostra il valore nuovo; la quota dei nuovi soci cambiata si vede in "Paga" su un socio nuovo
+- [ ] 0 o 101 ricevute per blocchetto danno un errore in rosso e non salvano; dopo il salvataggio la riga mostra il valore nuovo
+
+### Test 17.2b: Quote
+
+- [ ] Impostazioni › Quote: una riga per periodo, la piu' recente in alto ("Dal 2027 … 0-17 offerta · 18-23 15 € · da 24 15 € + 15 € iscrizione", "Fino al 2026 … 0-17 10 € · da 18 10 € + 15 € iscrizione"); al primo avvio la riga del 2026 usa la quota ordinaria e quella dei nuovi salvate prima
+- [ ] Premendo un periodo si apre la finestra con le fasce: quota vuota = offerta; "27,5" con la virgola diventa 27,5 €; Salva cambia la riga; Esc annulla
+- [ ] "Aggiungi quote da un anno" propone l'anno dopo con le fasce del periodo piu' recente; due periodi con lo stesso anno o una fascia senza 0 anni danno un errore e non salvano
+- [ ] "Togli il periodo" (non c'e' sul primo) chiede "Togliere le quote dal …?"; dopo, quegli anni usano il periodo prima
+- [ ] Una quota cambiata si vede in "Paga" su un socio di quell'anno e in Registra ricevute; i pagamenti gia' registrati non cambiano
 
 ### Test 17.3: Dati e backup
 
