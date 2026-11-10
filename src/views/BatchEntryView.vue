@@ -931,9 +931,9 @@ const saveNewSocio = async () => {
     }
 
     const socioId = await addSocio(socioData)
-    // Regola in payment.js (quotaPerAnno): il maggiorenne nuovo paga la quota dei nuovi,
-    // il minorenne fino al 2026 la quota ordinaria e dal 2027 un'offerta, registrata a 0
-    // e da correggere poi nella scheda
+    // Regola in payment.js (quotaPerAnno), con la tabella delle quote per anno: una fascia
+    // a offerta (per esempio i minorenni dal 2027) si registra a 0 e si corregge poi nella
+    // scheda
     const quota = quotaPerAnno(socioData, [], sessionData.annoRiferimento, quote.value) ?? 0
     await addTesseramento({
       id_socio: socioId,

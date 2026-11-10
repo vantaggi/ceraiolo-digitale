@@ -65,7 +65,7 @@
                   class="numero"
                   placeholder="offerta"
                   :aria-label="`Fascia ${i + 1}: quota annuale`"
-                  aria-describedby="quote-aiuto"
+                  :aria-describedby="modifica.errore ? 'quote-errore quote-aiuto' : 'quote-aiuto'"
                 />
               </td>
               <td>
@@ -99,13 +99,17 @@
 
         <label class="scelta">
           <input v-model="modifica.iscrizioneChiSaltaUnAnno" type="checkbox" />
-          Iscrizione anche a chi torna dopo un solo anno senza pagare
+          Iscrizione anche a chi torna dopo 1-{{ MAX_ANNI_ARRETRATI }} anni senza saldare gli
+          arretrati
         </label>
 
-        <p v-if="modifica.errore" class="modulo__errore" role="alert">{{ modifica.errore }}</p>
-        <p v-else id="quote-aiuto" class="modulo__aiuto">
+        <p v-if="modifica.errore" id="quote-errore" class="modulo__errore" role="alert">
+          {{ modifica.errore }}
+        </p>
+        <p id="quote-aiuto" class="modulo__aiuto">
           Quota vuota: offerta libera, l'app non propone un importo. L'iscrizione è il costo della
-          nuova tessera: la paga chi si iscrive e chi si reiscrive dopo più di 3 anni fuori.
+          nuova tessera: la paga chi si iscrive e chi si reiscrive dopo più di
+          {{ MAX_ANNI_ARRETRATI }} anni fuori.
         </p>
       </form>
       <template #footer>
@@ -138,7 +142,7 @@ import BaseModal from '@/components/base/BaseModal.vue'
 import ListRows from '@/components/base/ListRows.vue'
 import { askConfirm } from '@/composables/useDialog'
 import { getQuotePerAnno, saveQuotePerAnno } from '@/services/db'
-import { erroreTabellaQuote } from '@/utils/payment'
+import { erroreTabellaQuote, MAX_ANNI_ARRETRATI } from '@/utils/payment'
 
 const toast = useToast()
 const tabella = ref(null)

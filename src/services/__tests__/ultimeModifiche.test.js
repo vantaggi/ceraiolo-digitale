@@ -4,9 +4,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('../backupService', () => ({ backupService: { notifyChange: () => {} } }))
 
-const { db, updateSocio, deleteSocio, deleteTesseramento, getRecentActivity } = await import(
-  '../db.js'
-)
+const {
+  db,
+  updateSocio,
+  deleteSocio,
+  deleteTesseramento,
+  getRecentActivity,
+  getQuotePerAnno,
+  saveQuotePerAnno,
+} = await import('../db.js')
 
 // Solo dati inventati
 beforeEach(async () => {
@@ -42,5 +48,13 @@ describe('Ultime modifiche della Home: le modifiche dalla scheda del socio', () 
     const [ultima] = await getRecentActivity(1)
     expect(ultima.type).toBe('delete')
     expect(ultima.description).toBe('Eliminato socio: Prova Mario')
+  })
+
+  it('la modifica delle quote per anno si legge con il suo nome', async () => {
+    const tabella = await getQuotePerAnno()
+    tabella[1].fasce[1].quota = 16
+    await saveQuotePerAnno(tabella)
+    const [ultima] = await getRecentActivity(1)
+    expect(ultima.description).toBe('Quote per anno modificate')
   })
 })

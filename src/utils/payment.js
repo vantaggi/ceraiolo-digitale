@@ -168,6 +168,7 @@ export function fasciaPerEta(periodo, eta) {
  */
 export function erroreTabellaQuote(tabella) {
   if (!Array.isArray(tabella) || tabella.length === 0) return 'Serve almeno un periodo.'
+  if (tabella.some((p) => !p || typeof p !== 'object')) return 'Un periodo non è leggibile.'
   if (tabella.filter((p) => p.daAnno === null).length !== 1) {
     return 'Serve un solo periodo senza anno di partenza (il primo).'
   }
@@ -178,12 +179,20 @@ export function erroreTabellaQuote(tabella) {
   if (new Set(anni).size !== anni.length) return 'Due periodi partono dallo stesso anno.'
   for (const p of tabella) {
     const nome = p.daAnno === null ? 'Il primo periodo' : `Il periodo dal ${p.daAnno}`
-    if (!p.fasce?.length || !p.fasce.some((f) => f.daEta === 0)) {
+    if (!Array.isArray(p.fasce) || p.fasce.some((f) => !f || typeof f !== 'object')) {
+      return `${nome}: le fasce d'età non sono leggibili.`
+    }
+    if (!p.fasce.length || !p.fasce.some((f) => f.daEta === 0)) {
       return `${nome} deve avere una fascia che parte da 0 anni.`
     }
     const eta = p.fasce.map((f) => f.daEta)
     if (eta.some((e) => !Number.isInteger(e) || e < 0 || e > 120)) {
       return `${nome}: l'età va scritta in anni interi.`
+    }
+    // L'esenzione dei minorenni (tipoQuota) e' fissa a MAGGIORE_ETA: una fascia che parte
+    // tra 1 e 17 anni non cambierebbe la quota proposta, quindi non si accetta.
+    if (eta.some((e) => e > 0 && e < MAGGIORE_ETA)) {
+      return `${nome}: le fasce dei minorenni partono da 0; la fascia dopo parte da ${MAGGIORE_ETA} anni o più.`
     }
     if (new Set(eta).size !== eta.length) return `${nome}: due fasce partono dalla stessa età.`
     const importo = (v) => Number.isFinite(v) && v >= 0

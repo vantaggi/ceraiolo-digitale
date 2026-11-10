@@ -99,12 +99,7 @@ import { ref, reactive, watch, computed } from 'vue'
 import BaseModal from '@/components/base/BaseModal.vue'
 import BaseButton from '@/components/base/BaseButton.vue'
 import { getQuotePerAnno, getTesseramentiBySocioId } from '@/services/db'
-import {
-  isMinorenne,
-  quotaPerAnno,
-  quotaPropostaPerAnni,
-  tipoQuota,
-} from '@/utils/payment'
+import { isMinorenne, quotaPerAnno, quotaPropostaPerAnni, tipoQuota } from '@/utils/payment'
 import { annoIscrizione } from '@/utils/iscrizione'
 
 const emit = defineEmits(['close', 'payments-saved'])
@@ -157,7 +152,7 @@ const quotaToccata = ref(false)
 const proponiQuota = () => {
   if (quotaToccata.value || !socioPagamento.value || !quoteImpostate.value) return
   if (selectedYears.value.length === 0) return
-  // null: offerta di un minorenne (dal 2027), il campo resta vuoto da scrivere
+  // null: offerta (fascia senza quota, come i minorenni dal 2027), il campo resta vuoto
   paymentDetails.quota_pagata = quotaPropostaPerAnni(
     socioPagamento.value,
     Array.from(paidYears.value),
@@ -168,14 +163,14 @@ const proponiQuota = () => {
 watch(selectedYears, proponiQuota)
 
 /**
- * Nota sotto la quota: offerta del minorenne, anni scelti con quote diverse (un solo
+ * Nota sotto la quota: offerta (fascia senza quota, per esempio i minorenni dal 2027), anni scelti con quote diverse (un solo
  * importo vale per tutti gli anni), o perche' un rientro che salda gli arretrati costa meno.
  */
 const notaQuota = computed(() => {
   const socio = socioPagamento.value
   if (!socio || !quoteImpostate.value || selectedYears.value.length === 0) return ''
   if (!quotaToccata.value && paymentDetails.quota_pagata == null) {
-    return "Minorenne: paga un'offerta, scrivi l'importo versato."
+    return "Quota a offerta: scrivi l'importo versato."
   }
   if (selectedYears.value.length < 2) return ''
   const pagati = Array.from(paidYears.value).map(Number)

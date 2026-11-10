@@ -674,7 +674,11 @@ export const CHIAVE_QUOTE_PER_ANNO = 'quotePerAnno'
  */
 export async function getQuotePerAnno() {
   const salvata = await getSetting(CHIAVE_QUOTE_PER_ANNO, null)
-  if (Array.isArray(salvata) && erroreTabellaQuote(salvata) === '') return salvata
+  if (Array.isArray(salvata)) {
+    const errore = erroreTabellaQuote(salvata)
+    if (errore === '') return salvata
+    console.warn(`Quote per anno salvate non valide (${errore}): uso le quote predefinite.`)
+  }
   return quotePredefinite({
     quotaOrdinaria: Number(await getSetting('defaultQuota', QUOTA_ORDINARIA_PREDEFINITA)),
     quotaNuovi: Number(await getSetting('newMemberQuota', QUOTA_NUOVI_PREDEFINITA)),
@@ -1900,6 +1904,10 @@ export async function getRecentActivity(limit = 10) {
             tipo === 'create'
               ? `Registrato pagamento ${c.new_data?.anno} per ${c.new_data?.id_socio}` // ID only if we don't have lookup
               : `Cancellato pagamento ${c.old_data?.anno ?? ''}`.trim()
+          break
+        case 'settings':
+          description =
+            c.record_id === 'quotePerAnno' ? 'Quote per anno modificate' : 'Impostazioni modificate'
           break
         default:
           description = `${c.change_type} in ${c.table_name}`

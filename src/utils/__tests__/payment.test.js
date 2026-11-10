@@ -391,4 +391,19 @@ describe('tabella delle quote per anno (Cioti, 10 novembre 2026)', () => {
     negativo[1].fasce[1].quota = -1
     expect(erroreTabellaQuote(negativo)).toBe('Il periodo dal 2027: gli importi vanno da 0 in su.')
   })
+
+  it('una tabella rovinata da un vecchio salvataggio da un errore, non un crash', () => {
+    expect(erroreTabellaQuote([null])).toBe('Un periodo non è leggibile.')
+    const fasciaNulla = structuredClone(base)
+    fasciaNulla[1].fasce.push(null)
+    expect(erroreTabellaQuote(fasciaNulla)).toBe(
+      "Il periodo dal 2027: le fasce d'età non sono leggibili.",
+    )
+  })
+
+  it("non accetta una fascia tra 1 e 17 anni: l'esenzione dei minorenni e' fissa a 18", () => {
+    const fascia10 = structuredClone(base)
+    fascia10[1].fasce.push({ daEta: 10, quota: 5, iscrizione: 0 })
+    expect(erroreTabellaQuote(fascia10)).toContain('partono da 0')
+  })
 })
