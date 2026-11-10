@@ -255,13 +255,28 @@
             in <RouterLink to="/settings/tessera">Impostazioni › Tessera</RouterLink>.
           </template>
           <template #opzioni>
-            <label class="scelta">
-              <input v-model="tessere.escludiInattivi" type="checkbox" :disabled="occupato" />
-              Escludi chi non paga da più di 5 anni
-              <span v-if="tessere.escludiInattivi" class="scelta__nota">
-                ({{ conteggioSoci.attivi }} su {{ conteggioSoci.totale }})
-              </span>
-            </label>
+            <div class="scelte">
+              <label class="sr-only" for="tessere-escludi">Quali soci</label>
+              <select
+                id="tessere-escludi"
+                v-model.number="tessere.escludiDa"
+                class="campo"
+                :disabled="occupato"
+                aria-describedby="tessere-conteggio"
+              >
+                <option :value="0">Tutti i soci</option>
+                <option v-for="n in ANNI_SENZA_PAGARE_TESSERE" :key="n" :value="n">
+                  Escludi chi non paga da più di {{ n === 1 ? '1 anno' : `${n} anni` }}
+                </option>
+              </select>
+              <p id="tessere-conteggio" class="scelta__nota" aria-live="polite">
+                <template v-if="tessere.escludiDa">
+                  {{ conteggioSoci.attivi[tessere.escludiDa] }} soci su {{ conteggioSoci.totale }}:
+                  chi ha pagato dal {{ primoAnnoValido(tessere.escludiDa, annoTessere) }} in poi
+                </template>
+                <template v-else>{{ conteggioSoci.totale }} soci</template>
+              </p>
+            </div>
           </template>
           <template #azioni>
             <BaseButton
@@ -329,6 +344,7 @@ import {
   titoloReport,
 } from '@/utils/reportSuMisura'
 import { scaricaBlob } from '@/utils/scarica'
+import { ANNI_SENZA_PAGARE_TESSERE, pagaDaNonPiuDi, primoAnnoValido } from '@/utils/sociPerTessere'
 
 const OPZIONI_ETA = [
   { v: 'tutti', t: 'Tutte le età' },
@@ -355,24 +371,27 @@ const voto = reactive({ manicchia: '__sezioni', includiNonAventi: false })
 const perManicchia = reactive({ gruppo: '', eta: 'tutti', pagamento: 'tutti' })
 const nuovi = reactive({ eta: 'tutti' })
 const pagamenti = reactive({ eta: 'tutti' })
-const tessere = reactive({ escludiInattivi: false, avanzamento: 0 })
-const conteggioSoci = reactive({ totale: 0, attivi: 0 })
-
-/**
- * Socio attivo per le tessere: un pagamento negli ultimi 5 anni di calendario.
- */
-const isSocioActive = (socio) => {
-  if (!socio.tesseramenti || socio.tesseramenti.length === 0) return false
-  const ultimo = Math.max(...socio.tesseramenti.map((t) => t.anno))
-  return ultimo >= new Date().getFullYear() - 5
-}
+// escludiDa: 0 tutti i soci, altrimenti gli anni ammessi senza pagare (menu da 1 a 8)
+const tessere = reactive({ escludiDa: 0, avanzamento: 0 })
+// Le tessere si fanno per l'anno di riferimento (a novembre 2026 quelle del 2027):
+// i 3 o 5 anni senza pagare si contano da quell'anno, non dal calendario
+const annoTessere = computed(() => (annoValido.value ? anno.value : annoCorrente))
+const sociLetti = ref([])
+const conteggioSoci = computed(() => ({
+  totale: sociLetti.value.length,
+  attivi: Object.fromEntries(
+    ANNI_SENZA_PAGARE_TESSERE.map((n) => [
+      n,
+      sociLetti.value.filter((s) => pagaDaNonPiuDi(s, n, annoTessere.value)).length,
+    ]),
+  ),
+}))
 
 onMounted(async () => {
   try {
     const [gruppi, soci] = await Promise.all([getUniqueGroups(), getAllSociWithTesseramenti()])
     manicchie.value = gruppi
-    conteggioSoci.totale = soci.length
-    conteggioSoci.attivi = soci.filter(isSocioActive).length
+    sociLetti.value = soci
   } catch (error) {
     console.error('Errore caricamento dati:', error)
     toast.error('Non sono riuscito a leggere i soci dal database.')
@@ -552,7 +571,9 @@ const generaTessere = () =>
   genera('tessere', async () => {
     tessere.avanzamento = 0
     let soci = await getAllSociWithTesseramenti()
-    if (tessere.escludiInattivi) soci = soci.filter(isSocioActive)
+    if (tessere.escludiDa) {
+      soci = soci.filter((s) => pagaDaNonPiuDi(s, tessere.escludiDa, annoTessere.value))
+    }
     const risultati = await generateAllCardsPDF(soci, anno.value, (p) => {
       tessere.avanzamento = p
     })
@@ -655,6 +676,18 @@ const generaTessere = () =>
 
 .scelta__nota {
   color: var(--color-text-secondary);
+}
+
+/* Spunte una sotto l'altra, cosi' la colonna delle opzioni resta stretta */
+.scelte {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.scelte .scelta__nota {
+  margin: 0;
+  font-size: var(--font-size-caption);
 }
 
 /* Link con l'aspetto di un pulsante: portano a un'altra pagina */
