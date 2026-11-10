@@ -40,6 +40,9 @@ describe('controlli dati (Cioti, 10 novembre 2026)', () => {
     expect(problemi([socio(1, { data_nascita: '15/03/1990' })])[1]).toContain(
       'Data di nascita scritta male (15/03/1990)',
     )
+    expect(dataNascitaValida('1990-03-15 00:00:00')).toBe(true)
+    expect(dataNascitaValida('1990-03-15T00:00:00')).toBe(true)
+    expect(dataNascitaValida('1990-3-5')).toBe(false)
   })
 
   it('possibili doppioni: stessi cognome, nome e data, anche con maiuscole e spazi diversi', () => {
@@ -47,8 +50,12 @@ describe('controlli dati (Cioti, 10 novembre 2026)', () => {
     const b = socio(2, { cognome: 'ROSSI ', nome: 'mario' })
     const c = socio(3, { cognome: 'Rossi', nome: 'Mario', data_nascita: '1981-01-01' })
     const p = problemi([a, b, c])
-    expect(p[1]).toContain('Possibile doppione (stessi nome e data di nascita: n. 2)')
-    expect(p[2]).toContain('Possibile doppione (stessi nome e data di nascita: n. 1)')
+    expect(p[1]).toContain(
+      "Possibile doppione: un'altra scheda ha stessi cognome, nome e data di nascita (BRANCA, iscritto dal 2010)",
+    )
+    expect(p[2]).toContain(
+      "Possibile doppione: un'altra scheda ha stessi cognome, nome e data di nascita (BRANCA, iscritto dal 2010)",
+    )
     expect(p[3]).toBeUndefined()
   })
 
@@ -68,7 +75,7 @@ describe('controlli dati (Cioti, 10 novembre 2026)', () => {
   it('pagamento da 0 euro o senza importo da maggiorenne; da minorenne va bene', () => {
     const giovane = socio(2, { data_nascita: '2012-01-01', data_prima_iscrizione: 2020 })
     const p = problemi([socio(1), giovane], [pag(1, 2024, 0), pag(1, 2025, null), pag(2, 2027, 0)])
-    expect(p[1]).toEqual(['Pagamento da 0 € da maggiorenne (2024, 2025)'])
+    expect(p[1]).toEqual(['Pagamento da 0 € o senza importo da maggiorenne (2024, 2025)'])
     expect(p[2]).toBeUndefined()
   })
 
@@ -104,9 +111,42 @@ describe('controlli dati (Cioti, 10 novembre 2026)', () => {
       ],
       [pag(3, 2020)],
     )
-    expect(p[1]).toEqual(['Luogo Nascita mancante', 'Gruppo non assegnato'])
+    expect(p[1]).toEqual(['Senza luogo di nascita', 'Senza manicchia'])
     expect(p[2]).toEqual(['Iscrizione nel futuro (2030)'])
-    expect(p[3]).toEqual(['Iscrizione illogica: Registrato nel 2024, ma ha pagato nel 2020'])
-    expect(p[4]).toEqual(['Data Iscrizione mancante (e nessun pagamento)'])
+    expect(p[3]).toEqual(['Iscritto dal 2024, ma ha pagato nel 2020'])
+    expect(p[4]).toEqual(['Senza anno di iscrizione e senza pagamenti'])
+  })
+
+  it('solo i dati mancanti o incoerenti contano per la conferma del backup', () => {
+    const r = controllaDati(
+      [socio(1, { luogo_nascita: '' }), socio(2, { data_nascita: '15/03/1990' }), socio(3)],
+      [pag(3, 2024, 0)],
+      2026,
+    )
+    expect(r.summary.total_issues).toBe(3)
+    expect(r.summary.incompleti).toBe(1)
+    expect(r.details.every((d) => !('incompleto' in d))).toBe(true)
+  })
+
+  it('cognome, nome o manicchia mancanti non bloccano il controllo', () => {
+    const r = controllaDati(
+      [
+        socio(1, { cognome: null, nome: null }),
+        socio(2, { cognome: null, nome: null, gruppo_appartenenza: null }),
+      ],
+      [],
+      2026,
+    )
+    expect(r.summary.duplicate).toBe(0)
+    expect(r.summary.missing_group).toBe(1)
+  })
+
+  it('doppione su tre schede', () => {
+    const stessi = [1, 2, 3].map((id) =>
+      socio(id, { cognome: 'Rossi', data_prima_iscrizione: 2000 + id }),
+    )
+    expect(problemi(stessi)[1]).toEqual([
+      'Possibile doppione: altre 2 schede hanno stessi cognome, nome e data di nascita (BRANCA, iscritto dal 2002; BRANCA, iscritto dal 2003)',
+    ])
   })
 })

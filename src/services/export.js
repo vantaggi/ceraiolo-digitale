@@ -11,6 +11,7 @@ import {
 } from '@/utils/payment'
 import { annoIscrizione, isNuovo } from '@/utils/iscrizione'
 import { dataItaliana } from '@/utils/data'
+import { VOCI_CONTROLLO } from '@/utils/controlliDati'
 import logoUrl from '@/assets/logo_santantoniari.jpg'
 
 /**
@@ -1250,6 +1251,18 @@ export async function exportDataToExcel() {
   }
 }
 /**
+ * Riepilogo per voce del Controllo qualita' dei dati, per il sottotitolo del PDF.
+ * @param {Record<string, number>} summary
+ * @returns {string}
+ */
+function riepilogoControlli(summary) {
+  return Object.entries(VOCI_CONTROLLO)
+    .filter(([chiave]) => summary[chiave] > 0)
+    .map(([chiave, testo]) => `${testo}: ${summary[chiave]}`)
+    .join(' · ')
+}
+
+/**
  * Generates a PDF for the "Churn" list (Recupero Crediti)
  * @param {Array} soci - Array of churned members
  * @param {number} year - The current year (target of recovery)
@@ -1357,9 +1370,9 @@ export async function generateAuditPDF(auditData) {
 
     const headerY = addPDFHeader(
       doc,
-      'Report Qualità Dati (Audit)',
-      'Analisi integrità anagrafiche soci',
-      `Totale anomalie riscontrate: ${auditData.summary.total_issues}`,
+      'Controllo qualità dei dati',
+      riepilogoControlli(auditData.summary),
+      `Soci con dati da controllare: ${auditData.summary.total_issues}`,
       logoData,
     )
 
@@ -1371,7 +1384,7 @@ export async function generateAuditPDF(auditData) {
     // Configurazione tabella
     const headers = [
       { text: 'Socio', width: 60 },
-      { text: 'Anomalie Rilevate', width: 120 },
+      { text: 'Cosa manca o non torna', width: 120 },
     ]
 
     createPDFTable(doc, headers, tableData, headerY + 10)

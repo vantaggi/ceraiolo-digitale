@@ -20,18 +20,29 @@ export const VOCI_CONTROLLO = {
   duplicate: 'Possibili doppioni',
   double_payment: 'Due pagamenti nello stesso anno',
   payment_before_birth: 'Pagamento prima della nascita',
-  zero_payment: 'Pagamento da 0 € da maggiorenne',
+  zero_payment: 'Pagamento da 0 € o senza importo da maggiorenne',
 }
+
+/** I controlli che c'erano prima del 10 novembre 2026: dati mancanti o incoerenti. */
+const CONTROLLI_DI_PRIMA = new Set([
+  'missing_dob',
+  'missing_pob',
+  'missing_reg_date',
+  'future_reg',
+  'invalid_reg_date',
+  'missing_group',
+])
 
 const testo = (v) => (v === null || v === undefined ? '' : String(v))
 
 /**
- * Data nel formato dell'archivio, AAAA-MM-GG, e vera (niente 1990-02-30 o 1990-00-00).
+ * Data nel formato dell'archivio, AAAA-MM-GG (anche seguita dall'ora, come in utils/data.js),
+ * e vera (niente 1990-02-30 o 1990-00-00).
  * @param {string} data
  * @returns {boolean}
  */
 export function dataNascitaValida(data) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(testo(data))
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?:[ T]\d{2}:\d{2}.*)?$/.exec(testo(data).trim())
   if (!m) return false
   const [anno, mese, giorno] = m.slice(1).map(Number)
   const d = new Date(Date.UTC(anno, mese - 1, giorno))
@@ -40,7 +51,12 @@ export function dataNascitaValida(data) {
 
 /** Nome o manicchia confrontabile: minuscolo, senza accenti e senza spazi in piu'. */
 const normalizza = (v) =>
-  testo(v).trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ')
+  testo(v)
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
 
 /**
  * Manicchie scritte in piu' modi. Si segnala chi non usa la scrittura piu' usata; a pari
@@ -102,38 +118,37 @@ export function controllaDati(soci, tesseramenti, annoOggi) {
   const details = []
   for (const socio of soci) {
     const issues = []
+    let incompleto = false
     const segna = (chiave, messaggio) => {
       issues.push(messaggio)
       summary[chiave]++
+      if (CONTROLLI_DI_PRIMA.has(chiave)) incompleto = true
     }
     const suoi = pagamenti.get(socio.id) || []
     const anni = suoi.map((t) => Number(t.anno)).filter(Number.isFinite)
     const dataValida = dataNascitaValida(socio.data_nascita)
 
-    if (!testo(socio.data_nascita).trim()) segna('missing_dob', 'Data Nascita mancante')
+    if (!testo(socio.data_nascita).trim()) segna('missing_dob', 'Senza data di nascita')
     else if (!dataValida) {
       segna('invalid_dob', `Data di nascita scritta male (${testo(socio.data_nascita)})`)
     }
 
-    if (!testo(socio.luogo_nascita).trim()) segna('missing_pob', 'Luogo Nascita mancante')
+    if (!testo(socio.luogo_nascita).trim()) segna('missing_pob', 'Senza luogo di nascita')
 
     // Senza anno di iscrizione basta un pagamento: il primo vale come iscrizione
     if (!socio.data_prima_iscrizione) {
       if (suoi.length === 0) {
-        segna('missing_reg_date', 'Data Iscrizione mancante (e nessun pagamento)')
+        segna('missing_reg_date', 'Senza anno di iscrizione e senza pagamenti')
       }
     } else {
       const regYear = parseInt(socio.data_prima_iscrizione)
       if (regYear > annoOggi) segna('future_reg', `Iscrizione nel futuro (${regYear})`)
       else if (anni.length > 0 && regYear > Math.min(...anni)) {
-        segna(
-          'invalid_reg_date',
-          `Iscrizione illogica: Registrato nel ${regYear}, ma ha pagato nel ${Math.min(...anni)}`,
-        )
+        segna('invalid_reg_date', `Iscritto dal ${regYear}, ma ha pagato nel ${Math.min(...anni)}`)
       }
     }
 
-    if (!testo(socio.gruppo_appartenenza).trim()) segna('missing_group', 'Gruppo non assegnato')
+    if (!testo(socio.gruppo_appartenenza).trim()) segna('missing_group', 'Senza manicchia')
     else if (manicchie.has(socio.gruppo_appartenenza)) {
       const altre = manicchie.get(socio.gruppo_appartenenza).map((n) => `"${n}"`)
       segna(
@@ -146,8 +161,19 @@ export function controllaDati(soci, tesseramenti, annoOggi) {
       `${normalizza(socio.cognome)}|${normalizza(socio.nome)}|${testo(socio.data_nascita)}`,
     )
     if (stessi && stessi.length > 1) {
-      const altri = stessi.filter((s) => s !== socio).map((s) => `n. ${s.id}`)
-      segna('duplicate', `Possibile doppione (stessi nome e data di nascita: ${altri.join(', ')})`)
+      // L'id non si vede nell'interfaccia: si descrive l'altra scheda con manicchia e iscrizione
+      const altre = stessi
+        .filter((s) => s !== socio)
+        .map((s) => {
+          const manicchia = testo(s.gruppo_appartenenza).trim() || 'senza manicchia'
+          return s.data_prima_iscrizione
+            ? `${manicchia}, iscritto dal ${s.data_prima_iscrizione}`
+            : manicchia
+        })
+      segna(
+        'duplicate',
+        `Possibile doppione: ${altre.length === 1 ? "un'altra scheda ha" : `altre ${altre.length} schede hanno`} stessi cognome, nome e data di nascita (${altre.join('; ')})`,
+      )
     }
 
     const doppi = [...new Set(anni.filter((a, i) => anni.indexOf(a) !== i))].sort()
@@ -175,16 +201,20 @@ export function controllaDati(soci, tesseramenti, annoOggi) {
     if (aZero.length > 0) {
       segna(
         'zero_payment',
-        `Pagamento da 0 € da maggiorenne (${[...new Set(aZero)].sort().join(', ')})`,
+        `Pagamento da 0 € o senza importo da maggiorenne (${[...new Set(aZero)].sort().join(', ')})`,
       )
     }
 
     if (issues.length > 0) {
-      details.push({ id: socio.id, nome: socio.nome, cognome: socio.cognome, issues })
+      details.push({ id: socio.id, nome: socio.nome, cognome: socio.cognome, issues, incompleto })
     }
   }
 
   summary.total_issues = details.length
+  // Soci con dati mancanti o incoerenti (i controlli di prima): solo questi chiedono
+  // conferma prima del backup, gli avvisi nuovi no
+  summary.incompleti = details.filter((d) => d.incompleto).length
+  for (const d of details) delete d.incompleto
   details.sort((a, b) => testo(a.cognome).localeCompare(testo(b.cognome)))
   return { summary, details }
 }
