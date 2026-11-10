@@ -56,9 +56,11 @@ describe('filtraSoci', () => {
     expect(minori(2026)).toEqual([])
   })
 
-  it("pagato e non pagato guardano l'anno di riferimento, non il calendario", () => {
+  it("in regola e non in regola guardano l'anno di riferimento, non il calendario", () => {
+    // Celesti nel 2025 e' minorenne: in regola anche senza pagamenti
     expect(cognomi(filtraSoci(soci, conFiltri(2025, { paymentStatus: 'in_regola' })))).toEqual([
       'Bianchi',
+      'Celesti',
       'Dorati',
     ])
     expect(cognomi(filtraSoci(soci, conFiltri(2026, { paymentStatus: 'morosi' })))).toEqual([
@@ -70,10 +72,18 @@ describe('filtraSoci', () => {
 
   it('attivi: almeno un pagamento negli ultimi 5 anni compreso il riferimento', () => {
     const attivi = (anno) => cognomi(filtraSoci(soci, conFiltri(anno, { onlyActiveMembers: true })))
-    expect(attivi(2024)).toEqual(['Azzurri', 'Bianchi'])
+    // Celesti non ha pagamenti ma fino al 2025 e' minorenne: conta come in regola
+    expect(attivi(2024)).toEqual(['Azzurri', 'Bianchi', 'Celesti'])
     expect(attivi(2025)).not.toContain('Azzurri')
     // un pagamento dopo il riferimento non conta
-    expect(attivi(2023)).toEqual(['Azzurri'])
+    expect(attivi(2023)).toEqual(['Azzurri', 'Celesti'])
+  })
+
+  it('attivi: gli anni da minorenne contano come pagati (Cioti, 10 novembre 2026)', () => {
+    const attivi = (anno) => cognomi(filtraSoci(soci, conFiltri(anno, { onlyActiveMembers: true })))
+    // Celesti: ultimo anno da minorenne il 2025, dentro gli ultimi 5 anni fino al 2029
+    expect(attivi(2029)).toContain('Celesti')
+    expect(attivi(2030)).not.toContain('Celesti')
   })
 
   it('le manicchie scelte, compreso chi non ne ha', () => {
@@ -226,7 +236,7 @@ describe('statoDaModello (Personalizza dai modelli pronti)', () => {
   ]
   const scelti = (id, anno, opzioni) => cognomi(filtraSoci(soci, statoDaModello(id, anno, opzioni)))
 
-  it('ogni modello e\' uno stato valido, che si puo\' salvare e ricaricare uguale', () => {
+  it("ogni modello e' uno stato valido, che si puo' salvare e ricaricare uguale", () => {
     for (const id of MODELLI) {
       const stato = statoDaModello(id, 2026)
       expect(normalizzaStato(stato, 2000)).toEqual(stato)
@@ -236,10 +246,12 @@ describe('statoDaModello (Personalizza dai modelli pronti)', () => {
 
   it('i soci di ogni modello', () => {
     expect(scelti('minorenni', 2026)).toEqual(['Celesti'])
-    expect(scelti('attivi', 2026)).toEqual(['Bianchi'])
+    // Celesti e' minorenne e iscritto dal 2024: attivo nel 2026, non ancora nel 2023
+    expect(scelti('attivi', 2026)).toEqual(['Bianchi', 'Celesti'])
     expect(scelti('attivi', 2023)).toEqual(['Azzurri', 'Bianchi'])
     expect(scelti('manicchia', 2026, { manicchia: 'BRANCA' })).toEqual(['Azzurri'])
-    expect(scelti('manicchia', 2026, { pagamento: 'morosi' })).toEqual(['Azzurri', 'Celesti'])
+    // Celesti e' minorenne nel 2026: in regola, non tra chi non e' in regola
+    expect(scelti('manicchia', 2026, { pagamento: 'morosi' })).toEqual(['Azzurri'])
   })
 
   it('colonne, ordine e titolo adatti al modello', () => {

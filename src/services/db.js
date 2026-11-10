@@ -16,7 +16,7 @@ import { SENZA_MANICCHIA } from '@/utils/aventiDiritto'
 import { elencoRecupero } from '@/utils/recupero'
 import { calcolaStatisticheAnnuali } from '@/utils/statistiche'
 import { anniPagatiPerSocio, passaFiltri } from '@/utils/ricercaSoci'
-import { isIscritto, isNuovo } from '@/utils/iscrizione'
+import { isIscritto, isNuovo, iscrittoTraAnni } from '@/utils/iscrizione'
 
 // Create a new Dexie database instance
 export const db = new Dexie('CeraioloDigitaleDB')
@@ -1608,7 +1608,7 @@ export async function getGroupCountsForYear(year) {
 }
 
 /**
- * Retrieves members active in the last 5 years (at least 1 payment).
+ * Soci attivi negli ultimi 5 anni: iscritti in almeno un anno (pagato o minorenne esente).
  * @param {number} targetYear - The reference year (end of the 5-year window)
  * @returns {Promise<Array>} List of active members with payment history
  */
@@ -1629,14 +1629,10 @@ export async function getActiveMembersLast5Years(targetYear) {
 
     const activeMembers = allSoci
       .filter((socio) => {
-        const paidYears = paymentsMap.get(socio.id)
-        if (!paidYears) return false
-
-        // Check if ANY paid year is within [startWindow, targetYear]
-        for (let y = startWindow; y <= targetYear; y++) {
-          if (paidYears.has(y)) return true
-        }
-        return false
+        // Iscritto in un anno della finestra: pagato, o minorenne esente (conta come
+        // pagato, Cioti 10 novembre 2026). Stessa regola del Report su misura.
+        const paidYears = [...(paymentsMap.get(socio.id) || [])]
+        return iscrittoTraAnni(socio, paidYears, startWindow, targetYear)
       })
       .map((socio) => {
         // Build History similar to voting report

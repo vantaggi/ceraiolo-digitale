@@ -21,6 +21,24 @@ export function isIscritto(socio, anniPagati, anno) {
 }
 
 /**
+ * Iscritto in almeno un anno della finestra da `primo` ad `ultimo` compresi. Gli anni da
+ * minorenne esente contano come pagati (Cioti, 10 novembre 2026): e' la regola di
+ * "Soci attivi" e del filtro delle tessere "chi non paga da piu' di N anni".
+ * @param {object} socio - con data_nascita e data_prima_iscrizione
+ * @param {Array<number|string>} anniPagati
+ * @param {number} primo
+ * @param {number} ultimo
+ * @returns {boolean}
+ */
+export function iscrittoTraAnni(socio, anniPagati, primo, ultimo) {
+  const anni = anniPagati.map(Number)
+  for (let anno = primo; anno <= ultimo; anno++) {
+    if (isIscritto(socio, anni, anno)) return true
+  }
+  return false
+}
+
+/**
  * Nuovo in un anno: iscritto, ed e' il suo anno di iscrizione (il primo tra l'anno
  * dichiarato e il primo pagamento).
  * @param {object} socio

@@ -661,7 +661,7 @@ export async function generateActiveMembersPDF(soci, targetYear) {
   let headerY = addPDFHeader(
     doc,
     `Soci Attivi (Ultimi 5 Anni)`,
-    `Periodo: ${startYear} - ${targetYear} (Almeno 1 pagamento)`,
+    `Periodo: ${startYear} - ${targetYear} (in regola almeno un anno: pagato o esente)`,
     `Totale soci attivi: ${soci.length}`,
     logoData,
   )

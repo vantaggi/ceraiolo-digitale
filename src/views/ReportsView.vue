@@ -160,7 +160,7 @@
 
         <ModelloReport
           titolo="Soci attivi"
-          :descrizione="`Soci con almeno un pagamento dal ${anno - 4} al ${anno}.`"
+          :descrizione="`Soci in regola almeno un anno dal ${anno - 4} al ${anno}: pagato o esente da minorenne.`"
         >
           <template #azioni>
             <RouterLink :to="suMisura('attivi')" class="link-azione">
@@ -272,7 +272,8 @@
               <p id="tessere-conteggio" class="scelta__nota" aria-live="polite">
                 <template v-if="tessere.escludiDa">
                   {{ conteggioSoci.attivi[tessere.escludiDa] }} soci su {{ conteggioSoci.totale }}:
-                  chi ha pagato dal {{ primoAnnoValido(tessere.escludiDa, annoTessere) }} in poi
+                  chi ha pagato dal {{ primoAnnoValido(tessere.escludiDa, annoTessere) }} in poi o in
+                  quegli anni era esente da minorenne
                 </template>
                 <template v-else>{{ conteggioSoci.totale }} soci</template>
               </p>

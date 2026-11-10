@@ -79,7 +79,8 @@
           </fieldset>
           <label class="scelta">
             <input v-model="stato.filters.onlyActiveMembers" type="checkbox" />
-            Solo attivi (un pagamento dal {{ stato.anno - ANNI_ATTIVITA + 1 }} al {{ stato.anno }})
+            Solo attivi (in regola almeno un anno dal {{ stato.anno - ANNI_ATTIVITA + 1 }} al
+            {{ stato.anno }}: pagato o esente)
           </label>
         </FilterSection>
 
@@ -353,8 +354,8 @@ const OPZIONI_ETA = [
 ]
 const OPZIONI_PAGATO = [
   { v: 'all', t: 'Tutti' },
-  { v: 'in_regola', t: 'Ha pagato' },
-  { v: 'morosi', t: 'Non ha pagato' },
+  { v: 'in_regola', t: 'In regola (pagato o esente)' },
+  { v: 'morosi', t: 'Non in regola' },
 ]
 const OPZIONI_VOTO = [
   { v: 'all', t: 'Tutti' },

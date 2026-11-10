@@ -8,6 +8,7 @@
  * pagato o no, arretrati e diritto di voto si calcolano per quell'anno.
  */
 import { calculatePaymentStatus, descriviArretrati, isMinorenne, statoAnno } from './payment'
+import { iscrittoTraAnni } from './iscrizione'
 import { valutaDirittoVoto } from './voto'
 import { SENZA_MANICCHIA } from './aventiDiritto'
 import { dataItaliana } from './data'
@@ -158,12 +159,18 @@ export function filtraSoci(soci, stato) {
   const righe = soci
     .map((socio) => scheda(socio, anno))
     .filter((r) => {
-      if (f.onlyActiveMembers && !r.anniPagati.some((a) => a > anno - ANNI_ATTIVITA && a <= anno))
+      if (
+        f.onlyActiveMembers &&
+        !iscrittoTraAnni(r.socio, r.anniPagati, anno - ANNI_ATTIVITA + 1, anno)
+      )
         return false
       if (f.ageGroup === 'maggiorenni' && !r.maggiorenne) return false
       if (f.ageGroup === 'minorenni' && r.maggiorenne) return false
-      if (f.paymentStatus === 'in_regola' && !r.anniPagati.includes(anno)) return false
-      if (f.paymentStatus === 'morosi' && r.anniPagati.includes(anno)) return false
+      // In regola come nel PDF "Soci per manicchia" (calculatePaymentStatus): il minorenne
+      // esente conta come pagato (Cioti, 10 novembre 2026)
+      const inRegola = r.pagamento.inRegola
+      if (f.paymentStatus === 'in_regola' && !inRegola) return false
+      if (f.paymentStatus === 'morosi' && inRegola) return false
       if (gruppi.size > 0 && !gruppi.has(manicchia(r.socio))) return false
       if (voti && !voti.includes(r.voto.stato)) return false
       if (anniRichiesti.length > 0) {
@@ -258,7 +265,8 @@ export function filtriAttivi(stato) {
   if (f.paymentStatus !== 'all') {
     etichette.push({
       id: 'paymentStatus',
-      testo: f.paymentStatus === 'in_regola' ? `Pagato ${stato.anno}` : `Non pagato ${stato.anno}`,
+      testo:
+        f.paymentStatus === 'in_regola' ? `In regola ${stato.anno}` : `Non in regola ${stato.anno}`,
     })
   }
   if (f.paymentYears.list.length > 0) {
