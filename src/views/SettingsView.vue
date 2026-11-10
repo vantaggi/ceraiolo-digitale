@@ -746,10 +746,12 @@ const exportDatabase = async () => {
     // 1. Health Check
     const health = await getDataAuditStats()
 
-    if (health.summary.total_issues > 0) {
+    // Solo i dati mancanti o incoerenti chiedono conferma: gli avvisi sui dati ambigui
+    // (doppioni, pagamenti da 0 euro, manicchie) restano in Controllo qualita' dei dati
+    if (health.summary.incompleti > 0) {
       const conferma = await askConfirm({
         title: 'Esportare con dati incompleti?',
-        message: `Ci sono ${health.summary.total_issues} problemi nei dati (per esempio date mancanti). Conviene risolverli prima del backup, ma puoi esportare comunque.`,
+        message: `${health.summary.incompleti} soci hanno dati mancanti o incoerenti (per esempio date mancanti). Conviene sistemarli prima del backup, ma puoi esportare comunque.`,
         confirmLabel: 'Esporta comunque',
       })
       if (!conferma) {
