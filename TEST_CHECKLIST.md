@@ -300,6 +300,7 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 
 - [ ] L'anteprima della tessera non c'e' piu' in Report PDF: il link porta a Impostazioni › Tessera
 - [ ] Impostazioni › Dati › Controllo qualita' dei dati: "Esegui il controllo" mostra quanti soci hanno dati da sistemare, i primi dieci (con link al socio) e il PDF delle anomalie
+- [ ] Controllo qualita' dei dati, i casi nuovi (con un archivio di prova): data di nascita scritta male (15/03/1990), stesso cognome, nome e data su due schede, due pagamenti nello stesso anno, pagamento prima della nascita, pagamento da 0 € da maggiorenne (quello di un minorenne no), manicchia scritta in modi diversi ("Branca " e "BRANCA"). Ogni caso compare col suo conteggio e nel PDF; nessun dato cambia
 - [ ] Le vecchie statistiche di Report (demografia, entrate per manicchia) non ci sono piu'
 
 **Risultato atteso**: ogni elenco che chiedono alla segreteria si trova per nome, con l'anno scelto una volta sola

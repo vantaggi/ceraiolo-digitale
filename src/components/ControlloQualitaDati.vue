@@ -1,8 +1,10 @@
 <template>
   <div class="controllo">
     <p class="controllo__testo">
-      Cerca i soci con dati mancanti o incoerenti: data o luogo di nascita, data di iscrizione,
-      manicchia, iscrizioni nel futuro o successive al primo pagamento.
+      Cerca i soci con dati mancanti o incoerenti: data o luogo di nascita (anche scritta male),
+      data di iscrizione, manicchia (anche scritta in modi diversi), possibili doppioni, due
+      pagamenti nello stesso anno, pagamenti prima della nascita o da 0 € da maggiorenne. Non cambia
+      nessun dato: le correzioni si fanno dalla scheda del socio.
     </p>
     <BaseButton class="controllo__avvia" :loading="inCorso" @click="esegui">
       <AppIcon name="ricerca" /> {{ risultato ? 'Ripeti il controllo' : 'Esegui il controllo' }}
@@ -39,15 +41,15 @@
           <tbody>
             <tr v-for="item in visibili" :key="item.id">
               <td>
-                <RouterLink :to="`/socio/${item.id}`">{{ item.cognome }} {{ item.nome }}</RouterLink>
+                <RouterLink :to="`/socio/${item.id}`"
+                  >{{ item.cognome }} {{ item.nome }}</RouterLink
+                >
               </td>
               <td>{{ item.issues.join(', ') }}</td>
             </tr>
           </tbody>
         </table>
-        <p v-if="altri > 0" class="controllo__altri">
-          ...e altri {{ altri }}: sono tutti nel PDF.
-        </p>
+        <p v-if="altri > 0" class="controllo__altri">...e altri {{ altri }}: sono tutti nel PDF.</p>
         <BaseButton :loading="scaricando" @click="scaricaPdf">
           <AppIcon name="documento" /> Scarica il PDF delle anomalie
         </BaseButton>
@@ -62,19 +64,12 @@ import { useToast } from 'vue-toastification'
 import AppIcon from '@/components/base/AppIcon.vue'
 import BaseButton from '@/components/base/BaseButton.vue'
 import { getDataAuditStats } from '@/services/db'
+import { VOCI_CONTROLLO as VOCI } from '@/utils/controlliDati'
 import { generateAuditPDF } from '@/services/export'
 import { scaricaBlob } from '@/utils/scarica'
 
 // Controllo qualita' dei dati anagrafici (prima in Report PDF, ora in Impostazioni > Dati).
 const MOSTRATI = 10
-const VOCI = {
-  missing_dob: 'Senza data di nascita',
-  missing_pob: 'Senza luogo di nascita',
-  missing_reg_date: 'Senza data di iscrizione',
-  missing_group: 'Senza manicchia',
-  future_reg: 'Iscrizione nel futuro',
-  invalid_reg_date: 'Iscrizione dopo il primo pagamento',
-}
 
 const toast = useToast()
 const risultato = ref(null)

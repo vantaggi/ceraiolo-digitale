@@ -14,6 +14,7 @@ import {
 } from '@/utils/payment'
 import { SENZA_MANICCHIA } from '@/utils/aventiDiritto'
 import { elencoRecupero } from '@/utils/recupero'
+import { controllaDati } from '@/utils/controlliDati'
 import { calcolaStatisticheAnnuali } from '@/utils/statistiche'
 import { anniPagatiPerSocio, passaFiltri } from '@/utils/ricercaSoci'
 import { isIscritto, isNuovo, iscrittoTraAnni } from '@/utils/iscrizione'
@@ -1930,94 +1931,8 @@ export async function getRecentActivity(limit = 10) {
 export async function getDataAuditStats() {
   try {
     const allSoci = await db.soci.toArray()
-
-    // Load payments to check for implicit registration
     const allTesseramenti = await db.tesseramenti.toArray()
-    const activeMembers = new Set(allTesseramenti.map((t) => t.id_socio))
-
-    const problems = []
-    const summary = {
-      missing_dob: 0,
-      missing_pob: 0,
-      missing_reg_date: 0,
-      missing_group: 0,
-      future_reg: 0,
-      invalid_reg_date: 0,
-      total_issues: 0,
-    }
-
-    const currentYear = new Date().getFullYear()
-
-    for (const socio of allSoci) {
-      const socioIssues = []
-
-      // Check DOB
-      if (!socio.data_nascita) {
-        socioIssues.push('Data Nascita mancante')
-        summary.missing_dob++
-      }
-
-      // Check POB
-      if (!socio.luogo_nascita || socio.luogo_nascita.trim() === '') {
-        socioIssues.push('Luogo Nascita mancante')
-        summary.missing_pob++
-      }
-
-      // Check Reg Date
-      // Improved Logic: If data_prima_iscrizione is missing, check if they have any payment history.
-      // If they have payments, we can infer the first payment year as registration, so it's not "missing basic data".
-      // Only flag if BOTH are missing.
-      const hasPayments = activeMembers.has(socio.id)
-
-      if (!socio.data_prima_iscrizione) {
-        if (!hasPayments) {
-          socioIssues.push('Data Iscrizione mancante (e nessun pagamento)')
-          summary.missing_reg_date++
-        }
-      } else {
-        const regYear = parseInt(socio.data_prima_iscrizione)
-
-        if (regYear > currentYear) {
-          socioIssues.push(`Iscrizione nel futuro (${regYear})`)
-          summary.future_reg++
-        } else if (hasPayments) {
-          // Check if registration date is AFTER the first payment they made
-          // which is structurally illogical.
-          const payments = allTesseramenti.filter((t) => t.id_socio === socio.id)
-          if (payments.length > 0) {
-            const firstPaymentYear = Math.min(...payments.map((t) => t.anno))
-            if (regYear > firstPaymentYear) {
-              socioIssues.push(
-                `Iscrizione illogica: Registrato nel ${regYear}, ma ha pagato nel ${firstPaymentYear}`,
-              )
-              summary.invalid_reg_date++
-            }
-          }
-        }
-      }
-
-      // Check Group
-      if (!socio.gruppo_appartenenza || socio.gruppo_appartenenza.trim() === '') {
-        socioIssues.push('Gruppo non assegnato')
-        summary.missing_group++
-      }
-
-      if (socioIssues.length > 0) {
-        problems.push({
-          id: socio.id,
-          nome: socio.nome,
-          cognome: socio.cognome,
-          issues: socioIssues,
-        })
-      }
-    }
-
-    summary.total_issues = problems.length
-
-    return {
-      summary,
-      details: problems.sort((a, b) => a.cognome.localeCompare(b.cognome)),
-    }
+    return controllaDati(allSoci, allTesseramenti, new Date().getFullYear())
   } catch (error) {
     console.error('Audit failed:', error)
     throw new Error('Errore durante il controllo qualità dati')
