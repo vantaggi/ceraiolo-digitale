@@ -15,6 +15,9 @@
           />
         </div>
 
+        <!-- Tab: Quote -->
+        <QuotePerAnno v-if="scheda === 'quote'" />
+
         <BaseModal
           :open="!!modifica"
           :title="modifica?.label ?? ''"
@@ -419,7 +422,6 @@
 </template>
 
 <script setup>
-import { QUOTA_NUOVI_PREDEFINITA, QUOTA_ORDINARIA_PREDEFINITA } from '@/utils/payment'
 import { ref, computed, onMounted, watch } from 'vue'
 import { useToast } from 'vue-toastification'
 import { askConfirm } from '@/composables/useDialog'
@@ -456,6 +458,7 @@ import SectionTabs from '@/components/base/SectionTabs.vue'
 import { SCHEDE_IMPOSTAZIONI } from '@/router/sezioni'
 import ControlloQualitaDati from '@/components/ControlloQualitaDati.vue'
 import DatiComputer from '@/components/DatiComputer.vue'
+import QuotePerAnno from '@/components/QuotePerAnno.vue'
 
 const toast = useToast()
 // Citta' proposta se l'impostazione non e' mai stata salvata (come Nuovo socio e Registra ricevute)
@@ -480,8 +483,6 @@ const isFileSystemSupported = ref(typeof window.showDirectoryPicker === 'functio
 
 const appConfig = ref({
   receiptsPerBlock: 10,
-  defaultQuota: QUOTA_ORDINARIA_PREDEFINITA,
-  newMemberQuota: QUOTA_NUOVI_PREDEFINITA,
   defaultCity: CITTA_PREDEFINITA,
 })
 
@@ -502,8 +503,6 @@ onMounted(async () => {
   // Carica configurazioni app
   try {
     appConfig.value.receiptsPerBlock = await getSetting('receiptsPerBlock', 10)
-    appConfig.value.defaultQuota = await getSetting('defaultQuota', QUOTA_ORDINARIA_PREDEFINITA)
-    appConfig.value.newMemberQuota = await getSetting('newMemberQuota', QUOTA_NUOVI_PREDEFINITA)
     appConfig.value.defaultCity = await getSetting('defaultCity', CITTA_PREDEFINITA)
   } catch (error) {
     console.error('Errore caricamento config:', error)
@@ -816,42 +815,6 @@ const IMPOSTAZIONI_GENERALI = {
         : { errore: 'Scrivi un numero intero da 1 a 100.' }
     },
   },
-  defaultQuota: {
-    label: 'Quota ordinaria',
-    campo: 'Importo (€)',
-    inputmode: 'decimal',
-    aiuto: 'Proposta nel pagamento di chi rinnova, fino al 2026. Dal 2027 la quota è 15 €.',
-    mostra: (v) => formatoEuro(v),
-    leggi: leggiImporto,
-  },
-  newMemberQuota: {
-    label: 'Quota dei nuovi soci',
-    campo: 'Importo (€)',
-    inputmode: 'decimal',
-    aiuto:
-      'Proposta nel pagamento di chi è al primo anno o rientra dopo almeno un anno fuori, fino al 2026. Dal 2027: 15 € fino a 23 anni, 30 € (quota e iscrizione) dai 24 anni.',
-    mostra: (v) => formatoEuro(v),
-    leggi: leggiImporto,
-  },
-}
-
-function formatoNumero(v) {
-  return Number(v).toLocaleString('it-IT', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-    useGrouping: false,
-  })
-}
-
-function formatoEuro(v) {
-  return `€ ${formatoNumero(v)}`
-}
-
-function leggiImporto(testo) {
-  const n = Number(String(testo).replace(',', '.'))
-  return String(testo).trim() !== '' && Number.isFinite(n) && n >= 0
-    ? { valore: n }
-    : { errore: 'Scrivi un importo uguale o maggiore di zero.' }
 }
 
 const righeGenerale = computed(() =>
@@ -873,10 +836,7 @@ const apriModifica = (riga) => {
     campo: def.campo,
     inputmode: def.inputmode,
     aiuto: def.aiuto,
-    valore:
-      def.inputmode === 'decimal'
-        ? formatoNumero(appConfig.value[riga.id])
-        : String(appConfig.value[riga.id] ?? ''),
+    valore: String(appConfig.value[riga.id] ?? ''),
     errore: '',
   }
 }

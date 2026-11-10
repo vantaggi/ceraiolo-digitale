@@ -65,33 +65,32 @@ beforeEach(() => {
 })
 
 describe('Impostazioni > Generale', () => {
-  it('una riga per valore, con il valore attuale; niente anno di riferimento dei minorenni', async () => {
-    salvate.set('newMemberQuota', 30)
+  it('una riga per valore, con il valore attuale; le quote stanno nella scheda Quote', async () => {
+    salvate.set('receiptsPerBlock', 25)
     const wrapper = await monta()
     expect(righe(wrapper)).toEqual([
       'Città proposta per i nuovi sociGubbio',
-      'Ricevute per blocchetto10',
-      'Quota ordinaria€ 10,00',
-      'Quota dei nuovi soci€ 30,00',
+      'Ricevute per blocchetto25',
     ])
+    expect(wrapper.text()).not.toMatch(/Quota/)
     expect(wrapper.text()).not.toMatch(/Minorenni/i)
     wrapper.unmount()
   })
 
   it('premere una riga apre la finestra; Salva scrive solo quel valore e lo mostra nella riga', async () => {
     const wrapper = await monta()
-    await wrapper.findAll('.list-rows__row')[3].trigger('click')
+    await wrapper.findAll('.list-rows__row')[1].trigger('click')
     await flushPromises()
-    expect(finestra().querySelector('h2').textContent).toBe('Quota dei nuovi soci')
+    expect(finestra().querySelector('h2').textContent).toBe('Ricevute per blocchetto')
     const campo = finestra().querySelector('input')
-    campo.value = '27,5'
+    campo.value = '20'
     campo.dispatchEvent(new Event('input'))
     finestra().querySelector('form').dispatchEvent(new Event('submit'))
     await flushPromises()
     expect(updateSetting).toHaveBeenCalledTimes(1)
-    expect(updateSetting).toHaveBeenCalledWith('newMemberQuota', 27.5)
+    expect(updateSetting).toHaveBeenCalledWith('receiptsPerBlock', 20)
     expect(finestra()).toBeNull()
-    expect(righe(wrapper)[3]).toBe('Quota dei nuovi soci€ 27,50')
+    expect(righe(wrapper)[1]).toBe('Ricevute per blocchetto20')
     wrapper.unmount()
   })
 

@@ -422,10 +422,17 @@ Segui questa checklist per verificare che tutte le funzionalità siano operative
 
 ### Test 17.2: Generale
 
-- [ ] Quattro righe sotto "Valori proposti": Citta' proposta per i nuovi soci, Ricevute per blocchetto, Quota ordinaria, Quota dei nuovi soci, ognuna con il valore attuale a destra. Non c'e' piu' "Anno Riferimento Minorenni"
+- [ ] Due righe sotto "Valori proposti": Citta' proposta per i nuovi soci e Ricevute per blocchetto, ognuna con il valore attuale a destra. Le quote stanno nella scheda Quote. Non c'e' piu' "Anno Riferimento Minorenni"
 - [ ] Premendo una riga (anche con Tab e Invio) si apre una finestra con il campo gia' selezionato; Invio salva, Esc annulla e il fuoco torna sulla riga
-- [ ] Le quote accettano la virgola ("27,5" diventa "€ 27,50"); 0 o 101 ricevute per blocchetto danno un errore in rosso e non salvano
-- [ ] Dopo il salvataggio la riga mostra il valore nuovo; la quota dei nuovi soci cambiata si vede in "Paga" su un socio nuovo
+- [ ] 0 o 101 ricevute per blocchetto danno un errore in rosso e non salvano; dopo il salvataggio la riga mostra il valore nuovo
+
+### Test 17.2b: Quote
+
+- [ ] Impostazioni › Quote: una riga per periodo, la piu' recente in alto ("Dal 2027 … 0-17 offerta · 18-23 15 € · da 24 15 € + 15 € iscrizione", "Fino al 2026 … 0-17 10 € · da 18 10 € + 15 € iscrizione"); al primo avvio la riga del 2026 usa la quota ordinaria e quella dei nuovi salvate prima
+- [ ] Premendo un periodo si apre la finestra con le fasce: quota vuota = offerta; "27,5" con la virgola diventa 27,5 €; Salva cambia la riga; Esc annulla
+- [ ] "Aggiungi quote da un anno" propone l'anno dopo con le fasce del periodo piu' recente; due periodi con lo stesso anno o una fascia senza 0 anni danno un errore e non salvano
+- [ ] "Togli il periodo" (non c'e' sul primo) chiede "Togliere le quote dal …?"; dopo, quegli anni usano il periodo prima
+- [ ] Una quota cambiata si vede in "Paga" su un socio di quell'anno e in Registra ricevute; i pagamenti gia' registrati non cambiano
 
 ### Test 17.3: Dati e backup
 

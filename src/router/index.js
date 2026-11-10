@@ -100,7 +100,7 @@ const router = createRouter({
       // I vecchi link /settings?tab=dati portano alla scheda nuova
       beforeEnter: (to) => (VECCHIE_SCHEDE[to.query.tab] ? { path: VECCHIE_SCHEDE[to.query.tab] } : true),
     },
-    ...['tessera', 'manicchie', 'dati'].map((scheda) => ({
+    ...['quote', 'tessera', 'manicchie', 'dati'].map((scheda) => ({
       path: `/settings/${scheda}`,
       name: `settings-${scheda}`,
       component: SettingsView,
