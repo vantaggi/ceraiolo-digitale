@@ -72,16 +72,6 @@ export function tipoQuota(socio, anniPagati, anno) {
 }
 
 /**
- * Quota da proporre quando si registra il pagamento di un anno.
- * @param {ReturnType<typeof tipoQuota>} tipo
- * @param {{ quotaOrdinaria: number, quotaNuovi: number }} quote - dalle impostazioni
- * @returns {number}
- */
-export function quotaProposta(tipo, { quotaOrdinaria, quotaNuovi }) {
-  return tipo === 'nuovo' || tipo === 'rientro' ? quotaNuovi : quotaOrdinaria
-}
-
-/**
  * Quota da proporre quando si pagano piu' anni insieme: quella dell'ultimo anno scelto,
  * contando come pagati anche gli altri anni scelti. Un rientro che salda gli arretrati
  * non e' piu' un rientro e paga la quota ordinaria (scelta di Cioti, 1 novembre 2026).
@@ -99,40 +89,132 @@ export function quotaPropostaPerAnni(socio, anniPagati, anniScelti, quote) {
 }
 
 /**
- * Quote dal 2027 (Cioti, 9 novembre 2026). Fino al 2026 valgono gli importi delle
- * impostazioni (quota ordinaria e quota dei nuovi, cioe' iscrizione piu' quota).
- * - Minorenni: offerta, nessuna iscrizione: l'app non propone un importo.
- * - Dai 18 ai 23 anni compresi: 15, iscrizione gratis.
- * - Dai 24 anni in su: 15 di quota, piu' 15 di iscrizione per chi si iscrive.
- * L'iscrizione si paga la prima volta o quando ci si reiscrive dopo piu' di
- * MAX_ANNI_ARRETRATI anni scoperti: chi torna prima paga solo la quota.
- * Eta' dal solo anno di nascita, come ovunque.
+ * Quote per anno (Cioti, 9 e 10 novembre 2026). Una tabella di periodi, ognuno valido
+ * dal suo anno in poi; per un anno vale il periodo con l'anno di partenza piu' vicino
+ * prima di lui. Ogni periodo ha fasce d'eta' (dal solo anno di nascita), e per ogni
+ * fascia la quota annuale (null = offerta, nessun importo proposto) e l'iscrizione,
+ * cioe' il costo della nuova tessera.
+ * L'iscrizione si paga la prima volta e quando ci si reiscrive dopo piu' di
+ * MAX_ANNI_ARRETRATI anni scoperti; nei periodi con `iscrizioneChiSaltaUnAnno` anche
+ * da chi torna dopo un solo anno senza saldare gli arretrati (la regola fino al 2026).
+ * La tabella sta nell'impostazione `quotePerAnno`; finche' non e' salvata vale
+ * quotePredefinite, fatta con gli importi di prima (quota ordinaria e quota dei nuovi).
+ *
+ * @typedef {{ daEta: number, quota: number|null, iscrizione: number }} FasciaQuota
+ * @typedef {{ daAnno: number|null, iscrizioneChiSaltaUnAnno: boolean, fasce: FasciaQuota[] }} PeriodoQuote
  */
+
+/** Primo anno delle quote nuove decise da Cioti il 9 novembre 2026. */
 export const ANNO_QUOTE_2027 = 2027
-export const QUOTA_DAL_2027 = 15
-export const ISCRIZIONE_DAL_2027 = 15
-/** Ultima eta' con l'iscrizione gratis (compresa). */
-export const ETA_ISCRIZIONE_GRATIS = 23
 
 /**
- * Quota da proporre per un anno, con le regole dell'anno.
+ * Tabella di partenza: il periodo di prima (importi delle impostazioni) e il 2027.
+ * @param {{ quotaOrdinaria: number, quotaNuovi: number }} quote
+ * @returns {PeriodoQuote[]}
+ */
+export function quotePredefinite({ quotaOrdinaria, quotaNuovi }) {
+  const ordinaria = Number(quotaOrdinaria)
+  const iscrizione = Math.max(0, Number(quotaNuovi) - ordinaria)
+  return [
+    {
+      daAnno: null,
+      iscrizioneChiSaltaUnAnno: true,
+      fasce: [
+        { daEta: 0, quota: ordinaria, iscrizione: 0 },
+        { daEta: MAGGIORE_ETA, quota: ordinaria, iscrizione },
+      ],
+    },
+    {
+      daAnno: ANNO_QUOTE_2027,
+      iscrizioneChiSaltaUnAnno: false,
+      fasce: [
+        { daEta: 0, quota: null, iscrizione: 0 },
+        { daEta: MAGGIORE_ETA, quota: 15, iscrizione: 0 },
+        { daEta: 24, quota: 15, iscrizione: 15 },
+      ],
+    },
+  ]
+}
+
+/** Accetta la tabella o, come prima, gli importi { quotaOrdinaria, quotaNuovi }. */
+const comeTabella = (quote) => (Array.isArray(quote) ? quote : quotePredefinite(quote))
+
+/**
+ * Periodo che vale per un anno.
+ * @param {PeriodoQuote[]} tabella
+ * @param {number} anno
+ * @returns {PeriodoQuote}
+ */
+export function periodoPerAnno(tabella, anno) {
+  const ordinati = [...tabella].sort((a, b) => (a.daAnno ?? -Infinity) - (b.daAnno ?? -Infinity))
+  return ordinati.filter((p) => p.daAnno === null || p.daAnno <= anno).at(-1) ?? ordinati[0]
+}
+
+/**
+ * Fascia d'eta' di un periodo: quella con il "da eta'" piu' alto non oltre l'eta'.
+ * @param {PeriodoQuote} periodo
+ * @param {number} eta
+ * @returns {FasciaQuota}
+ */
+export function fasciaPerEta(periodo, eta) {
+  const ordinate = [...periodo.fasce].sort((a, b) => a.daEta - b.daEta)
+  return ordinate.filter((f) => f.daEta <= eta).at(-1) ?? ordinate[0]
+}
+
+/**
+ * Controlla una tabella prima di salvarla. Restituisce il primo errore, a parole, o ''.
+ * @param {PeriodoQuote[]} tabella
+ * @returns {string}
+ */
+export function erroreTabellaQuote(tabella) {
+  if (!Array.isArray(tabella) || tabella.length === 0) return 'Serve almeno un periodo.'
+  if (tabella.filter((p) => p.daAnno === null).length !== 1) {
+    return 'Serve un solo periodo senza anno di partenza (il primo).'
+  }
+  const anni = tabella.filter((p) => p.daAnno !== null).map((p) => p.daAnno)
+  if (anni.some((a) => !Number.isInteger(a) || a < 1950 || a > 2100)) {
+    return "L'anno di partenza va scritto per intero, per esempio 2030."
+  }
+  if (new Set(anni).size !== anni.length) return 'Due periodi partono dallo stesso anno.'
+  for (const p of tabella) {
+    const nome = p.daAnno === null ? 'Il primo periodo' : `Il periodo dal ${p.daAnno}`
+    if (!p.fasce?.length || !p.fasce.some((f) => f.daEta === 0)) {
+      return `${nome} deve avere una fascia che parte da 0 anni.`
+    }
+    const eta = p.fasce.map((f) => f.daEta)
+    if (eta.some((e) => !Number.isInteger(e) || e < 0 || e > 120)) {
+      return `${nome}: l'età va scritta in anni interi.`
+    }
+    if (new Set(eta).size !== eta.length) return `${nome}: due fasce partono dalla stessa età.`
+    const importo = (v) => Number.isFinite(v) && v >= 0
+    if (p.fasce.some((f) => (f.quota !== null && !importo(f.quota)) || !importo(f.iscrizione))) {
+      return `${nome}: gli importi vanno da 0 in su.`
+    }
+  }
+  return ''
+}
+
+/**
+ * Quota da proporre per un anno, con le quote del suo periodo.
  * @param {object} socio - con data_nascita e data_prima_iscrizione
  * @param {Array<number>} anniPagati - anni con un tesseramento (quelli dopo si ignorano)
  * @param {number} anno
- * @param {{ quotaOrdinaria: number, quotaNuovi: number }} quote - dalle impostazioni, fino al 2026
- * @returns {number|null} null: offerta del minorenne, l'importo si scrive a mano
+ * @param {PeriodoQuote[]|{ quotaOrdinaria: number, quotaNuovi: number }} quote
+ * @returns {number|null} null: offerta, l'importo si scrive a mano
  */
 export function quotaPerAnno(socio, anniPagati, anno, quote) {
   const anni = anniPagati.map(Number)
   const tipo = tipoQuota(socio, anni, anno)
-  if (anno < ANNO_QUOTE_2027) return quotaProposta(tipo, quote)
-  if (tipo === 'esente') return null
-  if (calculateAgeInYear(socio.data_nascita, anno) <= ETA_ISCRIZIONE_GRATIS) return QUOTA_DAL_2027
+  const periodo = periodoPerAnno(comeTabella(quote), anno)
+  const fascia = fasciaPerEta(periodo, calculateAgeInYear(socio.data_nascita, anno))
+  if (fascia.quota === null) return null
+  if (tipo === 'esente' || tipo === 'ordinaria') return fascia.quota
   const prima = anni.filter((a) => a < anno)
   const iscrizione =
     tipo === 'nuovo' ||
-    (tipo === 'rientro' && calculatePaymentStatus(socio, prima, anno).daReiscrivere)
-  return iscrizione ? QUOTA_DAL_2027 + ISCRIZIONE_DAL_2027 : QUOTA_DAL_2027
+    periodo.iscrizioneChiSaltaUnAnno ||
+    calculatePaymentStatus(socio, prima, anno).daReiscrivere
+  return iscrizione ? fascia.quota + fascia.iscrizione : fascia.quota
 }
 
 /**

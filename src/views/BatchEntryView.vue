@@ -300,10 +300,16 @@ import {
   getPagamentiBlocchetto,
   getNomiSoci,
   getAnniPagatiDiSoci,
+  getQuotePerAnno,
   updateTesseramentoQuota,
   db,
 } from '@/services/db'
-import { QUOTA_NUOVI_PREDEFINITA, QUOTA_ORDINARIA_PREDEFINITA, quotaPerAnno } from '@/utils/payment'
+import {
+  QUOTA_NUOVI_PREDEFINITA,
+  QUOTA_ORDINARIA_PREDEFINITA,
+  quotaPerAnno,
+  quotePredefinite,
+} from '@/utils/payment'
 import {
   intervalloBlocchetto,
   pagamentiDelBlocchetto,
@@ -416,15 +422,14 @@ const cittaPredefinita = ref('Gubbio')
 const availableGroups = ref([])
 
 // Impostazioni
-const config = ref({
-  receiptsPerBlock: 10,
-  defaultQuota: QUOTA_ORDINARIA_PREDEFINITA,
-  newMemberQuota: QUOTA_NUOVI_PREDEFINITA,
-})
-const quote = computed(() => ({
-  quotaOrdinaria: Number(config.value.defaultQuota),
-  quotaNuovi: Number(config.value.newMemberQuota),
-}))
+const config = ref({ receiptsPerBlock: 10 })
+// Quote per anno di Impostazioni › Quote (utils/payment.js); fino al caricamento quelle di partenza
+const quote = ref(
+  quotePredefinite({
+    quotaOrdinaria: QUOTA_ORDINARIA_PREDEFINITA,
+    quotaNuovi: QUOTA_NUOVI_PREDEFINITA,
+  }),
+)
 
 // Suoni di conferma e di errore (Web Audio, nessun file)
 const soundEnabled = ref(true)
@@ -581,8 +586,7 @@ onMounted(async () => {
   try {
     await db.open()
     config.value.receiptsPerBlock = await getSetting('receiptsPerBlock', 10)
-    config.value.defaultQuota = await getSetting('defaultQuota', QUOTA_ORDINARIA_PREDEFINITA)
-    config.value.newMemberQuota = await getSetting('newMemberQuota', QUOTA_NUOVI_PREDEFINITA)
+    quote.value = await getQuotePerAnno()
     cittaPredefinita.value = await getSetting('defaultCity', 'Gubbio')
     newSocioData.luogo_nascita = cittaPredefinita.value
 

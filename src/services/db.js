@@ -7,7 +7,9 @@ import {
   isMinorenne,
   QUOTA_NUOVI_PREDEFINITA,
   QUOTA_ORDINARIA_PREDEFINITA,
+  erroreTabellaQuote,
   quotaPerAnno,
+  quotePredefinite,
   tipoQuota,
 } from '@/utils/payment'
 import { SENZA_MANICCHIA } from '@/utils/aventiDiritto'
@@ -660,6 +662,38 @@ export async function updateSetting(key, value) {
     console.error('Error updating setting:', error)
     throw new Error(`Errore durante il salvataggio dell'impostazione: ${error.message}`)
   }
+}
+
+/** Chiave dell'impostazione con la tabella delle quote per anno (utils/payment.js). */
+export const CHIAVE_QUOTE_PER_ANNO = 'quotePerAnno'
+
+/**
+ * Tabella delle quote per anno. Finche' non e' salvata, quella di partenza fatta con
+ * gli importi di prima (quota ordinaria e quota dei nuovi).
+ * @returns {Promise<import('@/utils/payment').PeriodoQuote[]>}
+ */
+export async function getQuotePerAnno() {
+  const salvata = await getSetting(CHIAVE_QUOTE_PER_ANNO, null)
+  if (Array.isArray(salvata) && erroreTabellaQuote(salvata) === '') return salvata
+  return quotePredefinite({
+    quotaOrdinaria: Number(await getSetting('defaultQuota', QUOTA_ORDINARIA_PREDEFINITA)),
+    quotaNuovi: Number(await getSetting('newMemberQuota', QUOTA_NUOVI_PREDEFINITA)),
+  })
+}
+
+/**
+ * Salva la tabella delle quote per anno, dopo averla controllata, e registra la modifica.
+ * I pagamenti gia' registrati non cambiano: la tabella decide solo la quota proposta.
+ * @param {import('@/utils/payment').PeriodoQuote[]} tabella
+ * @returns {Promise<void>}
+ */
+export async function saveQuotePerAnno(tabella) {
+  const errore = erroreTabellaQuote(tabella)
+  if (errore) throw new Error(errore)
+  const prima = await getQuotePerAnno()
+  const pulita = JSON.parse(JSON.stringify(tabella))
+  await updateSetting(CHIAVE_QUOTE_PER_ANNO, pulita)
+  await logLocalChange('settings', CHIAVE_QUOTE_PER_ANNO, 'UPDATE', prima, pulita)
 }
 
 /**
@@ -2272,10 +2306,7 @@ export async function normalizeDatabaseData() {
 export async function getQuotaAuditList(targetYear) {
   try {
     const allSoci = await getAllSociWithTesseramenti()
-    const quote = {
-      quotaOrdinaria: Number(await getSetting('defaultQuota', QUOTA_ORDINARIA_PREDEFINITA)),
-      quotaNuovi: Number(await getSetting('newMemberQuota', QUOTA_NUOVI_PREDEFINITA)),
-    }
+    const quote = await getQuotePerAnno()
     const anomalies = []
 
     for (const socio of allSoci) {

@@ -10,6 +10,8 @@ vi.mock('@/services/db', () => ({
   })),
   getTesseramentiBySocioId: vi.fn(async () => [{ anno: 2024 }, { anno: 2025 }]),
   getSetting: vi.fn(async (_chiave, predefinito) => predefinito),
+  getQuotePerAnno: async () =>
+    (await import('@/utils/payment')).quotePredefinite({ quotaOrdinaria: 10, quotaNuovi: 25 }),
   calculateAgeInYear: (nascita, anno) => anno - new Date(nascita).getFullYear(),
   isExemptFromPayment: () => false,
 }))

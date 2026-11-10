@@ -98,11 +98,9 @@
 import { ref, reactive, watch, computed } from 'vue'
 import BaseModal from '@/components/base/BaseModal.vue'
 import BaseButton from '@/components/base/BaseButton.vue'
-import { getTesseramentiBySocioId, getSetting } from '@/services/db'
+import { getQuotePerAnno, getTesseramentiBySocioId } from '@/services/db'
 import {
   isMinorenne,
-  QUOTA_NUOVI_PREDEFINITA,
-  QUOTA_ORDINARIA_PREDEFINITA,
   quotaPerAnno,
   quotaPropostaPerAnni,
   tipoQuota,
@@ -286,12 +284,9 @@ watch(
 )
 
 const resetForm = async () => {
-  // Quote dalle impostazioni
-  const quote = {
-    quotaOrdinaria: await getSetting('defaultQuota', QUOTA_ORDINARIA_PREDEFINITA),
-    quotaNuovi: await getSetting('newMemberQuota', QUOTA_NUOVI_PREDEFINITA),
-  }
-  let defaultQuota = quote.quotaOrdinaria
+  // Quote per anno (Impostazioni › Quote); se il socio non si legge, l'importo si scrive a mano
+  const quote = await getQuotePerAnno()
+  let defaultQuota = null
 
   paymentDetails.data_pagamento = new Date().toISOString().split('T')[0]
   paymentDetails.numero_blocchetto = props.numeroBlocchetto

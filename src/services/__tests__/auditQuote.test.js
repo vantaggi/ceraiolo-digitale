@@ -4,7 +4,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('../backupService', () => ({ backupService: { notifyChange: () => {} } }))
 
-const { db, getQuotaAuditList, updateSetting } = await import('../db.js')
+const { db, getQuotaAuditList, updateSetting, getQuotePerAnno, saveQuotePerAnno } = await import(
+  '../db.js'
+)
 const payment = await import('@/utils/payment')
 const dbModule = await import('../db.js')
 
@@ -76,6 +78,33 @@ describe('getQuotaAuditList dal 2027', () => {
     ])
     const anomalie = await getQuotaAuditList(2027)
     expect(anomalie.map((a) => [a.socio.cognome, a.expectedQuota])).toEqual([['Alfa', 30]])
+  })
+})
+
+describe('quote per anno salvate (Impostazioni › Quote)', () => {
+  it('senza tabella salvata usa gli importi di prima e il 2027', async () => {
+    await updateSetting('defaultQuota', 12)
+    const tabella = await getQuotePerAnno()
+    expect(tabella.map((p) => p.daAnno)).toEqual([null, 2027])
+    expect(tabella[0].fasce[1]).toEqual({ daEta: 18, quota: 12, iscrizione: 13 })
+  })
+
+  it('la tabella salvata decide il controllo quote e la modifica resta registrata', async () => {
+    const tabella = await getQuotePerAnno()
+    tabella[0].fasce[1].iscrizione = 20 // nuovo 2026: 30
+    await saveQuotePerAnno(tabella)
+    const anomalie = await getQuotaAuditList(2026)
+    expect(anomalie.map((a) => [a.socio.cognome, a.expectedQuota])).toEqual([
+      ['Alfa', 30],
+      ['Beta', 30],
+      ['Zeta', 30],
+    ])
+    const log = await db.local_changes.where('table_name').equals('settings').toArray()
+    expect(log.at(-1).record_id).toBe('quotePerAnno')
+  })
+
+  it('una tabella sbagliata non si salva', async () => {
+    await expect(saveQuotePerAnno([])).rejects.toThrow('Serve almeno un periodo.')
   })
 })
 
