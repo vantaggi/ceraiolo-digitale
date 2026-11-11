@@ -32,9 +32,7 @@
 
     <!-- Votazioni -->
     <section class="gruppo" aria-labelledby="gruppo-votazioni">
-      <h2 id="gruppo-votazioni" class="gruppo__titolo">
-        <AppIcon name="votazioni" /> Votazioni
-      </h2>
+      <h2 id="gruppo-votazioni" class="gruppo__titolo"><AppIcon name="votazioni" /> Votazioni</h2>
       <ul class="gruppo__modelli">
         <ModelloReport
           titolo="Aventi diritto al voto e arretrati"
@@ -251,8 +249,8 @@
       <ul class="gruppo__modelli">
         <ModelloReport titolo="Tessere di tutti i soci">
           <template #descrizione>
-            Un PDF con una tessera per pagina, in ordine di cognome. Lo sfondo e l'anteprima sono
-            in <RouterLink to="/settings/tessera">Impostazioni › Tessera</RouterLink>.
+            Un PDF con una tessera per pagina, in ordine di cognome. Lo sfondo e l'anteprima sono in
+            <RouterLink to="/settings/tessera">Impostazioni › Tessera</RouterLink>.
           </template>
           <template #opzioni>
             <div class="scelte">
@@ -272,8 +270,8 @@
               <p id="tessere-conteggio" class="scelta__nota" aria-live="polite">
                 <template v-if="tessere.escludiDa">
                   {{ conteggioSoci.attivi[tessere.escludiDa] }} soci su {{ conteggioSoci.totale }}:
-                  chi ha pagato dal {{ primoAnnoValido(tessere.escludiDa, annoTessere) }} in poi o in
-                  quegli anni era esente da minorenne
+                  chi ha pagato dal {{ primoAnnoValido(tessere.escludiDa, annoTessere) }} in poi o
+                  in quegli anni era esente da minorenne
                 </template>
                 <template v-else>{{ conteggioSoci.totale }} soci</template>
               </p>
@@ -579,11 +577,16 @@ const generaTessere = () =>
       tessere.avanzamento = p
     })
     let totale = 0
+    const cambiati = []
     for (const r of risultati) {
       scaricaBlob(r.blob, r.filename)
       totale += r.count
+      cambiati.push(...(r.nomiCambiati || []))
     }
-    return `Tessere generate: ${totale} soci`
+    if (cambiati.length === 0) return `Tessere generate: ${totale} soci`
+    // Il carattere della tessera non ha tutte le lettere: si dice a chi sono state cambiate
+    const elenco = cambiati.slice(0, 10).join(', ') + (cambiati.length > 10 ? ' e altri' : '')
+    return `Tessere generate: ${totale} soci. In ${cambiati.length} ${cambiati.length === 1 ? 'nome' : 'nomi'} una lettera che la tessera non stampa è scritta con la lettera semplice: ${elenco}`
   })
 </script>
 
