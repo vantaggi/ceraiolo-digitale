@@ -622,12 +622,7 @@ export async function generateAventiDirittoPDF(elenco, annoElezione, opzioni = {
     elenco.gruppi.forEach((gruppo, i) => {
       if (i > 0) doc.addPage()
       const y = intestazione(`Manicchia: ${gruppo.manicchia}`, gruppo.totali)
-      createPDFTable(
-        doc,
-        colonne(false),
-        gruppo.righe.map((r) => riga(r, false)),
-        y,
-      )
+      createPDFTable(doc, colonne(false), gruppo.righe.map((r) => riga(r, false)), y)
     })
   } else {
     const sottotitolo =
@@ -639,8 +634,7 @@ export async function generateAventiDirittoPDF(elenco, annoElezione, opzioni = {
   }
 
   addPDFFooter(doc)
-  const quale =
-    elenco.gruppi.length === 1 ? elenco.gruppi[0].manicchia : perManicchia ? 'per_manicchia' : ''
+  const quale = elenco.gruppi.length === 1 ? elenco.gruppi[0].manicchia : perManicchia ? 'per_manicchia' : ''
   doc.save(generatePDFFilename('aventi_diritto', { annoElezione, quale }))
 }
 
@@ -684,14 +678,7 @@ export async function generateActiveMembersPDF(soci, targetYear) {
     const history = socio.paymentHistory || {}
 
     // Anni pagati: dal tesseramento o dallo storico calcolato da db.js
-    const anniPagati = [
-      ...new Set([
-        ...paidYears,
-        ...Object.keys(history)
-          .filter((y) => history[y])
-          .map(Number),
-      ]),
-    ]
+    const anniPagati = [...new Set([...paidYears, ...Object.keys(history).filter((y) => history[y]).map(Number)])]
     const getStatus = (year) => cellaStatoAnno(socio, anniPagati, year)
 
     return [
@@ -1508,7 +1495,7 @@ export async function generateAuditQuotaPDF(auditResults, year) {
       `Audit Quote (Rientri / Nuovi)`,
       `Anno Riferimento: ${year}`,
       `Righe trovate: ${auditResults.length}`,
-      logoData,
+      logoData
     )
 
     const tableData = auditResults.map((item) => {
@@ -1518,7 +1505,7 @@ export async function generateAuditQuotaPDF(auditResults, year) {
         item.tesseramento.anno.toString(),
         { text: `€ ${quota}`, color: [200, 50, 50] }, // Red for highlight
         `${item.tesseramento.numero_ricevuta || '-'} / ${item.tesseramento.numero_blocchetto || '-'}`,
-        item.reason,
+        item.reason
       ]
     })
 
@@ -1527,7 +1514,7 @@ export async function generateAuditQuotaPDF(auditResults, year) {
       { text: 'Anno', width: 15 },
       { text: 'Quota', width: 20 },
       { text: 'Ric / Bloc', width: 25 },
-      { text: 'Motivazione', width: 80 },
+      { text: 'Motivazione', width: 80 }
     ]
 
     createPDFTable(doc, headers, tableData, headerY + 10)
@@ -1538,13 +1525,13 @@ export async function generateAuditQuotaPDF(auditResults, year) {
     return {
       success: true,
       blob: doc.output('blob'),
-      filename,
+      filename
     }
   } catch (error) {
     console.error('Errore generazione PDF audit quote:', error)
     return {
       success: false,
-      error: error.message,
+      error: error.message
     }
   }
 }

@@ -204,26 +204,6 @@ export function erroreTabellaQuote(tabella) {
 }
 
 /**
- * Mai in regola prima di un anno: nessun pagamento e nessun anno da minorenne esente
- * dall'anno di iscrizione dichiarato. L'iscrizione non l'ha mai pagata, quindi la paga
- * adesso ("solo la prima volta"). Capita a chi viene creato da "Nuovo socio" a fine anno
- * (anno di iscrizione = anno di oggi) e paga dall'anno dopo: per tipoQuota e' un rientro.
- * @param {object} socio
- * @param {Array<number>} prima - anni pagati prima dell'anno
- * @param {number} anno
- * @returns {boolean}
- */
-function maiInRegolaPrima(socio, prima, anno) {
-  if (prima.length > 0) return false
-  const iscrizione = annoIscrizione(socio, prima)
-  if (iscrizione === null) return true
-  for (let a = iscrizione; a < anno; a++) {
-    if (statoAnno(socio, prima, a) === 'O') return false
-  }
-  return true
-}
-
-/**
  * Quota da proporre per un anno, con le quote del suo periodo.
  * @param {object} socio - con data_nascita e data_prima_iscrizione
  * @param {Array<number>} anniPagati - anni con un tesseramento (quelli dopo si ignorano)
@@ -242,8 +222,7 @@ export function quotaPerAnno(socio, anniPagati, anno, quote) {
   const iscrizione =
     tipo === 'nuovo' ||
     periodo.iscrizioneChiSaltaUnAnno ||
-    calculatePaymentStatus(socio, prima, anno).daReiscrivere ||
-    maiInRegolaPrima(socio, prima, anno)
+    calculatePaymentStatus(socio, prima, anno).daReiscrivere
   return iscrizione ? fascia.quota + fascia.iscrizione : fascia.quota
 }
 

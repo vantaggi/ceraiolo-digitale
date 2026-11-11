@@ -85,11 +85,18 @@ const LETTERE_SEMPLICI = {
 export function testoStampabile(testo, siScrive) {
   let cambiato = false
   let risultato = ''
-  for (const carattere of String(testo ?? '').replace(/[\s\p{Cc}]+/gu, ' ')) {
+  // NFC: un accento scritto come segno a parte (nomi incollati da un Mac o da un CSV)
+  // torna una lettera sola, che il carattere ha
+  const pulito = String(testo ?? '')
+    .normalize('NFC')
+    .replace(/[\s\p{Cc}]+/gu, ' ')
+  for (const carattere of pulito) {
     if (siScrive(carattere)) {
       risultato += carattere
       continue
     }
+    // Segni che non si vedono (accento rimasto da solo, spazio a larghezza zero): si tolgono
+    if (/^[\p{M}\p{Cf}]$/u.test(carattere)) continue
     cambiato = true
     const semplice =
       LETTERE_SEMPLICI[carattere] ?? carattere.normalize('NFD').replace(/\p{M}/gu, '')

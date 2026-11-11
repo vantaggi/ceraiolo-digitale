@@ -330,49 +330,6 @@ describe('quotaPerAnno: quote dal 2027 (Cioti, 9 novembre 2026)', () => {
   })
 })
 
-describe("quotaPerAnno dal 2027: l'iscrizione la paga chi non e' mai stato in regola", () => {
-  const quote = { quotaOrdinaria: 10, quotaNuovi: 25 }
-  const adulto = { data_nascita: '1980-01-01' } // inventato
-
-  it('creato da "Nuovo socio" a fine 2026 (anno dichiarato 2026), paga il 2027: 15 + 15', () => {
-    expect(quotaPerAnno({ ...adulto, data_prima_iscrizione: 2026 }, [], 2027, quote)).toBe(30)
-    expect(quotaPerAnno({ ...adulto, data_prima_iscrizione: 2025 }, [], 2027, quote)).toBe(30)
-  })
-
-  it('la paga una volta sola: con un pagamento prima resta il rinnovo', () => {
-    expect(quotaPerAnno({ ...adulto, data_prima_iscrizione: 2026 }, [2026], 2027, quote)).toBe(15)
-    expect(quotaPerAnno({ ...adulto, data_prima_iscrizione: 2024 }, [2025], 2027, quote)).toBe(15)
-  })
-
-  it('chi era iscritto da minorenne esente senza pagamenti non la paga (in regola da esente)', () => {
-    // 17 nel 2026, 18 nel 2027: fascia 18-23, iscrizione gratis comunque
-    expect(
-      quotaPerAnno({ data_nascita: '2009-05-01', data_prima_iscrizione: 2020 }, [], 2027, quote),
-    ).toBe(15)
-    // tabella con l'iscrizione anche a 18 anni: l'anno da esente vale come in regola
-    const tabella = [
-      {
-        daAnno: null,
-        iscrizioneChiSaltaUnAnno: false,
-        fasce: [
-          { daEta: 0, quota: null, iscrizione: 0 },
-          { daEta: 18, quota: 15, iscrizione: 15 },
-        ],
-      },
-    ]
-    expect(
-      quotaPerAnno({ data_nascita: '2009-05-01', data_prima_iscrizione: 2020 }, [], 2027, tabella),
-    ).toBe(15)
-    expect(
-      quotaPerAnno({ data_nascita: '1980-01-01', data_prima_iscrizione: 2026 }, [], 2027, tabella),
-    ).toBe(30)
-  })
-
-  it('il tipo di quota non cambia: per i report resta un rientro', () => {
-    expect(tipoQuota({ ...adulto, data_prima_iscrizione: 2026 }, [], 2027)).toBe('rientro')
-  })
-})
-
 describe('tabella delle quote per anno (Cioti, 10 novembre 2026)', () => {
   const base = quotePredefinite({ quotaOrdinaria: 10, quotaNuovi: 25 })
   const adulto = { data_nascita: '1980-01-01' }
