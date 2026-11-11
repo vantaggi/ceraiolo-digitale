@@ -11,6 +11,7 @@ import ListRows from '@/components/base/ListRows.vue'
 import { contaArchivio } from '@/services/db'
 import { useBackupStore } from '@/stores/backupStore'
 import { righeDatiComputer } from '@/utils/datiComputer'
+import { chiediProtezioneDati } from '@/utils/proteggiDati'
 
 const backupStore = useBackupStore()
 const conteggi = ref(null)
@@ -39,11 +40,7 @@ onMounted(async () => {
   } catch (error) {
     console.error('Conteggio di soci e pagamenti non riuscito:', error)
   }
-  try {
-    const risposta = await navigator.storage?.persisted?.()
-    protetti.value = typeof risposta === 'boolean' ? risposta : null
-  } catch {
-    protetti.value = null
-  }
+  // Se non sono ancora protetti lo chiede al browser, poi mostra la risposta
+  protetti.value = await chiediProtezioneDati()
 })
 </script>

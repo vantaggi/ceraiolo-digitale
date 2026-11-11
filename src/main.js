@@ -13,6 +13,7 @@ import App from './App.vue'
 import router from './router'
 import { registerSW } from 'virtual:pwa-register'
 import { impostaAggiornamento, segnalaVersionePronta } from './composables/useAggiornamento'
+import { chiediProtezioneDati } from './utils/proteggiDati'
 
 const app = createApp(App)
 
@@ -34,6 +35,10 @@ app.use(Toast, {
 })
 
 app.mount('#app')
+
+// I dati dei soci stanno solo nel browser: gli si chiede di non cancellarli da solo
+// quando manca spazio. Lo stato si vede in Impostazioni > Dati, riga Conservazione.
+chiediProtezioneDati()
 
 // Service worker: dopo la prima apertura online l'app si apre anche offline.
 // Una versione nuova si scarica in silenzio: la riga di stato dice "Nuova versione
