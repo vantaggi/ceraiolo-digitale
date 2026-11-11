@@ -22,7 +22,7 @@ export const VOCI_CONTROLLO = {
   double_payment: 'Due pagamenti nello stesso anno',
   payment_before_birth: 'Pagamento prima della nascita',
   zero_payment: 'Pagamento da 0 € o senza importo da maggiorenne',
-  never_paid: 'Iscritto negli ultimi anni e nessun pagamento',
+  never_paid: 'Iscritto da maggiorenne, nessuna ricevuta registrata',
 }
 
 /** I controlli che c'erano prima del 10 novembre 2026: dati mancanti o incoerenti. */
@@ -215,10 +215,13 @@ export function controllaDati(soci, tesseramenti, annoOggi) {
       suoi.length === 0 &&
       Number.isFinite(annoIscritto) &&
       annoIscritto <= annoOggi &&
-      annoIscritto >= annoOggi - MAX_ANNI_ARRETRATI &&
+      annoIscritto > annoOggi - MAX_ANNI_ARRETRATI &&
       !isMinorenne(socio.data_nascita, annoIscritto)
     ) {
-      segna('never_paid', `Iscritto dal ${annoIscritto} da maggiorenne, nessun pagamento registrato`)
+      segna(
+        'never_paid',
+        `Iscritto dal ${annoIscritto} ma nessuna ricevuta registrata: al primo pagamento paga anche l'iscrizione`,
+      )
     }
 
     if (issues.length > 0) {

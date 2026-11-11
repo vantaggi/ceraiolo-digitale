@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { controllaDati, dataNascitaValida } from '../controlliDati'
+import { calculatePaymentStatus } from '../payment'
 
 // Solo dati inventati
 const socio = (id, extra = {}) => ({
@@ -158,18 +159,30 @@ describe('controlli dati (Cioti, 10 novembre 2026)', () => {
         socio(3, { data_nascita: '2010-04-02', data_prima_iscrizione: 2020 }), // iscritto da minorenne
         socio(4, { data_prima_iscrizione: 2027 }), // nel futuro: ha gia' il suo avviso
         socio(5, { data_prima_iscrizione: null }), // senza anno: ha gia' il suo avviso
-        socio(6, { data_prima_iscrizione: 2023 }), // ultimo anno ancora recuperabile
-        socio(7, { data_prima_iscrizione: 2022 }), // fermo da piu' anni: da reiscrivere
+        socio(6, { data_prima_iscrizione: 2024 }), // ultimo anno ancora recuperabile
+        socio(7, { data_prima_iscrizione: 2023 }), // 4 anni scoperti: gia' da reiscrivere
       ],
       [pag(2, 2026)],
       2026,
     )
-    expect(p[1]).toEqual(['Iscritto dal 2026 da maggiorenne, nessun pagamento registrato'])
+    expect(p[1]).toEqual([
+      "Iscritto dal 2026 ma nessuna ricevuta registrata: al primo pagamento paga anche l'iscrizione",
+    ])
     expect(p[2]).toBeUndefined()
     expect(p[3]).toBeUndefined()
     expect(p[4]).toEqual(['Iscrizione nel futuro (2027)'])
     expect(p[5]).toEqual(['Senza anno di iscrizione e senza pagamenti'])
-    expect(p[6]).toEqual(['Iscritto dal 2023 da maggiorenne, nessun pagamento registrato'])
+    expect(p[6]).toEqual([
+      "Iscritto dal 2024 ma nessuna ricevuta registrata: al primo pagamento paga anche l'iscrizione",
+    ])
+    // lo stesso confine di calculatePaymentStatus: chi e' segnalato non e' da reiscrivere
+    const adulto = { data_nascita: '1980-05-15' }
+    expect(
+      calculatePaymentStatus({ ...adulto, data_prima_iscrizione: 2024 }, [], 2026).daReiscrivere,
+    ).toBe(false)
+    expect(
+      calculatePaymentStatus({ ...adulto, data_prima_iscrizione: 2023 }, [], 2026).daReiscrivere,
+    ).toBe(true)
     expect(p[7]).toBeUndefined()
   })
 })
