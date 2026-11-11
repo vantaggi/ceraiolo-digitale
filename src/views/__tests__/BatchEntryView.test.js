@@ -35,6 +35,14 @@ const SOCI = [
     data_nascita: '1975-01-01',
     data_prima_iscrizione: 2020,
   },
+  // minorenne nel 2027, mai iscritto: dal 2027 paga un'offerta
+  {
+    id: 5,
+    cognome: 'Piccini',
+    nome: 'Elena',
+    data_nascita: '2013-04-01',
+    data_prima_iscrizione: null,
+  },
 ]
 const PAGATI_PRIMA = { 2: [2023, 2024, 2025], 3: [2023, 2024], 4: [2025, 2026] }
 let salvati = []
@@ -202,10 +210,108 @@ describe('Registra ricevute: nuovo socio dal modulo', () => {
     expect(salvati.map((p) => [p.id_socio, p.anno, p.quota_pagata])).toEqual([[99, 2026, 10]])
   })
 
+  it("nel 2027 un minorenne nuovo non si salva senza l'offerta, poi registra l'importo", async () => {
+    const wrapper = await monta()
+    await wrapper.get('#anno-riferimento').setValue(2027)
+    await flushPromises()
+    await registraNuovo(wrapper, '2012-03-04')
+    expect(salvati).toEqual([])
+    expect(esito(wrapper)).toContain("Scrivi l'importo dell'offerta")
+    const offerta = wrapper.get('#nuovo-socio-incassi-offerta')
+    expect(document.activeElement).toBe(offerta.element)
+    await offerta.setValue('3')
+    await wrapper.get('.nuovo form').trigger('submit')
+    await flushPromises()
+    expect(salvati.map((p) => [p.id_socio, p.anno, p.quota_pagata])).toEqual([[99, 2027, 3]])
+  })
+
+  it('nel 2027 un maggiorenne nuovo non vede il campo offerta', async () => {
+    const wrapper = await monta()
+    await wrapper.get('#anno-riferimento').setValue(2027)
+    await flushPromises()
+    await wrapper.get('.cerca__nuovo').trigger('click')
+    await flushPromises()
+    await wrapper.get('#nuovo-socio-incassi-data_nascita').setValue('1990-03-04')
+    expect(wrapper.find('#nuovo-socio-incassi-offerta').exists()).toBe(false)
+    await wrapper.get('#nuovo-socio-incassi-data_nascita').setValue('2012-03-04')
+    expect(wrapper.find('#nuovo-socio-incassi-offerta').exists()).toBe(true)
+  })
+
   it('un maggiorenne nuovo paga la quota dei nuovi', async () => {
     const wrapper = await monta()
     await registraNuovo(wrapper, '1990-03-04')
     expect(salvati.map((p) => [p.id_socio, p.anno, p.quota_pagata])).toEqual([[99, 2026, 25]])
+  })
+})
+
+describe('Registra ricevute: offerta dei minorenni dal 2027 (bozza A)', () => {
+  const anno2027 = async (wrapper) => {
+    await wrapper.get('#anno-riferimento').setValue(2027)
+    await flushPromises()
+  }
+  const campoOfferta = (wrapper) => wrapper.find('#offerta-5')
+
+  it('Invio sul minorenne apre il campo vuoto, non registra niente', async () => {
+    const wrapper = await monta()
+    await anno2027(wrapper)
+    const campo = wrapper.get('#cerca-socio')
+    await campo.setValue('piccini')
+    await campo.trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+    expect(wrapper.get('.risultato__suggerimento').text()).toContain("scrivi l'offerta")
+    await campo.trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+    expect(campoOfferta(wrapper).exists()).toBe(true)
+    expect(campoOfferta(wrapper).element.value).toBe('')
+    expect(document.activeElement).toBe(campoOfferta(wrapper).element)
+    expect(salvati).toEqual([])
+  })
+
+  it("l'importo e Invio registrano l'offerta e tornano alla ricerca", async () => {
+    const wrapper = await monta()
+    await anno2027(wrapper)
+    await cercaERegistra(wrapper, 'piccini')
+    await campoOfferta(wrapper).setValue('5,50')
+    await campoOfferta(wrapper).trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+    expect(salvati.map((p) => [p.id_socio, p.anno, p.quota_pagata])).toEqual([[5, 2027, 5.5]])
+    expect(esito(wrapper)).toContain('Registrato Piccini Elena, 2027, € 5,50')
+    expect(campoOfferta(wrapper).exists()).toBe(false)
+    expect(document.activeElement).toBe(wrapper.get('#cerca-socio').element)
+  })
+
+  it('Invio senza importo, o con 0, non registra e dice che cosa fare', async () => {
+    const wrapper = await monta()
+    await anno2027(wrapper)
+    await cercaERegistra(wrapper, 'piccini')
+    for (const valore of ['', '0']) {
+      await campoOfferta(wrapper).setValue(valore)
+      await campoOfferta(wrapper).trigger('keydown', { key: 'Enter' })
+      await flushPromises()
+      expect(esito(wrapper)).toContain("Scrivi l'importo dell'offerta")
+    }
+    expect(salvati).toEqual([])
+    expect(campoOfferta(wrapper).exists()).toBe(true)
+  })
+
+  it('Esc chiude il campo e torna alla ricerca senza registrare', async () => {
+    const wrapper = await monta()
+    await anno2027(wrapper)
+    await cercaERegistra(wrapper, 'piccini')
+    await campoOfferta(wrapper).setValue('5')
+    await campoOfferta(wrapper).trigger('keydown', { key: 'Escape' })
+    await flushPromises()
+    expect(campoOfferta(wrapper).exists()).toBe(false)
+    expect(document.activeElement).toBe(wrapper.get('#cerca-socio').element)
+    expect(wrapper.get('#cerca-socio').element.value).toBe('piccini')
+    expect(salvati).toEqual([])
+  })
+
+  it('nel 2026 lo stesso minorenne paga la quota, senza campo', async () => {
+    const wrapper = await monta()
+    await cercaERegistra(wrapper, 'piccini')
+    expect(campoOfferta(wrapper).exists()).toBe(false)
+    expect(salvati.map((p) => [p.id_socio, p.anno, p.quota_pagata])).toEqual([[5, 2026, 10]])
   })
 })
 
