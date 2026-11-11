@@ -149,4 +149,27 @@ describe('controlli dati (Cioti, 10 novembre 2026)', () => {
       'Possibile doppione: altre 2 schede hanno stessi cognome, nome e data di nascita (BRANCA, iscritto dal 2002; BRANCA, iscritto dal 2003)',
     ])
   })
+
+  it('iscritto da maggiorenne e nessun pagamento: si segnala; il minorenne esente no', () => {
+    const p = problemi(
+      [
+        socio(1, { data_prima_iscrizione: 2026 }), // adulto creato senza ricevuta
+        socio(2, { data_prima_iscrizione: 2026 }), // adulto che ha pagato
+        socio(3, { data_nascita: '2010-04-02', data_prima_iscrizione: 2020 }), // iscritto da minorenne
+        socio(4, { data_prima_iscrizione: 2027 }), // nel futuro: ha gia' il suo avviso
+        socio(5, { data_prima_iscrizione: null }), // senza anno: ha gia' il suo avviso
+        socio(6, { data_prima_iscrizione: 2023 }), // ultimo anno ancora recuperabile
+        socio(7, { data_prima_iscrizione: 2022 }), // fermo da piu' anni: da reiscrivere
+      ],
+      [pag(2, 2026)],
+      2026,
+    )
+    expect(p[1]).toEqual(['Iscritto dal 2026 da maggiorenne, nessun pagamento registrato'])
+    expect(p[2]).toBeUndefined()
+    expect(p[3]).toBeUndefined()
+    expect(p[4]).toEqual(['Iscrizione nel futuro (2027)'])
+    expect(p[5]).toEqual(['Senza anno di iscrizione e senza pagamenti'])
+    expect(p[6]).toEqual(['Iscritto dal 2023 da maggiorenne, nessun pagamento registrato'])
+    expect(p[7]).toBeUndefined()
+  })
 })
