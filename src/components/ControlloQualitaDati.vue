@@ -3,8 +3,9 @@
     <p class="controllo__testo">
       Cerca i soci con dati mancanti o incoerenti: data o luogo di nascita (anche scritta male),
       data di iscrizione, manicchia (anche scritta in modi diversi), possibili doppioni, due
-      pagamenti nello stesso anno, pagamenti prima della nascita o da 0 € da maggiorenne. Non cambia
-      nessun dato: le correzioni si fanno dalla scheda del socio.
+      pagamenti nello stesso anno, pagamenti prima della nascita o da 0 € da maggiorenne, iscritti
+      da maggiorenni senza nessuna ricevuta. Non cambia nessun dato: le correzioni si fanno dalla
+      scheda del socio.
     </p>
     <BaseButton class="controllo__avvia" :loading="inCorso" @click="esegui">
       <AppIcon name="ricerca" /> {{ risultato ? 'Ripeti il controllo' : 'Esegui il controllo' }}

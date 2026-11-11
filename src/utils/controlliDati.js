@@ -3,9 +3,10 @@
  * Solo avvisi: nessun dato viene cambiato. I sei controlli dopo i primi li ha chiesti
  * Cioti il 10 novembre 2026 (data scritta male, doppioni, due pagamenti nello stesso
  * anno, pagamento prima della nascita, pagamento da 0 euro da maggiorenne, manicchia
- * scritta in modi diversi).
+ * scritta in modi diversi). L'undici novembre ha chiesto di poter verificare chi ha un anno
+ * di iscrizione ma nessun pagamento (al primo pagamento paga anche l'iscrizione).
  */
-import { isMinorenne } from './payment'
+import { isMinorenne, MAX_ANNI_ARRETRATI } from './payment'
 
 /** Chiavi del riepilogo, nell'ordine in cui si mostrano. */
 export const VOCI_CONTROLLO = {
@@ -21,6 +22,7 @@ export const VOCI_CONTROLLO = {
   double_payment: 'Due pagamenti nello stesso anno',
   payment_before_birth: 'Pagamento prima della nascita',
   zero_payment: 'Pagamento da 0 € o senza importo da maggiorenne',
+  never_paid: 'Iscritto da maggiorenne, nessuna ricevuta registrata',
 }
 
 /** I controlli che c'erano prima del 10 novembre 2026: dati mancanti o incoerenti. */
@@ -202,6 +204,23 @@ export function controllaDati(soci, tesseramenti, annoOggi) {
       segna(
         'zero_payment',
         `Pagamento da 0 € o senza importo da maggiorenne (${[...new Set(aZero)].sort().join(', ')})`,
+      )
+    }
+
+    // Iscritto da maggiorenne (o senza data valida) negli ultimi anni e mai un pagamento: la
+    // scheda e' stata creata senza registrare la ricevuta. Chi si e' iscritto da minorenne
+    // era esente; chi e' fermo da piu' anni e' gia' da reiscrivere e non si segnala qui.
+    const annoIscritto = parseInt(socio.data_prima_iscrizione)
+    if (
+      suoi.length === 0 &&
+      Number.isFinite(annoIscritto) &&
+      annoIscritto <= annoOggi &&
+      annoIscritto > annoOggi - MAX_ANNI_ARRETRATI &&
+      !isMinorenne(socio.data_nascita, annoIscritto)
+    ) {
+      segna(
+        'never_paid',
+        `Iscritto dal ${annoIscritto} ma nessuna ricevuta registrata: al primo pagamento paga anche l'iscrizione`,
       )
     }
 
