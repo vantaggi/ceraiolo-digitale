@@ -934,7 +934,7 @@ const confirmFactoryReset = async () => {
   const conferma = await askConfirm({
     title: 'Cancellare tutti i dati?',
     message:
-      "Soci, pagamenti e impostazioni vengono cancellati e l'app torna come appena installata. Prima viene tentato un backup automatico. L'operazione non si annulla.",
+      "Soci, pagamenti e impostazioni vengono cancellati e l'app torna come appena installata. Prima viene salvata una copia dei dati: se la copia non riesce non si cancella niente. L'operazione non si annulla.",
     confirmLabel: 'Cancella tutti i dati',
     danger: true,
   })
@@ -948,8 +948,19 @@ const confirmFactoryReset = async () => {
     // Senza una copia (cartella dei backup o file scaricato) non si cancella niente
     try {
       const copia = await copiaPrimaDiCancellare()
+      // Il browser non dice se il file scaricato e' stato salvato: lo si chiede
       if (copia === 'scaricata') {
-        toast.info('Backup su cartella non riuscito: la copia dei dati è stata scaricata.')
+        const salvato = await askConfirm({
+          title: 'La copia dei dati è stata scaricata?',
+          message:
+            'Il backup nella cartella non è riuscito, quindi ho scaricato il file "ceraiolo_prima_della_cancellazione.sqlite". Controlla che sia tra i file scaricati: è l\'unica copia. Se non c\'è, annulla.',
+          confirmLabel: 'Il file c\'è, cancella tutti i dati',
+          danger: true,
+        })
+        if (!salvato) {
+          isExporting.value = false
+          return
+        }
       }
     } catch (e) {
       toast.error('Copia di sicurezza non riuscita, non ho cancellato niente: ' + e.message)

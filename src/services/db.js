@@ -1277,6 +1277,15 @@ export async function deleteTesseramentiByReceipt(socioId, numeroRicevuta, anni)
   try {
     const numericSocioId = typeof socioId === 'string' ? parseInt(socioId, 10) : socioId
     if (isNaN(numericSocioId)) throw new Error('Invalid socioId')
+    // Senza un numero di ricevuta vero non si cancella niente (Number(null) sarebbe 0)
+    if (
+      numeroRicevuta === null ||
+      numeroRicevuta === undefined ||
+      numeroRicevuta === '' ||
+      !Number.isFinite(Number(numeroRicevuta))
+    ) {
+      return 0
+    }
 
     const tesseramentiToDelete = await db.tesseramenti
       .where('id_socio')

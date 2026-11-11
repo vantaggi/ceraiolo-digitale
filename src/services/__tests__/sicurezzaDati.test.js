@@ -213,6 +213,11 @@ describe('annulla una ricevuta (Registra ricevute)', () => {
       numero_ricevuta: null,
     })
     expect(await deleteTesseramentiByReceipt(1, 0, [2027])).toBe(0)
+    // ricevuta 0 dello storico: una chiamata senza numero non la tocca
+    await db.tesseramenti.add({ id_tesseramento: 'p5', id_socio: 1, anno: 2027, numero_ricevuta: 0 })
+    expect(await deleteTesseramentiByReceipt(1, null, [2027])).toBe(0)
+    expect(await deleteTesseramentiByReceipt(1, '', [2027])).toBe(0)
+    expect(await db.tesseramenti.get('p5')).toBeDefined()
     expect(await db.tesseramenti.get('p4')).toBeDefined()
   })
 })
