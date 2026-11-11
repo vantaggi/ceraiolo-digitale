@@ -235,6 +235,9 @@ export async function getNomiSoci(ids) {
   )
 }
 
+/** Nome dato ai blocchetti creati in automatico dai pagamenti dello storico */
+const BLOCCHETTO_DA_STORICO = 'Auto-Importato da Storico'
+
 /**
  * Auto-syncs blocchetti from existing tesseramenti data.
  * Reads all payments, groups by numero_blocchetto, and creates any missing blocchetto records.
@@ -243,7 +246,7 @@ export async function syncBlocchettiFromTesseramenti() {
   try {
     // 1. Remove previous auto-imported blocchetti to recalculate them freshly
     const vecchiAutoImportati = await db.blocchetti
-      .filter((b) => b.assegnato_a === 'Auto-Importato da Storico')
+      .filter((b) => b.assegnato_a === BLOCCHETTO_DA_STORICO)
       .toArray()
     if (vecchiAutoImportati.length > 0) {
       await db.blocchetti.bulkDelete(vecchiAutoImportati.map((b) => b.id))
@@ -320,7 +323,7 @@ export async function syncBlocchettiFromTesseramenti() {
           numero_blocchetto: bloccoNum,
           ricevute_da: minR,
           ricevute_a: maxR,
-          assegnato_a: 'Auto-Importato da Storico',
+          assegnato_a: BLOCCHETTO_DA_STORICO,
           data_assegnazione: earliestStr,
           data_restituzione: dataRestituzione,
         })
@@ -558,15 +561,23 @@ export async function deleteSocio(socioId) {
     if (!socioToDelete) {
       throw new Error(`Socio with id ${socioId} not found`)
     }
+    // Anche i suoi pagamenti finiscono nel registro: prima sparivano senza traccia
+    const pagamenti = await db.tesseramenti.where('id_socio').equals(socioId).toArray()
 
-    // First delete all tesseramenti associated with this socio
-    await db.tesseramenti.where('id_socio').equals(socioId).delete()
-
-    // Then delete the socio
-    await db.soci.delete(socioId)
+    // Socio e pagamenti insieme: se una delle due cancellazioni fallisce non resta a meta'
+    await db.transaction('rw', db.soci, db.tesseramenti, async () => {
+      await db.tesseramenti.where('id_socio').equals(socioId).delete()
+      await db.soci.delete(socioId)
+    })
 
     // Log the deletion
-    await logLocalChange('soci', socioId, 'DELETE', socioToDelete, null)
+    await logLocalChange(
+      'soci',
+      socioId,
+      'DELETE',
+      { ...socioToDelete, tesseramenti: pagamenti },
+      null,
+    )
   } catch (error) {
     console.error('Error deleting socio:', error)
     throw new Error(`Errore durante l'eliminazione del socio: ${error.message}`)
@@ -801,7 +812,8 @@ export async function exportDatabaseToSqlite(customFilename = null) {
         change_type TEXT,
         record_id TEXT,
         timestamp TEXT,
-        new_data TEXT -- JSON string
+        new_data TEXT, -- JSON string
+        old_data TEXT -- JSON string: i dati di prima (socio o pagamento eliminato)
       );
       CREATE TABLE Metadata (
         key TEXT PRIMARY KEY,
@@ -843,7 +855,8 @@ export async function exportDatabaseToSqlite(customFilename = null) {
         tess.id_socio,
         tess.anno,
         tess.data_pagamento || null,
-        tess.quota_pagata || null,
+        // 0 euro resta 0: con || diventava "senza importo"
+        tess.quota_pagata ?? null,
         tess.numero_ricevuta || null,
         tess.numero_blocchetto || null,
       ])
@@ -888,7 +901,7 @@ export async function exportDatabaseToSqlite(customFilename = null) {
     // --- EXPORT LOCAL CHANGES (HISTORY) ---
     const historyData = await db.local_changes.toArray()
     const historyStmt = sqliteDb.prepare(
-      'INSERT INTO LocalChanges (id, table_name, change_type, record_id, timestamp, new_data) VALUES (?, ?, ?, ?, ?, ?)',
+      'INSERT INTO LocalChanges (id, table_name, change_type, record_id, timestamp, new_data, old_data) VALUES (?, ?, ?, ?, ?, ?, ?)',
     )
     for (const change of historyData) {
       historyStmt.run([
@@ -898,6 +911,7 @@ export async function exportDatabaseToSqlite(customFilename = null) {
         change.record_id ? String(change.record_id) : null,
         change.timestamp || null,
         JSON.stringify(change.new_data || {}),
+        change.old_data == null ? null : JSON.stringify(change.old_data),
       ])
     }
     historyStmt.free()
@@ -1152,7 +1166,8 @@ export async function exportSocioToSqlite(socioId) {
         tess.id_socio,
         tess.anno,
         tess.data_pagamento || null,
-        tess.quota_pagata || null,
+        // 0 euro resta 0: con || diventava "senza importo"
+        tess.quota_pagata ?? null,
         tess.numero_ricevuta || null,
         tess.numero_blocchetto || null,
       ])
@@ -1262,11 +1277,28 @@ export async function deleteTesseramentiByReceipt(socioId, numeroRicevuta, anni)
   try {
     const numericSocioId = typeof socioId === 'string' ? parseInt(socioId, 10) : socioId
     if (isNaN(numericSocioId)) throw new Error('Invalid socioId')
+    // Senza un numero di ricevuta vero non si cancella niente (Number(null) sarebbe 0)
+    if (
+      numeroRicevuta === null ||
+      numeroRicevuta === undefined ||
+      numeroRicevuta === '' ||
+      !Number.isFinite(Number(numeroRicevuta))
+    ) {
+      return 0
+    }
 
     const tesseramentiToDelete = await db.tesseramenti
       .where('id_socio')
       .equals(numericSocioId)
-      .and((t) => t.numero_ricevuta === numeroRicevuta && anni.includes(t.anno))
+      // Numeri a confronto come numeri: una ricevuta salvata come testo ("12") non sfugge
+      .and(
+        (t) =>
+          t.numero_ricevuta !== null &&
+          t.numero_ricevuta !== undefined &&
+          t.numero_ricevuta !== '' &&
+          Number(t.numero_ricevuta) === Number(numeroRicevuta) &&
+          anni.map(Number).includes(Number(t.anno)),
+      )
       .toArray()
 
     if (tesseramentiToDelete.length === 0) return 0
@@ -1900,7 +1932,9 @@ export async function getRecentActivity(limit = 10) {
           description =
             tipo === 'create'
               ? `Registrato pagamento ${c.new_data?.anno} per ${c.new_data?.id_socio}` // ID only if we don't have lookup
-              : `Cancellato pagamento ${c.old_data?.anno ?? ''}`.trim()
+              : tipo === 'update'
+                ? `Modificata quota ${c.new_data?.anno ?? ''}`.trim()
+                : `Cancellato pagamento ${c.old_data?.anno ?? ''}`.trim()
           break
         case 'settings':
           description =
@@ -1955,11 +1989,21 @@ export async function importDatabaseFromSqlite(file) {
 
     // Verify tables exist
     // Simple check
+    let sociNelFile = 0
     try {
-      sqliteDb.exec('SELECT count(*) FROM Soci')
+      sociNelFile = sqliteDb.exec('SELECT count(*) FROM Soci')[0].values[0][0]
     } catch {
       throw new Error('Il file non sembra essere un database valido o manca la tabella Soci.')
     }
+    // Un file senza soci sostituirebbe l'archivio con il vuoto
+    if (!sociNelFile) {
+      throw new Error('Il file non contiene soci: i dati attuali restano come sono.')
+    }
+    // Tabelle che un file vecchio o un database iniziale non ha: quelle dell'app restano
+    const haTabella = (nome) =>
+      sqliteDb.exec("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", [nome])
+        .length > 0
+    const haImpostazioni = haTabella('Settings')
 
     // Check version if Metadata exists
     try {
@@ -1983,7 +2027,9 @@ export async function importDatabaseFromSqlite(file) {
         await db.soci.clear()
         await db.tesseramenti.clear()
         await db.local_changes.clear()
-        await db.settings.clear()
+        // Senza la tabella Settings nel file le impostazioni (quote, sfondo della tessera,
+        // manicchie) restano: prima venivano cancellate e non tornavano
+        if (haImpostazioni) await db.settings.clear()
 
         // --- IMPORT SOCI ---
         const sociResult = sqliteDb.exec('SELECT * FROM Soci')
@@ -2078,10 +2124,11 @@ export async function importDatabaseFromSqlite(file) {
               columns.forEach((col, i) => {
                 obj[col] = row[i]
               })
-              // Parse JSON new_data
-              if (obj.new_data) {
+              // Parse JSON new_data e old_data (old_data manca nei backup piu' vecchi)
+              for (const campo of ['new_data', 'old_data']) {
+                if (!obj[campo]) continue
                 try {
-                  obj.new_data = JSON.parse(obj.new_data)
+                  obj[campo] = JSON.parse(obj[campo])
                 } catch {
                   // Keep as string
                 }
@@ -2193,7 +2240,9 @@ export async function normalizeDatabaseData() {
     // nei tesseramenti guariti (perché in realtà erano numeri di ricevuta storici).
     for (const b of allBlocchettiDB) {
       const bNum = Number(b.numero_blocchetto)
-      if (!validBlocchettiKeys.has(bNum)) {
+      // Solo quelli creati in automatico dallo storico: un blocchetto assegnato a mano e
+      // ancora senza pagamenti (appena consegnato) non e' un falso e non si cancella
+      if (b.assegnato_a === BLOCCHETTO_DA_STORICO && !validBlocchettiKeys.has(bNum)) {
         // Questo blocchetto non esiste nei pagamenti come numero piccolo.
         // Significa che era un falso storico (un record generato dal numero ricevuta alto).
         await db.blocchetti.delete(b.id || bNum)
@@ -2285,12 +2334,26 @@ export async function updateTesseramentoQuota(id_tesseramento, nuova_quota) {
       throw new Error('ID tesseramento o nuova quota non validi')
     }
 
+    // Un id di sole cifre puo' essere salvato come testo ("12") o come numero
+    let prima = await db.tesseramenti.get(finalId)
+    if (!prima && finalId !== id_tesseramento) {
+      prima = await db.tesseramenti.get(id_tesseramento)
+      if (prima) finalId = id_tesseramento
+    }
+    if (!prima) {
+      throw new Error(`Tesseramento con ID ${finalId} non trovato`)
+    }
+
     const updated = await db.tesseramenti.update(finalId, {
       quota_pagata: Number(nuova_quota),
     })
 
-    if (updated === 0) {
-      throw new Error(`Tesseramento con ID ${finalId} non trovato`)
+    // Nel registro delle modifiche, come le altre correzioni: prima non restava traccia
+    if (prima.quota_pagata !== Number(nuova_quota)) {
+      await logLocalChange('tesseramenti', finalId, 'update', prima, {
+        ...prima,
+        quota_pagata: Number(nuova_quota),
+      })
     }
 
     return updated
