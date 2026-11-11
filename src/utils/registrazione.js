@@ -15,6 +15,27 @@ export function euro(valore) {
   })
 }
 
+/**
+ * L'importo di un'offerta scritto a mano: "5", "5,50", "5.50", "€ 5" o "1.000,00".
+ * @param {string|number} testo
+ * @returns {number|null} l'importo, maggiore di zero e con al piu' due decimali; null se
+ *   il campo e' vuoto, zero o non e' un importo
+ */
+export function leggiImporto(testo) {
+  let t = String(testo ?? '')
+    .replace(/€/g, '')
+    .replace(/\s/g, '')
+  // Con la virgola i punti sono le migliaia (a gruppi di tre); senza, il punto e' la
+  // virgola dei decimali
+  if (t.includes(',')) {
+    if (!/^(\d+|\d{1,3}(\.\d{3})+),\d{1,2}$/.test(t)) return null
+    t = t.replace(/\./g, '').replace(',', '.')
+  }
+  if (!/^\d+(\.\d{1,2})?$/.test(t)) return null
+  const importo = Number(t)
+  return importo > 0 ? importo : null
+}
+
 const TESTO_QUOTA = { nuovo: 'quota dei nuovi', rientro: 'quota dei nuovi' }
 
 /**
@@ -26,6 +47,7 @@ const TESTO_QUOTA = { nuovo: 'quota dei nuovi', rientro: 'quota dei nuovi' }
  * @param {boolean} [p.sullaRicevuta] - il socio e' gia' sulla ricevuta in corso
  * @returns {{
  *   registra: boolean,
+ *   chiedeOfferta?: boolean,
  *   messaggio: string,
  *   stato: { testo: string, tono: 'ok'|'attenzione'|'neutro' },
  *   anno: number, quota: number, testoQuota: string, arretrati: Array<number>
@@ -53,12 +75,16 @@ export function propostaRegistrazione({ socio, anniPagati, anno, quote, sullaRic
     )
   }
   // Dal 2027 il minorenne paga un'offerta: nessun importo da proporre, anche se non e'
-  // ancora iscritto (statoAnno '-'). L'importo si scrive nella scheda.
+  // ancora iscritto (statoAnno '-'). Invio apre il campo dell'importo sotto il socio
+  // (bozza A, scelta di Cioti dell'11 novembre 2026): senza importo non si registra.
   if (base.quota === null) {
-    return ferma(
-      { testo: `Offerta ${anno}`, tono: 'neutro' },
-      `${nome} è minorenne nel ${anno}: paga un'offerta, se vuole. Registra l'importo dalla sua scheda.`,
-    )
+    return {
+      ...ferma(
+        { testo: `Offerta ${anno}`, tono: 'neutro' },
+        `${nome} è minorenne nel ${anno}: paga un'offerta, se vuole. Scrivi l'importo e premi Invio.`,
+      ),
+      chiedeOfferta: true,
+    }
   }
   if (statoAnno(socio, anni, anno) === 'O') {
     return ferma(

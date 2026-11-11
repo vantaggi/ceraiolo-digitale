@@ -106,7 +106,7 @@
             role="option"
             :aria-selected="index === selezionato ? 'true' : 'false'"
             @mousedown.prevent
-            @mousemove="selezionato = index"
+            @mousemove="offertaPer === null && (selezionato = index)"
             @click="registraRisultato(index)"
           >
             <span class="risultato__chi">
@@ -126,6 +126,40 @@
               aria-hidden="true"
             >
               <kbd>Invio</kbd> registra € {{ euro(proposte[index].quota) }}
+            </span>
+            <span
+              v-else-if="
+                index === selezionato && proposte[index].chiedeOfferta && offertaPer !== r.socio.id
+              "
+              class="risultato__suggerimento"
+              aria-hidden="true"
+            >
+              <kbd>Invio</kbd> scrivi l'offerta
+            </span>
+            <!-- Offerta dei minorenni (bozza A): il campo si apre sotto il socio scelto -->
+            <span
+              v-if="offertaPer === r.socio.id"
+              class="risultato__offerta"
+              @mousedown.stop
+              @click.stop
+            >
+              <label :for="`offerta-${r.socio.id}`">Offerta €</label>
+              <input
+                :id="`offerta-${r.socio.id}`"
+                ref="offertaInput"
+                v-model="importoOfferta"
+                type="text"
+                inputmode="decimal"
+                autocomplete="off"
+                class="campo-euro"
+                :disabled="isProcessing"
+                :aria-label="`Offerta di ${r.socio.cognome} ${r.socio.nome}, in euro`"
+                :aria-describedby="`offerta-tasti-${r.socio.id}`"
+                @keydown="handleOffertaKeydown($event, index)"
+              />
+              <span :id="`offerta-tasti-${r.socio.id}`" class="risultato__suggerimento">
+                <kbd>Invio</kbd> registra · <kbd>Esc</kbd> annulla
+              </span>
             </span>
           </li>
         </ul>
@@ -159,6 +193,24 @@
               compatto
             />
             <div class="nuovo__azioni">
+              <span v-if="offertaNuovo" class="nuovo__offerta">
+                <label for="nuovo-socio-incassi-offerta">Offerta €</label>
+                <input
+                  id="nuovo-socio-incassi-offerta"
+                  ref="offertaNuovoInput"
+                  v-model="importoNuovo"
+                  type="text"
+                  inputmode="decimal"
+                  autocomplete="off"
+                  class="campo-euro"
+                  :disabled="isProcessing"
+                  :aria-invalid="tentatoNuovo && leggiImporto(importoNuovo) === null"
+                  aria-describedby="nuovo-socio-incassi-offerta-nota"
+                />
+                <span id="nuovo-socio-incassi-offerta-nota" class="nuovo__nota">
+                  minorenne nel {{ sessionData.annoRiferimento }}
+                </span>
+              </span>
               <BaseButton variant="ghost" :disabled="isProcessing" @click="cancelNewSocio">
                 Annulla
               </BaseButton>
@@ -317,7 +369,12 @@ import {
   riepilogoBlocchetto,
   sociDellaRicevuta,
 } from '@/utils/blocchetto'
-import { euro, propostaRegistrazione, quoteDopoArretrato } from '@/utils/registrazione'
+import {
+  euro,
+  leggiImporto,
+  propostaRegistrazione,
+  quoteDopoArretrato,
+} from '@/utils/registrazione'
 import { askConfirm, dialogState } from '@/composables/useDialog'
 import AppIcon from '@/components/base/AppIcon.vue'
 import PageHeader from '@/components/base/PageHeader.vue'
@@ -397,6 +454,11 @@ const selezionato = ref(-1)
 const cercato = ref(false) // la ricerca del testo attuale e' finita
 const isProcessing = ref(false)
 
+// Offerta dei minorenni (bozza A): id del socio con il campo aperto e l'importo scritto
+const offertaPer = ref(null)
+const importoOfferta = ref('')
+const offertaInput = ref([]) // ref dentro v-for: un elenco, al piu' un campo
+
 // Esito dell'ultima azione, mostrato nella ricevuta: { testo, tono: ok|attenzione|errore|neutro }
 const esito = ref(null)
 
@@ -417,6 +479,8 @@ const newSocioData = reactive({
 })
 const moduloNuovo = ref(null)
 const tentatoNuovo = ref(false)
+const importoNuovo = ref('')
+const offertaNuovoInput = ref(null)
 const sociInArchivio = ref([])
 const cittaPredefinita = ref('Gubbio')
 const availableGroups = ref([])
@@ -469,6 +533,17 @@ const erroriSessione = computed(() =>
     .filter(Boolean)
     .join(' · '),
 )
+
+/**
+ * Il nuovo socio e' nella fascia a offerta per l'anno che si incassa (minorenne dal
+ * 2027): accanto a "Salva e registra" si scrive l'importo. Solo con una data di nascita
+ * completa, altrimenti non si sa ancora.
+ */
+const offertaNuovo = computed(() => {
+  const dati = datiDaSalvare(newSocioData)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dati.data_nascita || '')) return false
+  return quotaPerAnno(dati, [], sessionData.annoRiferimento, quote.value) === null
+})
 
 /** Che cosa farebbe Invio su ciascun socio trovato (utils/registrazione.js). */
 const proposte = computed(() =>
@@ -601,6 +676,17 @@ onMounted(async () => {
 })
 
 watch(() => sessionData.annoRiferimento, validateSessionData)
+
+// Il campo dell'offerta resta aperto solo sul socio scelto e solo finche' il socio paga
+// un'offerta: cambiando riga con le frecce o cambiando l'anno si chiude
+watch([selezionato, proposte], () => {
+  if (offertaPer.value === null) return
+  const r = risultati.value[selezionato.value]
+  if (r?.socio.id === offertaPer.value && proposte.value[selezionato.value]?.chiedeOfferta) return
+  const eraNelCampo = offertaInput.value?.[0] === document.activeElement
+  chiudiOfferta()
+  if (eraNelCampo) focusRicerca()
+})
 watch(() => sessionData.numeroBlocchetto, validateSessionData)
 watch(
   () => sessionData.numeroBlocchetto,
@@ -646,8 +732,14 @@ const clearSearch = () => {
   risultati.value = []
   selezionato.value = -1
   cercato.value = false
+  chiudiOfferta()
   showNewSocioForm.value = false
   resetNewSocioForm()
+}
+
+const chiudiOfferta = () => {
+  offertaPer.value = null
+  importoOfferta.value = ''
 }
 
 const svuotaEFocus = () => {
@@ -666,6 +758,7 @@ const resetNewSocioForm = () => {
     note: '',
   })
   tentatoNuovo.value = false
+  importoNuovo.value = ''
   moduloNuovo.value?.azzera()
 }
 
@@ -696,6 +789,7 @@ let ricercaInCorso = null
 const debouncedSearch = () => {
   clearTimeout(searchTimeout)
   cercato.value = false
+  chiudiOfferta()
   if (searchQuery.value.trim().length < 2) {
     risultati.value = []
     selezionato.value = -1
@@ -716,6 +810,7 @@ const performSearch = async () => {
     const soci = await searchSoci(testo)
     const anni = await getAnniPagatiDiSoci(soci.map((s) => s.id))
     if (corrente !== ricercaInCorso) return // nel frattempo si e' scritto altro
+    chiudiOfferta()
     risultati.value = soci.map((socio) => ({ socio, anniPagati: anni.get(Number(socio.id)) || [] }))
     selezionato.value = risultati.value.length > 0 ? 0 : -1
     showNewSocioForm.value = false
@@ -820,11 +915,19 @@ const registraPagamento = async (socio, anno, quota) => {
   }
 }
 
-/** Invio o clic su un socio trovato: registra subito l'anno con la quota proposta. */
+/**
+ * Invio o clic su un socio trovato: registra subito l'anno con la quota proposta. Per un
+ * minorenne a offerta apre il campo dell'importo sotto il socio (bozza A).
+ */
 const registraRisultato = async (indice) => {
   const r = risultati.value[indice]
   const proposta = proposte.value[indice]
   if (!r || !proposta || isProcessing.value) return
+  if (proposta.chiedeOfferta) {
+    apriOfferta(indice)
+    return
+  }
+  chiudiOfferta()
   if (!proposta.registra) {
     esito.value = { testo: proposta.messaggio, tono: 'neutro' }
     playErrorSound()
@@ -836,6 +939,57 @@ const registraRisultato = async (indice) => {
     }
     clearSearch()
     focusRicerca()
+  }
+}
+
+const apriOfferta = (indice) => {
+  const id = risultati.value[indice].socio.id
+  if (offertaPer.value !== id) {
+    offertaPer.value = id
+    importoOfferta.value = ''
+  }
+  selezionato.value = indice
+  esito.value = null
+  nextTick(() => offertaInput.value?.[0]?.focus())
+}
+
+/** Nel campo dell'offerta: Invio registra l'importo, Esc torna alla ricerca. */
+const handleOffertaKeydown = async (e, indice) => {
+  if (e.key === 'Escape') {
+    e.preventDefault()
+    chiudiOfferta()
+    focusRicerca()
+    return
+  }
+  if (e.key !== 'Enter') return
+  e.preventDefault()
+  if (conCtrl(e)) {
+    // Ctrl+Invio qui non passa alla ricevuta successiva: perderebbe l'importo scritto
+    e.stopPropagation()
+    esito.value = {
+      testo: "Prima registra l'offerta con Invio, o Esc per annullare.",
+      tono: 'attenzione',
+    }
+    playErrorSound()
+    return
+  }
+  const r = risultati.value[indice]
+  const proposta = proposte.value[indice]
+  if (!r || !proposta?.chiedeOfferta || isProcessing.value) return
+  const importo = leggiImporto(importoOfferta.value)
+  if (importo === null) {
+    esito.value = {
+      testo: "Scrivi l'importo dell'offerta, o Esc per annullare.",
+      tono: 'attenzione',
+    }
+    playErrorSound()
+    return
+  }
+  if (await registraPagamento(r.socio, proposta.anno, importo)) {
+    clearSearch()
+    focusRicerca()
+  } else {
+    nextTick(() => offertaInput.value?.[0]?.focus())
   }
 }
 
@@ -918,6 +1072,17 @@ const saveNewSocio = async () => {
     esito.value = { testo: `Controlla i dati in alto: ${erroriSessione.value}.`, tono: 'errore' }
     return
   }
+  // Minorenne a offerta: senza importo non si salva niente, nemmeno il socio
+  const offerta = offertaNuovo.value ? leggiImporto(importoNuovo.value) : null
+  if (offertaNuovo.value && offerta === null) {
+    esito.value = {
+      testo: "Scrivi l'importo dell'offerta accanto a «Salva e registra».",
+      tono: 'attenzione',
+    }
+    playErrorSound()
+    nextTick(() => offertaNuovoInput.value?.focus())
+    return
+  }
 
   isProcessing.value = true
   try {
@@ -931,10 +1096,10 @@ const saveNewSocio = async () => {
     }
 
     const socioId = await addSocio(socioData)
-    // Regola in payment.js (quotaPerAnno), con la tabella delle quote per anno: una fascia
-    // a offerta (per esempio i minorenni dal 2027) si registra a 0 e si corregge poi nella
-    // scheda
-    const quota = quotaPerAnno(socioData, [], sessionData.annoRiferimento, quote.value) ?? 0
+    // Regola in payment.js (quotaPerAnno), con la tabella delle quote per anno; una fascia
+    // a offerta (per esempio i minorenni dal 2027) registra l'importo scritto nel modulo
+    const quota =
+      offerta ?? quotaPerAnno(socioData, [], sessionData.annoRiferimento, quote.value) ?? 0
     await addTesseramento({
       id_socio: socioId,
       anno: sessionData.annoRiferimento,
@@ -1235,6 +1400,48 @@ kbd {
   font-size: var(--font-size-label);
   color: var(--text-secondary);
   white-space: nowrap;
+}
+
+/* Offerta dei minorenni (bozza A): campo dell'importo sotto il socio scelto */
+.risultato__offerta,
+.nuovo__offerta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
+  cursor: auto;
+}
+
+.risultato__offerta {
+  flex-basis: 100%;
+}
+
+.nuovo__offerta {
+  margin-right: auto;
+}
+
+.risultato__offerta label,
+.nuovo__offerta label {
+  font-size: var(--font-size-caption);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.campo-euro {
+  width: 6.5rem;
+  padding: var(--space-4) var(--space-8);
+  box-shadow: none;
+  font-size: var(--font-size-body);
+  font-variant-numeric: tabular-nums;
+}
+
+.campo-euro[aria-invalid='true'] {
+  border-color: var(--status-error);
+}
+
+.nuovo__nota {
+  font-size: var(--font-size-label);
+  color: var(--text-secondary);
 }
 
 .tono--ok {

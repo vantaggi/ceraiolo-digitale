@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { euro, propostaRegistrazione, quoteDopoArretrato } from '../registrazione'
+import { euro, leggiImporto, propostaRegistrazione, quoteDopoArretrato } from '../registrazione'
 
 const quote = { quotaOrdinaria: 10, quotaNuovi: 25 }
 const socio = (extra = {}) => ({
@@ -143,11 +143,23 @@ describe('Registra ricevute dal 2027', () => {
   const nel2027 = (s, anniPagati) =>
     propostaRegistrazione({ socio: s, anniPagati, anno: 2027, quote })
 
-  it("minorenne mai iscritto: Invio non registra, l'offerta si scrive nella scheda", () => {
+  it("minorenne mai iscritto: Invio non registra da solo, chiede l'importo dell'offerta", () => {
     const p = nel2027(socio({ data_nascita: '2012-04-01', data_prima_iscrizione: null }), [])
     expect(p.registra).toBe(false)
+    expect(p.chiedeOfferta).toBe(true)
+    expect(p.quota).toBeNull()
     expect(p.stato.testo).toBe('Offerta 2027')
-    expect(p.messaggio).toContain('offerta')
+    expect(p.messaggio).not.toContain('scheda')
+  })
+
+  it("chi ha gia' pagato l'offerta 2027 non la riapre", () => {
+    const p = nel2027(socio({ data_nascita: '2012-04-01' }), [2027])
+    expect(p.chiedeOfferta).toBeUndefined()
+    expect(p.stato.testo).toBe('Quota 2027 pagata')
+  })
+
+  it('un maggiorenne non chiede offerte', () => {
+    expect(nel2027(socio(), [2026]).chiedeOfferta).toBeUndefined()
   })
 
   it('maggiorenne: Invio registra 15 a chi rinnova, 30 al nuovo dai 24 anni', () => {
@@ -166,5 +178,22 @@ describe('Registra ricevute dal 2027', () => {
         quote,
       }),
     ).toEqual([])
+  })
+})
+
+describe("leggiImporto: l'offerta scritta a mano", () => {
+  it('accetta la virgola, il punto, il simbolo e le migliaia', () => {
+    expect(leggiImporto('5')).toBe(5)
+    expect(leggiImporto('5,50')).toBe(5.5)
+    expect(leggiImporto('5.50')).toBe(5.5)
+    expect(leggiImporto(' € 7 ')).toBe(7)
+    expect(leggiImporto('1.000,00')).toBe(1000)
+  })
+
+  it('vuoto, zero o testo non sono un importo', () => {
+    const sbagliati = ['', '   ', '0', '0,00', 'cinque', '5,555', '-5', '5,', '12.34,5', '5,5.0']
+    for (const t of [...sbagliati, null, undefined]) {
+      expect(leggiImporto(t)).toBeNull()
+    }
   })
 })
