@@ -7,6 +7,7 @@ import {
   nomeTessera,
   righeTesto,
   creaPDFTessere,
+  testoStampabile,
   LARGHEZZA_TESSERA_MM,
   ALTEZZA_TESSERA_MM,
 } from '../tessere'
@@ -82,9 +83,76 @@ describe('testo della tessera', () => {
   })
 })
 
+describe('testoStampabile: lettere che il carattere della tessera non ha', () => {
+  // Come Times-Italic: lettere latine semplici e accentate occidentali
+  const siScrive = (c) => /^[ -~\u00a1-\u00ff]$/u.test(c)
+
+  it('un nome italiano resta uguale e non risulta cambiato', () => {
+    expect(testoStampabile("D'Angelo Niccolò", siScrive)).toEqual({
+      testo: "D'Angelo Niccolò",
+      cambiato: false,
+    })
+  })
+
+  it('la lettera che manca diventa la lettera semplice', () => {
+    expect(testoStampabile('Dvořák Łukasz', siScrive)).toEqual({
+      testo: 'Dvorák Lukasz',
+      cambiato: true,
+    })
+    expect(testoStampabile('Șerban Đorđe', siScrive).testo).toBe('Serban Dorde')
+  })
+
+  it('Tab, a capo e spazi doppi diventano uno spazio, senza contare come lettera cambiata', () => {
+    expect(testoStampabile('Rossi\tMario\n ', siScrive)).toEqual({
+      testo: 'Rossi Mario',
+      cambiato: false,
+    })
+  })
+
+  it('una lettera senza lettera semplice diventa un punto di domanda', () => {
+    expect(testoStampabile('Rossi 山', siScrive)).toEqual({ testo: 'Rossi ?', cambiato: true })
+  })
+
+  it('un accento scritto come segno a parte (NFD) torna la lettera accentata, non cambiata', () => {
+    expect(testoStampabile('Nicco\u0300 Jose\u0301', siScrive)).toEqual({
+      testo: 'Niccò José',
+      cambiato: false,
+    })
+    // spazio a larghezza zero: si toglie
+    expect(testoStampabile('Ros\u200bsi', siScrive)).toEqual({ testo: 'Rossi', cambiato: false })
+  })
+
+  it('senza testo restituisce il vuoto', () => {
+    expect(testoStampabile(null, siScrive)).toEqual({ testo: '', cambiato: false })
+  })
+})
+
 describe('PDF delle tessere', () => {
   beforeEach(() => {
     getSetting.mockReset()
+  })
+
+  it('una lettera che il carattere non ha non ferma il PDF (errore di WinAnsi)', async () => {
+    const bytes = await creaPDFTessere(
+      [{ cognome: 'Dvořák', nome: 'Jiří', data_nascita: '1990-03-01' }, soci[0]],
+      { tipo: 'pdf', dati: await modelloPDF(210, 330) },
+    )
+    expect((await PDFDocument.load(bytes)).getPageCount()).toBe(2)
+  })
+
+  it('un nome con lettere che il carattere non ha o con un Tab non ferma il PDF', async () => {
+    impostazioni({ cardBackground: PNG_PICCOLO })
+    // Inventati
+    const strani = [
+      { cognome: 'Dvořák', nome: 'Jiří', data_nascita: '1990-03-01' },
+      { cognome: 'Rossi\tBianchi', nome: 'Mario', data_nascita: '1985-07-12' },
+      { cognome: null, nome: 'Senzacognome', data_nascita: '' },
+      soci[0],
+    ]
+    const [risultato] = await generateAllCardsPDF(strani, 2027)
+    const pdf = await PDFDocument.load(await leggi(risultato.blob))
+    expect(pdf.getPageCount()).toBe(4)
+    expect(risultato.nomiCambiati).toEqual(['Dvořák Jiří'])
   })
 
   it('con un modello PDF la tessera ha le misure della pagina del modello', async () => {

@@ -748,8 +748,15 @@ export async function generateSingleCardPDF(socio, renewalYear) {
  */
 export async function generateAllCardsPDF(soci, renewalYear, onProgress = () => {}) {
   const modello = await caricaModelloTessera()
-  const sociOrdinati = [...soci].sort((a, b) => a.cognome.localeCompare(b.cognome))
-  const pdfBytes = await creaPDFTessere(sociOrdinati, modello, onProgress)
+  // Un socio senza cognome non ferma l'ordinamento
+  const sociOrdinati = [...soci].sort((a, b) =>
+    String(a.cognome ?? '').localeCompare(String(b.cognome ?? '')),
+  )
+  // Nomi con lettere che il carattere della tessera non ha (scritte con la lettera semplice)
+  const nomiCambiati = []
+  const pdfBytes = await creaPDFTessere(sociOrdinati, modello, onProgress, (socio) =>
+    nomiCambiati.push([socio.cognome, socio.nome].filter(Boolean).join(' ')),
+  )
   const blob = new Blob([pdfBytes], { type: 'application/pdf' })
 
   const fileName = sanitizeFilename(
@@ -763,6 +770,7 @@ export async function generateAllCardsPDF(soci, renewalYear, onProgress = () => 
       filename: fileName,
       blob: blob,
       count: sociOrdinati.length,
+      nomiCambiati,
     },
   ]
 }

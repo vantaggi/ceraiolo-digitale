@@ -52,6 +52,59 @@ export function nomeTessera(socio) {
   return [socio.cognome, socio.nome].filter(Boolean).join(' ')
 }
 
+// Lettere senza accento da togliere che il carattere della tessera non ha
+const LETTERE_SEMPLICI = {
+  Ł: 'L',
+  ł: 'l',
+  Đ: 'D',
+  đ: 'd',
+  ı: 'i',
+  İ: 'I',
+  Ħ: 'H',
+  ħ: 'h',
+  ĸ: 'k',
+  Ŋ: 'N',
+  ŋ: 'n',
+  Ŧ: 'T',
+  ŧ: 't',
+  ſ: 's',
+  ʼ: "'",
+  ʻ: "'",
+  '′': "'",
+}
+
+/**
+ * Il testo come lo sa scrivere il carattere della tessera. Times-Italic ha solo le lettere
+ * dell'Europa occidentale: una lettera che manca (ř, Ł, Ș) o un Tab fermavano tutto il PDF
+ * con "WinAnsi cannot encode". Qui gli spazi strani diventano uno spazio e una lettera che
+ * manca diventa la lettera semplice (ř -> r); se non esiste, un punto di domanda.
+ * @param {string} testo
+ * @param {(carattere: string) => boolean} siScrive - il carattere c'e' nel font
+ * @returns {{ testo: string, cambiato: boolean }} cambiato: almeno una lettera sostituita
+ */
+export function testoStampabile(testo, siScrive) {
+  let cambiato = false
+  let risultato = ''
+  // NFC: un accento scritto come segno a parte (nomi incollati da un Mac o da un CSV)
+  // torna una lettera sola, che il carattere ha
+  const pulito = String(testo ?? '')
+    .normalize('NFC')
+    .replace(/[\s\p{Cc}]+/gu, ' ')
+  for (const carattere of pulito) {
+    if (siScrive(carattere)) {
+      risultato += carattere
+      continue
+    }
+    // Segni che non si vedono (accento rimasto da solo, spazio a larghezza zero): si tolgono
+    if (/^[\p{M}\p{Cf}]$/u.test(carattere)) continue
+    cambiato = true
+    const semplice =
+      LETTERE_SEMPLICI[carattere] ?? carattere.normalize('NFD').replace(/\p{M}/gu, '')
+    risultato += [...semplice].every(siScrive) && semplice ? semplice : '?'
+  }
+  return { testo: risultato.trim(), cambiato }
+}
+
 /** Spezza il testo in righe larghe al massimo maxWidth, senza spezzare le parole */
 export function righeTesto(testo, maxWidth, misura) {
   const righe = []
@@ -124,14 +177,13 @@ async function preparaSfondo(pdfDoc, modello) {
   }
 }
 
-function scriviDati(page, socio, font, larghezza, altezza) {
+/** @returns {boolean} vero se nel nome qualche lettera e' stata sostituita */
+function scriviDati(page, socio, font, siScrive, larghezza, altezza) {
   const maxWidth = larghezza * LARGHEZZA_TESTO
-  const righeNome = righeTesto(nomeTessera(socio), maxWidth, (t) =>
-    font.widthOfTextAtSize(t, FONT_NOME),
-  )
-  const righeData = righeTesto(formattaDataTessera(socio.data_nascita), maxWidth, (t) =>
-    font.widthOfTextAtSize(t, FONT_DATA),
-  )
+  const nome = testoStampabile(nomeTessera(socio), siScrive)
+  const data = testoStampabile(formattaDataTessera(socio.data_nascita), siScrive)
+  const righeNome = righeTesto(nome.testo, maxWidth, (t) => font.widthOfTextAtSize(t, FONT_NOME))
+  const righeData = righeTesto(data.testo, maxWidth, (t) => font.widthOfTextAtSize(t, FONT_DATA))
 
   // Blocco nome + data centrato in verticale
   const altezzaBlocco =
@@ -151,6 +203,7 @@ function scriviDati(page, socio, font, larghezza, altezza) {
     scrivi(riga, FONT_DATA)
     y -= RIGA_DATA
   }
+  return nome.cambiato
 }
 
 /**
@@ -158,9 +211,16 @@ function scriviDati(page, socio, font, larghezza, altezza) {
  * @param {Array<{cognome: string, nome: string, data_nascita: string}>} soci
  * @param {object} modello - da caricaModelloTessera()
  * @param {Function} [onProgress] - riceve la percentuale completata
+ * @param {Function} [onNomeCambiato] - riceve ogni socio il cui nome ha lettere che il
+ *   carattere della tessera non ha: sulla tessera sono scritte con la lettera semplice
  * @returns {Promise<Uint8Array>}
  */
-export async function creaPDFTessere(soci, modello, onProgress = () => {}) {
+export async function creaPDFTessere(
+  soci,
+  modello,
+  onProgress = () => {},
+  onNomeCambiato = () => {},
+) {
   if (!modello) {
     throw new Error('Nessuno sfondo per le tessere. Caricalo in Impostazioni > Tessera.')
   }
@@ -168,11 +228,15 @@ export async function creaPDFTessere(soci, modello, onProgress = () => {}) {
   const sfondo = await preparaSfondo(pdfDoc, modello)
   // Times-Italic: simile alla scrittura a penna, uguale alle tessere gia' stampate
   const font = await pdfDoc.embedFont('Times-Italic')
+  const lettere = new Set(font.getCharacterSet())
+  const siScrive = (carattere) => lettere.has(carattere.codePointAt(0))
 
   soci.forEach((socio, i) => {
     const page = pdfDoc.addPage([sfondo.larghezza, sfondo.altezza])
     sfondo.disegna(page)
-    scriviDati(page, socio, font, sfondo.larghezza, sfondo.altezza)
+    if (scriviDati(page, socio, font, siScrive, sfondo.larghezza, sfondo.altezza)) {
+      onNomeCambiato(socio)
+    }
     onProgress(((i + 1) / soci.length) * 100)
   })
 

@@ -579,11 +579,16 @@ const generaTessere = () =>
       tessere.avanzamento = p
     })
     let totale = 0
+    const cambiati = []
     for (const r of risultati) {
       scaricaBlob(r.blob, r.filename)
       totale += r.count
+      cambiati.push(...(r.nomiCambiati || []))
     }
-    return `Tessere generate: ${totale} soci`
+    if (cambiati.length === 0) return `Tessere generate: ${totale} soci`
+    // Il carattere della tessera non ha tutte le lettere: si dice a chi sono state cambiate
+    const elenco = cambiati.slice(0, 10).join(', ') + (cambiati.length > 10 ? ' e altri' : '')
+    return `Tessere generate: ${totale} soci. In ${cambiati.length} ${cambiati.length === 1 ? 'nome' : 'nomi'} una lettera che la tessera non stampa è scritta con la lettera semplice: ${elenco}`
   })
 </script>
 
