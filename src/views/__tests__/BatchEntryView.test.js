@@ -307,6 +307,59 @@ describe('Registra ricevute: offerta dei minorenni dal 2027 (bozza A)', () => {
     expect(salvati).toEqual([])
   })
 
+  it('il clic sul minorenne apre il campo, e il mouse nel campo non registra', async () => {
+    const wrapper = await monta()
+    await anno2027(wrapper)
+    const campo = wrapper.get('#cerca-socio')
+    await campo.setValue('piccini')
+    await campo.trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+    await wrapper.get('[role="option"]').trigger('click')
+    await flushPromises()
+    const offerta = campoOfferta(wrapper)
+    expect(offerta.exists()).toBe(true)
+    // il mousedown non deve arrivare alla riga, che lo blocca: il cursore entra nel campo
+    const giu = new MouseEvent('mousedown', { bubbles: true, cancelable: true })
+    offerta.element.dispatchEvent(giu)
+    expect(giu.defaultPrevented).toBe(false)
+    await offerta.trigger('click')
+    await flushPromises()
+    expect(salvati).toEqual([])
+    expect(campoOfferta(wrapper).exists()).toBe(true)
+  })
+
+  it('cambiando anno o ricerca il campo si chiude', async () => {
+    const wrapper = await monta()
+    await anno2027(wrapper)
+    await cercaERegistra(wrapper, 'piccini')
+    expect(campoOfferta(wrapper).exists()).toBe(true)
+    await wrapper.get('#anno-riferimento').setValue(2026)
+    await flushPromises()
+    expect(campoOfferta(wrapper).exists()).toBe(false)
+    await anno2027(wrapper)
+    await cercaERegistra(wrapper, 'piccini')
+    await wrapper.get('#cerca-socio').setValue('piccin')
+    await flushPromises()
+    expect(campoOfferta(wrapper).exists()).toBe(false)
+    expect(salvati).toEqual([])
+  })
+
+  it("frecce e Ctrl+Invio nel campo non cambiano ricevuta e non perdono l'importo", async () => {
+    const wrapper = await monta()
+    await anno2027(wrapper)
+    await cercaERegistra(wrapper, 'piccini')
+    await campoOfferta(wrapper).setValue('5')
+    for (const key of ['ArrowLeft', 'ArrowRight']) {
+      await campoOfferta(wrapper).trigger('keydown', { key })
+    }
+    await campoOfferta(wrapper).trigger('keydown', { key: 'Enter', ctrlKey: true })
+    await flushPromises()
+    expect(wrapper.get('#ricevuta-titolo').text()).toBe('Ricevuta 1')
+    expect(campoOfferta(wrapper).element.value).toBe('5')
+    expect(esito(wrapper)).toContain("Prima registra l'offerta")
+    expect(salvati).toEqual([])
+  })
+
   it('nel 2026 lo stesso minorenne paga la quota, senza campo', async () => {
     const wrapper = await monta()
     await cercaERegistra(wrapper, 'piccini')

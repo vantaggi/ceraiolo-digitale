@@ -153,6 +153,7 @@
                 autocomplete="off"
                 class="campo-euro"
                 :disabled="isProcessing"
+                :aria-label="`Offerta di ${r.socio.cognome} ${r.socio.nome}, in euro`"
                 :aria-describedby="`offerta-tasti-${r.socio.id}`"
                 @keydown="handleOffertaKeydown($event, index)"
               />
@@ -675,6 +676,17 @@ onMounted(async () => {
 })
 
 watch(() => sessionData.annoRiferimento, validateSessionData)
+
+// Il campo dell'offerta resta aperto solo sul socio scelto e solo finche' il socio paga
+// un'offerta: cambiando riga con le frecce o cambiando l'anno si chiude
+watch([selezionato, proposte], () => {
+  if (offertaPer.value === null) return
+  const r = risultati.value[selezionato.value]
+  if (r?.socio.id === offertaPer.value && proposte.value[selezionato.value]?.chiedeOfferta) return
+  const eraNelCampo = offertaInput.value?.[0] === document.activeElement
+  chiudiOfferta()
+  if (eraNelCampo) focusRicerca()
+})
 watch(() => sessionData.numeroBlocchetto, validateSessionData)
 watch(
   () => sessionData.numeroBlocchetto,
@@ -949,8 +961,18 @@ const handleOffertaKeydown = async (e, indice) => {
     focusRicerca()
     return
   }
-  if (e.key !== 'Enter' || conCtrl(e)) return
+  if (e.key !== 'Enter') return
   e.preventDefault()
+  if (conCtrl(e)) {
+    // Ctrl+Invio qui non passa alla ricevuta successiva: perderebbe l'importo scritto
+    e.stopPropagation()
+    esito.value = {
+      testo: "Prima registra l'offerta con Invio, o Esc per annullare.",
+      tono: 'attenzione',
+    }
+    playErrorSound()
+    return
+  }
   const r = risultati.value[indice]
   const proposta = proposte.value[indice]
   if (!r || !proposta?.chiedeOfferta || isProcessing.value) return

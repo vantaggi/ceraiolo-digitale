@@ -191,7 +191,8 @@ describe("leggiImporto: l'offerta scritta a mano", () => {
   })
 
   it('vuoto, zero o testo non sono un importo', () => {
-    for (const t of ['', '   ', '0', '0,00', 'cinque', '5,555', '-5', '5,', null, undefined]) {
+    const sbagliati = ['', '   ', '0', '0,00', 'cinque', '5,555', '-5', '5,', '12.34,5', '5,5.0']
+    for (const t of [...sbagliati, null, undefined]) {
       expect(leggiImporto(t)).toBeNull()
     }
   })

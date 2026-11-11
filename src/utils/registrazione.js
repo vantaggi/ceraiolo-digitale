@@ -25,8 +25,12 @@ export function leggiImporto(testo) {
   let t = String(testo ?? '')
     .replace(/€/g, '')
     .replace(/\s/g, '')
-  // Con la virgola i punti sono le migliaia; senza, il punto e' la virgola dei decimali
-  if (t.includes(',')) t = t.replace(/\./g, '').replace(',', '.')
+  // Con la virgola i punti sono le migliaia (a gruppi di tre); senza, il punto e' la
+  // virgola dei decimali
+  if (t.includes(',')) {
+    if (!/^(\d+|\d{1,3}(\.\d{3})+),\d{1,2}$/.test(t)) return null
+    t = t.replace(/\./g, '').replace(',', '.')
+  }
   if (!/^\d+(\.\d{1,2})?$/.test(t)) return null
   const importo = Number(t)
   return importo > 0 ? importo : null
