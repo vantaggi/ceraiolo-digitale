@@ -442,6 +442,7 @@ import {
 import { exportDataToExcel, exportSettingsToJson, importSettingsFromJson } from '@/services/export'
 import { useBackupStore } from '@/stores/backupStore'
 import { backupService } from '@/services/backupService'
+import { copiaPrimaDiCancellare, copiaPrimaDiRipristinare } from '@/services/copiaDiSicurezza'
 import { PDFDocument } from 'pdf-lib'
 import AnteprimaTessera from '@/components/AnteprimaTessera.vue'
 import {
@@ -579,6 +580,22 @@ const handleRestoreDatabase = async (event) => {
 
   try {
     isExporting.value = true // reusing export spinner path
+    // Prima una copia dei dati di adesso, scaricata: se il file scelto e' quello sbagliato
+    // si torna indietro
+    try {
+      if ((await copiaPrimaDiRipristinare()) === 'scaricata') {
+        toast.info('Ho scaricato una copia dei dati di adesso (ceraiolo_prima_del_ripristino).')
+      }
+    } catch (e) {
+      const avanti = await askConfirm({
+        title: 'Ripristinare senza una copia dei dati di adesso?',
+        message: `Non sono riuscito a salvare una copia dei dati attuali (${e.message}). Se continui, i dati attuali vengono sostituiti da quelli di "${file.name}" e non si recuperano.`,
+        confirmLabel: 'Ripristina senza copia',
+        danger: true,
+      })
+      if (!avanti) return
+    }
+
     toast.info('Ripristino in corso...')
 
     const result = await importDatabaseFromSqlite(file)
@@ -928,7 +945,17 @@ const confirmFactoryReset = async () => {
   try {
     isExporting.value = true
     toast.info('Esecuzione backup di sicurezza...')
-    await backupService.performBackup(true) // Force backup
+    // Senza una copia (cartella dei backup o file scaricato) non si cancella niente
+    try {
+      const copia = await copiaPrimaDiCancellare()
+      if (copia === 'scaricata') {
+        toast.info('Backup su cartella non riuscito: la copia dei dati è stata scaricata.')
+      }
+    } catch (e) {
+      toast.error('Copia di sicurezza non riuscita, non ho cancellato niente: ' + e.message)
+      isExporting.value = false
+      return
+    }
 
     toast.info('Cancellazione dati in corso...')
     await wipeDatabase()
